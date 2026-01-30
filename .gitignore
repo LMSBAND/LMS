@@ -1,3 +1,9 @@
 venv/
 __pycache__/
 *.pyc
+*.wav
+claude.txt
+matchering_fir_params.json
+matchering_params.json
+matchering_params_v2.json
+matchering_output.wav
