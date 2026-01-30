@@ -27,7 +27,8 @@ try:
     PROCESSOR = os.path.join(SCRIPT_DIR, "matchering_process.py")
     ANALYZER = os.path.join(SCRIPT_DIR, "matchering_analyzer.py")
     JSFX_GEN = os.path.join(SCRIPT_DIR, "jsfx_generator.py")
-    JSFX_OUTPUT = os.path.expanduser("~/.config/REAPER/Effects/matchering_realtime.jsfx")
+    EFFECTS_DIR = os.path.expanduser("~/.config/REAPER/Effects")
+    JSFX_OUTPUT = os.path.join(EFFECTS_DIR, "matchering_realtime.jsfx")
     PARAMS_JSON = os.path.join(SCRIPT_DIR, "matchering_params.json")
 
 
@@ -105,7 +106,30 @@ try:
 
     def do_analyze(target_file, ref_file):
         """Analyze and generate real-time JSFX plugin."""
+        # Ask for a profile name
+        retval, _, profile_name, _ = RPR_GetUserInputs(
+            "Matchering Profile", 1,
+            "Profile name (e.g. Rock Ref, Steely Dan):",
+            "", 256
+        )
+
+        if not retval:
+            return  # User cancelled
+
+        profile_name = profile_name.strip()
+
+        # Determine output filenames based on profile
+        if profile_name:
+            safe_name = profile_name.replace(" ", "_").lower()
+            jsfx_output = os.path.join(EFFECTS_DIR, f"matchering_{safe_name}.jsfx")
+            jsfx_filename = f"matchering_{safe_name}.jsfx"
+        else:
+            jsfx_output = JSFX_OUTPUT
+            jsfx_filename = "matchering_realtime.jsfx"
+
         RPR_ShowConsoleMsg(f"Target: {target_file}\nReference: {ref_file}\n")
+        if profile_name:
+            RPR_ShowConsoleMsg(f"Profile: {profile_name}\n")
 
         # Step 1: Run analyzer
         result = run_subprocess(
@@ -116,10 +140,10 @@ try:
             return
 
         # Step 2: Generate JSFX
-        result = run_subprocess(
-            [VENV_PYTHON, JSFX_GEN, PARAMS_JSON, JSFX_OUTPUT],
-            "Generating JSFX"
-        )
+        gen_args = [VENV_PYTHON, JSFX_GEN, PARAMS_JSON, jsfx_output]
+        if profile_name:
+            gen_args.append(profile_name)
+        result = run_subprocess(gen_args, "Generating JSFX")
         if not result:
             return
 
@@ -128,28 +152,30 @@ try:
         track = RPR_GetMediaItem_Track(target_item)
 
         # Add the JSFX as an FX on the track
-        fx_idx = RPR_TrackFX_AddByName(track, JSFX_OUTPUT, 0, -1)
+        fx_idx = RPR_TrackFX_AddByName(track, jsfx_output, 0, -1)
         if fx_idx < 0:
-            # Try with just the filename
-            fx_idx = RPR_TrackFX_AddByName(track, "matchering_realtime.jsfx", 0, -1)
+            fx_idx = RPR_TrackFX_AddByName(track, jsfx_filename, 0, -1)
 
+        display = profile_name if profile_name else "default"
         if fx_idx >= 0:
             RPR_TrackFX_SetOpen(track, fx_idx, True)
             msg(
-                f"Real-time mastering plugin loaded!\n\n"
+                f"Real-time mastering plugin loaded!\n"
+                f"Profile: {display}\n\n"
                 f"FIR convolution - exact matchering EQ curve.\n"
                 f"Latency: ~93ms (auto-compensated by REAPER PDC)\n\n"
                 f"Sliders:\n"
-                f"- Master Gain: RMS loudness match\n"
+                f"- Input Gain: RMS loudness match\n"
                 f"- Low/Mid/High Tweak: post-EQ seasoning\n"
+                f"- 42069 Compressor: FET compression\n"
                 f"- Dry/Wet: blend with original\n"
                 f"- Limiter: brickwall protection"
             )
         else:
             msg(
                 f"JSFX generated but couldn't auto-load it.\n"
-                f"Add it manually: FX > JS > matchering_realtime\n\n"
-                f"File: {JSFX_OUTPUT}"
+                f"Add it manually: FX > JS > {jsfx_filename}\n\n"
+                f"File: {jsfx_output}"
             )
 
 
