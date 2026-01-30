@@ -13,7 +13,7 @@ import os
 import json
 
 
-def generate_jsfx(params, output_path):
+def generate_jsfx(params, output_path, profile_name=None):
     mid_fir = params["mid_fir"]
     side_fir = params["side_fir"]
     fir_len = params["fir_length"]
@@ -23,10 +23,16 @@ def generate_jsfx(params, output_path):
     fft_size = 8192
     chunk_size = 4096
 
+    # If a profile name is given, create uniquely named files
+    if profile_name:
+        safe_name = profile_name.replace(" ", "_").lower()
+        data_filename = f"matchering_fir_{safe_name}.txt"
+    else:
+        data_filename = "matchering_fir_data.txt"
+
     # Write FIR coefficients to a data file next to the JSFX
     # Format: one value per line, mid coefficients first, then side
     data_dir = os.path.dirname(output_path)
-    data_filename = "matchering_fir_data.txt"
     data_path = os.path.join(data_dir, data_filename)
 
     with open(data_path, "w") as f:
@@ -37,9 +43,12 @@ def generate_jsfx(params, output_path):
 
     print(f"FIR data written to: {data_path}")
 
-    jsfx = f"""desc:Matchering Realtime Master (FIR Convolution)
+    display_name = f"LMS Matchering - {profile_name}" if profile_name else "LMS Matchering Master"
+    gui_title = f"LMS MATCHERING - {profile_name.upper()}" if profile_name else "LMS MATCHERING MASTER"
+
+    jsfx = f"""desc:{display_name}
 //tags: mastering EQ limiter matchering convolution
-//author: Bryan + Claude
+//author: LMS + Claude
 
 filename:0,{data_filename}
 
@@ -140,6 +149,8 @@ slider14:100<0,100,1>42069 Mix (%)
   mp_b0 = 0; mp_b1 = 0; mp_b2 = 0; mp_a1 = 0; mp_a2 = 0;
   mp_xl1 = 0; mp_xl2 = 0; mp_yl1 = 0; mp_yl2 = 0;
   mp_xr1 = 0; mp_xr2 = 0; mp_yr1 = 0; mp_yr2 = 0;
+
+  notice_show = 0;
 
   // Report latency to REAPER for PDC
   pdc_delay = chunk_size;
@@ -405,7 +416,7 @@ slider14:100<0,100,1>42069 Mix (%)
     );
   );
 
-@gfx 500 200
+@gfx 500 220
   // Background
   gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.12;
   gfx_rect(0, 0, gfx_w, gfx_h);
@@ -413,7 +424,7 @@ slider14:100<0,100,1>42069 Mix (%)
   // Title
   gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
   gfx_x = 10; gfx_y = 8;
-  gfx_drawstr("MATCHERING REALTIME MASTER");
+  gfx_drawstr("{gui_title}");
 
   // Subtitle
   gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
@@ -468,6 +479,47 @@ slider14:100<0,100,1>42069 Mix (%)
     gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
     gfx_drawstr("42069: Off");
   );
+
+  // --- NOTICE BUTTON ---
+  notice_btn_x = gfx_w - 60;
+  notice_btn_y = gfx_h - 18;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  notice_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h);
+    gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = 15; gfx_y = 10;
+    gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = 15; gfx_y = 30;
+    gfx_drawstr("The algorithms in our favorite software are decades old.");
+    gfx_x = 15; gfx_y = 45;
+    gfx_drawstr("A mathematical model is a truth about the world,");
+    gfx_x = 15; gfx_y = 60;
+    gfx_drawstr("not a copyrightable product. You do not have to stay");
+    gfx_x = 15; gfx_y = 75;
+    gfx_drawstr("a slave to subscription software. Install Linux.");
+    gfx_x = 15; gfx_y = 90;
+    gfx_drawstr("Build your own tools. Believe in yourself.");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = 15; gfx_y = 115;
+    gfx_drawstr("github.com/bleavelle");
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+    gfx_drawstr("NOTICE");
+  );
 """
 
     with open(output_path, "w") as f:
@@ -480,13 +532,15 @@ slider14:100<0,100,1>42069 Mix (%)
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: jsfx_generator.py <params.json> <output.jsfx>", file=sys.stderr)
+        print("Usage: jsfx_generator.py <params.json> <output.jsfx> [profile_name]", file=sys.stderr)
+        print("  profile_name: optional name like 'Rock Ref' to create a unique plugin instance")
         sys.exit(1)
 
     with open(sys.argv[1]) as f:
         params = json.load(f)
 
-    generate_jsfx(params, sys.argv[2])
+    profile_name = sys.argv[3] if len(sys.argv) > 3 else None
+    generate_jsfx(params, sys.argv[2], profile_name)
 
 
 if __name__ == "__main__":
