@@ -4,7 +4,7 @@ Matchering Analyzer - extracts DSP parameters for real-time JSFX plugin.
 Called by the ReaScript as a subprocess.
 
 Hooks into matchering's internals to capture:
-- Frequency response curve (the EQ it wants to apply)
+- FIR filter coefficients (mid + side) for exact convolution
 - RMS gain coefficient
 - Limiter settings
 
@@ -22,6 +22,8 @@ from matchering import defaults
 
 # We'll store captured data here
 captured = {
+    "mid_fir": None,
+    "side_fir": None,
     "mid_matching_fft": None,
     "side_matching_fft": None,
     "rms_gain_db": None,
@@ -31,7 +33,7 @@ captured = {
 
 
 def _patched_get_fir(target_loudest_pieces, reference_loudest_pieces, name, config):
-    """Monkey-patched get_fir that captures the frequency response curve."""
+    """Monkey-patched get_fir that captures the FIR coefficients."""
     from matchering.log import debug
     from scipy import signal
 
@@ -57,6 +59,9 @@ def _patched_get_fir(target_loudest_pieces, reference_loudest_pieces, name, conf
     fir = np.fft.irfft(matching_fft_filtered)
     fir = np.fft.ifftshift(fir) * signal.windows.hann(len(fir))
 
+    # Capture the actual FIR coefficients
+    captured[f"{name}_fir"] = fir.tolist()
+
     return fir
 
 
@@ -80,33 +85,6 @@ def _patched_get_rms_c(array_main, array_additional, array_main_match_rms,
     array_additional = amplify(array_additional, rms_coefficient)
 
     return rms_coefficient, array_main, array_additional
-
-
-def freq_response_to_eq_bands(matching_fft, sample_rate, fft_size, num_bands=15):
-    """Convert a frequency response curve to parametric EQ bands."""
-    freqs_hz = np.linspace(0, sample_rate / 2, fft_size // 2 + 1)
-    gains_db = 20 * np.log10(np.maximum(1e-10, np.array(matching_fft)))
-
-    # Space bands logarithmically from 30Hz to 16kHz
-    band_freqs = np.logspace(np.log10(30), np.log10(16000), num_bands)
-
-    bands = []
-    for bf in band_freqs:
-        # Find the closest FFT bin
-        idx = np.argmin(np.abs(freqs_hz - bf))
-        # Average a few bins around it for stability
-        lo = max(1, idx - 2)
-        hi = min(len(gains_db) - 1, idx + 2)
-        gain = float(np.mean(gains_db[lo:hi + 1]))
-        # Clamp to reasonable range
-        gain = max(-12.0, min(12.0, gain))
-        bands.append({
-            "freq": float(round(bf, 1)),
-            "gain_db": round(gain, 2),
-            "q": 1.5,
-        })
-
-    return bands
 
 
 def main():
@@ -150,27 +128,18 @@ def main():
         if os.path.isfile(temp_output):
             os.remove(temp_output)
 
-    # Convert frequency response to EQ bands
-    if captured["mid_matching_fft"]:
-        mid_bands = freq_response_to_eq_bands(
-            captured["mid_matching_fft"],
-            captured["sample_rate"],
-            captured["fft_size"],
-        )
-        side_bands = freq_response_to_eq_bands(
-            captured["side_matching_fft"],
-            captured["sample_rate"],
-            captured["fft_size"],
-        )
-    else:
-        print("WARNING: Could not capture frequency response!", file=sys.stderr)
-        mid_bands = []
-        side_bands = []
+    if not captured["mid_fir"]:
+        print("WARNING: Could not capture FIR coefficients!", file=sys.stderr)
+        sys.exit(1)
+
+    fir_len = len(captured["mid_fir"])
+    print(f"Captured FIR length: {fir_len} samples")
 
     # Build output
     params = {
-        "mid_eq_bands": mid_bands,
-        "side_eq_bands": side_bands,
+        "mid_fir": captured["mid_fir"],
+        "side_fir": captured["side_fir"],
+        "fir_length": fir_len,
         "rms_gain_db": captured["rms_gain_db"] or 0.0,
         "limiter": {
             "attack_ms": 1.0,
@@ -183,12 +152,11 @@ def main():
     }
 
     with open(output_json, "w") as f:
-        json.dump(params, f, indent=2)
+        json.dump(params, f)
 
     print(f"Parameters saved to: {output_json}")
     print(f"RMS gain: {params['rms_gain_db']:.2f} dB")
-    print(f"Mid EQ bands: {len(mid_bands)}")
-    print(f"Side EQ bands: {len(side_bands)}")
+    print(f"FIR length: {fir_len} taps")
 
 
 if __name__ == "__main__":
