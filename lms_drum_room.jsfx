@@ -242,6 +242,8 @@ slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
   // Dattorro modulation LFO
   dat_lfo_phase = 0;
 
+notice_show = 0;
+
 @slider
   room_size = slider1 / 100;
   decay = slider2 / 100;
@@ -792,7 +794,7 @@ slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
   spl0 = dry_l * (1 - dry_wet) + rev_l * dry_wet;
   spl1 = dry_r * (1 - dry_wet) + rev_r * dry_wet;
 
-@gfx 550 280
+@gfx 550 300
   // Background
   gfx_r = 0.08; gfx_g = 0.07; gfx_b = 0.06;
   gfx_rect(0, 0, gfx_w, gfx_h);
@@ -930,3 +932,41 @@ slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
   gfx_x = room_cx - 25; gfx_y = room_cy + room_h/2 + 25;
   sprintf(#decay_str, "Decay: %d%%", slider2|0);
   gfx_drawstr(#decay_str);
+  // --- NOTICE BUTTON ---
+  notice_btn_x = gfx_w - 60;
+  notice_btn_y = gfx_h - 18;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+  (mouse_cap \& 1) \&\& mouse_x >= notice_btn_x \&\& mouse_x <= notice_btn_x + 55 \&\& mouse_y >= notice_btn_y \&\& mouse_y <= notice_btn_y + 15 \&\& !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap \& 1) ? notice_clicked = 0;
+  notice_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h);
+    gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = 15; gfx_y = 10;
+    gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = 15; gfx_y = 30;
+    gfx_drawstr("The algorithms in our favorite software are decades old.");
+    gfx_x = 15; gfx_y = 45;
+    gfx_drawstr("A mathematical model is a truth about the world,");
+    gfx_x = 15; gfx_y = 60;
+    gfx_drawstr("not a copyrightable product. You do not have to stay");
+    gfx_x = 15; gfx_y = 75;
+    gfx_drawstr("a slave to subscription software. Install Linux.");
+    gfx_x = 15; gfx_y = 90;
+    gfx_drawstr("Build your own tools. Believe in yourself.");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = 15; gfx_y = 115;
+    gfx_drawstr("github.com/bleavelle");
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_x = 15; gfx_y = 140;
+    gfx_drawstr("Click NOTICE to close");
+  );
