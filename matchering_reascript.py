@@ -137,12 +137,11 @@ try:
             RPR_TrackFX_SetOpen(track, fx_idx, True)
             msg(
                 f"Real-time mastering plugin loaded!\n\n"
-                f"The JSFX is now on your target track with matchering's\n"
-                f"recommended settings. Tweak the sliders to taste!\n\n"
+                f"FIR convolution - exact matchering EQ curve.\n"
+                f"Latency: ~93ms (auto-compensated by REAPER PDC)\n\n"
                 f"Sliders:\n"
-                f"- Master Gain: overall loudness\n"
-                f"- Mid EQ bands: center channel EQ\n"
-                f"- Side EQ bands: stereo width EQ\n"
+                f"- Master Gain: RMS loudness match\n"
+                f"- Low/Mid/High Tweak: post-EQ seasoning\n"
                 f"- Dry/Wet: blend with original\n"
                 f"- Limiter: brickwall protection"
             )
