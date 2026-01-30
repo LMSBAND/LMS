@@ -273,11 +273,11 @@ notice_show = 0;
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
   gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
   gfx_drawstr("NOTICE");
-  (mouse_cap \& 1) \&\& mouse_x >= notice_btn_x \&\& mouse_x <= notice_btn_x + 55 \&\& mouse_y >= notice_btn_y \&\& mouse_y <= notice_btn_y + 15 \&\& !notice_clicked ? (
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
     notice_show = !notice_show;
     notice_clicked = 1;
   );
-  !(mouse_cap \& 1) ? notice_clicked = 0;
+  !(mouse_cap & 1) ? notice_clicked = 0;
   notice_show ? (
     gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
     gfx_rect(0, 0, gfx_w, gfx_h);
