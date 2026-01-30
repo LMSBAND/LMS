@@ -1,0 +1,339 @@
+desc:Bryan's Channel Strip (SSL/Neve Style)
+//tags: channel strip preamp EQ compressor analog
+//author: Bryan + Claude
+
+slider1:0<-12,36,0.1>Preamp Drive (dB)
+slider2:0<0,2,1{Clean,Warm,Hot}>Saturation Mode
+slider3:0<0,1,1{Off,On}>HPF
+slider4:80<20,500,1>HPF Freq (Hz)
+slider5:0<-18,18,0.5>Low Shelf (dB)
+slider6:200<40,1000,1>Low Freq (Hz)
+slider7:0<-18,18,0.5>Low-Mid (dB)
+slider8:800<200,3000,1>Low-Mid Freq (Hz)
+slider9:1.0<0.3,4.0,0.1>Low-Mid Q
+slider10:0<-18,18,0.5>Hi-Mid (dB)
+slider11:3000<1000,8000,10>Hi-Mid Freq (Hz)
+slider12:1.0<0.3,4.0,0.1>Hi-Mid Q
+slider13:0<-18,18,0.5>High Shelf (dB)
+slider14:8000<2000,16000,100>High Freq (Hz)
+slider15:0<0,1,1{Off,On}>Compressor
+slider16:-18<-40,0,0.5>Comp Threshold (dB)
+slider17:4<0,3,1{2:1,4:1,6:1,10:1}>Comp Ratio
+slider18:5<0.1,30,0.1>Comp Attack (ms)
+slider19:100<10,1000,5>Comp Release (ms)
+slider20:0<-12,12,0.1>Output Gain (dB)
+
+@init
+  // Compressor state
+  comp_env = 0;
+  comp_gr_db = 0;
+
+  // Biquad filter states (L and R for each of 5 bands)
+  // HPF
+  hp_xl1 = 0; hp_xl2 = 0; hp_yl1 = 0; hp_yl2 = 0;
+  hp_xr1 = 0; hp_xr2 = 0; hp_yr1 = 0; hp_yr2 = 0;
+  // Low shelf
+  ls_xl1 = 0; ls_xl2 = 0; ls_yl1 = 0; ls_yl2 = 0;
+  ls_xr1 = 0; ls_xr2 = 0; ls_yr1 = 0; ls_yr2 = 0;
+  // Low-mid parametric
+  lm_xl1 = 0; lm_xl2 = 0; lm_yl1 = 0; lm_yl2 = 0;
+  lm_xr1 = 0; lm_xr2 = 0; lm_yr1 = 0; lm_yr2 = 0;
+  // Hi-mid parametric
+  hm_xl1 = 0; hm_xl2 = 0; hm_yl1 = 0; hm_yl2 = 0;
+  hm_xr1 = 0; hm_xr2 = 0; hm_yr1 = 0; hm_yr2 = 0;
+  // High shelf
+  hs_xl1 = 0; hs_xl2 = 0; hs_yl1 = 0; hs_yl2 = 0;
+  hs_xr1 = 0; hs_xr2 = 0; hs_yr1 = 0; hs_yr2 = 0;
+
+  // Coefficient storage
+  hp_b0 = 1; hp_b1 = 0; hp_b2 = 0; hp_a1 = 0; hp_a2 = 0;
+  ls_b0 = 1; ls_b1 = 0; ls_b2 = 0; ls_a1 = 0; ls_a2 = 0;
+  lm_b0 = 1; lm_b1 = 0; lm_b2 = 0; lm_a1 = 0; lm_a2 = 0;
+  hm_b0 = 1; hm_b1 = 0; hm_b2 = 0; hm_a1 = 0; hm_a2 = 0;
+  hs_b0 = 1; hs_b1 = 0; hs_b2 = 0; hs_a1 = 0; hs_a2 = 0;
+
+@slider
+  preamp_gain = 10 ^ (slider1 / 20);
+  sat_mode = slider2;
+  hpf_on = slider3;
+  output_gain = 10 ^ (slider20 / 20);
+
+  // HPF - 2nd order Butterworth
+  hpf_on ? (
+    w0 = 2 * $pi * slider4 / srate;
+    cs = cos(w0); sn = sin(w0);
+    alpha = sn / (2 * 0.707);
+    a0_inv = 1 / (1 + alpha);
+    hp_b0 = (1 + cs) / 2 * a0_inv;
+    hp_b1 = -(1 + cs) * a0_inv;
+    hp_b2 = (1 + cs) / 2 * a0_inv;
+    hp_a1 = -2 * cs * a0_inv;
+    hp_a2 = (1 - alpha) * a0_inv;
+  );
+
+  // Low shelf
+  slider5 != 0 ? (
+    a = 10 ^ (slider5 / 40);
+    w0 = 2 * $pi * slider6 / srate;
+    cs = cos(w0); sn = sin(w0);
+    alpha = sn / (2 * 0.707);
+    ap1 = a + 1; am1 = a - 1;
+    beta = 2 * sqrt(a) * alpha;
+    a0_inv = 1 / (ap1 + am1 * cs + beta);
+    ls_b0 = a * (ap1 - am1 * cs + beta) * a0_inv;
+    ls_b1 = 2 * a * (am1 - ap1 * cs) * a0_inv;
+    ls_b2 = a * (ap1 - am1 * cs - beta) * a0_inv;
+    ls_a1 = -2 * (am1 + ap1 * cs) * a0_inv;
+    ls_a2 = (ap1 + am1 * cs - beta) * a0_inv;
+  ) : (
+    ls_b0 = 1; ls_b1 = 0; ls_b2 = 0; ls_a1 = 0; ls_a2 = 0;
+  );
+
+  // Low-mid parametric
+  slider7 != 0 ? (
+    a = 10 ^ (slider7 / 20);
+    w0 = 2 * $pi * slider8 / srate;
+    alpha = sin(w0) / (2 * slider9);
+    a0_inv = 1 / (1 + alpha / a);
+    lm_b0 = (1 + alpha * a) * a0_inv;
+    lm_b1 = (-2 * cos(w0)) * a0_inv;
+    lm_b2 = (1 - alpha * a) * a0_inv;
+    lm_a1 = lm_b1;
+    lm_a2 = (1 - alpha / a) * a0_inv;
+  ) : (
+    lm_b0 = 1; lm_b1 = 0; lm_b2 = 0; lm_a1 = 0; lm_a2 = 0;
+  );
+
+  // Hi-mid parametric
+  slider10 != 0 ? (
+    a = 10 ^ (slider10 / 20);
+    w0 = 2 * $pi * slider11 / srate;
+    alpha = sin(w0) / (2 * slider12);
+    a0_inv = 1 / (1 + alpha / a);
+    hm_b0 = (1 + alpha * a) * a0_inv;
+    hm_b1 = (-2 * cos(w0)) * a0_inv;
+    hm_b2 = (1 - alpha * a) * a0_inv;
+    hm_a1 = hm_b1;
+    hm_a2 = (1 - alpha / a) * a0_inv;
+  ) : (
+    hm_b0 = 1; hm_b1 = 0; hm_b2 = 0; hm_a1 = 0; hm_a2 = 0;
+  );
+
+  // High shelf
+  slider13 != 0 ? (
+    a = 10 ^ (slider13 / 40);
+    w0 = 2 * $pi * slider14 / srate;
+    cs = cos(w0); sn = sin(w0);
+    alpha = sn / (2 * 0.707);
+    ap1 = a + 1; am1 = a - 1;
+    beta = 2 * sqrt(a) * alpha;
+    a0_inv = 1 / (ap1 - am1 * cs + beta);
+    hs_b0 = a * (ap1 + am1 * cs + beta) * a0_inv;
+    hs_b1 = -2 * a * (am1 + ap1 * cs) * a0_inv;
+    hs_b2 = a * (ap1 + am1 * cs - beta) * a0_inv;
+    hs_a1 = 2 * (am1 - ap1 * cs) * a0_inv;
+    hs_a2 = (ap1 - am1 * cs - beta) * a0_inv;
+  ) : (
+    hs_b0 = 1; hs_b1 = 0; hs_b2 = 0; hs_a1 = 0; hs_a2 = 0;
+  );
+
+  // Compressor
+  comp_on = slider15;
+  comp_thresh = slider16;
+  slider17 == 0 ? comp_ratio = 2;
+  slider17 == 1 ? comp_ratio = 4;
+  slider17 == 2 ? comp_ratio = 6;
+  slider17 == 3 ? comp_ratio = 10;
+  comp_att = exp(-1 / (slider18 * 0.001 * srate));
+  comp_rel = exp(-1 / (slider19 * 0.001 * srate));
+
+@sample
+  l = spl0;
+  r = spl1;
+
+  // === PREAMP + SATURATION ===
+  l *= preamp_gain;
+  r *= preamp_gain;
+
+  sat_mode == 1 ? (
+    // Warm: soft saturation (even harmonics, tape-like)
+    // Manual tanh: (exp(2x)-1)/(exp(2x)+1)
+    x = l * 1.5; e = exp(2*x); l = (e - 1) / (e + 1) / 1.5 * 1.1;
+    x = r * 1.5; e = exp(2*x); r = (e - 1) / (e + 1) / 1.5 * 1.1;
+  );
+  sat_mode == 2 ? (
+    // Hot: harder asymmetric clipping (tube-like, adds odd harmonics)
+    l > 0 ? (
+      x = l * 2.5; e = exp(2*x); l = (e - 1) / (e + 1) / 2.5 * 1.3;
+    ) : (
+      x = l * 1.8; e = exp(2*x); l = (e - 1) / (e + 1) / 1.8 * 1.1;
+    );
+    r > 0 ? (
+      x = r * 2.5; e = exp(2*x); r = (e - 1) / (e + 1) / 2.5 * 1.3;
+    ) : (
+      x = r * 1.8; e = exp(2*x); r = (e - 1) / (e + 1) / 1.8 * 1.1;
+    );
+  );
+
+  // === HPF ===
+  hpf_on ? (
+    ol = hp_b0 * l + hp_b1 * hp_xl1 + hp_b2 * hp_xl2 - hp_a1 * hp_yl1 - hp_a2 * hp_yl2;
+    hp_xl2 = hp_xl1; hp_xl1 = l; hp_yl2 = hp_yl1; hp_yl1 = ol;
+    l = ol;
+    ol = hp_b0 * r + hp_b1 * hp_xr1 + hp_b2 * hp_xr2 - hp_a1 * hp_yr1 - hp_a2 * hp_yr2;
+    hp_xr2 = hp_xr1; hp_xr1 = r; hp_yr2 = hp_yr1; hp_yr1 = ol;
+    r = ol;
+  );
+
+  // === 4-BAND EQ ===
+  // Low shelf
+  slider5 != 0 ? (
+    ol = ls_b0 * l + ls_b1 * ls_xl1 + ls_b2 * ls_xl2 - ls_a1 * ls_yl1 - ls_a2 * ls_yl2;
+    ls_xl2 = ls_xl1; ls_xl1 = l; ls_yl2 = ls_yl1; ls_yl1 = ol;
+    l = ol;
+    ol = ls_b0 * r + ls_b1 * ls_xr1 + ls_b2 * ls_xr2 - ls_a1 * ls_yr1 - ls_a2 * ls_yr2;
+    ls_xr2 = ls_xr1; ls_xr1 = r; ls_yr2 = ls_yr1; ls_yr1 = ol;
+    r = ol;
+  );
+
+  // Low-mid parametric
+  slider7 != 0 ? (
+    ol = lm_b0 * l + lm_b1 * lm_xl1 + lm_b2 * lm_xl2 - lm_a1 * lm_yl1 - lm_a2 * lm_yl2;
+    lm_xl2 = lm_xl1; lm_xl1 = l; lm_yl2 = lm_yl1; lm_yl1 = ol;
+    l = ol;
+    ol = lm_b0 * r + lm_b1 * lm_xr1 + lm_b2 * lm_xr2 - lm_a1 * lm_yr1 - lm_a2 * lm_yr2;
+    lm_xr2 = lm_xr1; lm_xr1 = r; lm_yr2 = lm_yr1; lm_yr1 = ol;
+    r = ol;
+  );
+
+  // Hi-mid parametric
+  slider10 != 0 ? (
+    ol = hm_b0 * l + hm_b1 * hm_xl1 + hm_b2 * hm_xl2 - hm_a1 * hm_yl1 - hm_a2 * hm_yl2;
+    hm_xl2 = hm_xl1; hm_xl1 = l; hm_yl2 = hm_yl1; hm_yl1 = ol;
+    l = ol;
+    ol = hm_b0 * r + hm_b1 * hm_xr1 + hm_b2 * hm_xr2 - hm_a1 * hm_yr1 - hm_a2 * hm_yr2;
+    hm_xr2 = hm_xr1; hm_xr1 = r; hm_yr2 = hm_yr1; hm_yr1 = ol;
+    r = ol;
+  );
+
+  // High shelf
+  slider13 != 0 ? (
+    ol = hs_b0 * l + hs_b1 * hs_xl1 + hs_b2 * hs_xl2 - hs_a1 * hs_yl1 - hs_a2 * hs_yl2;
+    hs_xl2 = hs_xl1; hs_xl1 = l; hs_yl2 = hs_yl1; hs_yl1 = ol;
+    l = ol;
+    ol = hs_b0 * r + hs_b1 * hs_xr1 + hs_b2 * hs_xr2 - hs_a1 * hs_yr1 - hs_a2 * hs_yr2;
+    hs_xr2 = hs_xr1; hs_xr1 = r; hs_yr2 = hs_yr1; hs_yr1 = ol;
+    r = ol;
+  );
+
+  // === COMPRESSOR ===
+  comp_on ? (
+    det = max(abs(l), abs(r));
+    det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+    over = det_db - comp_thresh;
+    over > 0 ? (
+      target_gr = over - over / comp_ratio;
+    ) : (
+      target_gr = 0;
+    );
+    target_gr > comp_env ? (
+      comp_env = comp_att * comp_env + (1 - comp_att) * target_gr;
+    ) : (
+      comp_env = comp_rel * comp_env + (1 - comp_rel) * target_gr;
+    );
+    gr = 10 ^ (-comp_env / 20);
+    comp_gr_db = comp_env;
+    l *= gr;
+    r *= gr;
+  );
+
+  // === OUTPUT ===
+  spl0 = l * output_gain;
+  spl1 = r * output_gain;
+
+@gfx 500 220
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.09;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+
+  gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.5;
+  gfx_x = 10; gfx_y = 8;
+  gfx_drawstr("BRYAN'S CHANNEL STRIP");
+
+  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+  gfx_x = 10; gfx_y = 28;
+  sat_mode == 0 ? gfx_drawstr("Preamp: Clean");
+  sat_mode == 1 ? gfx_drawstr("Preamp: Warm (Tape)");
+  sat_mode == 2 ? gfx_drawstr("Preamp: Hot (Tube)");
+
+  // EQ status
+  gfx_x = 10; gfx_y = 48;
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_drawstr("EQ: ");
+  hpf_on || slider5 != 0 || slider7 != 0 || slider10 != 0 || slider13 != 0 ? (
+    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.4;
+    gfx_drawstr("Active");
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("Flat");
+  );
+
+  // EQ band indicators
+  gfx_y = 68;
+  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+  hpf_on ? (
+    gfx_x = 10;
+    gfx_r = 0.6; gfx_g = 0.4; gfx_b = 0.3;
+    gfx_drawstr("HPF ");
+  );
+  slider5 != 0 ? (
+    gfx_x = gfx_x + 5;
+    slider5 > 0 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4;) : (gfx_r = 0.7; gfx_g = 0.3; gfx_b = 0.3;);
+    gfx_drawstr("LO:");
+    gfx_drawnumber(slider5, 1);
+    gfx_drawstr(" ");
+  );
+  slider7 != 0 ? (
+    gfx_x = gfx_x + 5;
+    slider7 > 0 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4;) : (gfx_r = 0.7; gfx_g = 0.3; gfx_b = 0.3;);
+    gfx_drawstr("LM:");
+    gfx_drawnumber(slider7, 1);
+    gfx_drawstr(" ");
+  );
+  slider10 != 0 ? (
+    gfx_x = gfx_x + 5;
+    slider10 > 0 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4;) : (gfx_r = 0.7; gfx_g = 0.3; gfx_b = 0.3;);
+    gfx_drawstr("HM:");
+    gfx_drawnumber(slider10, 1);
+    gfx_drawstr(" ");
+  );
+  slider13 != 0 ? (
+    gfx_x = gfx_x + 5;
+    slider13 > 0 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4;) : (gfx_r = 0.7; gfx_g = 0.3; gfx_b = 0.3;);
+    gfx_drawstr("HI:");
+    gfx_drawnumber(slider13, 1);
+  );
+
+  // Comp GR
+  gfx_x = 10; gfx_y = 98;
+  comp_on ? (
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+    gfx_drawstr("Comp GR: ");
+    gfx_r = 1.0; gfx_g = 0.4; gfx_b = 0.2;
+    gfx_drawstr("-");
+    gfx_drawnumber(comp_gr_db, 1);
+    gfx_drawstr(" dB");
+    gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.1;
+    gr_width = min(comp_gr_db * 8, gfx_w - 20);
+    gr_width > 0 ? gfx_rect(10, 116, gr_width, 6);
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("Comp: Off");
+  );
+
+  // Output level
+  gfx_x = 10; gfx_y = 132;
+  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+  gfx_drawstr("Out: ");
+  gfx_r = 0.6; gfx_g = 0.8; gfx_b = 0.9;
+  gfx_drawnumber(slider20, 1);
+  gfx_drawstr(" dB");

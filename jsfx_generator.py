@@ -43,7 +43,7 @@ def generate_jsfx(params, output_path):
 
 filename:0,{data_filename}
 
-slider1:{rms_gain:.2f}<-20,20,0.1>Master Gain (dB)
+slider1:{rms_gain:.2f}<-20,20,0.1>Input Gain (dB)
 slider2:100<0,100,1>Dry/Wet (%)
 slider3:1<0,1,1{{Off,On}}>Limiter
 slider4:-0.01<-6,0,0.01>Limiter Threshold (dB)
@@ -51,6 +51,12 @@ slider5:0<-6,6,0.1>Low Tweak (dB)
 slider6:0<-6,6,0.1>Mid Tweak (dB)
 slider7:0<-6,6,0.1>High Tweak (dB)
 slider8:500<100,2000,1>Mid Freq (Hz)
+slider9:0<0,1,1{{Off,On}}>1176 Compressor
+slider10:-12<-40,0,0.5>1176 Threshold (dB)
+slider11:4<0,3,1{{4:1,8:1,12:1,20:1}}>1176 Ratio
+slider12:0.2<0.02,0.8,0.01>1176 Attack (ms)
+slider13:250<50,1100,10>1176 Release (ms)
+slider14:100<0,100,1>1176 Mix (%)
 
 @init
   fir_len = {fir_len};
@@ -82,6 +88,10 @@ slider8:500<100,2000,1>Mid Freq (Hz)
   dry_wet = 1.0;
   limiter_on = 1;
   limiter_thresh = 10 ^ (-0.01 / 20);
+
+  // 1176 compressor state
+  comp_env = 0;  // envelope follower state (dB)
+  comp_gr_db = 0;  // current gain reduction for metering
 
   // --- Load FIR coefficients from data file ---
   // Clear both FFT buffers
@@ -199,6 +209,19 @@ slider8:500<100,2000,1>Mid Freq (Hz)
   calc_low_shelf(200, low_gain);
   calc_high_shelf(8000, high_gain);
   calc_mid_peak(mid_freq, mid_gain, 0.7);
+
+  // 1176 compressor
+  comp_on = slider9;
+  comp_thresh = slider10;
+  // Ratio: slider11 is 0=4:1, 1=8:1, 2=12:1, 3=20:1
+  slider11 == 0 ? comp_ratio = 4;
+  slider11 == 1 ? comp_ratio = 8;
+  slider11 == 2 ? comp_ratio = 12;
+  slider11 == 3 ? comp_ratio = 20;
+  // Attack/release coefficients (1176 has very fast attack)
+  comp_att = exp(-1 / (slider12 * 0.001 * srate));
+  comp_rel = exp(-1 / (slider13 * 0.001 * srate));
+  comp_mix = slider14 / 100;
 
 @sample
   // Store input samples into current input buffer
@@ -333,6 +356,41 @@ slider8:500<100,2000,1>Mid Freq (Hz)
         wet_r = ol;
       );
 
+      // 1176 FET Compressor (stereo linked, feed-forward)
+      comp_on ? (
+        // Peak detection - stereo linked
+        det = max(abs(wet_l), abs(wet_r));
+        det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+
+        // Gain computation
+        over = det_db - comp_thresh;
+        over > 0 ? (
+          target_gr = over - over / comp_ratio;
+        ) : (
+          target_gr = 0;
+        );
+
+        // Envelope follower (smooth the gain reduction)
+        target_gr > comp_env ? (
+          comp_env = comp_att * comp_env + (1 - comp_att) * target_gr;
+        ) : (
+          comp_env = comp_rel * comp_env + (1 - comp_rel) * target_gr;
+        );
+
+        // Apply gain reduction
+        gr = 10 ^ (-comp_env / 20);
+        comp_gr_db = comp_env;  // store for metering
+
+        // Parallel compression mix
+        comp_mix < 1 ? (
+          wet_l = wet_l * (1 - comp_mix) + wet_l * gr * comp_mix;
+          wet_r = wet_r * (1 - comp_mix) + wet_r * gr * comp_mix;
+        ) : (
+          wet_l *= gr;
+          wet_r *= gr;
+        );
+      );
+
       // Limiter
       limiter_on ? (
         abs(wet_l) > limiter_thresh ? wet_l = sign(wet_l) * limiter_thresh;
@@ -387,10 +445,29 @@ slider8:500<100,2000,1>Mid Freq (Hz)
   // Gain meter
   gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
   gfx_x = 10; gfx_y = 90;
-  gfx_drawstr("Master: ");
+  gfx_drawstr("Input: ");
   gfx_r = 0.6; gfx_g = 0.8; gfx_b = 0.9;
   gfx_drawnumber(slider1, 1);
   gfx_drawstr(" dB");
+
+  // 1176 GR meter
+  gfx_x = 10; gfx_y = 110;
+  comp_on ? (
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+    gfx_drawstr("1176 GR: ");
+    gfx_r = 1.0; gfx_g = 0.4; gfx_b = 0.2;
+    gfx_drawstr("-");
+    gfx_drawnumber(comp_gr_db, 1);
+    gfx_drawstr(" dB");
+
+    // Visual GR bar
+    gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.1;
+    gr_width = min(comp_gr_db * 8, gfx_w - 20);
+    gr_width > 0 ? gfx_rect(10, 128, gr_width, 6);
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("1176: Off");
+  );
 """
 
     with open(output_path, "w") as f:
