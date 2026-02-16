@@ -1,4 +1,4 @@
-# DrumBox16
+# DRUMBANGER
 
 A 16-pad drum machine plugin for [Reaper](https://www.reaper.fm/), built as a JSFX effect.
 
