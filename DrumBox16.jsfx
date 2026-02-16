@@ -730,6 +730,39 @@ while(midirecv(offset, msg1, msg2, msg3)) (
   midisend(offset, msg1, msg2, msg3);
 );
 
+// ---- Broadcast state to gmem[] for DrumbangerDrone instances ----
+// gmem[0-9] reserved for sampling service, drone broadcast uses [10+]
+gmem[10] += 1;                                // heartbeat
+gmem[11] = seq_step;
+gmem[12] = steps_per_measure;
+gmem[13] = slider3;                           // current pattern
+gmem[14] = tempo > 0 ? tempo : slider1;      // BPM
+gmem[15] = transport_playing;
+gmem[16] = seq_mode;
+gmem[17] = measure_num;
+
+// Per-pad trigger + playing state for Drones
+drone_p = 0;
+loop(NUM_PADS,
+  // Fresh trigger: pad just started playing this block (pos near 0)
+  PAD_PLAYING[drone_p] && PAD_POS[drone_p] < samplesblock ? (
+    gmem[100 + drone_p] = (PAD_VELOCITY[drone_p] * 127) | 0;
+  );
+  gmem[120 + drone_p] = PAD_PLAYING[drone_p];
+  drone_p += 1;
+);
+
+// Mirror current pattern step data for Drones to read
+drone_s = 0;
+loop(NUM_STEPS,
+  drone_p = 0;
+  loop(NUM_PADS,
+    gmem[200 + drone_s * 16 + drone_p] = get_seq_step(slider3, drone_s, drone_p);
+    drone_p += 1;
+  );
+  drone_s += 1;
+);
+
 // ============================================================
 // @SAMPLE — Audio generation (runs per sample)
 // ============================================================
