@@ -82,6 +82,38 @@
         <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/pool/Kit2-LoFi/14-tambo.wav</source>
         <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/pool/Kit2-LoFi/15-perc-wobble.wav</source>
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+        <source file="kits/1/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/01.wav</source>
+        <source file="kits/1/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/02.wav</source>
+        <source file="kits/1/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/03.wav</source>
+        <source file="kits/1/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/04.wav</source>
+        <source file="kits/1/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/05.wav</source>
+        <source file="kits/1/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/06.wav</source>
+        <source file="kits/1/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/07.wav</source>
+        <source file="kits/1/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/08.wav</source>
+        <source file="kits/1/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/09.wav</source>
+        <source file="kits/1/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/10.wav</source>
+        <source file="kits/1/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/11.wav</source>
+        <source file="kits/1/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/12.wav</source>
+        <source file="kits/1/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/13.wav</source>
+        <source file="kits/1/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/14.wav</source>
+        <source file="kits/1/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/15.wav</source>
+        <source file="kits/1/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/1/16.wav</source>
+        <source file="kits/2/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/01.wav</source>
+        <source file="kits/2/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/02.wav</source>
+        <source file="kits/2/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/03.wav</source>
+        <source file="kits/2/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/04.wav</source>
+        <source file="kits/2/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/05.wav</source>
+        <source file="kits/2/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/06.wav</source>
+        <source file="kits/2/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/07.wav</source>
+        <source file="kits/2/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/08.wav</source>
+        <source file="kits/2/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/09.wav</source>
+        <source file="kits/2/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/10.wav</source>
+        <source file="kits/2/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/11.wav</source>
+        <source file="kits/2/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/12.wav</source>
+        <source file="kits/2/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/13.wav</source>
+        <source file="kits/2/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/14.wav</source>
+        <source file="kits/2/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/15.wav</source>
+        <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16/kits/2/16.wav</source>
       </version>
     </reapack>
   </category>
