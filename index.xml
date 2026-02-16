@@ -4,240 +4,177 @@
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS Channel Strip (Analog Style)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_distressor.jsfx" type="effect" desc="LMS Distressor (Analog Style)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_passive_eq.jsfx" type="effect" desc="LMS Passive EQ">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_passive_eq.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_tube_sat.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_tape_echo.jsfx" type="effect" desc="LMS Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Sound City Drum Room">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_drum_room.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>
   </category>
-  <category name="DrumBox16">
+  <category name="DRUMBANGER">
     <reapack name="lms_drumbanger.jsfx" type="effect" desc="LMS DRUMBANGER - 16-Pad Drum Machine">
-      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
-        <changelog><![CDATA[Initial release — 16-pad drum sampler with multi-bar step sequencer, per-step velocity, sample pool with folder browser, bus filters, compressor, and more. Includes two starter kits (808 + LoFi) from 99Sounds.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_drumbanger.jsfx</source>
-        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/manifest.txt</source>
-        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/01-kick-808.wav</source>
-        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/02-snare-808.wav</source>
-        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/03-rimshot.wav</source>
-        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/04-clap-808.wav</source>
-        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/05-hihat-808.wav</source>
-        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/06-openhat-808.wav</source>
-        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/07-tom-808.wav</source>
-        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/08-tom-analog.wav</source>
-        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/09-tom-fm.wav</source>
-        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/10-crash-808.wav</source>
-        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/11-ride.wav</source>
-        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/12-shaker.wav</source>
-        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/13-perc-808.wav</source>
-        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/14-cowbell-808.wav</source>
-        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/15-perc-laser.wav</source>
-        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/16-perc-chirpy.wav</source>
-        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/01-kick-juicy.wav</source>
-        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/02-snare-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/03-snare-papercut.wav</source>
-        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/05-hat-sweet.wav</source>
-        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/07-tom-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
-        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/09-tom-roto.wav</source>
-        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/10-crash-tape.wav</source>
-        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/11-ride.wav</source>
-        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
-        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/13-perc-retro.wav</source>
-        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/14-tambo.wav</source>
-        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/15-perc-wobble.wav</source>
-        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/16-snare-vhs.wav</source>
-        <source file="kits/1/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/01.wav</source>
-        <source file="kits/1/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/02.wav</source>
-        <source file="kits/1/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/03.wav</source>
-        <source file="kits/1/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/04.wav</source>
-        <source file="kits/1/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/05.wav</source>
-        <source file="kits/1/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/06.wav</source>
-        <source file="kits/1/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/07.wav</source>
-        <source file="kits/1/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/08.wav</source>
-        <source file="kits/1/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/09.wav</source>
-        <source file="kits/1/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/10.wav</source>
-        <source file="kits/1/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/11.wav</source>
-        <source file="kits/1/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/12.wav</source>
-        <source file="kits/1/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/13.wav</source>
-        <source file="kits/1/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/14.wav</source>
-        <source file="kits/1/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/15.wav</source>
-        <source file="kits/1/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/16.wav</source>
-        <source file="kits/2/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/01.wav</source>
-        <source file="kits/2/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/02.wav</source>
-        <source file="kits/2/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/03.wav</source>
-        <source file="kits/2/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/04.wav</source>
-        <source file="kits/2/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/05.wav</source>
-        <source file="kits/2/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/06.wav</source>
-        <source file="kits/2/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/07.wav</source>
-        <source file="kits/2/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/08.wav</source>
-        <source file="kits/2/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/09.wav</source>
-        <source file="kits/2/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/10.wav</source>
-        <source file="kits/2/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/11.wav</source>
-        <source file="kits/2/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/12.wav</source>
-        <source file="kits/2/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/13.wav</source>
-        <source file="kits/2/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/14.wav</source>
-        <source file="kits/2/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/15.wav</source>
-        <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/16.wav</source>
-      </version>
       <version name="1.1" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[v1.1 — Drone satellite integration: gmem broadcast of sequencer state, pattern data, and pad triggers. Adjustable MIDI root note with GUI octave buttons. Silent phantom pads for empty slots (no clicks). On-the-fly sampling with ReaScript service integration.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/lms_drumbanger.jsfx</source>
-        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/manifest.txt</source>
-        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/01-kick-808.wav</source>
-        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/02-snare-808.wav</source>
-        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/03-rimshot.wav</source>
-        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/04-clap-808.wav</source>
-        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/05-hihat-808.wav</source>
-        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/06-openhat-808.wav</source>
-        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/07-tom-808.wav</source>
-        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/08-tom-analog.wav</source>
-        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/09-tom-fm.wav</source>
-        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/10-crash-808.wav</source>
-        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/11-ride.wav</source>
-        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/12-shaker.wav</source>
-        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/13-perc-808.wav</source>
-        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/14-cowbell-808.wav</source>
-        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/15-perc-laser.wav</source>
-        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit1-808/16-perc-chirpy.wav</source>
-        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/01-kick-juicy.wav</source>
-        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/02-snare-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/03-snare-papercut.wav</source>
-        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/05-hat-sweet.wav</source>
-        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/07-tom-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
-        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/09-tom-roto.wav</source>
-        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/10-crash-tape.wav</source>
-        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/11-ride.wav</source>
-        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
-        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/13-perc-retro.wav</source>
-        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/14-tambo.wav</source>
-        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/15-perc-wobble.wav</source>
-        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/pool/Kit2-LoFi/16-snare-vhs.wav</source>
-        <source file="kits/1/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/01.wav</source>
-        <source file="kits/1/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/02.wav</source>
-        <source file="kits/1/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/03.wav</source>
-        <source file="kits/1/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/04.wav</source>
-        <source file="kits/1/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/05.wav</source>
-        <source file="kits/1/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/06.wav</source>
-        <source file="kits/1/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/07.wav</source>
-        <source file="kits/1/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/08.wav</source>
-        <source file="kits/1/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/09.wav</source>
-        <source file="kits/1/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/10.wav</source>
-        <source file="kits/1/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/11.wav</source>
-        <source file="kits/1/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/12.wav</source>
-        <source file="kits/1/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/13.wav</source>
-        <source file="kits/1/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/14.wav</source>
-        <source file="kits/1/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/15.wav</source>
-        <source file="kits/1/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/1/16.wav</source>
-        <source file="kits/2/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/01.wav</source>
-        <source file="kits/2/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/02.wav</source>
-        <source file="kits/2/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/03.wav</source>
-        <source file="kits/2/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/04.wav</source>
-        <source file="kits/2/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/05.wav</source>
-        <source file="kits/2/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/06.wav</source>
-        <source file="kits/2/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/07.wav</source>
-        <source file="kits/2/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/08.wav</source>
-        <source file="kits/2/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/09.wav</source>
-        <source file="kits/2/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/10.wav</source>
-        <source file="kits/2/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/11.wav</source>
-        <source file="kits/2/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/12.wav</source>
-        <source file="kits/2/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/13.wav</source>
-        <source file="kits/2/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/14.wav</source>
-        <source file="kits/2/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/15.wav</source>
-        <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/kits/2/16.wav</source>
+        <changelog><![CDATA[v1.1 — 16-pad drum sampler with multi-bar step sequencer, per-step velocity, sample pool, bus filters, compressor, gmem broadcast for drone satellites, adjustable MIDI root note, silent phantom pads, on-the-fly sampling. Includes two starter kits (808 + LoFi) from 99Sounds.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-rimshot.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hihat-808.wav</source>
+        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-openhat-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-analog.wav</source>
+        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-fm.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-808.wav</source>
+        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-laser.wav</source>
+        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-perc-chirpy.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-juicy.wav</source>
+        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-papercut.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+        <source file="kits/1/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/01.wav</source>
+        <source file="kits/1/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/02.wav</source>
+        <source file="kits/1/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/03.wav</source>
+        <source file="kits/1/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/04.wav</source>
+        <source file="kits/1/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/05.wav</source>
+        <source file="kits/1/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/06.wav</source>
+        <source file="kits/1/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/07.wav</source>
+        <source file="kits/1/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/08.wav</source>
+        <source file="kits/1/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/09.wav</source>
+        <source file="kits/1/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/10.wav</source>
+        <source file="kits/1/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/11.wav</source>
+        <source file="kits/1/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/12.wav</source>
+        <source file="kits/1/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/13.wav</source>
+        <source file="kits/1/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/14.wav</source>
+        <source file="kits/1/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/15.wav</source>
+        <source file="kits/1/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/1/16.wav</source>
+        <source file="kits/2/01.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/01.wav</source>
+        <source file="kits/2/02.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/02.wav</source>
+        <source file="kits/2/03.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/03.wav</source>
+        <source file="kits/2/04.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/04.wav</source>
+        <source file="kits/2/05.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/05.wav</source>
+        <source file="kits/2/06.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/06.wav</source>
+        <source file="kits/2/07.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/07.wav</source>
+        <source file="kits/2/08.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/08.wav</source>
+        <source file="kits/2/09.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/09.wav</source>
+        <source file="kits/2/10.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/10.wav</source>
+        <source file="kits/2/11.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/11.wav</source>
+        <source file="kits/2/12.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/12.wav</source>
+        <source file="kits/2/13.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/13.wav</source>
+        <source file="kits/2/14.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/14.wav</source>
+        <source file="kits/2/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/15.wav</source>
+        <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/16.wav</source>
       </version>
     </reapack>
     <reapack name="DrumbangerDrone.jsfx" type="effect" desc="LMS Drone - Audio Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — Audio drone satellite for DRUMBANGER. Reads pad triggers and sequencer state via gmem. Generates drone tones synced to DrumBanger patterns.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/DrumbangerDrone.jsfx</source>
+        <changelog><![CDATA[Initial release — Audio drone satellite for DRUMBANGER.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDrone.jsfx</source>
       </version>
     </reapack>
     <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS DroneFX - FX Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — FX drone satellite for DRUMBANGER. Applies effects processing synced to DrumBanger sequencer state via gmem.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/DrumbangerDroneFX.jsfx</source>
+        <changelog><![CDATA[Initial release — FX drone satellite for DRUMBANGER.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
       </version>
     </reapack>
     <reapack name="DrumbangerDroneMIDI.jsfx" type="effect" desc="LMS DroneMIDI - MIDI Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — MIDI drone satellite for DRUMBANGER. Converts DrumBanger pad triggers and patterns to MIDI output via gmem.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/DrumbangerDroneMIDI.jsfx</source>
+        <changelog><![CDATA[Initial release — MIDI drone satellite for DRUMBANGER.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI.jsfx</source>
       </version>
     </reapack>
     <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS DroneMIDI2 - Drone Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — Drone satellite for DRUMBANGER. Follow mode reads patterns live from DrumBanger via gmem. Lock 1-8 snapshots patterns into editable local slots. Scale/chord mapping converts drum pads to MIDI note output. Live pad trigger passthrough for auditioning synths without transport.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/DrumbangerDroneMIDI2.jsfx</source>
+        <changelog><![CDATA[Initial release — Drone satellite with follow/lock modes, scale mapping, live trigger passthrough.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
       </version>
     </reapack>
   </category>
-  <category name="LMS/DRUMBANGER/Scripts">
+  <category name="DRUMBANGER/Scripts">
     <reapack name="drumbanger_load.lua" type="script" desc="DRUMBANGER: Load Sample">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release — file picker to load samples onto selected pad]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/scripts/drumbanger_load.lua</source>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
       </version>
     </reapack>
     <reapack name="drumbanger_rescan.lua" type="script" desc="DRUMBANGER: Rescan Pool">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release — trigger pool rescan from within Reaper]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/scripts/drumbanger_rescan.lua</source>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
       </version>
     </reapack>
     <reapack name="drumbanger_sample.lua" type="script" desc="DRUMBANGER: Sample from Project">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — sample audio from REAPER project directly into DrumBanger pads with auto-chop]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/scripts/drumbanger_sample.lua</source>
+        <changelog><![CDATA[Initial release — sample audio from REAPER project directly into DrumBanger pads]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_sample.lua</source>
       </version>
     </reapack>
     <reapack name="drumbanger_service.lua" type="script" desc="DRUMBANGER: Sampling Service (Background)">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — background service for DrumBanger sampling integration via gmem]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/PLUGIN/DrumBox16/scripts/drumbanger_service.lua</source>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
       </version>
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, and the DRUMBANGER 16-pad drum machine with drone satellite. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, and the DRUMBANGER 16-pad drum machine with drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>
