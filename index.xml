@@ -49,6 +49,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_moog_synth.jsfx" type="effect" desc="LMS Moog Synth — Analog Mono Synth w/ Ladder Filter">
+      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
+        <changelog><![CDATA[Initial release — Moog-inspired mono synth with PolyBLEP oscillators, 4-pole Moog ladder filter (LP/HP/BP), 2 ADSR envelopes, LFO with 6 shapes, up to 8-voice unison, glide/portamento, tube/tape/fuzz saturation, chorus, ping-pong delay, 11 built-in presets, category-based randomizer, DrumBanger pad trigger integration via gmem. Full GUI with waveform scope.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+      </version>
+    </reapack>
   </category>
   <category name="DRUMBANGER">
     <reapack name="lms_drumbanger.jsfx" type="effect" desc="LMS DRUMBANGER - 16-Pad Drum Machine">
@@ -122,25 +128,7 @@
         <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/16.wav</source>
       </version>
     </reapack>
-    <reapack name="DrumbangerDrone.jsfx" type="effect" desc="LMS Drone - Audio Satellite for DRUMBANGER">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — Audio drone satellite for DRUMBANGER.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDrone.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS DroneFX - FX Satellite for DRUMBANGER">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — FX drone satellite for DRUMBANGER.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="DrumbangerDroneMIDI.jsfx" type="effect" desc="LMS DroneMIDI - MIDI Satellite for DRUMBANGER">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — MIDI drone satellite for DRUMBANGER.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS DroneMIDI2 - Drone Satellite for DRUMBANGER">
+    <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS Drone Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — Drone satellite with follow/lock modes, scale mapping, live trigger passthrough.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
@@ -174,7 +162,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, and the DRUMBANGER 16-pad drum machine with drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>
