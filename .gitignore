@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.wav
 !DrumBox16/pool/**/*.wav
+!DrumBox16/kits/**/*.wav
 claude.txt
 matchering_fir_params.json
 matchering_params.json
