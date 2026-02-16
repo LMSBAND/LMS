@@ -2,6 +2,7 @@ venv/
 __pycache__/
 *.pyc
 *.wav
+!DrumBox16/pool/**/*.wav
 claude.txt
 matchering_fir_params.json
 matchering_params.json
