@@ -384,6 +384,21 @@ vel_edit_dragging = 0;
 pool_filter_folder = 0;  // 0 = ALL, 1+ = folder index
 pool_folder_count = 0;
 
+// Service integration state (SAMPLE button)
+sample_btn_state = 0;    // 0=idle, 1=waiting, 2=done flash, 3=error flash
+sample_btn_flash = 0;    // countdown for flash display
+sample_btn_timeout = 0;  // timeout counter (if service not running)
+gfx_sample_blink = 0;    // blink counter for SAMPLING... animation
+prev_service_hb = 0;     // previous heartbeat value from service
+service_hb_stale = 0;    // frames since last heartbeat change
+service_alive = 0;       // 1 if service is running
+
+// Waveform cache
+wf_cached_pad = -1;      // which pad the cache is for
+wf_cached_len = 0;       // cached sample length (detect reloads)
+WF_PEAKS = 50400;        // 100 peak values at memory address 50400-50499
+WF_NUM_BINS = 0;         // actual number of bins computed
+
 // ---- Colors (Digitakt-inspired palette) ----
 // Background
 COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
@@ -962,7 +977,7 @@ spl1 = out_r * master_vol;
 // ============================================================
 // @GFX — User Interface
 // ============================================================
-@gfx 750 660
+@gfx 750 720
 
 // ---- Bounds-check UI state ----
 ui_selected_pad = max(0, min(NUM_PADS - 1, ui_selected_pad | 0));
@@ -1716,7 +1731,13 @@ mouse_cap & 1 && !last_mouse_cap ? (
 ctrl_h = 20;
 ctrl_bar_w = gfx_w - margin * 2 - 120;
 ctrl_x = margin + 120;
-ctrl_y = mixer_y;
+
+// Waveform display area sits between header and controls
+wf_y = mixer_y;
+wf_h = 50;
+
+// Shift all mixer controls below waveform
+ctrl_y = mixer_y + wf_h + 10;
 sp = ui_selected_pad;
 
 // Header: pad number
@@ -1771,6 +1792,102 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
     );
     PAD_SLICE[sp] = 0;
     PAD_SLICE_END[sp] = PAD_LENGTH[sp];
+  );
+);
+
+// -- SAMPLE button (triggers background sampling service) --
+gfx_sample_w = 62;
+gfx_sample_h = 16;
+gfx_sample_x = gfx_chop_x + gfx_chop_w + 8;
+gfx_sample_y = mixer_y - 18;
+
+// Check service heartbeat (gmem[6] increments if service is running)
+cur_service_hb = gmem[6];
+cur_service_hb != prev_service_hb ? (
+  service_hb_stale = 0;
+  service_alive = 1;
+) : (
+  service_hb_stale += 1;
+  service_hb_stale > 60 ? service_alive = 0;
+);
+prev_service_hb = cur_service_hb;
+
+// Update button state from gmem[5] (service status)
+gmem[5] == 2 && sample_btn_state == 1 ? (
+  sample_btn_state = 2;
+  sample_btn_flash = 30;
+  gmem[5] = 0;
+);
+gmem[5] == 3 && sample_btn_state == 1 ? (
+  sample_btn_state = 3;
+  sample_btn_flash = 30;
+  gmem[5] = 0;
+);
+sample_btn_flash > 0 ? (
+  sample_btn_flash -= 1;
+  sample_btn_flash == 0 ? sample_btn_state = 0;
+);
+
+// Timeout: if waiting >10 seconds, assume service is dead
+sample_btn_state == 1 ? (
+  sample_btn_timeout += 1;
+  sample_btn_timeout > 300 ? (
+    sample_btn_state = 3;
+    sample_btn_flash = 30;
+    sample_btn_timeout = 0;
+    gmem[3] = 0;
+  );
+) : (
+  sample_btn_timeout = 0;
+);
+
+// Draw button background
+sample_btn_state == 1 ? (
+  // Sampling in progress — blinking orange
+  gfx_sample_blink = (gfx_sample_blink + 1) % 20;
+  gfx_sample_blink < 14 ? (
+    gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+  ) : (
+    gfx_r = COL_HIT_R * 0.4; gfx_g = COL_HIT_G * 0.4; gfx_b = COL_HIT_B * 0.4;
+  );
+) : sample_btn_state == 2 ? (
+  // Done — green flash
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+) : sample_btn_state == 3 ? (
+  // Error — red flash
+  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+) : service_alive ? (
+  // Idle, service running
+  gfx_r = 0.12; gfx_g = 0.22; gfx_b = 0.28;
+) : (
+  // Idle, no service
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+);
+gfx_rect(gfx_sample_x, gfx_sample_y, gfx_sample_w, gfx_sample_h);
+
+// Button text
+!service_alive && sample_btn_state == 0 ? (
+  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.45;
+) : (
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+);
+gfx_x = gfx_sample_x + 4; gfx_y = gfx_sample_y + 2;
+sample_btn_state == 1 ? gfx_drawstr("WAIT..") :
+sample_btn_state == 2 ? gfx_drawstr("LOADED!") :
+sample_btn_state == 3 ? gfx_drawstr("ERROR!") :
+gfx_drawstr("SAMPLE");
+
+// Click: fire sample request
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_sample_x && mouse_x < gfx_sample_x + gfx_sample_w &&
+  mouse_y >= gfx_sample_y && mouse_y < gfx_sample_y + gfx_sample_h ? (
+    sample_btn_state == 0 ? (
+      gmem[4] = ui_selected_pad;
+      gmem[3] = 1;
+      sample_btn_state = 1;
+      gfx_sample_blink = 0;
+      sample_btn_timeout = 0;
+    );
   );
 );
 
@@ -2027,6 +2144,111 @@ pool_count > 0 ? (
       pool_load_pad = ui_selected_pad;
     );
   );
+);
+
+// ============================================
+// WAVEFORM DISPLAY
+// ============================================
+// Rebuild peak cache when pad changes or sample reloads
+wf_needs_rebuild = 0;
+sp != wf_cached_pad ? wf_needs_rebuild = 1;
+PAD_LENGTH[sp] != wf_cached_len ? wf_needs_rebuild = 1;
+
+wf_needs_rebuild ? (
+  wf_cached_pad = sp;
+  wf_cached_len = PAD_LENGTH[sp];
+
+  wf_draw_w = gfx_w - margin * 2;
+  wf_num_bins = min(wf_draw_w, 100);
+  WF_NUM_BINS = wf_num_bins;
+
+  PAD_LENGTH[sp] > 0 && PAD_NCH[sp] > 0 ? (
+    wf_buf_off = SAMPLE_BUF + sp * PAD_BUF_SIZE;
+    wf_nch = PAD_NCH[sp];
+    wf_fpb = PAD_LENGTH[sp] / wf_num_bins;
+
+    wf_bi = 0;
+    loop(wf_num_bins,
+      wf_bin_start = (wf_bi * wf_fpb) | 0;
+      wf_bin_end = min(((wf_bi + 1) * wf_fpb) | 0, PAD_LENGTH[sp]);
+      wf_peak = 0;
+
+      // Sample every Nth frame for speed
+      wf_stride = max(1, ((wf_bin_end - wf_bin_start) / 200) | 0);
+      wf_fi = wf_bin_start;
+      while(wf_fi < wf_bin_end) (
+        wf_nch >= 2 ? (
+          wf_s = max(abs(wf_buf_off[wf_fi * 2]), abs(wf_buf_off[wf_fi * 2 + 1]));
+        ) : (
+          wf_s = abs(wf_buf_off[wf_fi]);
+        );
+        wf_s > wf_peak ? wf_peak = wf_s;
+        wf_fi += wf_stride;
+      );
+
+      WF_PEAKS[wf_bi] = wf_peak;
+      wf_bi += 1;
+    );
+  ) : (
+    wf_bi = 0;
+    loop(100, WF_PEAKS[wf_bi] = 0; wf_bi += 1);
+    WF_NUM_BINS = 0;
+  );
+);
+
+// Waveform background
+gfx_r = 0.04; gfx_g = 0.06; gfx_b = 0.04;
+gfx_rect(margin, wf_y, gfx_w - margin * 2, wf_h);
+
+// Center line
+gfx_r = 0.08; gfx_g = 0.12; gfx_b = 0.08;
+wf_center = wf_y + wf_h / 2;
+gfx_rect(margin, wf_center, gfx_w - margin * 2, 1);
+
+// Draw peaks (mirrored above/below center)
+WF_NUM_BINS > 0 ? (
+  wf_draw_w = gfx_w - margin * 2;
+  wf_bar_w = max(1, (wf_draw_w / WF_NUM_BINS) | 0);
+  wf_half_h = (wf_h / 2) - 2;
+
+  gfx_r = 0.20; gfx_g = 0.75; gfx_b = 0.40;
+
+  wf_bi = 0;
+  loop(WF_NUM_BINS,
+    wf_pk = min(WF_PEAKS[wf_bi], 1.0);
+    wf_bar_h = (wf_pk * wf_half_h) | 0;
+    wf_bar_h > 0 ? (
+      wf_bx = margin + (wf_bi * wf_draw_w / WF_NUM_BINS) | 0;
+      gfx_rect(wf_bx, wf_center - wf_bar_h, wf_bar_w, wf_bar_h * 2);
+    );
+    wf_bi += 1;
+  );
+
+  // Playback position indicator (white line)
+  PAD_PLAYING[sp] && PAD_LENGTH[sp] > 0 ? (
+    wf_play_frac = max(0, min(1, PAD_POS[sp] / PAD_LENGTH[sp]));
+    wf_play_x = margin + (wf_play_frac * wf_draw_w) | 0;
+    gfx_r = 1.0; gfx_g = 1.0; gfx_b = 1.0;
+    gfx_rect(wf_play_x, wf_y, 1, wf_h);
+  );
+
+  // CHOP slice boundaries (dim yellow lines)
+  PAD_SUBDIV[sp] > 1 ? (
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.2;
+    wf_ci = 1;
+    loop(PAD_SUBDIV[sp] - 1,
+      wf_slice_x = margin + (wf_ci * wf_draw_w / PAD_SUBDIV[sp]) | 0;
+      gfx_rect(wf_slice_x, wf_y, 1, wf_h);
+      wf_ci += 1;
+    );
+  );
+);
+
+// "no sample" text when empty
+PAD_LENGTH[sp] == 0 || PAD_NCH[sp] == 0 ? (
+  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
+  gfx_x = gfx_w / 2 - 30; gfx_y = wf_center - 6;
+  gfx_drawstr("no sample");
 );
 
 // ---- Volume bar ----
