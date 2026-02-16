@@ -11,3 +11,5 @@ I remember a day when we used to own our tools. In some cases, it's still true t
 
 I have been working on developing open source, Linux only software to replicate our favorite tools for editing photos and recording music. If anyone is interested in helping to contribute, or needs any help with taking your computer back from THEM, feel free to contact me.
 
+https://github.com/LMSBAND
+https://instagram.com/LMSSKABAND

@@ -9,6 +9,7 @@ AI sucks. But if you suck at computers, it is better than you, and you can use i
 
 I remember a day when we used to own our tools. In some cases, it's still true today. Laguna isn't coming after me every month to hound me for cash… I bought that table saw, fair and square, and now I'm on my own with it and they can't say shit about what I choose to do with it. All audio and visual gear used to be like this, too. It's important for you to know that if you are not old enough to remember. 
 
-I have been working on developing open source, Linux only software to replicate our favorite tools for editing photos and recording music. My github repository is below and if anyone is interested in helping to contribute, or needs any help with taking your computer back from THEM, feel free to contact me.
+I have been working on developing open source, Linux only software to replicate our favorite tools for editing photos and recording music. If anyone is interested in helping to contribute, or needs any help with taking your computer back from THEM, feel free to contact me.
 
-https://github.com/bleavelle
+https://github.com/LMSBAND
+https://instagram.com/LMSSKABAND

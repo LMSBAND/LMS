@@ -2645,7 +2645,7 @@ notice_show ? (
   gfx_drawstr("Install Linux. Build your own tools. Believe in yourself.");
   gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
   gfx_x = 15; gfx_y = 165;
-  gfx_drawstr("github.com/bleavelle");
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
   // Redraw NOTICE button on top of overlay so it's clickable
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
   gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
