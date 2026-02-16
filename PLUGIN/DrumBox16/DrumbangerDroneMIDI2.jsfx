@@ -1,0 +1,667 @@
+desc:LMS DroneMIDI2
+//author: LMS
+//version: 0.2.0
+//license: GPL-3.0
+//
+// Drone sequencer companion for DrumBanger.
+// FOLLOW mode: reads DrumBanger's pattern live from gmem — zero-latency jam flow.
+// LOCK 1-8: snapshots the live pattern into an editable local slot.
+//           Switch to a Lock slot to capture; edit freely; switch back to Follow to jam.
+// Converts drum pad hits → MIDI note output via scale/chord mapping.
+
+options:gmem=DrumBanger
+
+// ============================================================
+// SLIDERS
+// ============================================================
+slider1:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>Mode
+slider2:0<0,15,1>MIDI Channel (0=1)
+slider3:60<0,127,1>Root Note
+slider4:0<0,7,1{Chromatic,Major,Minor,Pentatonic Maj,Pentatonic Min,Blues,Dorian,Mixolydian}>Scale
+slider5:0<0,4,1{Off,Single,Triad,7th,Power}>Chord Mode
+slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>Octave
+
+// ============================================================
+// MEMORY MAP
+// ============================================================
+// 0-2047:    LOCAL_PAT — 8 lock slots (8 × 16 steps × 16 pads = 2048)
+//            address = slot*256 + step*16 + pad
+//            value = velocity (0-127), 0 = off
+//
+// 2048-2111: NOTES_ON[64] — currently sounding MIDI notes
+// 2112-2175: STEP_NOTES[64] — notes to fire this step
+// 2176-2239: STEP_VELS[64] — velocities for STEP_NOTES
+// 2240-2495: SCALES[256] — scale interval tables (8 scales × 24 entries + padding)
+// 2496-2503: LOCK_HAS_DATA[8] — flag per lock slot (1 = has snapshot)
+// 2504-2519: prev_pad_playing[16] — previous pad playing state (for trigger detection)
+
+@init
+
+// ---- Constants ----
+NUM_PADS = 16;
+NUM_STEPS = 16;
+NUM_LOCKS = 8;
+
+// ---- Memory layout ----
+LOCAL_PAT  = 0;       // 8*16*16 = 2048
+NOTES_ON   = 2048;    // 64 slots
+STEP_NOTES = 2112;    // 64 slots
+STEP_VELS  = 2176;    // 64 slots
+SCALES     = 2240;    // scale tables
+LOCK_HAS_DATA = 2496; // 8 flags
+prev_pad_playing = 2504; // 16 slots
+
+notes_on_count = 0;
+step_notes_count = 0;
+
+// ---- Sequencer state ----
+seq_step = 0;
+last_step = -1;
+steps_per_measure = NUM_STEPS;
+transport_playing = 0;
+prev_playing = 0;
+
+// ---- Mode tracking ----
+prev_slider1 = -1;  // detect mode changes
+
+// ---- Scale tables ----
+// Each scale: 24 semitone offsets (enough for 16 pads + chord extensions)
+// Chromatic
+i = 0; loop(24, SCALES[0*24 + i] = i; i += 1);
+// Major (Ionian)
+SCALES[1*24+0]=0;  SCALES[1*24+1]=2;  SCALES[1*24+2]=4;  SCALES[1*24+3]=5;
+SCALES[1*24+4]=7;  SCALES[1*24+5]=9;  SCALES[1*24+6]=11; SCALES[1*24+7]=12;
+SCALES[1*24+8]=14; SCALES[1*24+9]=16; SCALES[1*24+10]=17;SCALES[1*24+11]=19;
+SCALES[1*24+12]=21;SCALES[1*24+13]=23;SCALES[1*24+14]=24;SCALES[1*24+15]=26;
+SCALES[1*24+16]=28;SCALES[1*24+17]=29;SCALES[1*24+18]=31;SCALES[1*24+19]=33;
+SCALES[1*24+20]=35;SCALES[1*24+21]=36;SCALES[1*24+22]=38;SCALES[1*24+23]=40;
+// Minor (Aeolian)
+SCALES[2*24+0]=0;  SCALES[2*24+1]=2;  SCALES[2*24+2]=3;  SCALES[2*24+3]=5;
+SCALES[2*24+4]=7;  SCALES[2*24+5]=8;  SCALES[2*24+6]=10; SCALES[2*24+7]=12;
+SCALES[2*24+8]=14; SCALES[2*24+9]=15; SCALES[2*24+10]=17;SCALES[2*24+11]=19;
+SCALES[2*24+12]=20;SCALES[2*24+13]=22;SCALES[2*24+14]=24;SCALES[2*24+15]=26;
+SCALES[2*24+16]=27;SCALES[2*24+17]=29;SCALES[2*24+18]=31;SCALES[2*24+19]=32;
+SCALES[2*24+20]=34;SCALES[2*24+21]=36;SCALES[2*24+22]=38;SCALES[2*24+23]=39;
+// Pentatonic Major
+SCALES[3*24+0]=0;  SCALES[3*24+1]=2;  SCALES[3*24+2]=4;  SCALES[3*24+3]=7;
+SCALES[3*24+4]=9;  SCALES[3*24+5]=12; SCALES[3*24+6]=14; SCALES[3*24+7]=16;
+SCALES[3*24+8]=19; SCALES[3*24+9]=21; SCALES[3*24+10]=24;SCALES[3*24+11]=26;
+SCALES[3*24+12]=28;SCALES[3*24+13]=31;SCALES[3*24+14]=33;SCALES[3*24+15]=36;
+SCALES[3*24+16]=38;SCALES[3*24+17]=40;SCALES[3*24+18]=43;SCALES[3*24+19]=45;
+SCALES[3*24+20]=48;SCALES[3*24+21]=50;SCALES[3*24+22]=52;SCALES[3*24+23]=55;
+// Pentatonic Minor
+SCALES[4*24+0]=0;  SCALES[4*24+1]=3;  SCALES[4*24+2]=5;  SCALES[4*24+3]=7;
+SCALES[4*24+4]=10; SCALES[4*24+5]=12; SCALES[4*24+6]=15; SCALES[4*24+7]=17;
+SCALES[4*24+8]=19; SCALES[4*24+9]=22; SCALES[4*24+10]=24;SCALES[4*24+11]=27;
+SCALES[4*24+12]=29;SCALES[4*24+13]=31;SCALES[4*24+14]=34;SCALES[4*24+15]=36;
+SCALES[4*24+16]=39;SCALES[4*24+17]=41;SCALES[4*24+18]=43;SCALES[4*24+19]=46;
+SCALES[4*24+20]=48;SCALES[4*24+21]=51;SCALES[4*24+22]=53;SCALES[4*24+23]=55;
+// Blues
+SCALES[5*24+0]=0;  SCALES[5*24+1]=3;  SCALES[5*24+2]=5;  SCALES[5*24+3]=6;
+SCALES[5*24+4]=7;  SCALES[5*24+5]=10; SCALES[5*24+6]=12; SCALES[5*24+7]=15;
+SCALES[5*24+8]=17; SCALES[5*24+9]=18; SCALES[5*24+10]=19;SCALES[5*24+11]=22;
+SCALES[5*24+12]=24;SCALES[5*24+13]=27;SCALES[5*24+14]=29;SCALES[5*24+15]=30;
+SCALES[5*24+16]=31;SCALES[5*24+17]=34;SCALES[5*24+18]=36;SCALES[5*24+19]=39;
+SCALES[5*24+20]=41;SCALES[5*24+21]=42;SCALES[5*24+22]=43;SCALES[5*24+23]=46;
+// Dorian
+SCALES[6*24+0]=0;  SCALES[6*24+1]=2;  SCALES[6*24+2]=3;  SCALES[6*24+3]=5;
+SCALES[6*24+4]=7;  SCALES[6*24+5]=9;  SCALES[6*24+6]=10; SCALES[6*24+7]=12;
+SCALES[6*24+8]=14; SCALES[6*24+9]=15; SCALES[6*24+10]=17;SCALES[6*24+11]=19;
+SCALES[6*24+12]=21;SCALES[6*24+13]=22;SCALES[6*24+14]=24;SCALES[6*24+15]=26;
+SCALES[6*24+16]=27;SCALES[6*24+17]=29;SCALES[6*24+18]=31;SCALES[6*24+19]=33;
+SCALES[6*24+20]=34;SCALES[6*24+21]=36;SCALES[6*24+22]=38;SCALES[6*24+23]=39;
+// Mixolydian
+SCALES[7*24+0]=0;  SCALES[7*24+1]=2;  SCALES[7*24+2]=4;  SCALES[7*24+3]=5;
+SCALES[7*24+4]=7;  SCALES[7*24+5]=9;  SCALES[7*24+6]=10; SCALES[7*24+7]=12;
+SCALES[7*24+8]=14; SCALES[7*24+9]=16; SCALES[7*24+10]=17;SCALES[7*24+11]=19;
+SCALES[7*24+12]=21;SCALES[7*24+13]=22;SCALES[7*24+14]=24;SCALES[7*24+15]=26;
+SCALES[7*24+16]=28;SCALES[7*24+17]=29;SCALES[7*24+18]=31;SCALES[7*24+19]=33;
+SCALES[7*24+20]=34;SCALES[7*24+21]=36;SCALES[7*24+22]=38;SCALES[7*24+23]=40;
+
+// ---- GFX state ----
+ui_selected_pad = 0;
+
+// ============================================================
+// FUNCTIONS
+// ============================================================
+
+// ---- Send note-off for all tracked notes ----
+function all_notes_off() local(i, ch) (
+  ch = slider2;
+  i = 0;
+  loop(notes_on_count,
+    midisend(0, 0x80 | ch, NOTES_ON[i], 0);
+    i += 1;
+  );
+  notes_on_count = 0;
+);
+
+// ---- Add a note to the step note buffer ----
+function add_step_note(note, vel) (
+  note >= 0 && note <= 127 && step_notes_count < 64 ? (
+    STEP_NOTES[step_notes_count] = note;
+    STEP_VELS[step_notes_count] = min(127, max(1, vel));
+    step_notes_count += 1;
+  );
+);
+
+// ---- Map a pad index to a MIDI note using scale + chord settings ----
+function build_notes_for_pad(pad_idx, vel) local(scale_id, root, note, chord) (
+  scale_id = slider4;
+  root = slider3 + (slider6 - 2) * 12;
+  note = root + SCALES[scale_id * 24 + pad_idx];
+  chord = slider5;
+
+  chord == 0 ? (
+    0; // Off
+  ) : chord == 1 ? (
+    add_step_note(note, vel);
+  ) : chord == 2 ? (
+    add_step_note(note, vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 2], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
+  ) : chord == 3 ? (
+    add_step_note(note, vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 2], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 6], vel);
+  ) : chord == 4 ? (
+    add_step_note(note, vel);
+    add_step_note(note + 7, vel);
+    add_step_note(note + 12, vel);
+  );
+);
+
+// ---- Fire all step notes as MIDI note-on ----
+function fire_all_notes() local(i, ch) (
+  ch = slider2;
+  i = 0;
+  loop(step_notes_count,
+    midisend(0, 0x90 | ch, STEP_NOTES[i], STEP_VELS[i]);
+    NOTES_ON[notes_on_count] = STEP_NOTES[i];
+    notes_on_count += 1;
+    i += 1;
+  );
+);
+
+// ---- Get velocity from local lock slot ----
+function get_local_step(slot, step, pad) (
+  LOCAL_PAT[slot * 256 + step * 16 + pad];
+);
+
+// ---- Set velocity in local lock slot ----
+function set_local_step(slot, step, pad, vel) (
+  LOCAL_PAT[slot * 256 + step * 16 + pad] = vel;
+);
+
+// ---- Toggle step on/off in local lock slot ----
+function toggle_local_step(slot, step, pad) local(addr, val) (
+  addr = slot * 256 + step * 16 + pad;
+  val = LOCAL_PAT[addr];
+  val > 0 ? LOCAL_PAT[addr] = 0 : LOCAL_PAT[addr] = 100;
+);
+
+// ---- Get velocity for current mode (follow=gmem, lock=local) ----
+function get_active_step(step, pad) local(src_pat) (
+  slider1 == 0 ? (
+    // Follow: read live from gmem, using DrumBanger's current pattern
+    src_pat = gmem[13];
+    gmem[1000 + src_pat * 1024 + step * 16 + pad];
+  ) : (
+    // Lock: read from local slot
+    get_local_step(slider1 - 1, step, pad);
+  );
+);
+
+// ============================================================
+// @BLOCK — Transport sync + sequencer + MIDI output
+// ============================================================
+@block
+
+// ---- Own transport sync ----
+ts_num > 0 && ts_denom > 0 ? (
+  beats_per_measure = ts_num * 4.0 / ts_denom;
+) : (
+  beats_per_measure = 4;
+);
+steps_per_measure = min(floor(beats_per_measure * 4 + 0.5), NUM_STEPS);
+steps_per_measure = max(steps_per_measure, 1);
+
+beats_per_measure > 0 ? (
+  beat_in_measure = beat_position - floor(beat_position / beats_per_measure) * beats_per_measure;
+  raw_pos = beat_in_measure * 4;
+  timeline_step = max(0, min(floor(raw_pos), steps_per_measure - 1));
+) : (
+  timeline_step = 0;
+);
+
+// Transport state
+prev_playing = transport_playing;
+transport_playing = (play_state & 1);
+transport_started = transport_playing && !prev_playing;
+
+seq_step = timeline_step;
+
+// ---- Detect mode change: snapshot on switch to Lock ----
+slider1 != prev_slider1 ? (
+  // Switching TO a lock slot? Snapshot current gmem into that slot
+  slider1 > 0 ? (
+    lock_slot = slider1 - 1;
+    // Only snapshot if the slot is empty (no prior data)
+    LOCK_HAS_DATA[lock_slot] == 0 ? (
+      src_pat = gmem[13];  // DrumBanger's current pattern
+      snap_i = 0;
+      loop(NUM_STEPS * NUM_PADS,
+        LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+        snap_i += 1;
+      );
+      LOCK_HAS_DATA[lock_slot] = 1;
+      lock_src_pattern = src_pat;
+    );
+  );
+  prev_slider1 = slider1;
+);
+
+// ---- Detect step change ----
+step_changed = transport_playing && (seq_step != last_step || transport_started);
+
+// ---- Transport stop: kill all notes ----
+!transport_playing && prev_playing ? (
+  all_notes_off();
+);
+
+// ---- Sequencer: fire MIDI on step changes ----
+step_changed && transport_playing ? (
+  all_notes_off();
+  step_notes_count = 0;
+
+  p = 0;
+  loop(NUM_PADS,
+    pvel = get_active_step(seq_step, p);
+    pvel > 0 ? build_notes_for_pad(p, pvel);
+    p += 1;
+  );
+
+  step_notes_count > 0 ? fire_all_notes();
+);
+
+last_step = seq_step;
+
+// ---- Follow mode: live pad trigger passthrough ----
+// When in Follow mode, mirror DrumBanger's pad triggers as MIDI in real-time.
+// This lets you hear the drone synth even when transport is stopped.
+// New trigger kills previous notes then fires new ones — sustain is handled
+// by the downstream synth's envelope, not by pad sample length.
+slider1 == 0 ? (
+  p = 0;
+  loop(NUM_PADS,
+    pad_now = gmem[120 + p];
+    // Rising edge: pad just started playing — retrigger
+    pad_now && !prev_pad_playing[p] ? (
+      all_notes_off();
+      trig_vel = gmem[100 + p];
+      trig_vel <= 0 ? trig_vel = 100;
+      step_notes_count = 0;
+      build_notes_for_pad(p, trig_vel);
+      step_notes_count > 0 ? fire_all_notes();
+    );
+    prev_pad_playing[p] = pad_now;
+    p += 1;
+  );
+);
+
+// ---- Pass through incoming MIDI ----
+while(midirecv(offset, msg1, msg2, msg3)) (
+  midisend(offset, msg1, msg2, msg3);
+);
+
+// ============================================================
+// @SAMPLE — Pure passthrough
+// ============================================================
+@sample
+spl0 = spl0;
+spl1 = spl1;
+
+// ============================================================
+// @GFX — User Interface
+// ============================================================
+@gfx 620 420
+
+// ---- Colors ----
+COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
+COL_TXT_R = 0.85; COL_TXT_G = 0.85; COL_TXT_B = 0.85;
+COL_DIM_R = 0.4;  COL_DIM_G = 0.4;  COL_DIM_B = 0.4;
+COL_STEP_R = 0.95; COL_STEP_G = 0.55; COL_STEP_B = 0.1;
+COL_HEAD_R = 0.95; COL_HEAD_G = 0.95; COL_HEAD_B = 0.95;
+COL_LIVE_R = 0.2;  COL_LIVE_G = 0.8;  COL_LIVE_B = 0.3;
+
+margin = 10;
+gfx_setfont(1, "Arial", 13);
+
+is_follow = (slider1 == 0);
+is_locked = !is_follow;
+lock_slot = is_locked ? (slider1 - 1) : 0;
+
+// ---- Background ----
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+// ---- Header ----
+gfx_x = margin; gfx_y = margin;
+is_follow ? (
+  gfx_r = COL_LIVE_R; gfx_g = COL_LIVE_G; gfx_b = COL_LIVE_B;
+  gfx_drawstr("DroneMIDI2  FOLLOW");
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawstr("  (live from DrumBanger pat ");
+  gfx_drawnumber(gmem[13] + 1, 0);
+  gfx_drawstr(")");
+) : (
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_drawstr("DroneMIDI2  LOCK ");
+  gfx_drawnumber(lock_slot + 1, 0);
+  LOCK_HAS_DATA[lock_slot] ? (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_drawstr("  (editable)");
+  ) : (
+    gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.3;
+    gfx_drawstr("  (empty — switch to Follow first, then back here to capture)");
+  );
+);
+
+// ---- Status line ----
+gfx_x = margin; gfx_y = margin + 18;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_drawstr("Step: ");
+gfx_drawnumber(seq_step + 1, 0);
+gfx_drawstr("/");
+gfx_drawnumber(steps_per_measure, 0);
+transport_playing ? gfx_drawstr("  PLAYING") : gfx_drawstr("  STOPPED");
+
+// ---- RESYNC button (Lock mode only — re-capture from gmem) ----
+is_locked ? (
+  resync_btn_w = 90;
+  resync_btn_h = 22;
+  resync_btn_x = gfx_w - margin - resync_btn_w;
+  resync_btn_y = margin;
+
+  gfx_r = 0.15; gfx_g = 0.35; gfx_b = 0.15;
+  gfx_rect(resync_btn_x, resync_btn_y, resync_btn_w, resync_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(resync_btn_x, resync_btn_y, resync_btn_w, 1);
+  gfx_rect(resync_btn_x, resync_btn_y + resync_btn_h - 1, resync_btn_w, 1);
+  gfx_rect(resync_btn_x, resync_btn_y, 1, resync_btn_h);
+  gfx_rect(resync_btn_x + resync_btn_w - 1, resync_btn_y, 1, resync_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = resync_btn_x + 10; gfx_y = resync_btn_y + 4;
+  gfx_drawstr("RE-CAPTURE");
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= resync_btn_x && mouse_x < resync_btn_x + resync_btn_w &&
+    mouse_y >= resync_btn_y && mouse_y < resync_btn_y + resync_btn_h ? (
+    // Force re-snapshot from gmem into current lock slot
+    src_pat = gmem[13];
+    snap_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+      snap_i += 1;
+    );
+    LOCK_HAS_DATA[lock_slot] = 1;
+  );
+
+  // ---- CLEAR button ----
+  clear_btn_w = 60;
+  clear_btn_h = 22;
+  clear_btn_x = resync_btn_x - clear_btn_w - 6;
+  clear_btn_y = margin;
+
+  gfx_r = 0.35; gfx_g = 0.12; gfx_b = 0.12;
+  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, clear_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, 1);
+  gfx_rect(clear_btn_x, clear_btn_y + clear_btn_h - 1, clear_btn_w, 1);
+  gfx_rect(clear_btn_x, clear_btn_y, 1, clear_btn_h);
+  gfx_rect(clear_btn_x + clear_btn_w - 1, clear_btn_y, 1, clear_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = clear_btn_x + 10; gfx_y = clear_btn_y + 4;
+  gfx_drawstr("CLEAR");
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= clear_btn_x && mouse_x < clear_btn_x + clear_btn_w &&
+    mouse_y >= clear_btn_y && mouse_y < clear_btn_y + clear_btn_h ? (
+    // Zero out current lock slot
+    clr_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[lock_slot * 256 + clr_i] = 0;
+      clr_i += 1;
+    );
+    LOCK_HAS_DATA[lock_slot] = 0;
+  );
+);
+
+// ============================================
+// PAD SELECT — 16 buttons
+// ============================================
+pad_sel_y = margin + 44;
+pad_sel_h = 20;
+pad_sel_w = (gfx_w - margin * 2 - 15 * 3) / 16;
+pad_sel_gap = 3;
+
+p = 0;
+loop(NUM_PADS,
+  px = margin + p * (pad_sel_w + pad_sel_gap);
+
+  p == ui_selected_pad ? (
+    gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+  );
+  gfx_rect(px, pad_sel_y, pad_sel_w, pad_sel_h);
+
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = px + 4; gfx_y = pad_sel_y + 3;
+  gfx_drawnumber(p + 1, 0);
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= px && mouse_x < px + pad_sel_w &&
+    mouse_y >= pad_sel_y && mouse_y < pad_sel_y + pad_sel_h ? (
+    ui_selected_pad = p;
+  );
+
+  p += 1;
+);
+
+// ============================================
+// STEP SEQUENCER GRID — single row for selected pad
+// ============================================
+seq_grid_y = pad_sel_y + pad_sel_h + 14;
+step_w = (gfx_w - margin * 2 - 15 * 2) / 16;
+step_h = 28;
+
+s = 0;
+loop(NUM_STEPS,
+  sx = margin + s * (step_w + 2);
+  sy = seq_grid_y;
+
+  sv = get_active_step(s, ui_selected_pad);
+
+  // Step color
+  s < steps_per_measure ? (
+    sv > 0 ? (
+      brightness = sv / 127;
+      is_follow ? (
+        // Green tint in follow mode
+        gfx_r = COL_LIVE_R * brightness;
+        gfx_g = COL_LIVE_G * brightness;
+        gfx_b = COL_LIVE_B * brightness;
+      ) : (
+        // Orange in lock mode
+        gfx_r = COL_STEP_R * brightness;
+        gfx_g = COL_STEP_G * brightness;
+        gfx_b = COL_STEP_B * brightness;
+      );
+    ) : (
+      gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+    );
+  ) : (
+    gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  );
+  gfx_rect(sx, sy, step_w, step_h);
+
+  // Current step highlight
+  s == seq_step && transport_playing ? (
+    gfx_r = COL_HEAD_R; gfx_g = COL_HEAD_G; gfx_b = COL_HEAD_B;
+    gfx_rect(sx, sy, step_w, 2);
+    gfx_rect(sx, sy + step_h - 2, step_w, 2);
+    gfx_rect(sx, sy, 2, step_h);
+    gfx_rect(sx + step_w - 2, sy, 2, step_h);
+  );
+
+  // Click to toggle step (Lock mode only)
+  is_locked && LOCK_HAS_DATA[lock_slot] && s < steps_per_measure &&
+    mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= sx && mouse_x < sx + step_w &&
+    mouse_y >= sy && mouse_y < sy + step_h ? (
+    toggle_local_step(lock_slot, s, ui_selected_pad);
+  );
+
+  // Beat markers
+  s % 4 == 0 ? (
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_rect(sx, sy + step_h + 2, step_w, 2);
+  );
+
+  s += 1;
+);
+
+// ============================================
+// MULTI-PAD OVERVIEW — 16 pads × 16 steps
+// ============================================
+overview_y = seq_grid_y + step_h + 20;
+ov_cell_w = (gfx_w - margin * 2 - 15 * 1) / 16;
+ov_cell_h = 10;
+ov_gap = 1;
+
+// Label
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = margin; gfx_y = overview_y - 12;
+is_follow ? (
+  gfx_drawstr("Live Pattern (read-only):");
+) : (
+  gfx_drawstr("Lock ");
+  gfx_drawnumber(lock_slot + 1, 0);
+  gfx_drawstr(" (click to edit):");
+);
+
+op = 0;
+loop(NUM_PADS,
+  os = 0;
+  loop(NUM_STEPS,
+    ox = margin + os * (ov_cell_w + ov_gap);
+    oy = overview_y + op * (ov_cell_h + ov_gap);
+
+    ov = get_active_step(os, op);
+
+    os < steps_per_measure ? (
+      ov > 0 ? (
+        brightness = ov / 127;
+        is_follow ? (
+          gfx_r = COL_LIVE_R * brightness;
+          gfx_g = COL_LIVE_G * brightness;
+          gfx_b = COL_LIVE_B * brightness;
+        ) : (
+          gfx_r = COL_STEP_R * brightness;
+          gfx_g = COL_STEP_G * brightness;
+          gfx_b = COL_STEP_B * brightness;
+        );
+      ) : (
+        gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+      );
+    ) : (
+      gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.05;
+    );
+    gfx_rect(ox, oy, ov_cell_w, ov_cell_h);
+
+    // Click to toggle (Lock mode only)
+    is_locked && LOCK_HAS_DATA[lock_slot] && os < steps_per_measure &&
+      mouse_cap & 1 && !(last_mouse_cap & 1) &&
+      mouse_x >= ox && mouse_x < ox + ov_cell_w &&
+      mouse_y >= oy && mouse_y < oy + ov_cell_h ? (
+      toggle_local_step(lock_slot, os, op);
+      ui_selected_pad = op;
+    );
+
+    // Highlight current step column
+    os == seq_step && transport_playing ? (
+      gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.15;
+      gfx_rect(ox, oy, ov_cell_w, ov_cell_h);
+      gfx_a = 1;
+    );
+
+    os += 1;
+  );
+
+  // Highlight selected pad row
+  op == ui_selected_pad ? (
+    gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+    gfx_rect(margin - 2, overview_y + op * (ov_cell_h + ov_gap), 2, ov_cell_h);
+  );
+
+  op += 1;
+);
+
+// ============================================
+// NOTES PLAYING indicator
+// ============================================
+notes_y = overview_y + NUM_PADS * (ov_cell_h + ov_gap) + 12;
+gfx_x = margin; gfx_y = notes_y;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+notes_on_count > 0 ? (
+  gfx_drawstr("Playing: ");
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  ni = 0;
+  loop(min(notes_on_count, 12),
+    ni > 0 ? gfx_drawstr(" ");
+    nn = NOTES_ON[ni] % 12;
+    no = (NOTES_ON[ni] / 12) | 0;
+    nn == 0 ? gfx_drawstr("C") :
+    nn == 1 ? gfx_drawstr("C#") :
+    nn == 2 ? gfx_drawstr("D") :
+    nn == 3 ? gfx_drawstr("D#") :
+    nn == 4 ? gfx_drawstr("E") :
+    nn == 5 ? gfx_drawstr("F") :
+    nn == 6 ? gfx_drawstr("F#") :
+    nn == 7 ? gfx_drawstr("G") :
+    nn == 8 ? gfx_drawstr("G#") :
+    nn == 9 ? gfx_drawstr("A") :
+    nn == 10 ? gfx_drawstr("A#") :
+    gfx_drawstr("B");
+    gfx_drawnumber(no - 1, 0);
+    ni += 1;
+  );
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  transport_playing ? gfx_drawstr("(no hits this step)") : gfx_drawstr("idle");
+);
+
+// ---- Track mouse state ----
+last_mouse_cap = mouse_cap;
+
+// ============================================================
+// @SERIALIZE — Persist all lock slots across sessions
+// ============================================================
+@serialize
+file_var(0, ui_selected_pad);
+
+// Save/load all 8 lock slots
+i = 0;
+loop(NUM_LOCKS * NUM_STEPS * NUM_PADS,
+  file_var(0, LOCAL_PAT[i]);
+  i += 1;
+);
+
+// Save/load lock-has-data flags
+i = 0;
+loop(NUM_LOCKS,
+  file_var(0, LOCK_HAS_DATA[i]);
+  i += 1;
+);

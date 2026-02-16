@@ -1,0 +1,3202 @@
+desc:LMS DRUMBANGER
+//author: LMS
+//version: 0.1.0
+//license: GPL-3.0
+//
+// A simple 16-pad drum sampler + step sequencer for Reaper.
+// Digitakt-inspired UI. Load kits from wav folders.
+// MIDI notes 36-51 (C1 to D#2) trigger pads 1-16.
+
+options:maxmem=16777216
+options:gmem=DrumBanger
+
+// ============================================================
+// SLIDER DEFINITIONS
+// ============================================================
+// Global controls
+slider1:120<30,300,0.1>BPM (host sync overrides)
+slider2:0<0,100,1>Swing %
+slider3:0<0,7,1{Pattern 1,Pattern 2,Pattern 3,Pattern 4,Pattern 5,Pattern 6,Pattern 7,Pattern 8}>-Current Pattern
+slider4:0.8<0,1,0.01>Master Volume
+slider5:1<0,1,1{Off,On}>Sequencer
+slider6:0<0,1,1{Off,Rec}>Record Input
+slider7:0<0,7,1{Kit 1,Kit 2,Kit 3,Kit 4,Kit 5,Kit 6,Kit 7,Kit 8}>Kit Select
+slider8:36<0,112,1>MIDI Root Note
+
+// Per-pad volume (pads 1-16) — sliders 10-25 (hidden, controlled via GFX)
+slider10:0.8<0,1,0.01>-Pad 01 Vol
+slider11:0.8<0,1,0.01>-Pad 02 Vol
+slider12:0.8<0,1,0.01>-Pad 03 Vol
+slider13:0.8<0,1,0.01>-Pad 04 Vol
+slider14:0.8<0,1,0.01>-Pad 05 Vol
+slider15:0.8<0,1,0.01>-Pad 06 Vol
+slider16:0.8<0,1,0.01>-Pad 07 Vol
+slider17:0.8<0,1,0.01>-Pad 08 Vol
+slider18:0.8<0,1,0.01>-Pad 09 Vol
+slider19:0.8<0,1,0.01>-Pad 10 Vol
+slider20:0.8<0,1,0.01>-Pad 11 Vol
+slider21:0.8<0,1,0.01>-Pad 12 Vol
+slider22:0.8<0,1,0.01>-Pad 13 Vol
+slider23:0.8<0,1,0.01>-Pad 14 Vol
+slider24:0.8<0,1,0.01>-Pad 15 Vol
+slider25:0.8<0,1,0.01>-Pad 16 Vol
+
+// Per-pad pan (pads 1-16) — sliders 30-45 (hidden, controlled via GFX)
+slider30:0<-1,1,0.01>-Pad 01 Pan
+slider31:0<-1,1,0.01>-Pad 02 Pan
+slider32:0<-1,1,0.01>-Pad 03 Pan
+slider33:0<-1,1,0.01>-Pad 04 Pan
+slider34:0<-1,1,0.01>-Pad 05 Pan
+slider35:0<-1,1,0.01>-Pad 06 Pan
+slider36:0<-1,1,0.01>-Pad 07 Pan
+slider37:0<-1,1,0.01>-Pad 08 Pan
+slider38:0<-1,1,0.01>-Pad 09 Pan
+slider39:0<-1,1,0.01>-Pad 10 Pan
+slider40:0<-1,1,0.01>-Pad 11 Pan
+slider41:0<-1,1,0.01>-Pad 12 Pan
+slider42:0<-1,1,0.01>-Pad 13 Pan
+slider43:0<-1,1,0.01>-Pad 14 Pan
+slider44:0<-1,1,0.01>-Pad 15 Pan
+slider45:0<-1,1,0.01>-Pad 16 Pan
+
+// Per-pad pitch (semitones) — sliders 50-65 (hidden, controlled via GFX)
+slider50:0<-24,24,0.1>-Pad 01 Pitch
+slider51:0<-24,24,0.1>-Pad 02 Pitch
+slider52:0<-24,24,0.1>-Pad 03 Pitch
+slider53:0<-24,24,0.1>-Pad 04 Pitch
+slider54:0<-24,24,0.1>-Pad 05 Pitch
+slider55:0<-24,24,0.1>-Pad 06 Pitch
+slider56:0<-24,24,0.1>-Pad 07 Pitch
+slider57:0<-24,24,0.1>-Pad 08 Pitch
+slider58:0<-24,24,0.1>-Pad 09 Pitch
+slider59:0<-24,24,0.1>-Pad 10 Pitch
+slider60:0<-24,24,0.1>-Pad 11 Pitch
+slider61:0<-24,24,0.1>-Pad 12 Pitch
+slider62:0<-24,24,0.1>-Pad 13 Pitch
+slider63:0<-24,24,0.1>-Pad 14 Pitch
+slider64:0<-24,24,0.1>-Pad 15 Pitch
+slider65:0<-24,24,0.1>-Pad 16 Pitch
+
+// Per-pad LP filter cutoff (0=20Hz, 1=20kHz) — sliders 80-95 (hidden, controlled via GFX)
+slider80:1<0,1,0.001>-Pad 01 LP
+slider81:1<0,1,0.001>-Pad 02 LP
+slider82:1<0,1,0.001>-Pad 03 LP
+slider83:1<0,1,0.001>-Pad 04 LP
+slider84:1<0,1,0.001>-Pad 05 LP
+slider85:1<0,1,0.001>-Pad 06 LP
+slider86:1<0,1,0.001>-Pad 07 LP
+slider87:1<0,1,0.001>-Pad 08 LP
+slider88:1<0,1,0.001>-Pad 09 LP
+slider89:1<0,1,0.001>-Pad 10 LP
+slider90:1<0,1,0.001>-Pad 11 LP
+slider91:1<0,1,0.001>-Pad 12 LP
+slider92:1<0,1,0.001>-Pad 13 LP
+slider93:1<0,1,0.001>-Pad 14 LP
+slider94:1<0,1,0.001>-Pad 15 LP
+slider95:1<0,1,0.001>-Pad 16 LP
+
+// Per-pad HP filter cutoff (0=20Hz, 1=20kHz) — sliders 100-115 (hidden, controlled via GFX)
+slider100:0<0,1,0.001>-Pad 01 HP
+slider101:0<0,1,0.001>-Pad 02 HP
+slider102:0<0,1,0.001>-Pad 03 HP
+slider103:0<0,1,0.001>-Pad 04 HP
+slider104:0<0,1,0.001>-Pad 05 HP
+slider105:0<0,1,0.001>-Pad 06 HP
+slider106:0<0,1,0.001>-Pad 07 HP
+slider107:0<0,1,0.001>-Pad 08 HP
+slider108:0<0,1,0.001>-Pad 09 HP
+slider109:0<0,1,0.001>-Pad 10 HP
+slider110:0<0,1,0.001>-Pad 11 HP
+slider111:0<0,1,0.001>-Pad 12 HP
+slider112:0<0,1,0.001>-Pad 13 HP
+slider113:0<0,1,0.001>-Pad 14 HP
+slider114:0<0,1,0.001>-Pad 15 HP
+slider115:0<0,1,0.001>-Pad 16 HP
+
+// Output bus (hidden, controlled via GFX)
+slider70:0<0,100,0.1>-Sat Drive (%)
+slider71:0<0,100,0.1>-Comp Peak Reduction (%)
+slider72:0<-12,12,0.1>-Comp Gain (dB)
+slider73:1<0,1,0.001>-Bus LP Cutoff
+slider74:0<0,1,0.001>-Bus HP Cutoff
+slider75:0<-12,12,0.1>-Comp Input Gain (dB)
+
+// ============================================================
+// MEMORY MAP
+// ============================================================
+// Memory layout (using JSFX global memory):
+//
+// 0-15:        pad_playing[16]     — 1 if pad is currently playing
+// 16-31:       pad_pos[16]         — current playback position (samples)
+// 32-47:       pad_velocity[16]    — last trigger velocity (0-1)
+// 48-63:       pad_decay[16]       — decay envelope value
+// 64-79:       pad_length[16]      — sample length in samples
+// 80-95:       pad_handle[16]      — file handle for loaded sample
+// 96-111:      pad_nch[16]         — channels in loaded sample (1=mono, 2=stereo)
+// 112-127:     pad_srate[16]       — original sample rate of loaded file
+// 176-191:     pad_pool_idx[16]    — pool sample index (-1 = kit, 0+ = pool)
+//
+// 408-907:     pool_folder_idx[500] — folder index per pool entry
+// 910-917:     pat_bar_count[8]    — bars per pattern (1-4)
+// 920-927:     pat_display_bar[8]  — displayed bar per pattern (0-3)
+//
+// 1000-9191:   SEQ_BASE — sequencer patterns (8 pat * 64 steps * 16 pads)
+//   address = 1000 + N*1024 + S*16 + P, value = velocity (0-127)
+// 9200-33775:  SUB_SEQ_BASE — sub-step velocities (8 pat * 64 * 16 * 3)
+// 34000-42191: PLOCK_LP_BASE — LP parameter locks (8 pat * 64 * 16)
+// 42200-50391: PLOCK_HP_BASE — HP parameter locks
+// 50500-50999: MENU_MAP (temp: maps menu selection -> pool index)
+// 51000+:      sample data buffer (loaded via file_open)
+
+@init
+
+// ---- Constants ----
+NUM_PADS = 16;
+NUM_STEPS = 16;        // steps per bar (display unit)
+MAX_BARS = 4;          // max bars per pattern
+MAX_STEPS = 64;        // MAX_BARS * NUM_STEPS
+NUM_PATTERNS = 8;
+MIDI_NOTE_BASE = slider8;  // Default C1 (36), user-adjustable
+
+// ---- Memory offsets ----
+PAD_PLAYING   = 0;
+PAD_POS       = 16;
+PAD_VELOCITY  = 32;
+PAD_DECAY     = 48;
+PAD_LENGTH    = 64;
+PAD_HANDLE    = 80;
+PAD_NCH       = 96;
+PAD_SRATE     = 112;
+PAD_KILL_POS  = 128;   // saved position of killed voice for crossfade
+PAD_KILL_VEL  = 144;   // saved velocity of killed voice
+PAD_KILL_FADE = 160;   // fade counter (counts down from XFADE_LEN to 0)
+PAD_POOL_IDX  = 176;   // per-pad pool sample index (-1 = from kit, 0+ = pool index)
+PAD_SUBDIV    = 192;   // per-pad subdivision: 1, 2, or 4
+PAD_SLICE     = 208;   // per-pad current slice index: 0-3
+PAD_SLICE_END = 224;   // per-pad end frame for current slice playback
+PAD_SEQ_SUBDIV = 240;  // per-pad seq step subdivision: 1, 2, or 4
+SUB_FIRED     = 260;   // per-pad bitmask: which sub-steps fired this step (runtime)
+FLT_LP_STATE  = 280;   // LP SVF state per-pad: [p*4]=lp_l, [p*4+1]=lp_r, [p*4+2]=bp_l, [p*4+3]=bp_r (280-343)
+FLT_HP_STATE  = 344;   // HP SVF state per-pad: same layout (344-407)
+
+XFADE_LEN     = 64;    // crossfade length in samples (~1.3ms at 48kHz)
+
+// Pool folder metadata
+POOL_FOLDER_IDX = 408; // per-pool-entry folder index (up to 500 entries, 408-907)
+MAX_POOL_FOLDERS = 32;
+// Folder names in string slots 700+ (700="ALL", 701=first folder, etc.)
+
+// Per-pad chop offset (nudge all slice boundaries left/right)
+PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
+
+// Per-pattern bar count and display bar
+PAT_BAR_COUNT  = 910;   // 910-917: bars per pattern (1-4), default 1
+PAT_DISPLAY_BAR = 920;  // 920-927: currently displayed bar (0-3), runtime only
+
+// Sequencer data (expanded for 64 max steps per pattern)
+SEQ_BASE      = 1000;    // 8 pat * 64 steps * 16 pads = 8192 (1000-9191)
+SUB_SEQ_BASE  = 9200;    // 8 pat * 64 steps * 16 pads * 3 subs = 24576 (9200-33775)
+PLOCK_LP_BASE = 34000;   // 8 pat * 64 steps * 16 pads = 8192 (34000-42191)
+PLOCK_HP_BASE = 42200;   // same = 8192 (42200-50391)
+MENU_MAP      = 50500;   // temp: maps pool menu index -> pool manifest index (up to 500)
+SAMPLE_BUF    = 51000;
+
+// ---- Sequencer state ----
+seq_step = 0;
+seq_running = 0;
+steps_per_measure = NUM_STEPS;
+beats_per_measure = 4;
+measure_num = 0;
+transport_playing = 0;
+
+// ---- Per-pad sample buffer offsets ----
+// Each pad gets up to 5 seconds of stereo audio at 48kHz
+// 48000 * 5 = 240000 frames * 2 channels = 480000 interleaved samples
+PAD_BUF_SIZE = 480000;
+
+// Pad playback state (PAD_PLAYING, PAD_POS, PAD_VELOCITY, PAD_DECAY) is NOT
+// zeroed here. JSFX memory starts at 0 on first load. On subsequent @init
+// calls (sample rate change, undo, etc.), active voices survive uninterrupted.
+// Pattern data at SEQ_BASE is also preserved — @serialize handles persistence.
+
+// ---- Request memory for sample buffers ----
+freembuf(SAMPLE_BUF + NUM_PADS * PAD_BUF_SIZE);
+
+// ---- Load kit function (defined before first call) ----
+function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_read) (
+  // Stop all voices — sample data is about to be overwritten
+  i = 0;
+  loop(NUM_PADS,
+    PAD_PLAYING[i] = 0;
+    PAD_KILL_FADE[i] = 0;
+    i += 1;
+  );
+  kit_loaded = 0;
+  i = 0;
+  loop(NUM_PADS,
+    PAD_NCH[i] = 0;
+    PAD_SRATE[i] = 0;
+    PAD_LENGTH[i] = 0;
+    sprintf(#pad_filename, "kits/%d/%02d.wav", kit_num + 1, i + 1);
+    handle = file_open(#pad_filename);
+    handle >= 0 ? (
+      file_riff(handle, nch, sr);
+      nch > 0 ? (
+        PAD_NCH[i] = nch;
+        PAD_SRATE[i] = sr;
+        buf_offset = SAMPLE_BUF + i * PAD_BUF_SIZE;
+        num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
+        PAD_LENGTH[i] = nch > 1 ? (num_read / nch) : num_read;
+        kit_loaded += 1;
+      );
+      file_close(handle);
+    );
+    // Empty pad: fill with short silent phantom so normal playback
+    // handles it (no clicks, still triggers Drones via gmem)
+    PAD_LENGTH[i] == 0 ? (
+      PAD_NCH[i] = 1;
+      PAD_SRATE[i] = srate;
+      PAD_LENGTH[i] = 200;
+      buf_offset = SAMPLE_BUF + i * PAD_BUF_SIZE;
+      j = 0;
+      loop(200, buf_offset[j] = 0; j += 1);
+    );
+    i += 1;
+  );
+  // Reset pool indices and subdivisions — all pads now come from this kit
+  i = 0;
+  loop(NUM_PADS,
+    PAD_POOL_IDX[i] = -1;
+    PAD_SUBDIV[i] = 1;
+    PAD_SLICE[i] = 0;
+    PAD_CHOP_OFFSET[i] = 0;
+    PAD_SLICE_END[i] = PAD_LENGTH[i];
+    i += 1;
+  );
+  loaded_kit_num = kit_num;
+);
+
+// ---- Scan pool manifest (defined before first call) ----
+function scan_pool() local(mf, ci, slash_pos, fi, found) (
+  pool_count = 0;
+  pool_folder_count = 0;
+  strcpy(700, "ALL");  // folder 0 = show all
+
+  mf = file_open("pool/manifest.txt");
+  mf >= 0 ? (
+    file_text(mf);
+    while(file_avail(mf) > 0 && pool_count < 500) (
+      file_string(mf, 100 + pool_count);
+      // Trim trailing whitespace / newlines / carriage returns
+      while(strlen(100 + pool_count) > 0 &&
+            str_getchar(100 + pool_count, strlen(100 + pool_count) - 1) <= 32) (
+        str_setlen(100 + pool_count, strlen(100 + pool_count) - 1);
+      );
+      strlen(100 + pool_count) > 0 ? (
+        // Extract folder name: find last '/' in the filename
+        slash_pos = -1;
+        ci = 0;
+        while(ci < strlen(100 + pool_count)) (
+          str_getchar(100 + pool_count, ci) == $'/' ? slash_pos = ci;
+          ci += 1;
+        );
+
+        slash_pos >= 0 ? (
+          // Has a subfolder — extract folder name
+          strcpy(#tmp_folder, 100 + pool_count);
+          str_setlen(#tmp_folder, slash_pos);
+
+          // Check if this folder is already known
+          found = 0;
+          fi = 1;
+          loop(pool_folder_count,
+            strcmp(700 + fi, #tmp_folder) == 0 ? found = fi;
+            fi += 1;
+          );
+
+          found == 0 && pool_folder_count < MAX_POOL_FOLDERS ? (
+            pool_folder_count += 1;
+            strcpy(700 + pool_folder_count, #tmp_folder);
+            found = pool_folder_count;
+          );
+
+          POOL_FOLDER_IDX[pool_count] = found;
+        ) : (
+          // Root level file — folder index 0
+          POOL_FOLDER_IDX[pool_count] = 0;
+        );
+
+        pool_count += 1;
+      );
+    );
+    file_close(mf);
+  );
+);
+
+// ---- Load initial kit (first run only) ----
+// Kits live in: <effect_dir>/kits/1/01.wav through 16.wav
+//               <effect_dir>/kits/2/01.wav through 16.wav  etc.
+// 8 kit slots, numbered folders 1-8. 16 wav files each (01.wav-16.wav).
+// Guard: only load on first @init. Subsequent @init (sample rate change,
+// undo, etc.) must NOT wipe pool-loaded samples.
+!init_done ? (
+  loaded_kit_num = -1;
+  i = 0;
+  loop(NUM_PADS,
+    PAD_POOL_IDX[i] = -1;
+    PAD_SUBDIV[i] = 1;
+    PAD_SLICE[i] = 0;
+    PAD_CHOP_OFFSET[i] = 0;
+    PAD_SEQ_SUBDIV[i] = 1;
+    SUB_FIRED[i] = 0;
+    i += 1;
+  );
+  sub_step_counter = 0;
+  step_samples = 0;
+  // Initialize parameter locks to -1 (no lock) — expanded for 64 steps
+  i = 0;
+  loop(8192, PLOCK_LP_BASE[i] = -1; i += 1);
+  i = 0;
+  loop(8192, PLOCK_HP_BASE[i] = -1; i += 1);
+  // Initialize per-pattern bar counts (default 1 bar)
+  i = 0;
+  loop(NUM_PATTERNS,
+    PAT_BAR_COUNT[i] = 1;
+    PAT_DISPLAY_BAR[i] = 0;
+    i += 1;
+  );
+  bar_follow_locked = 0;
+  load_kit_samples(slider7);
+  init_done = 1;
+);
+
+// ---- Sample pool (for right-click pad assignment) ----
+// Pool lives in: <effect_dir>/pool/*.wav
+// Run scan_pool.sh to generate pool/manifest.txt
+scan_pool();
+
+// ---- Pool load request (GFX → block communication) ----
+pool_load_pad = -1;   // -1 = no request, 0-15 = pad to load into
+pool_load_idx = -1;   // pool manifest index to load
+
+// ---- UI state ----
+// ui_selected_pad persists naturally (defaults to 0 on first load, survives @init)
+notice_show = 0;
+// Sticky drag: lock to one control bar, prevent accidental cross-control drags
+drag_id = 0;           // 0=none, 1=vol, 2=pan, 3=pitch, 4=LP, 5=HP, 6=sat, 7=comp, 8=gain
+drag_cooldown = 0;     // frames after release before new drag allowed
+
+// Velocity editor overlay state
+vel_edit_open = 0;
+vel_edit_step = 0;
+vel_edit_sub = -1;     // -1 = main step, 0-3 = sub-step index
+vel_edit_pattern = 0;
+vel_edit_pad = 0;
+vel_edit_x = 0;
+vel_edit_y = 0;
+vel_edit_dragging = 0;
+
+// Pool folder filter
+pool_filter_folder = 0;  // 0 = ALL, 1+ = folder index
+pool_folder_count = 0;
+
+// Service integration state (SAMPLE button)
+sample_btn_state = 0;    // 0=idle, 1=waiting, 2=done flash, 3=error flash
+sample_btn_flash = 0;    // countdown for flash display
+sample_btn_timeout = 0;  // timeout counter (if service not running)
+gfx_sample_blink = 0;    // blink counter for SAMPLING... animation
+prev_service_hb = 0;     // previous heartbeat value from service
+service_hb_stale = 0;    // frames since last heartbeat change
+service_alive = 0;       // 1 if service is running
+
+// Waveform cache
+wf_cached_pad = -1;      // which pad the cache is for
+wf_cached_len = 0;       // cached sample length (detect reloads)
+WF_PEAKS = 50400;        // 100 peak values at memory address 50400-50499
+WF_NUM_BINS = 0;         // actual number of bins computed
+
+// ---- Colors (Digitakt-inspired palette) ----
+// Background
+COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
+// Pad off
+COL_PAD_R = 0.15; COL_PAD_G = 0.16; COL_PAD_B = 0.20;
+// Pad active/triggered
+COL_HIT_R = 0.95; COL_HIT_G = 0.45; COL_HIT_B = 0.15;
+// Step on
+COL_STEP_R = 0.30; COL_STEP_G = 0.75; COL_STEP_B = 0.55;
+// Step current (playhead)
+COL_HEAD_R = 1.0; COL_HEAD_G = 1.0; COL_HEAD_B = 1.0;
+// Text
+COL_TXT_R = 0.85; COL_TXT_G = 0.85; COL_TXT_B = 0.88;
+
+// ---- Output bus state ----
+// Opto compressor (LA-2A style)
+opto_gr = 0;      // current gain reduction in dB
+opto_fast = 0;    // fast release envelope
+opto_slow = 0;    // slow release envelope
+comp_gr_display = 0;  // GR for GFX meter
+
+// Bus filter state (cascaded one-pole, same design as per-pad)
+bus_lp_l1 = 0; bus_lp_r1 = 0; bus_lp_l2 = 0; bus_lp_r2 = 0;
+bus_hp_l1 = 0; bus_hp_r1 = 0; bus_hp_l2 = 0; bus_hp_r2 = 0;
+
+// DC blocker (removes offset from saturation)
+dc_xl = 0; dc_xr = 0;
+dc_yl = 0; dc_yr = 0;
+dc_r = 1 - (220 / srate);
+
+// ============================================================
+// FUNCTIONS
+// ============================================================
+
+// tanh approximation (JSFX doesn't have built-in tanh)
+function tanh(x) local(e2x) (
+  x > 10 ? 1 : x < -10 ? -1 : (
+    e2x = exp(2 * x);
+    (e2x - 1) / (e2x + 1);
+  );
+);
+
+function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start) (
+  pad >= 0 && pad < NUM_PADS ? (
+    // If already playing, save old voice for crossfade-out
+    PAD_PLAYING[pad] ? (
+      PAD_KILL_POS[pad] = PAD_POS[pad];
+      PAD_KILL_VEL[pad] = PAD_VELOCITY[pad];
+      PAD_KILL_FADE[pad] = XFADE_LEN;
+    );
+    v = vel / 127;
+    PAD_PLAYING[pad] = 1;
+
+    // Calculate slice boundaries (with chop offset for nudge)
+    subdiv = PAD_SUBDIV[pad];
+    slice = PAD_SLICE[pad];
+    subdiv > 1 && PAD_LENGTH[pad] > 0 ? (
+      slice_len = (PAD_LENGTH[pad] / subdiv) | 0;
+      slice_start = slice * slice_len + PAD_CHOP_OFFSET[pad];
+      slice_start = max(0, min(slice_start, PAD_LENGTH[pad] - 1));
+      PAD_POS[pad] = slice_start;
+      PAD_SLICE_END[pad] = min(slice_start + slice_len, PAD_LENGTH[pad]);
+    ) : (
+      PAD_POS[pad] = 0;
+      PAD_SLICE_END[pad] = PAD_LENGTH[pad];
+    );
+
+    PAD_VELOCITY[pad] = v;
+    PAD_DECAY[pad] = 1.0;
+  );
+);
+
+function get_seq_addr(pattern, step, pad) (
+  SEQ_BASE + pattern * 1024 + step * 16 + pad;
+);
+
+function set_seq_step(pattern, step, pad, vel) (
+  get_seq_addr(pattern, step, pad)[] = vel;
+);
+
+function get_seq_step(pattern, step, pad) (
+  get_seq_addr(pattern, step, pad)[];
+);
+
+function toggle_seq_step(pattern, step, pad) local(addr, val) (
+  addr = get_seq_addr(pattern, step, pad);
+  val = addr[];
+  val > 0 ? addr[] = 0 : addr[] = 100;
+);
+
+// ---- Sub-step sequencer functions ----
+// Sub-step 0 uses the main SEQ_BASE. Sub-steps 1-3 live in SUB_SEQ_BASE.
+function get_sub_seq_addr(pattern, step, pad, sub_idx) (
+  SUB_SEQ_BASE + pattern * 3072 + step * 48 + pad * 3 + (sub_idx - 1);
+);
+
+function get_sub_seq_step(pattern, step, pad, sub_idx) (
+  sub_idx == 0 ? (
+    get_seq_step(pattern, step, pad);
+  ) : (
+    get_sub_seq_addr(pattern, step, pad, sub_idx)[];
+  );
+);
+
+function set_sub_seq_step(pattern, step, pad, sub_idx, vel) (
+  sub_idx == 0 ? (
+    set_seq_step(pattern, step, pad, vel);
+  ) : (
+    get_sub_seq_addr(pattern, step, pad, sub_idx)[] = vel;
+  );
+);
+
+function toggle_sub_seq_step(pattern, step, pad, sub_idx) local(addr, val) (
+  sub_idx == 0 ? (
+    toggle_seq_step(pattern, step, pad);
+  ) : (
+    addr = get_sub_seq_addr(pattern, step, pad, sub_idx);
+    val = addr[];
+    val > 0 ? addr[] = 0 : addr[] = 100;
+  );
+);
+
+// ---- Parameter lock functions ----
+// Lock value: -1 = no lock (use current slider), 0+ = locked value
+function plock_addr(base, pattern, step, pad) (
+  base + pattern * 1024 + step * 16 + pad;
+);
+
+function get_plock_lp(pattern, step, pad) (
+  plock_addr(PLOCK_LP_BASE, pattern, step, pad)[];
+);
+
+function set_plock_lp(pattern, step, pad, val) (
+  plock_addr(PLOCK_LP_BASE, pattern, step, pad)[] = val;
+);
+
+function get_plock_hp(pattern, step, pad) (
+  plock_addr(PLOCK_HP_BASE, pattern, step, pad)[];
+);
+
+function set_plock_hp(pattern, step, pad, val) (
+  plock_addr(PLOCK_HP_BASE, pattern, step, pad)[] = val;
+);
+
+function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, num_read) (
+  // Build path: pool/<filename>
+  strcpy(#pool_path, "pool/");
+  strcat(#pool_path, 100 + pool_idx);
+  handle = file_open(#pool_path);
+  handle >= 0 ? (
+    file_riff(handle, nch, sr);
+    nch > 0 ? (
+      PAD_PLAYING[pad] = 0;
+      PAD_KILL_FADE[pad] = 0;
+      PAD_NCH[pad] = nch;
+      PAD_SRATE[pad] = sr;
+      buf_offset = SAMPLE_BUF + pad * PAD_BUF_SIZE;
+      num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
+      PAD_LENGTH[pad] = nch > 1 ? (num_read / nch) : num_read;
+      PAD_POOL_IDX[pad] = pool_idx;
+      PAD_SLICE_END[pad] = PAD_LENGTH[pad];
+    );
+    file_close(handle);
+  );
+);
+
+// ============================================================
+// @BLOCK — MIDI + Sequencer (runs per audio block)
+// ============================================================
+@block
+
+// ---- MIDI root note (live update from slider) ----
+MIDI_NOTE_BASE = slider8;
+
+// ---- Kit hot-reload on slider change ----
+slider7 != loaded_kit_num ? load_kit_samples(slider7);
+
+// ---- Pool sample load request from GFX ----
+pool_load_pad >= 0 ? (
+  load_pad_from_pool(pool_load_pad, pool_load_idx);
+  trigger_pad(pool_load_pad, 100);
+  pool_load_pad = -1;
+);
+
+// ---- Sequencer on/off (MIDI always triggers pads regardless) ----
+seq_mode = (slider5 == 1);
+
+// ---- Timeline sync (computed first — needed for recording) ----
+
+// Time signature → steps per bar
+// 4/4 → 16 steps, 3/4 → 12, 6/8 → 12, 7/8 → 14 (capped at 16)
+ts_denom > 0 ? (
+  beats_per_measure = ts_num * 4.0 / ts_denom;
+) : (
+  beats_per_measure = 4;
+);
+steps_per_bar = min(floor(beats_per_measure * 4 + 0.5), NUM_STEPS);
+steps_per_bar = max(steps_per_bar, 1);
+steps_per_measure = steps_per_bar;  // alias for backward compat
+
+// Multi-bar: total steps in current pattern
+cur_pattern_bars = max(1, min(MAX_BARS, PAT_BAR_COUNT[slider3]));
+total_pattern_steps = cur_pattern_bars * steps_per_bar;
+
+// Current timeline position → global step (with swing)
+// Pattern spans multiple bars: total_beats = beats_per_measure * bar_count
+beats_per_measure > 0 ? (
+  total_beats = beats_per_measure * cur_pattern_bars;
+  pattern_cycle = floor(beat_position / total_beats);
+  beat_in_pattern = beat_position - pattern_cycle * total_beats;
+  raw_pos = beat_in_pattern * 4;  // fractional step position (0 to total_pattern_steps)
+
+  // Swing: shift the split point within each pair of steps
+  // At 0% swing = straight (split at 1.0), at 100% = heavy shuffle (split at 1.9)
+  swing_split = 1.0 + (slider2 / 100) * 0.9;
+  pair = (raw_pos / 2) | 0;           // which pair
+  pos_in_pair = raw_pos - pair * 2;   // 0.0 to 2.0
+  pos_in_pair < swing_split ? (
+    timeline_step = pair * 2;
+  ) : (
+    timeline_step = pair * 2 + 1;
+  );
+
+  timeline_step = max(0, min(timeline_step, total_pattern_steps - 1));
+  measure_num = (timeline_step / steps_per_bar) | 0;
+) : (
+  timeline_step = 0;
+  measure_num = 0;
+);
+
+// Detect transport state transitions
+prev_transport = transport_playing;
+transport_playing = (play_state & 1);
+transport_started = transport_playing && !prev_transport;
+
+// Reset bar follow lock on transport start
+transport_started ? bar_follow_locked = 0;
+
+// Auto-follow playhead to correct bar during playback
+transport_playing && seq_mode && !bar_follow_locked ? (
+  play_bar = (timeline_step / NUM_STEPS) | 0;
+  play_bar < cur_pattern_bars ? (
+    PAT_DISPLAY_BAR[slider3] = play_bar;
+  );
+);
+
+// Calculate step duration in samples (for sub-step timing)
+tempo > 0 ? (
+  step_samples = 60.0 / tempo / 4.0 * srate;
+) : (
+  step_samples = 60.0 / max(slider1, 30) / 4.0 * srate;
+);
+
+// Trigger pads on step change OR transport start (sequence mode only)
+seq_mode && transport_playing && (timeline_step != seq_step || transport_started) ? (
+  // Reset sub-step counter and mark sub-step 0 as fired for all pads
+  sub_step_counter = 0;
+  p = 0;
+  loop(NUM_PADS, SUB_FIRED[p] = 1; p += 1);  // bit 0 = main step
+
+  cur_pattern = slider3;
+  p = 0;
+  loop(NUM_PADS,
+    // Apply parameter locks for this step
+    plock_val = get_plock_lp(cur_pattern, timeline_step, p);
+    plock_val >= 0 ? slider(80 + p) = plock_val;
+    plock_val = get_plock_hp(cur_pattern, timeline_step, p);
+    plock_val >= 0 ? slider(100 + p) = plock_val;
+
+    vel = get_seq_step(cur_pattern, timeline_step, p);
+    vel > 0 ? trigger_pad(p, vel);
+    p += 1;
+  );
+);
+
+// Sub-step timing: fire sub-steps 1, 2, 3 when their time arrives
+seq_mode && transport_playing && step_samples > 0 ? (
+  sub_step_counter += samplesblock;
+  cur_pattern = slider3;
+  p = 0;
+  loop(NUM_PADS,
+    pad_seq_sub = PAD_SEQ_SUBDIV[p];
+    pad_seq_sub > 1 ? (
+      sub_dur = step_samples / pad_seq_sub;
+      si = 1;
+      loop(pad_seq_sub - 1,
+        !(SUB_FIRED[p] & (1 << si)) && sub_step_counter >= si * sub_dur ? (
+          vel = get_sub_seq_step(cur_pattern, seq_step, p, si);
+          vel > 0 ? trigger_pad(p, vel);
+          SUB_FIRED[p] = SUB_FIRED[p] | (1 << si);
+        );
+        si += 1;
+      );
+    );
+    p += 1;
+  );
+);
+
+// Track timeline position (must be set before MIDI for recording)
+seq_step = timeline_step;
+
+// ---- Read incoming MIDI ----
+while(midirecv(offset, msg1, msg2, msg3)) (
+  status = msg1 & 0xF0;
+  // Note On — MIDI always triggers pads (like a real drum machine)
+  status == 0x90 && msg3 > 0 ? (
+    note = msg2;
+    pad = note - MIDI_NOTE_BASE;
+    pad >= 0 && pad < NUM_PADS ? (
+      trigger_pad(pad, msg3);
+      // REC: write to pattern at sub-step resolution when sequencer is running
+      seq_mode && slider6 == 1 && transport_playing ? (
+        rec_pad_sub = PAD_SEQ_SUBDIV[pad];
+        rec_pad_sub > 1 && step_samples > 0 ? (
+          // Quantize to nearest sub-step
+          rec_sub_dur = step_samples / rec_pad_sub;
+          rec_cur_sub = (sub_step_counter / rec_sub_dur) | 0;
+          rec_cur_sub = max(0, min(rec_cur_sub, rec_pad_sub - 1));
+          set_sub_seq_step(slider3, seq_step, pad, rec_cur_sub, msg3);
+        ) : (
+          set_seq_step(slider3, seq_step, pad, msg3);
+        );
+      );
+    );
+  );
+  // Always pass MIDI through
+  midisend(offset, msg1, msg2, msg3);
+);
+
+// ---- Broadcast state to gmem[] for DrumbangerDrone instances ----
+// gmem[0-9] reserved for sampling service, drone broadcast uses [10+]
+gmem[10] += 1;                                // heartbeat
+gmem[11] = seq_step;
+gmem[12] = steps_per_measure;
+gmem[13] = slider3;                           // current pattern
+gmem[14] = tempo > 0 ? tempo : slider1;      // BPM
+gmem[15] = transport_playing;
+gmem[16] = seq_mode;
+gmem[17] = measure_num;
+
+// Per-pad trigger + playing state for Drones
+drone_p = 0;
+loop(NUM_PADS,
+  // Fresh trigger: pad just started playing this block (pos near 0)
+  PAD_PLAYING[drone_p] && PAD_POS[drone_p] < samplesblock ? (
+    gmem[100 + drone_p] = (PAD_VELOCITY[drone_p] * 127) | 0;
+  );
+  gmem[120 + drone_p] = PAD_PLAYING[drone_p];
+  drone_p += 1;
+);
+
+// Copy all 8 patterns to gmem for Drone satellite access
+// Layout: gmem[1000 + pattern*1024 + step*16 + pad]
+// (mirrors SEQ_BASE layout: pattern*1024 + step*16 + pad)
+gm_i = 0;
+loop(NUM_PATTERNS * MAX_STEPS * NUM_PADS,
+  gmem[1000 + gm_i] = SEQ_BASE[gm_i];
+  gm_i += 1;
+);
+
+// ============================================================
+// @SAMPLE — Audio generation (runs per sample)
+// ============================================================
+@sample
+
+out_l = 0;
+out_r = 0;
+master_vol = slider4;
+
+p = 0;
+loop(NUM_PADS,
+  PAD_PLAYING[p] || PAD_KILL_FADE[p] > 0 ? (
+    len = PAD_LENGTH[p];
+    nch = PAD_NCH[p];
+    buf_offset = SAMPLE_BUF + p * PAD_BUF_SIZE;
+
+    // Per-pad parameters (computed once for main voice + kill tail)
+    semitones = slider(50 + p);
+    pitch_rate = pow(2, semitones / 12);
+    PAD_SRATE[p] > 0 ? pitch_rate *= PAD_SRATE[p] / srate;
+    pad_vol = slider(10 + p);
+    pad_pan = slider(30 + p);
+    pan_l = cos(($pi/4) * (pad_pan + 1));
+    pan_r = sin(($pi/4) * (pad_pan + 1));
+
+    // ---- Main voice ----
+    PAD_PLAYING[p] ? (
+      pos = PAD_POS[p];
+
+      // Loaded sample playback (respects slice boundaries for CHOP mode)
+      len > 0 && nch > 0 && pos < PAD_SLICE_END[p] ? (
+        // Linear interpolation
+        idx = (pos | 0);
+        frac = pos - idx;
+        idx1 = min(idx + 1, len - 1);
+
+        nch >= 2 ? (
+          sample_l = buf_offset[idx * 2]     + frac * (buf_offset[idx1 * 2]     - buf_offset[idx * 2]);
+          sample_r = buf_offset[idx * 2 + 1] + frac * (buf_offset[idx1 * 2 + 1] - buf_offset[idx * 2 + 1]);
+        ) : (
+          sample_l = buf_offset[idx] + frac * (buf_offset[idx1] - buf_offset[idx]);
+          sample_r = sample_l;
+        );
+
+        // Fade-in on new triggers (crossfade with kill tail)
+        pos < XFADE_LEN ? (
+          sample_l *= pos / XFADE_LEN;
+          sample_r *= pos / XFADE_LEN;
+        );
+
+        sample_l *= PAD_VELOCITY[p];
+        sample_r *= PAD_VELOCITY[p];
+
+        // ---- Per-pad LP filter (cascaded one-pole, 12dB/oct, stable) ----
+        lp_norm = slider(80 + p);
+        lp_norm < 0.999 ? (
+          lp_fc = 20 * pow(1000, lp_norm);
+          a_lp = 1 - exp(-2 * $pi * lp_fc / srate);
+          // Left: two cascaded stages
+          FLT_LP_STATE[p*4]   += a_lp * (sample_l - FLT_LP_STATE[p*4]);
+          FLT_LP_STATE[p*4+2] += a_lp * (FLT_LP_STATE[p*4] - FLT_LP_STATE[p*4+2]);
+          sample_l = FLT_LP_STATE[p*4+2];
+          // Right: two cascaded stages
+          FLT_LP_STATE[p*4+1] += a_lp * (sample_r - FLT_LP_STATE[p*4+1]);
+          FLT_LP_STATE[p*4+3] += a_lp * (FLT_LP_STATE[p*4+1] - FLT_LP_STATE[p*4+3]);
+          sample_r = FLT_LP_STATE[p*4+3];
+        ) : (
+          // LP off — clear state to prevent stale DC
+          FLT_LP_STATE[p*4] = 0; FLT_LP_STATE[p*4+1] = 0;
+          FLT_LP_STATE[p*4+2] = 0; FLT_LP_STATE[p*4+3] = 0;
+        );
+
+        // ---- Per-pad HP filter (cascaded one-pole, 12dB/oct, stable) ----
+        hp_norm = slider(100 + p);
+        hp_norm > 0.001 ? (
+          hp_fc = 20 * pow(1000, hp_norm);
+          a_hp = 1 - exp(-2 * $pi * hp_fc / srate);
+          // Left: LP at HP freq, then subtract
+          FLT_HP_STATE[p*4]   += a_hp * (sample_l - FLT_HP_STATE[p*4]);
+          FLT_HP_STATE[p*4+2] += a_hp * (FLT_HP_STATE[p*4] - FLT_HP_STATE[p*4+2]);
+          sample_l -= FLT_HP_STATE[p*4+2];
+          // Right
+          FLT_HP_STATE[p*4+1] += a_hp * (sample_r - FLT_HP_STATE[p*4+1]);
+          FLT_HP_STATE[p*4+3] += a_hp * (FLT_HP_STATE[p*4+1] - FLT_HP_STATE[p*4+3]);
+          sample_r -= FLT_HP_STATE[p*4+3];
+        ) : (
+          // HP off — clear state
+          FLT_HP_STATE[p*4] = 0; FLT_HP_STATE[p*4+1] = 0;
+          FLT_HP_STATE[p*4+2] = 0; FLT_HP_STATE[p*4+3] = 0;
+        );
+
+        out_l += sample_l * pad_vol * pan_l;
+        out_r += sample_r * pad_vol * pan_r;
+
+        PAD_POS[p] = pos + pitch_rate;
+
+      // No sample loaded — placeholder noise burst
+      ) : len == 0 ? (
+        ipos = (PAD_POS[p] | 0);
+        ipos < 200 ? (
+          pad_out = (rand(2) - 1) * PAD_VELOCITY[p] * PAD_DECAY[p];
+          PAD_DECAY[p] *= 0.9997;
+          out_l += pad_out * pad_vol * pan_l;
+          out_r += pad_out * pad_vol * pan_r;
+          PAD_POS[p] += 1;
+        ) : (
+          PAD_PLAYING[p] = 0;
+        );
+
+      // Sample finished
+      ) : (
+        PAD_PLAYING[p] = 0;
+      );
+    );
+
+    // ---- Kill tail: fade out the old voice on retrigger ----
+    PAD_KILL_FADE[p] > 0 && len > 0 && nch > 0 ? (
+      kill_pos = PAD_KILL_POS[p];
+      kill_pos < len ? (
+        kidx = (kill_pos | 0);
+        kfrac = kill_pos - kidx;
+        kidx1 = min(kidx + 1, len - 1);
+
+        nch >= 2 ? (
+          kl = buf_offset[kidx * 2]     + kfrac * (buf_offset[kidx1 * 2]     - buf_offset[kidx * 2]);
+          kr = buf_offset[kidx * 2 + 1] + kfrac * (buf_offset[kidx1 * 2 + 1] - buf_offset[kidx * 2 + 1]);
+        ) : (
+          kl = buf_offset[kidx] + kfrac * (buf_offset[kidx1] - buf_offset[kidx]);
+          kr = kl;
+        );
+
+        kill_fade = PAD_KILL_FADE[p] / XFADE_LEN;
+        kl *= PAD_KILL_VEL[p] * kill_fade;
+        kr *= PAD_KILL_VEL[p] * kill_fade;
+
+        out_l += kl * pad_vol * pan_l;
+        out_r += kr * pad_vol * pan_r;
+
+        PAD_KILL_POS[p] = kill_pos + pitch_rate;
+      );
+      PAD_KILL_FADE[p] -= 1;
+    );
+  );
+  p += 1;
+);
+
+// ---- OUTPUT BUS: Tape Saturation ----
+sat_drive = slider70 / 100;
+sat_drive > 0 ? (
+  sat_amt = sat_drive * 1.5;
+  out_l = (2 / $pi) * atan(out_l * (1 + sat_amt) * $pi * 0.5);
+  out_r = (2 / $pi) * atan(out_r * (1 + sat_amt) * $pi * 0.5);
+);
+
+// ---- OUTPUT BUS: LP Filter (cascaded one-pole, 12dB/oct) ----
+bus_lp_norm = slider73;
+bus_lp_norm < 0.999 ? (
+  bus_lp_fc = 20 * pow(1000, bus_lp_norm);
+  a_bus_lp = 1 - exp(-2 * $pi * bus_lp_fc / srate);
+  bus_lp_l1 += a_bus_lp * (out_l - bus_lp_l1);
+  bus_lp_l2 += a_bus_lp * (bus_lp_l1 - bus_lp_l2);
+  out_l = bus_lp_l2;
+  bus_lp_r1 += a_bus_lp * (out_r - bus_lp_r1);
+  bus_lp_r2 += a_bus_lp * (bus_lp_r1 - bus_lp_r2);
+  out_r = bus_lp_r2;
+) : (
+  bus_lp_l1 = 0; bus_lp_r1 = 0; bus_lp_l2 = 0; bus_lp_r2 = 0;
+);
+
+// ---- OUTPUT BUS: HP Filter (cascaded one-pole, 12dB/oct) ----
+bus_hp_norm = slider74;
+bus_hp_norm > 0.001 ? (
+  bus_hp_fc = 20 * pow(1000, bus_hp_norm);
+  a_bus_hp = 1 - exp(-2 * $pi * bus_hp_fc / srate);
+  bus_hp_l1 += a_bus_hp * (out_l - bus_hp_l1);
+  bus_hp_l2 += a_bus_hp * (bus_hp_l1 - bus_hp_l2);
+  out_l -= bus_hp_l2;
+  bus_hp_r1 += a_bus_hp * (out_r - bus_hp_r1);
+  bus_hp_r2 += a_bus_hp * (bus_hp_r1 - bus_hp_r2);
+  out_r -= bus_hp_r2;
+) : (
+  bus_hp_l1 = 0; bus_hp_r1 = 0; bus_hp_l2 = 0; bus_hp_r2 = 0;
+);
+
+// ---- OUTPUT BUS: LA-2A Optical Compressor ----
+comp_amount = slider71 / 100;
+comp_amount > 0 ? (
+  // Input gain
+  comp_input_gain = 10 ^ (slider75 / 20);
+  out_l *= comp_input_gain;
+  out_r *= comp_input_gain;
+
+  // Peak detection (stereo linked)
+  det = max(abs(out_l), abs(out_r));
+  det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+
+  // Soft-knee threshold (scales with Peak Reduction knob)
+  thresh_db = -6 - comp_amount * 40;
+  over_db = det_db - thresh_db;
+
+  // Soft-knee gain computer (~3:1 ratio, LA-2A style)
+  over_db > 0 ? (
+    target_gr_db = over_db * (1 - 1/3);
+  ) : over_db > -6 ? (
+    // Soft knee region
+    target_gr_db = (over_db + 6) * (over_db + 6) / 18;
+  ) : (
+    target_gr_db = 0;
+  );
+
+  // Opto cell model: fast attack (~10ms), dual-stage release
+  opto_att = exp(-1 / (0.010 * srate));
+  opto_rel_fast = exp(-1 / (0.060 * srate));
+  opto_rel_slow = exp(-1 / (1.0 * srate));
+
+  target_gr_db > opto_gr ? (
+    // Attack
+    opto_gr = opto_att * opto_gr + (1 - opto_att) * target_gr_db;
+  ) : (
+    // Dual-stage release (T4B photocell behavior)
+    opto_fast = opto_rel_fast * opto_fast + (1 - opto_rel_fast) * target_gr_db;
+    opto_slow = opto_rel_slow * opto_slow + (1 - opto_rel_slow) * target_gr_db;
+    opto_gr = max(opto_fast, opto_slow);
+  );
+
+  // Apply gain reduction
+  gr_lin = 10 ^ (-opto_gr / 20);
+  out_l *= gr_lin;
+  out_r *= gr_lin;
+
+  // Makeup gain
+  comp_gain = 10 ^ (slider72 / 20);
+  out_l *= comp_gain;
+  out_r *= comp_gain;
+
+  // Store GR for meter display
+  comp_gr_display = opto_gr;
+) : (
+  comp_gr_display = 0;
+);
+
+// ---- OUTPUT BUS: DC Blocker ----
+sat_drive > 0 || comp_amount > 0 ? (
+  dc_yl = out_l - dc_xl + dc_r * dc_yl; dc_xl = out_l; out_l = dc_yl;
+  dc_yr = out_r - dc_xr + dc_r * dc_yr; dc_xr = out_r; out_r = dc_yr;
+);
+
+spl0 = out_l * master_vol;
+spl1 = out_r * master_vol;
+
+// ============================================================
+// @GFX — User Interface
+// ============================================================
+@gfx 750 720
+
+// ---- Bounds-check UI state ----
+ui_selected_pad = max(0, min(NUM_PADS - 1, ui_selected_pad | 0));
+
+// ---- Background ----
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+// ---- Layout constants ----
+margin = 10;
+pad_area_y = 20;
+pad_area_h = 180;
+seq_area_y = pad_area_y + pad_area_h + 20;
+seq_area_h = 180;
+mixer_y = seq_area_y + seq_area_h + 20;
+
+// ============================================
+// SECTION 1: PAD GRID (4x4)
+// ============================================
+pad_size = min((gfx_w - margin * 5) / 4, (pad_area_h - margin * 5) / 4);
+pad_grid_w = pad_size * 4 + margin * 3;
+pad_grid_x = (gfx_w - pad_grid_w) / 2;
+
+gfx_setfont(1, "Arial", 12);
+
+gfx_p = 0;
+loop(NUM_PADS,
+  row = (gfx_p / 4) | 0;
+  col = gfx_p % 4;
+
+  px = pad_grid_x + col * (pad_size + margin);
+  py = pad_area_y + row * (pad_size + margin);
+
+  gfx_subdiv = PAD_SUBDIV[gfx_p];
+  gfx_subdiv < 2 ? gfx_subdiv = 1;
+
+  gfx_subdiv == 1 ? (
+    // ---- Single pad (no subdivision) ----
+    PAD_PLAYING[gfx_p] ? (
+      gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+    ) : (
+      gfx_p == ui_selected_pad ? (
+        gfx_r = 0.25; gfx_g = 0.27; gfx_b = 0.32;
+      ) : (
+        gfx_r = COL_PAD_R; gfx_g = COL_PAD_G; gfx_b = COL_PAD_B;
+      );
+    );
+    gfx_rect(px, py, pad_size, pad_size);
+
+    // Click → select pad + trigger
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= px && mouse_x < px + pad_size &&
+      mouse_y >= py && mouse_y < py + pad_size ? (
+        ui_selected_pad = gfx_p;
+        PAD_SLICE[gfx_p] = 0;
+        trigger_pad(gfx_p, 100);
+        slider6 == 1 && seq_mode && transport_playing ? (
+          set_seq_step(slider3, seq_step, gfx_p, 100);
+        );
+      );
+    );
+
+  ) : gfx_subdiv == 2 ? (
+    // ---- Two slices (left / right halves) ----
+    gfx_half_w = ((pad_size - 2) / 2) | 0;
+    gfx_si = 0;
+    loop(2,
+      gfx_sx = px + gfx_si * (gfx_half_w + 2);
+
+      PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
+        gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+      ) : gfx_p == ui_selected_pad && PAD_SLICE[gfx_p] == gfx_si ? (
+        gfx_r = COL_STEP_R * 0.6; gfx_g = COL_STEP_G * 0.6; gfx_b = COL_STEP_B * 0.6;
+      ) : gfx_p == ui_selected_pad ? (
+        gfx_r = 0.20; gfx_g = 0.22; gfx_b = 0.27;
+      ) : (
+        gfx_r = COL_PAD_R; gfx_g = COL_PAD_G; gfx_b = COL_PAD_B;
+      );
+      gfx_rect(gfx_sx, py, gfx_half_w, pad_size);
+
+      gfx_si += 1;
+    );
+
+    // Click → determine which half, select + trigger
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= px && mouse_x < px + pad_size &&
+      mouse_y >= py && mouse_y < py + pad_size ? (
+        ui_selected_pad = gfx_p;
+        gfx_half_w = ((pad_size - 2) / 2) | 0;
+        mouse_x < px + gfx_half_w + 1 ? (
+          PAD_SLICE[gfx_p] = 0;
+        ) : (
+          PAD_SLICE[gfx_p] = 1;
+        );
+        trigger_pad(gfx_p, 100);
+        slider6 == 1 && seq_mode && transport_playing ? (
+          set_seq_step(slider3, seq_step, gfx_p, 100);
+        );
+      );
+    );
+
+  ) : (
+    // ---- Four slices (2x2 grid) ----
+    gfx_qsize = ((pad_size - 2) / 2) | 0;
+    gfx_si = 0;
+    loop(4,
+      gfx_qrow = (gfx_si / 2) | 0;
+      gfx_qcol = gfx_si % 2;
+      gfx_sx = px + gfx_qcol * (gfx_qsize + 2);
+      gfx_sy = py + gfx_qrow * (gfx_qsize + 2);
+
+      PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
+        gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+      ) : gfx_p == ui_selected_pad && PAD_SLICE[gfx_p] == gfx_si ? (
+        gfx_r = COL_STEP_R * 0.6; gfx_g = COL_STEP_G * 0.6; gfx_b = COL_STEP_B * 0.6;
+      ) : gfx_p == ui_selected_pad ? (
+        gfx_r = 0.20; gfx_g = 0.22; gfx_b = 0.27;
+      ) : (
+        gfx_r = COL_PAD_R; gfx_g = COL_PAD_G; gfx_b = COL_PAD_B;
+      );
+      gfx_rect(gfx_sx, gfx_sy, gfx_qsize, gfx_qsize);
+
+      gfx_si += 1;
+    );
+
+    // Click → determine which quarter, select + trigger
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= px && mouse_x < px + pad_size &&
+      mouse_y >= py && mouse_y < py + pad_size ? (
+        ui_selected_pad = gfx_p;
+        gfx_qsize = ((pad_size - 2) / 2) | 0;
+        gfx_qcol = mouse_x < px + gfx_qsize + 1 ? 0 : 1;
+        gfx_qrow = mouse_y < py + gfx_qsize + 1 ? 0 : 1;
+        PAD_SLICE[gfx_p] = gfx_qrow * 2 + gfx_qcol;
+        trigger_pad(gfx_p, 100);
+        slider6 == 1 && seq_mode && transport_playing ? (
+          set_seq_step(slider3, seq_step, gfx_p, 100);
+        );
+      );
+    );
+  );
+
+  // Pad label (always drawn on top)
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = px + 4; gfx_y = py + 4;
+  gfx_drawnumber(gfx_p + 1, 0);
+
+  gfx_p += 1;
+);
+
+// ============================================
+// SECTION 2: STEP SEQUENCER (for selected pad)
+// ============================================
+step_w = (gfx_w - margin * 2 - margin * 15) / 16;
+step_h = 30;
+seq_grid_x = margin;
+seq_grid_y = seq_area_y;
+
+// Label with time signature
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = seq_grid_y - 16;
+gfx_drawstr("STEPS — Pad ");
+gfx_drawnumber(ui_selected_pad + 1, 0);
+gfx_drawstr("  [");
+gfx_drawnumber(ts_num, 0);
+gfx_drawstr("/");
+gfx_drawnumber(ts_denom, 0);
+gfx_drawstr("]");
+
+// -- RES button (sequencer step subdivision: 1x / 2x / 4x) --
+gfx_res_w = 40;
+gfx_res_h = 16;
+gfx_res_x = margin + 160;
+gfx_res_y = seq_grid_y - 18;
+gfx_cur_seq_sub = PAD_SEQ_SUBDIV[ui_selected_pad];
+gfx_cur_seq_sub < 2 ? gfx_cur_seq_sub = 1;
+
+gfx_cur_seq_sub > 1 ? (
+  gfx_r = COL_STEP_R * 0.5; gfx_g = COL_STEP_G * 0.5; gfx_b = COL_STEP_B * 0.5;
+) : (
+  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+);
+gfx_rect(gfx_res_x, gfx_res_y, gfx_res_w, gfx_res_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_res_x + 4; gfx_y = gfx_res_y + 2;
+gfx_cur_seq_sub == 1 ? gfx_drawstr("1x") :
+gfx_cur_seq_sub == 2 ? gfx_drawstr("2x") :
+gfx_drawstr("4x");
+
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_res_x && mouse_x < gfx_res_x + gfx_res_w &&
+  mouse_y >= gfx_res_y && mouse_y < gfx_res_y + gfx_res_h ? (
+    gfx_cur_seq_sub == 1 ? (
+      PAD_SEQ_SUBDIV[ui_selected_pad] = 2;
+    ) : gfx_cur_seq_sub == 2 ? (
+      PAD_SEQ_SUBDIV[ui_selected_pad] = 4;
+    ) : (
+      PAD_SEQ_SUBDIV[ui_selected_pad] = 1;
+    );
+  );
+);
+
+// -- BAR selector buttons (1-4) --
+gfx_bar_btn_w = 18;
+gfx_bar_btn_h = 16;
+gfx_bar_btn_gap = 2;
+gfx_bar_label_x = gfx_res_x + gfx_res_w + 12;
+gfx_bar_btn_x0 = gfx_bar_label_x + 38;
+gfx_bar_btn_y = seq_grid_y - 18;
+
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_bar_label_x; gfx_y = gfx_bar_btn_y + 2;
+gfx_drawstr("BARS");
+
+gfx_cur_pattern = slider3;
+cur_bar_count = max(1, min(MAX_BARS, PAT_BAR_COUNT[gfx_cur_pattern]));
+cur_display_bar = max(0, min(cur_bar_count - 1, PAT_DISPLAY_BAR[gfx_cur_pattern]));
+display_step_offset = cur_display_bar * NUM_STEPS;
+
+gfx_bi = 0;
+loop(MAX_BARS,
+  gfx_bbx = gfx_bar_btn_x0 + gfx_bi * (gfx_bar_btn_w + gfx_bar_btn_gap);
+
+  gfx_bi < cur_bar_count ? (
+    gfx_bi == cur_display_bar ? (
+      // Current display bar — bright orange
+      gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+    ) : (
+      // Active bar, not displayed — dim green
+      gfx_r = COL_STEP_R * 0.4; gfx_g = COL_STEP_G * 0.4; gfx_b = COL_STEP_B * 0.4;
+    );
+  ) : (
+    // Inactive bar (beyond bar count) — very dim
+    gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+  );
+  gfx_rect(gfx_bbx, gfx_bar_btn_y, gfx_bar_btn_w, gfx_bar_btn_h);
+
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = gfx_bbx + 5; gfx_y = gfx_bar_btn_y + 2;
+  gfx_drawnumber(gfx_bi + 1, 0);
+
+  // Left-click: navigate to this bar (or extend bar count)
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_bbx && mouse_x < gfx_bbx + gfx_bar_btn_w &&
+    mouse_y >= gfx_bar_btn_y && mouse_y < gfx_bar_btn_y + gfx_bar_btn_h ? (
+      gfx_bi < cur_bar_count ? (
+        PAT_DISPLAY_BAR[gfx_cur_pattern] = gfx_bi;
+      ) : (
+        // Clicking inactive bar: extend bar count
+        PAT_BAR_COUNT[gfx_cur_pattern] = gfx_bi + 1;
+        PAT_DISPLAY_BAR[gfx_cur_pattern] = gfx_bi;
+      );
+      bar_follow_locked = 1;
+    );
+  );
+
+  // Right-click: shrink bar count to this number
+  mouse_cap & 2 && !(last_mouse_cap & 2) ? (
+    mouse_x >= gfx_bbx && mouse_x < gfx_bbx + gfx_bar_btn_w &&
+    mouse_y >= gfx_bar_btn_y && mouse_y < gfx_bar_btn_y + gfx_bar_btn_h ? (
+      PAT_BAR_COUNT[gfx_cur_pattern] = gfx_bi + 1;
+      PAT_DISPLAY_BAR[gfx_cur_pattern] = min(PAT_DISPLAY_BAR[gfx_cur_pattern], gfx_bi);
+    );
+  );
+
+  gfx_bi += 1;
+);
+
+// -- Pattern select buttons (1-8, right-aligned in header row) --
+gfx_pat_btn_w = 26;
+gfx_pat_btn_h = 16;
+gfx_pat_btn_gap = 4;
+gfx_pat_row_w = NUM_PATTERNS * gfx_pat_btn_w + (NUM_PATTERNS - 1) * gfx_pat_btn_gap;
+gfx_pat_x0 = gfx_w - margin - gfx_pat_row_w;
+gfx_pat_y = seq_grid_y - 18;
+gfx_pb = 0;
+loop(NUM_PATTERNS,
+  gfx_pbx = gfx_pat_x0 + gfx_pb * (gfx_pat_btn_w + gfx_pat_btn_gap);
+  gfx_pb == slider3 ? (
+    // Active pattern — highlighted
+    gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  ) : (
+    // Inactive pattern — dim
+    gfx_r = 0.18; gfx_g = 0.18; gfx_b = 0.22;
+  );
+  gfx_rect(gfx_pbx, gfx_pat_y, gfx_pat_btn_w, gfx_pat_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = gfx_pbx + 9; gfx_y = gfx_pat_y + 2;
+  gfx_drawnumber(gfx_pb + 1, 0);
+  // Click handler
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_pbx && mouse_x < gfx_pbx + gfx_pat_btn_w &&
+    mouse_y >= gfx_pat_y && mouse_y < gfx_pat_y + gfx_pat_btn_h ? (
+      slider3 = gfx_pb;
+      slider_automate(slider3);
+    );
+  );
+  gfx_pb += 1;
+);
+
+gfx_cur_pattern = slider3;
+
+gfx_seq_subdiv = PAD_SEQ_SUBDIV[ui_selected_pad];
+gfx_seq_subdiv < 2 ? gfx_seq_subdiv = 1;
+
+s = 0;
+loop(NUM_STEPS,
+  sx = seq_grid_x + s * (step_w + margin / 4);
+  sy = seq_grid_y;
+  gfx_global_step = s + display_step_offset;
+
+  gfx_seq_subdiv == 1 ? (
+    // ---- Normal step (no subdivision) ----
+    gfx_vel = get_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad);
+
+    s < steps_per_bar ? (
+      gfx_vel > 0 ? (
+        gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+        brightness = gfx_vel / 127;
+        gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
+      ) : (
+        gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+      );
+    ) : (
+      gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+    );
+    gfx_rect(sx, sy, step_w, step_h);
+
+    // Click to toggle
+    !vel_edit_open && mouse_cap & 1 && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        !last_mouse_cap ? toggle_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad);
+      );
+    );
+
+    // Right-click: open velocity editor
+    mouse_cap & 2 && !(last_mouse_cap & 2) && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        vel_edit_open = 1;
+        vel_edit_step = gfx_global_step;
+        vel_edit_sub = -1;
+        vel_edit_pattern = gfx_cur_pattern;
+        vel_edit_pad = ui_selected_pad;
+        vel_edit_x = min(mouse_x, gfx_w - 55);
+        vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+        vel_edit_dragging = 0;
+      );
+    );
+
+  ) : gfx_seq_subdiv == 2 ? (
+    // ---- Two sub-steps (left/right halves) ----
+    gfx_sub_w = ((step_w - 1) / 2) | 0;
+    gfx_si = 0;
+    loop(2,
+      gfx_sub_x = sx + gfx_si * (gfx_sub_w + 1);
+      gfx_vel = get_sub_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad, gfx_si);
+
+      s < steps_per_bar ? (
+        gfx_vel > 0 ? (
+          gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+          brightness = gfx_vel / 127;
+          gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
+        ) : (
+          gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+        );
+      ) : (
+        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+      );
+      gfx_rect(gfx_sub_x, sy, gfx_sub_w, step_h);
+
+      gfx_si += 1;
+    );
+
+    // Click to toggle sub-step
+    !vel_edit_open && mouse_cap & 1 && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        !last_mouse_cap ? (
+          gfx_sub_w = ((step_w - 1) / 2) | 0;
+          gfx_click_sub = mouse_x < sx + gfx_sub_w + 1 ? 0 : 1;
+          toggle_sub_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad, gfx_click_sub);
+        );
+      );
+    );
+
+    // Right-click: open velocity editor for sub-step
+    mouse_cap & 2 && !(last_mouse_cap & 2) && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        vel_edit_open = 1;
+        vel_edit_step = gfx_global_step;
+        gfx_sub_w = ((step_w - 1) / 2) | 0;
+        vel_edit_sub = mouse_x < sx + gfx_sub_w + 1 ? 0 : 1;
+        vel_edit_pattern = gfx_cur_pattern;
+        vel_edit_pad = ui_selected_pad;
+        vel_edit_x = min(mouse_x, gfx_w - 55);
+        vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+        vel_edit_dragging = 0;
+      );
+    );
+
+  ) : (
+    // ---- Four sub-steps (2x2 grid) ----
+    gfx_sub_w = ((step_w - 1) / 2) | 0;
+    gfx_sub_h = ((step_h - 1) / 2) | 0;
+    gfx_si = 0;
+    loop(4,
+      gfx_qrow = (gfx_si / 2) | 0;
+      gfx_qcol = gfx_si % 2;
+      gfx_sub_x = sx + gfx_qcol * (gfx_sub_w + 1);
+      gfx_sub_y = sy + gfx_qrow * (gfx_sub_h + 1);
+      gfx_vel = get_sub_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad, gfx_si);
+
+      s < steps_per_bar ? (
+        gfx_vel > 0 ? (
+          gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+          brightness = gfx_vel / 127;
+          gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
+        ) : (
+          gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+        );
+      ) : (
+        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+      );
+      gfx_rect(gfx_sub_x, gfx_sub_y, gfx_sub_w, gfx_sub_h);
+
+      gfx_si += 1;
+    );
+
+    // Click to toggle sub-step
+    !vel_edit_open && mouse_cap & 1 && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        !last_mouse_cap ? (
+          gfx_sub_w = ((step_w - 1) / 2) | 0;
+          gfx_sub_h = ((step_h - 1) / 2) | 0;
+          gfx_qcol = mouse_x < sx + gfx_sub_w + 1 ? 0 : 1;
+          gfx_qrow = mouse_y < sy + gfx_sub_h + 1 ? 0 : 1;
+          gfx_click_sub = gfx_qrow * 2 + gfx_qcol;
+          toggle_sub_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad, gfx_click_sub);
+        );
+      );
+    );
+
+    // Right-click: open velocity editor for sub-step
+    mouse_cap & 2 && !(last_mouse_cap & 2) && s < steps_per_bar ? (
+      mouse_x >= sx && mouse_x < sx + step_w &&
+      mouse_y >= sy && mouse_y < sy + step_h ? (
+        vel_edit_open = 1;
+        vel_edit_step = gfx_global_step;
+        gfx_sub_w = ((step_w - 1) / 2) | 0;
+        gfx_sub_h = ((step_h - 1) / 2) | 0;
+        gfx_qcol = mouse_x < sx + gfx_sub_w + 1 ? 0 : 1;
+        gfx_qrow = mouse_y < sy + gfx_sub_h + 1 ? 0 : 1;
+        vel_edit_sub = gfx_qrow * 2 + gfx_qcol;
+        vel_edit_pattern = gfx_cur_pattern;
+        vel_edit_pad = ui_selected_pad;
+        vel_edit_x = min(mouse_x, gfx_w - 55);
+        vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+        vel_edit_dragging = 0;
+      );
+    );
+  );
+
+  // Timeline position — white border around current step (only if playhead is in this bar)
+  gfx_global_step == seq_step ? (
+    gfx_r = COL_HEAD_R; gfx_g = COL_HEAD_G; gfx_b = COL_HEAD_B;
+    gfx_rect(sx, sy, step_w, 2);
+    gfx_rect(sx, sy + step_h - 2, step_w, 2);
+    gfx_rect(sx, sy, 2, step_h);
+    gfx_rect(sx + step_w - 2, sy, 2, step_h);
+  );
+
+  // Parameter lock indicator (small cyan dot on locked steps)
+  s < steps_per_bar ? (
+    get_plock_lp(gfx_cur_pattern, gfx_global_step, ui_selected_pad) >= 0 ||
+    get_plock_hp(gfx_cur_pattern, gfx_global_step, ui_selected_pad) >= 0 ? (
+      gfx_r = 0.2; gfx_g = 0.8; gfx_b = 1.0;
+      gfx_rect(sx + step_w / 2 - 2, sy + step_h - 5, 4, 3);
+    );
+  );
+
+  // Beat markers (every 4 steps)
+  s % 4 == 0 ? (
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_rect(sx, sy + step_h + 2, step_w, 2);
+  );
+
+  // REC overlay on current step
+  gfx_global_step == seq_step && slider6 == 1 && transport_playing && seq_mode ? (
+    gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1; gfx_a = 0.4;
+    gfx_rect(sx + 2, sy + 2, step_w - 4, step_h - 4);
+    gfx_a = 1.0;
+  );
+
+  s += 1;
+);
+
+// ============================================
+// FILL BUTTONS + REC
+// ============================================
+gfx_fill_btn_y = seq_grid_y + step_h + 10;
+gfx_fill_btn_h = 22;
+gfx_fill_btn_w = 50;
+gfx_fill_btn_gap = 8;
+
+// -- CLR button --
+gfx_fbx = margin;
+gfx_r = 0.3; gfx_g = 0.15; gfx_b = 0.15;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_fill_btn_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 12; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("CLR");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    gfx_fs = 0;
+    loop(NUM_STEPS,
+      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 1, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 2, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 3, 0);
+      gfx_fs += 1;
+    );
+  );
+);
+
+// -- 1 button (quarter notes: 0, 4, 8, 12) --
+gfx_fbx += gfx_fill_btn_w + gfx_fill_btn_gap;
+gfx_r = 0.15; gfx_g = 0.20; gfx_b = 0.25;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_fill_btn_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 20; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("1");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    gfx_fs = 0;
+    loop(NUM_STEPS,
+      gfx_fs % 4 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100)
+                       : set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
+      gfx_fs += 1;
+    );
+  );
+);
+
+// -- 1/2 button (8th notes: every 2nd step) --
+gfx_fbx += gfx_fill_btn_w + gfx_fill_btn_gap;
+gfx_r = 0.15; gfx_g = 0.20; gfx_b = 0.25;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_fill_btn_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 14; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("1/2");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    gfx_fs = 0;
+    loop(NUM_STEPS,
+      gfx_fs % 2 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100)
+                       : set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
+      gfx_fs += 1;
+    );
+  );
+);
+
+// -- 1/4 button (16th notes: all steps) --
+gfx_fbx += gfx_fill_btn_w + gfx_fill_btn_gap;
+gfx_r = 0.15; gfx_g = 0.20; gfx_b = 0.25;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_fill_btn_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 14; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("1/4");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    gfx_fs = 0;
+    loop(NUM_STEPS,
+      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100);
+      gfx_fs += 1;
+    );
+  );
+);
+
+// -- Nudge < button (shift pattern left, wraps) --
+gfx_fbx += gfx_fill_btn_w + gfx_fill_btn_gap + 10;
+gfx_nudge_w = 30;
+gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_nudge_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 10; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("<");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_nudge_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    // Save step 0 of current bar, shift everything left within bar, wrap to end
+    gfx_nudge_save = get_seq_step(gfx_cur_pattern, display_step_offset, ui_selected_pad);
+    gfx_fs = 0;
+    loop(NUM_STEPS - 1,
+      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad,
+        get_seq_step(gfx_cur_pattern, gfx_fs + 1 + display_step_offset, ui_selected_pad));
+      gfx_fs += 1;
+    );
+    set_seq_step(gfx_cur_pattern, NUM_STEPS - 1 + display_step_offset, ui_selected_pad, gfx_nudge_save);
+  );
+);
+
+// -- Nudge > button (shift pattern right, wraps) --
+gfx_fbx += gfx_nudge_w + 4;
+gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_nudge_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 10; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr(">");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_nudge_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    // Save last step of current bar, shift everything right within bar, wrap to step 0
+    gfx_nudge_save = get_seq_step(gfx_cur_pattern, NUM_STEPS - 1 + display_step_offset, ui_selected_pad);
+    gfx_fs = NUM_STEPS - 1;
+    loop(NUM_STEPS - 1,
+      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad,
+        get_seq_step(gfx_cur_pattern, gfx_fs - 1 + display_step_offset, ui_selected_pad));
+      gfx_fs -= 1;
+    );
+    set_seq_step(gfx_cur_pattern, display_step_offset, ui_selected_pad, gfx_nudge_save);
+  );
+);
+
+// -- CLR PAT button (clear entire pattern: all pads, all bars, all sub-steps, all plocks) --
+gfx_fbx += gfx_nudge_w + 4 + 14;
+gfx_clrpat_w = 58;
+gfx_r = 0.35; gfx_g = 0.10; gfx_b = 0.10;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_clrpat_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 4; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("CLR PAT");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_clrpat_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    // Clear all data for current pattern across all pads and all steps
+    cp = gfx_cur_pattern;
+    gfx_cp_p = 0;
+    loop(NUM_PADS,
+      gfx_cp_s = 0;
+      loop(MAX_STEPS,
+        set_seq_step(cp, gfx_cp_s, gfx_cp_p, 0);
+        set_sub_seq_step(cp, gfx_cp_s, gfx_cp_p, 1, 0);
+        set_sub_seq_step(cp, gfx_cp_s, gfx_cp_p, 2, 0);
+        set_sub_seq_step(cp, gfx_cp_s, gfx_cp_p, 3, 0);
+        set_plock_lp(cp, gfx_cp_s, gfx_cp_p, -1);
+        set_plock_hp(cp, gfx_cp_s, gfx_cp_p, -1);
+        gfx_cp_s += 1;
+      );
+      gfx_cp_p += 1;
+    );
+    PAT_BAR_COUNT[cp] = 1;
+    PAT_DISPLAY_BAR[cp] = 0;
+  );
+);
+
+// -- DUP button (duplicate current pattern to next empty slot) --
+gfx_fbx += gfx_clrpat_w + 4;
+gfx_dup_w = 42;
+gfx_r = 0.15; gfx_g = 0.22; gfx_b = 0.30;
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_dup_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 6; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("DUP");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_dup_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    // Find next blank pattern slot
+    src_pat = gfx_cur_pattern;
+    dst_pat = -1;
+    gfx_di = 1;
+    loop(NUM_PATTERNS - 1,
+      check_pat = (src_pat + gfx_di) % NUM_PATTERNS;
+      // Check if pattern is empty (scan first 64 steps of pad 0)
+      dst_pat < 0 ? (
+        pat_empty = 1;
+        gfx_dp = 0;
+        loop(NUM_PADS,
+          gfx_ds = 0;
+          loop(MAX_STEPS,
+            get_seq_step(check_pat, gfx_ds, gfx_dp) > 0 ? pat_empty = 0;
+            gfx_ds += 1;
+          );
+          gfx_dp += 1;
+        );
+        pat_empty ? dst_pat = check_pat;
+      );
+      gfx_di += 1;
+    );
+
+    dst_pat >= 0 ? (
+      // Copy all pattern data from src to dst
+      gfx_dp = 0;
+      loop(NUM_PADS,
+        gfx_ds = 0;
+        loop(MAX_STEPS,
+          set_seq_step(dst_pat, gfx_ds, gfx_dp, get_seq_step(src_pat, gfx_ds, gfx_dp));
+          set_sub_seq_step(dst_pat, gfx_ds, gfx_dp, 1, get_sub_seq_step(src_pat, gfx_ds, gfx_dp, 1));
+          set_sub_seq_step(dst_pat, gfx_ds, gfx_dp, 2, get_sub_seq_step(src_pat, gfx_ds, gfx_dp, 2));
+          set_sub_seq_step(dst_pat, gfx_ds, gfx_dp, 3, get_sub_seq_step(src_pat, gfx_ds, gfx_dp, 3));
+          set_plock_lp(dst_pat, gfx_ds, gfx_dp, get_plock_lp(src_pat, gfx_ds, gfx_dp));
+          set_plock_hp(dst_pat, gfx_ds, gfx_dp, get_plock_hp(src_pat, gfx_ds, gfx_dp));
+          gfx_ds += 1;
+        );
+        gfx_dp += 1;
+      );
+      PAT_BAR_COUNT[dst_pat] = PAT_BAR_COUNT[src_pat];
+      // Switch to the new pattern
+      slider3 = dst_pat;
+      slider_automate(slider3);
+      PAT_DISPLAY_BAR[dst_pat] = 0;
+    );
+  );
+);
+
+// -- REC button (right-aligned) --
+gfx_rec_w = 50;
+gfx_rec_x = gfx_w - margin - gfx_rec_w;
+slider6 == 1 ? (
+  gfx_rec_blink = (gfx_rec_blink + 1) % 30;
+  gfx_rec_blink < 20 ? (
+    gfx_r = 0.9; gfx_g = 0.1; gfx_b = 0.1;
+  ) : (
+    gfx_r = 0.5; gfx_g = 0.05; gfx_b = 0.05;
+  );
+) : (
+  gfx_r = 0.2; gfx_g = 0.08; gfx_b = 0.08;
+  gfx_rec_blink = 0;
+);
+gfx_rect(gfx_rec_x, gfx_fill_btn_y, gfx_rec_w, gfx_fill_btn_h);
+gfx_r = 1.0; gfx_g = 1.0; gfx_b = 1.0;
+gfx_x = gfx_rec_x + 10; gfx_y = gfx_fill_btn_y + 4;
+gfx_drawstr("REC");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_rec_x && mouse_x < gfx_rec_x + gfx_rec_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    slider6 = 1 - slider6;
+    slider_automate(slider6);
+  );
+);
+
+// ============================================
+// SECTION 3: SELECTED PAD CONTROLS (Vol / Pan / Pitch)
+// ============================================
+ctrl_h = 20;
+ctrl_bar_w = gfx_w - margin * 2 - 120;
+ctrl_x = margin + 120;
+
+// Waveform display area sits between header and controls
+wf_y = mixer_y;
+wf_h = 50;
+
+// Shift all mixer controls below waveform
+ctrl_y = mixer_y + wf_h + 10;
+sp = ui_selected_pad;
+
+// Header: pad number
+gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+gfx_x = margin; gfx_y = mixer_y - 18;
+gfx_drawstr("PAD ");
+gfx_drawnumber(sp + 1, 0);
+// Show if sample is loaded
+PAD_NCH[sp] > 0 ? (
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_drawstr("  loaded");
+) : (
+  gfx_r = 0.5; gfx_g = 0.2; gfx_b = 0.2;
+  gfx_drawstr("  no sample");
+);
+
+// -- CHOP button (cycles subdivision: 1 → /2 → /4 → 1) --
+gfx_chop_w = 55;
+gfx_chop_h = 16;
+gfx_chop_x = margin + 140;
+gfx_chop_y = mixer_y - 18;
+gfx_cur_subdiv = PAD_SUBDIV[sp];
+gfx_cur_subdiv < 2 ? gfx_cur_subdiv = 1;
+
+// Button background: highlighted when active
+gfx_cur_subdiv > 1 ? (
+  gfx_r = COL_STEP_R * 0.5; gfx_g = COL_STEP_G * 0.5; gfx_b = COL_STEP_B * 0.5;
+) : (
+  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+);
+gfx_rect(gfx_chop_x, gfx_chop_y, gfx_chop_w, gfx_chop_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_chop_x + 4; gfx_y = gfx_chop_y + 2;
+gfx_cur_subdiv == 1 ? (
+  gfx_drawstr("CHOP");
+) : gfx_cur_subdiv == 2 ? (
+  gfx_drawstr("CHOP/2");
+) : (
+  gfx_drawstr("CHOP/4");
+);
+
+// Click to cycle: 1 → 2 → 4 → 1
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_chop_x && mouse_x < gfx_chop_x + gfx_chop_w &&
+  mouse_y >= gfx_chop_y && mouse_y < gfx_chop_y + gfx_chop_h ? (
+    gfx_cur_subdiv == 1 ? (
+      PAD_SUBDIV[sp] = 2;
+    ) : gfx_cur_subdiv == 2 ? (
+      PAD_SUBDIV[sp] = 4;
+    ) : (
+      PAD_SUBDIV[sp] = 1;
+    );
+    PAD_SLICE[sp] = 0;
+    PAD_CHOP_OFFSET[sp] = 0;
+    PAD_SLICE_END[sp] = PAD_LENGTH[sp];
+  );
+);
+
+// -- SAMPLE button (triggers background sampling service) --
+gfx_sample_w = 62;
+gfx_sample_h = 16;
+gfx_sample_x = gfx_chop_x + gfx_chop_w + 8;
+gfx_sample_y = mixer_y - 18;
+
+// Check service heartbeat (gmem[6] increments if service is running)
+cur_service_hb = gmem[6];
+cur_service_hb != prev_service_hb ? (
+  service_hb_stale = 0;
+  service_alive = 1;
+) : (
+  service_hb_stale += 1;
+  service_hb_stale > 60 ? service_alive = 0;
+);
+prev_service_hb = cur_service_hb;
+
+// Update button state from gmem[5] (service status)
+gmem[5] == 2 && sample_btn_state == 1 ? (
+  sample_btn_state = 2;
+  sample_btn_flash = 30;
+  gmem[5] = 0;
+);
+gmem[5] == 3 && sample_btn_state == 1 ? (
+  sample_btn_state = 3;
+  sample_btn_flash = 30;
+  gmem[5] = 0;
+);
+sample_btn_flash > 0 ? (
+  sample_btn_flash -= 1;
+  sample_btn_flash == 0 ? sample_btn_state = 0;
+);
+
+// Timeout: if waiting >10 seconds, assume service is dead
+sample_btn_state == 1 ? (
+  sample_btn_timeout += 1;
+  sample_btn_timeout > 300 ? (
+    sample_btn_state = 3;
+    sample_btn_flash = 30;
+    sample_btn_timeout = 0;
+    gmem[3] = 0;
+  );
+) : (
+  sample_btn_timeout = 0;
+);
+
+// Draw button background
+sample_btn_state == 1 ? (
+  // Sampling in progress — blinking orange
+  gfx_sample_blink = (gfx_sample_blink + 1) % 20;
+  gfx_sample_blink < 14 ? (
+    gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+  ) : (
+    gfx_r = COL_HIT_R * 0.4; gfx_g = COL_HIT_G * 0.4; gfx_b = COL_HIT_B * 0.4;
+  );
+) : sample_btn_state == 2 ? (
+  // Done — green flash
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+) : sample_btn_state == 3 ? (
+  // Error — red flash
+  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+) : service_alive ? (
+  // Idle, service running
+  gfx_r = 0.12; gfx_g = 0.22; gfx_b = 0.28;
+) : (
+  // Idle, no service
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+);
+gfx_rect(gfx_sample_x, gfx_sample_y, gfx_sample_w, gfx_sample_h);
+
+// Button text
+!service_alive && sample_btn_state == 0 ? (
+  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.45;
+) : (
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+);
+gfx_x = gfx_sample_x + 4; gfx_y = gfx_sample_y + 2;
+sample_btn_state == 1 ? gfx_drawstr("WAIT..") :
+sample_btn_state == 2 ? gfx_drawstr("LOADED!") :
+sample_btn_state == 3 ? gfx_drawstr("ERROR!") :
+gfx_drawstr("SAMPLE");
+
+// Click: fire sample request
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_sample_x && mouse_x < gfx_sample_x + gfx_sample_w &&
+  mouse_y >= gfx_sample_y && mouse_y < gfx_sample_y + gfx_sample_h ? (
+    sample_btn_state == 0 ? (
+      gmem[4] = ui_selected_pad;
+      gmem[3] = 1;
+      sample_btn_state = 1;
+      gfx_sample_blink = 0;
+      sample_btn_timeout = 0;
+    );
+  );
+);
+
+// -- gmem: ReaScript signals pool rescan (e.g. after sampling from arrange) --
+// gmem[0] = 1: rescan pool, gmem[1] = new sample index, gmem[2] = 1: auto-load
+gmem[0] > 0 ? (
+  scan_pool();
+  gmem[2] > 0 && gmem[1] >= 0 && gmem[1] < pool_count ? (
+    pool_load_idx = gmem[1];
+    pool_load_pad = ui_selected_pad;
+  );
+  gmem[0] = 0;
+  gmem[1] = 0;
+  gmem[2] = 0;
+);
+
+// -- Helper: find next/prev pool sample respecting folder filter --
+function pool_nav_filtered(from_idx, direction) local(idx, attempts) (
+  idx = from_idx;
+  attempts = 0;
+  while(attempts < pool_count) (
+    idx += direction;
+    idx >= pool_count ? idx = 0;
+    idx < 0 ? idx = pool_count - 1;
+    pool_filter_folder == 0 || POOL_FOLDER_IDX[idx] == pool_filter_folder ? (
+      attempts = pool_count;  // found — break
+    ) : (
+      attempts += 1;
+    );
+  );
+  idx;
+);
+
+// -- POOL navigation: [FOLDER] < POOL > --
+pool_count == 0 ? (
+  // Show help text when pool is empty
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_x = gfx_w - margin - 280; gfx_y = mixer_y - 18 + 2;
+  gfx_drawstr("Add .wav to Effects/DrumBox16/pool/ + run Rescan");
+);
+pool_count > 0 ? (
+  gfx_pool_nav_w = 20;
+  gfx_pool_btn_w = 60;
+  gfx_pool_btn_h = 16;
+  gfx_pool_btn_y = mixer_y - 18;
+  gfx_pool_gap = 3;
+  gfx_fold_btn_w = 70;
+  gfx_pool_total = gfx_pool_nav_w + gfx_pool_gap + gfx_pool_btn_w + gfx_pool_gap + gfx_pool_nav_w;
+  pool_folder_count > 0 ? (
+    gfx_pool_total += gfx_fold_btn_w + gfx_pool_gap;
+  );
+  gfx_pool_x0 = gfx_w - margin - gfx_pool_total;
+
+  // -- Folder filter dropdown (only if subfolders exist) --
+  pool_folder_count > 0 ? (
+    gfx_fold_btn_x = gfx_pool_x0;
+    pool_filter_folder > 0 ? (
+      gfx_r = 0.20; gfx_g = 0.30; gfx_b = 0.40;
+    ) : (
+      gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.24;
+    );
+    gfx_rect(gfx_fold_btn_x, gfx_pool_btn_y, gfx_fold_btn_w, gfx_pool_btn_h);
+    gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+    gfx_x = gfx_fold_btn_x + 4; gfx_y = gfx_pool_btn_y + 2;
+    pool_filter_folder == 0 ? (
+      gfx_drawstr("ALL");
+    ) : (
+      gfx_drawstr(700 + pool_filter_folder);
+    );
+
+    // Click to show folder menu
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= gfx_fold_btn_x && mouse_x < gfx_fold_btn_x + gfx_fold_btn_w &&
+      mouse_y >= gfx_pool_btn_y && mouse_y < gfx_pool_btn_y + gfx_pool_btn_h ? (
+        strcpy(#fold_menu, "ALL");
+        gfx_fi = 1;
+        loop(pool_folder_count,
+          strcat(#fold_menu, "|");
+          strcat(#fold_menu, 700 + gfx_fi);
+          gfx_fi += 1;
+        );
+        gfx_x = gfx_fold_btn_x;
+        gfx_y = gfx_pool_btn_y + gfx_pool_btn_h;
+        fold_choice = gfx_showmenu(#fold_menu);
+        fold_choice > 0 ? (
+          pool_filter_folder = fold_choice - 1;
+        );
+      );
+    );
+
+    gfx_pool_prev_x = gfx_fold_btn_x + gfx_fold_btn_w + gfx_pool_gap;
+  ) : (
+    gfx_pool_prev_x = gfx_pool_x0;
+  );
+  gfx_pool_btn_x = gfx_pool_prev_x + gfx_pool_nav_w + gfx_pool_gap;
+  gfx_pool_next_x = gfx_pool_btn_x + gfx_pool_btn_w + gfx_pool_gap;
+
+  // -- < (prev) button --
+  gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.28;
+  gfx_rect(gfx_pool_prev_x, gfx_pool_btn_y, gfx_pool_nav_w, gfx_pool_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = gfx_pool_prev_x + 6; gfx_y = gfx_pool_btn_y + 2;
+  gfx_drawstr("<");
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_pool_prev_x && mouse_x < gfx_pool_prev_x + gfx_pool_nav_w &&
+    mouse_y >= gfx_pool_btn_y && mouse_y < gfx_pool_btn_y + gfx_pool_btn_h ? (
+      cur_pool = PAD_POOL_IDX[ui_selected_pad];
+      cur_pool >= 0 ? (
+        pool_load_idx = pool_nav_filtered(cur_pool, -1);
+      ) : (
+        pool_load_idx = pool_nav_filtered(0, -1);
+      );
+      pool_load_pad = ui_selected_pad;
+    );
+  );
+
+  // -- POOL button (menu) --
+  gfx_r = 0.15; gfx_g = 0.20; gfx_b = 0.30;
+  gfx_rect(gfx_pool_btn_x, gfx_pool_btn_y, gfx_pool_btn_w, gfx_pool_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = gfx_pool_btn_x + 8; gfx_y = gfx_pool_btn_y + 2;
+  gfx_drawstr("POOL");
+  // Hover: show pool folder path
+  mouse_x >= gfx_pool_btn_x && mouse_x < gfx_pool_btn_x + gfx_pool_btn_w &&
+  mouse_y >= gfx_pool_btn_y && mouse_y < gfx_pool_btn_y + gfx_pool_btn_h &&
+  !(mouse_cap & 1) ? (
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+    gfx_x = margin; gfx_y = gfx_pool_btn_y + 2;
+    gfx_drawstr("pool/ folder — use subfolders to organize, run Rescan after adding");
+  );
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_pool_btn_x && mouse_x < gfx_pool_btn_x + gfx_pool_btn_w &&
+    mouse_y >= gfx_pool_btn_y && mouse_y < gfx_pool_btn_y + gfx_pool_btn_h ? (
+      // Build hierarchical menu from pool manifest (subfolders become submenus)
+      #pool_menu = "";
+      strcpy(#pm_prev_dir, "");
+      pm_menu_n = 0;
+      pm_in_sub = 0;
+      pm_need_sep = 0;
+      memset(MENU_MAP, -1, 500);
+
+      gfx_pm = 0;
+      loop(pool_count,
+        strcpy(#pm_entry, 100 + gfx_pm);
+
+        // Find last '/' to split folder/filename
+        pm_slash = -1;
+        pm_ci = 0;
+        while(pm_ci < strlen(#pm_entry)) (
+          str_getchar(#pm_entry, pm_ci) == $'/' ? pm_slash = pm_ci;
+          pm_ci += 1;
+        );
+
+        // Extract folder and display name
+        pm_slash >= 0 ? (
+          strcpy(#pm_dir, #pm_entry);
+          str_setlen(#pm_dir, pm_slash);
+          // Copy filename after last slash
+          strcpy(#pm_name, "");
+          pm_ci = pm_slash + 1;
+          pm_ni = 0;
+          while(pm_ci < strlen(#pm_entry)) (
+            str_setchar(#pm_name, pm_ni, str_getchar(#pm_entry, pm_ci));
+            pm_ci += 1;
+            pm_ni += 1;
+          );
+          str_setlen(#pm_name, pm_ni);
+        ) : (
+          strcpy(#pm_dir, "");
+          strcpy(#pm_name, #pm_entry);
+        );
+
+        // Strip .wav extension for display
+        pm_ext = strlen(#pm_name) - 4;
+        pm_ext > 0 ? str_setlen(#pm_name, pm_ext);
+
+        // Check if next entry is in the same folder
+        pm_next_same = 0;
+        gfx_pm < pool_count - 1 ? (
+          strcpy(#pm_next, 100 + gfx_pm + 1);
+          pm_ns = -1;
+          pm_ni2 = 0;
+          while(pm_ni2 < strlen(#pm_next)) (
+            str_getchar(#pm_next, pm_ni2) == $'/' ? pm_ns = pm_ni2;
+            pm_ni2 += 1;
+          );
+          pm_ns >= 0 ? (
+            strcpy(#pm_next_dir, #pm_next);
+            str_setlen(#pm_next_dir, pm_ns);
+            strcmp(#pm_dir, #pm_next_dir) == 0 ? pm_next_same = 1;
+          ) : (
+            strlen(#pm_dir) == 0 ? pm_next_same = 1;
+          );
+        );
+
+        // Folder changed? Open/close submenus
+        strcmp(#pm_dir, #pm_prev_dir) != 0 ? (
+          strlen(#pm_dir) > 0 ? (
+            // Open new submenu header
+            pm_need_sep ? strcat(#pool_menu, "|");
+            strcat(#pool_menu, ">");
+            strcat(#pool_menu, #pm_dir);
+            pm_menu_n += 1;
+            pm_in_sub = 1;
+            pm_need_sep = 1;
+          ) : (
+            pm_in_sub = 0;
+          );
+        );
+
+        // Separator before this item
+        pm_need_sep ? strcat(#pool_menu, "|");
+
+        // Close submenu marker on last item in folder
+        pm_in_sub && !pm_next_same ? strcat(#pool_menu, "<");
+
+        strcat(#pool_menu, #pm_name);
+        MENU_MAP[pm_menu_n] = gfx_pm;
+        pm_menu_n += 1;
+        pm_need_sep = 1;
+
+        strcpy(#pm_prev_dir, #pm_dir);
+        gfx_pm += 1;
+      );
+
+      gfx_x = mouse_x;
+      gfx_y = mouse_y;
+      gfx_pool_choice = gfx_showmenu(#pool_menu);
+      gfx_pool_choice > 0 ? (
+        pm_mapped = MENU_MAP[gfx_pool_choice - 1];
+        pm_mapped >= 0 ? (
+          pool_load_idx = pm_mapped;
+          pool_load_pad = ui_selected_pad;
+        );
+      );
+    );
+  );
+
+  // -- > (next) button --
+  gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.28;
+  gfx_rect(gfx_pool_next_x, gfx_pool_btn_y, gfx_pool_nav_w, gfx_pool_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = gfx_pool_next_x + 6; gfx_y = gfx_pool_btn_y + 2;
+  gfx_drawstr(">");
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_pool_next_x && mouse_x < gfx_pool_next_x + gfx_pool_nav_w &&
+    mouse_y >= gfx_pool_btn_y && mouse_y < gfx_pool_btn_y + gfx_pool_btn_h ? (
+      cur_pool = PAD_POOL_IDX[ui_selected_pad];
+      cur_pool >= 0 ? (
+        pool_load_idx = pool_nav_filtered(cur_pool, 1);
+      ) : (
+        pool_load_idx = pool_nav_filtered(0, 1);
+      );
+      pool_load_pad = ui_selected_pad;
+    );
+  );
+);
+
+// ============================================
+// WAVEFORM DISPLAY
+// ============================================
+// Rebuild peak cache when pad changes or sample reloads
+wf_needs_rebuild = 0;
+sp != wf_cached_pad ? wf_needs_rebuild = 1;
+PAD_LENGTH[sp] != wf_cached_len ? wf_needs_rebuild = 1;
+
+wf_needs_rebuild ? (
+  wf_cached_pad = sp;
+  wf_cached_len = PAD_LENGTH[sp];
+
+  wf_draw_w = gfx_w - margin * 2;
+  wf_num_bins = min(wf_draw_w, 100);
+  WF_NUM_BINS = wf_num_bins;
+
+  PAD_LENGTH[sp] > 0 && PAD_NCH[sp] > 0 ? (
+    wf_buf_off = SAMPLE_BUF + sp * PAD_BUF_SIZE;
+    wf_nch = PAD_NCH[sp];
+    wf_fpb = PAD_LENGTH[sp] / wf_num_bins;
+
+    wf_bi = 0;
+    loop(wf_num_bins,
+      wf_bin_start = (wf_bi * wf_fpb) | 0;
+      wf_bin_end = min(((wf_bi + 1) * wf_fpb) | 0, PAD_LENGTH[sp]);
+      wf_peak = 0;
+
+      // Sample every Nth frame for speed
+      wf_stride = max(1, ((wf_bin_end - wf_bin_start) / 200) | 0);
+      wf_fi = wf_bin_start;
+      while(wf_fi < wf_bin_end) (
+        wf_nch >= 2 ? (
+          wf_s = max(abs(wf_buf_off[wf_fi * 2]), abs(wf_buf_off[wf_fi * 2 + 1]));
+        ) : (
+          wf_s = abs(wf_buf_off[wf_fi]);
+        );
+        wf_s > wf_peak ? wf_peak = wf_s;
+        wf_fi += wf_stride;
+      );
+
+      WF_PEAKS[wf_bi] = wf_peak;
+      wf_bi += 1;
+    );
+  ) : (
+    wf_bi = 0;
+    loop(100, WF_PEAKS[wf_bi] = 0; wf_bi += 1);
+    WF_NUM_BINS = 0;
+  );
+);
+
+// Waveform background
+gfx_r = 0.04; gfx_g = 0.06; gfx_b = 0.04;
+gfx_rect(margin, wf_y, gfx_w - margin * 2, wf_h);
+
+// Center line
+gfx_r = 0.08; gfx_g = 0.12; gfx_b = 0.08;
+wf_center = wf_y + wf_h / 2;
+gfx_rect(margin, wf_center, gfx_w - margin * 2, 1);
+
+// Draw peaks (mirrored above/below center)
+WF_NUM_BINS > 0 ? (
+  wf_draw_w = gfx_w - margin * 2;
+  wf_bar_w = max(1, (wf_draw_w / WF_NUM_BINS) | 0);
+  wf_half_h = (wf_h / 2) - 2;
+
+  gfx_r = 0.20; gfx_g = 0.75; gfx_b = 0.40;
+
+  wf_bi = 0;
+  loop(WF_NUM_BINS,
+    wf_pk = min(WF_PEAKS[wf_bi], 1.0);
+    wf_bar_h = (wf_pk * wf_half_h) | 0;
+    wf_bar_h > 0 ? (
+      wf_bx = margin + (wf_bi * wf_draw_w / WF_NUM_BINS) | 0;
+      gfx_rect(wf_bx, wf_center - wf_bar_h, wf_bar_w, wf_bar_h * 2);
+    );
+    wf_bi += 1;
+  );
+
+  // Playback position indicator (white line)
+  PAD_PLAYING[sp] && PAD_LENGTH[sp] > 0 ? (
+    wf_play_frac = max(0, min(1, PAD_POS[sp] / PAD_LENGTH[sp]));
+    wf_play_x = margin + (wf_play_frac * wf_draw_w) | 0;
+    gfx_r = 1.0; gfx_g = 1.0; gfx_b = 1.0;
+    gfx_rect(wf_play_x, wf_y, 1, wf_h);
+  );
+
+  // CHOP slice boundaries (yellow lines, shifted by chop offset)
+  PAD_SUBDIV[sp] > 1 ? (
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.2;
+    wf_off_frac = PAD_LENGTH[sp] > 0 ? PAD_CHOP_OFFSET[sp] / PAD_LENGTH[sp] : 0;
+    wf_ci = 0;
+    loop(PAD_SUBDIV[sp] + 1,
+      wf_slice_frac = wf_ci / PAD_SUBDIV[sp] + wf_off_frac;
+      wf_slice_frac >= 0 && wf_slice_frac <= 1 ? (
+        wf_slice_x = margin + (wf_slice_frac * wf_draw_w) | 0;
+        wf_ci == 0 || wf_ci == PAD_SUBDIV[sp] ? (
+          gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.1;
+        ) : (
+          gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.2;
+        );
+        gfx_rect(wf_slice_x, wf_y, 1, wf_h);
+      );
+      wf_ci += 1;
+    );
+
+    // Nudge buttons: << >> at bottom-right of waveform
+    wf_ndg_w = 24;
+    wf_ndg_h = 14;
+    wf_ndg_y = wf_y + wf_h - wf_ndg_h - 2;
+    wf_ndg_gap = 3;
+    wf_ndg_r_x = margin + wf_draw_w - wf_ndg_w - 2;
+    wf_ndg_l_x = wf_ndg_r_x - wf_ndg_w - wf_ndg_gap;
+
+    // Nudge amount: 1% of sample length per click
+    wf_ndg_amt = max(1, (PAD_LENGTH[sp] / 100) | 0);
+
+    // << button
+    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_rect(wf_ndg_l_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
+    gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
+    gfx_x = wf_ndg_l_x + 6; gfx_y = wf_ndg_y + 1;
+    gfx_drawstr("<<");
+
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= wf_ndg_l_x && mouse_x < wf_ndg_l_x + wf_ndg_w &&
+      mouse_y >= wf_ndg_y && mouse_y < wf_ndg_y + wf_ndg_h ? (
+        PAD_CHOP_OFFSET[sp] -= wf_ndg_amt;
+        // Clamp: don't let first slice start before 0
+        PAD_CHOP_OFFSET[sp] = max(-(PAD_LENGTH[sp] / PAD_SUBDIV[sp]) | 0, PAD_CHOP_OFFSET[sp]);
+      );
+    );
+
+    // >> button
+    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_rect(wf_ndg_r_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
+    gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
+    gfx_x = wf_ndg_r_x + 6; gfx_y = wf_ndg_y + 1;
+    gfx_drawstr(">>");
+
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= wf_ndg_r_x && mouse_x < wf_ndg_r_x + wf_ndg_w &&
+      mouse_y >= wf_ndg_y && mouse_y < wf_ndg_y + wf_ndg_h ? (
+        PAD_CHOP_OFFSET[sp] += wf_ndg_amt;
+        // Clamp: don't let last slice go past end
+        PAD_CHOP_OFFSET[sp] = min((PAD_LENGTH[sp] / PAD_SUBDIV[sp]) | 0, PAD_CHOP_OFFSET[sp]);
+      );
+    );
+  );
+);
+
+// Sampling instructions when no sample loaded
+PAD_LENGTH[sp] == 0 || PAD_NCH[sp] == 0 ? (
+  gfx_r = 0.35; gfx_g = 0.35; gfx_b = 0.4;
+  gfx_x = margin + 8; gfx_y = wf_y + 6;
+  gfx_drawstr("1. Bounce/edit audio on a track  2. Select item");
+  gfx_x = margin + 8; gfx_y = wf_y + 20;
+  gfx_drawstr("3. Click SAMPLE  4. Make beats");
+);
+
+// ---- Volume bar ----
+cur_vol = slider(10 + sp);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y + 2;
+gfx_drawstr("Vol  ");
+gfx_drawnumber(floor(cur_vol * 100 + 0.5), 0);
+gfx_drawstr("%");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w, ctrl_h);
+// Bar fill
+gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w * cur_vol, ctrl_h);
+
+// Drag to adjust volume
+mouse_cap & 1 && (drag_id == 1 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+    drag_id = 1;
+    new_vol = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider(10 + sp) = new_vol;
+  );
+);
+
+// ---- Pan bar ----
+ctrl_y2 = ctrl_y + ctrl_h + 6;
+cur_pan = slider(30 + sp);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y2 + 2;
+gfx_drawstr("Pan  ");
+cur_pan < -0.01 ? (
+  gfx_drawstr("L");
+  gfx_drawnumber(floor(abs(cur_pan) * 100 + 0.5), 0);
+) : cur_pan > 0.01 ? (
+  gfx_drawstr("R");
+  gfx_drawnumber(floor(cur_pan * 100 + 0.5), 0);
+) : (
+  gfx_drawstr("C");
+);
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y2, ctrl_bar_w, ctrl_h);
+// Center line
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y2, 2, ctrl_h);
+// Pan indicator
+pan_norm = (cur_pan + 1) / 2;  // 0 to 1
+gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+pan_px = ctrl_x + pan_norm * ctrl_bar_w;
+gfx_rect(pan_px - 4, ctrl_y2, 8, ctrl_h);
+
+// Drag to adjust pan
+mouse_cap & 1 && (drag_id == 2 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y2 && mouse_y < ctrl_y2 + ctrl_h ? (
+    drag_id = 2;
+    new_pan = max(-1, min(1, ((mouse_x - ctrl_x) / ctrl_bar_w) * 2 - 1));
+    slider(30 + sp) = new_pan;
+  );
+);
+
+// ---- Pitch bar ----
+ctrl_y3 = ctrl_y2 + ctrl_h + 6;
+cur_pitch = slider(50 + sp);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y3 + 2;
+gfx_drawstr("Pitch ");
+cur_pitch >= 0 ? gfx_drawstr("+");
+gfx_drawnumber(floor(cur_pitch + 0.5), 0);
+gfx_drawstr("st");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y3, ctrl_bar_w, ctrl_h);
+// Center line (0 semitones)
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y3, 2, ctrl_h);
+// Pitch indicator
+pitch_norm = (cur_pitch + 24) / 48;  // -24..+24 → 0..1
+gfx_r = 0.5; gfx_g = 0.6; gfx_b = 1.0;
+pitch_px = ctrl_x + max(0, min(1, pitch_norm)) * ctrl_bar_w;
+gfx_rect(pitch_px - 4, ctrl_y3, 8, ctrl_h);
+
+// Drag to adjust pitch
+mouse_cap & 1 && (drag_id == 3 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y3 && mouse_y < ctrl_y3 + ctrl_h ? (
+    drag_id = 3;
+    new_pitch = max(-24, min(24, ((mouse_x - ctrl_x) / ctrl_bar_w) * 48 - 24));
+    // Snap to semitones
+    new_pitch = floor(new_pitch + 0.5);
+    slider(50 + sp) = new_pitch;
+  );
+);
+
+// ---- LP Filter bar ----
+ctrl_ylp = ctrl_y3 + ctrl_h + 6;
+cur_lp = slider(80 + sp);
+lp_hz = 20 * pow(1000, cur_lp);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_ylp + 2;
+gfx_drawstr("LP   ");
+cur_lp >= 0.999 ? (
+  gfx_drawstr("OFF");
+) : (
+  lp_hz >= 1000 ? (
+    gfx_drawnumber(lp_hz / 1000, 1);
+    gfx_drawstr("k");
+  ) : (
+    gfx_drawnumber(lp_hz, 0);
+  );
+  gfx_drawstr("Hz");
+);
+
+// LP on/off toggle (right side of label area)
+gfx_lp_tog_x = margin + 95;
+gfx_lp_tog_w = 22;
+cur_lp < 0.999 ? (
+  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+) : (
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+);
+gfx_rect(gfx_lp_tog_x, ctrl_ylp, gfx_lp_tog_w, ctrl_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_lp_tog_x + 4; gfx_y = ctrl_ylp + 4;
+cur_lp < 0.999 ? gfx_drawstr("ON") : gfx_drawstr("--");
+// Click to toggle LP off (set to 1.0) or restore last value
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_lp_tog_x && mouse_x < gfx_lp_tog_x + gfx_lp_tog_w &&
+  mouse_y >= ctrl_ylp && mouse_y < ctrl_ylp + ctrl_h ? (
+    cur_lp < 0.999 ? (
+      lp_saved = cur_lp;
+      slider(80 + sp) = 1;
+    ) : (
+      lp_saved > 0 && lp_saved < 0.999 ? slider(80 + sp) = lp_saved : slider(80 + sp) = 0.5;
+    );
+  );
+);
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_ylp, ctrl_bar_w, ctrl_h);
+// Bar fill (cyan)
+cur_lp < 0.999 ? (
+  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+  gfx_rect(ctrl_x, ctrl_ylp, ctrl_bar_w * cur_lp, ctrl_h);
+);
+
+// Drag to adjust LP (+ record plock when REC is armed)
+mouse_cap & 1 && (drag_id == 4 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_ylp && mouse_y < ctrl_ylp + ctrl_h ? (
+    drag_id = 4;
+    new_lp = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider(80 + sp) = new_lp;
+    // Record parameter lock
+    slider6 == 1 && seq_mode && transport_playing ? (
+      set_plock_lp(slider3, seq_step, sp, new_lp);
+    );
+  );
+);
+
+// ---- HP Filter bar ----
+ctrl_yhp = ctrl_ylp + ctrl_h + 6;
+cur_hp = slider(100 + sp);
+hp_hz = 20 * pow(1000, cur_hp);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_yhp + 2;
+gfx_drawstr("HP   ");
+cur_hp <= 0.001 ? (
+  gfx_drawstr("OFF");
+) : (
+  hp_hz >= 1000 ? (
+    gfx_drawnumber(hp_hz / 1000, 1);
+    gfx_drawstr("k");
+  ) : (
+    gfx_drawnumber(hp_hz, 0);
+  );
+  gfx_drawstr("Hz");
+);
+
+// HP on/off toggle
+gfx_hp_tog_x = margin + 95;
+gfx_hp_tog_w = 22;
+cur_hp > 0.001 ? (
+  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+) : (
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+);
+gfx_rect(gfx_hp_tog_x, ctrl_yhp, gfx_hp_tog_w, ctrl_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_hp_tog_x + 4; gfx_y = ctrl_yhp + 4;
+cur_hp > 0.001 ? gfx_drawstr("ON") : gfx_drawstr("--");
+// Click to toggle HP off (set to 0.0) or restore last value
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_hp_tog_x && mouse_x < gfx_hp_tog_x + gfx_hp_tog_w &&
+  mouse_y >= ctrl_yhp && mouse_y < ctrl_yhp + ctrl_h ? (
+    cur_hp > 0.001 ? (
+      hp_saved = cur_hp;
+      slider(100 + sp) = 0;
+    ) : (
+      hp_saved > 0.001 && hp_saved <= 1 ? slider(100 + sp) = hp_saved : slider(100 + sp) = 0.3;
+    );
+  );
+);
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_yhp, ctrl_bar_w, ctrl_h);
+// Bar fill (magenta)
+cur_hp > 0.001 ? (
+  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+  gfx_rect(ctrl_x, ctrl_yhp, ctrl_bar_w * cur_hp, ctrl_h);
+);
+
+// Drag to adjust HP (+ record plock when REC is armed)
+mouse_cap & 1 && (drag_id == 5 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_yhp && mouse_y < ctrl_yhp + ctrl_h ? (
+    drag_id = 5;
+    new_hp = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider(100 + sp) = new_hp;
+    // Record parameter lock
+    slider6 == 1 && seq_mode && transport_playing ? (
+      set_plock_hp(slider3, seq_step, sp, new_hp);
+    );
+  );
+);
+
+// ============================================
+// SECTION 3B: OUTPUT BUS (Sat / Comp / Gain)
+// ============================================
+ctrl_y4 = ctrl_yhp + ctrl_h + 16;
+
+// -- Section label --
+gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = margin; gfx_y = ctrl_y4 - 14;
+gfx_drawstr("OUTPUT BUS");
+
+// ---- Saturation Drive bar ----
+cur_sat = slider70;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y4 + 2;
+gfx_drawstr("Sat  ");
+gfx_drawnumber(floor(cur_sat + 0.5), 0);
+gfx_drawstr("%");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y4, ctrl_bar_w, ctrl_h);
+// Bar fill (warm orange)
+cur_sat > 0 ? (
+  gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_rect(ctrl_x, ctrl_y4, ctrl_bar_w * (cur_sat / 100), ctrl_h);
+);
+
+// Drag to adjust saturation
+mouse_cap & 1 && (drag_id == 6 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y4 && mouse_y < ctrl_y4 + ctrl_h ? (
+    drag_id = 6;
+    slider70 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+  );
+);
+
+// ---- Bus LP Filter bar ----
+ctrl_y_blp = ctrl_y4 + ctrl_h + 6;
+cur_bus_lp = slider73;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y_blp + 2;
+gfx_drawstr("LP   ");
+cur_bus_lp < 0.999 ? (
+  bus_lp_hz_disp = 20 * pow(1000, cur_bus_lp);
+  bus_lp_hz_disp >= 1000 ? (
+    gfx_drawnumber(bus_lp_hz_disp / 1000, 1);
+    gfx_drawstr("k");
+  ) : (
+    gfx_drawnumber(floor(bus_lp_hz_disp + 0.5), 0);
+    gfx_drawstr("Hz");
+  );
+) : (
+  gfx_drawstr("OFF");
+);
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y_blp, ctrl_bar_w, ctrl_h);
+cur_bus_lp < 0.999 ? (
+  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+  gfx_rect(ctrl_x, ctrl_y_blp, ctrl_bar_w * cur_bus_lp, ctrl_h);
+);
+
+mouse_cap & 1 && (drag_id == 9 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y_blp && mouse_y < ctrl_y_blp + ctrl_h ? (
+    drag_id = 9;
+    slider73 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+  );
+);
+
+// ---- Bus HP Filter bar ----
+ctrl_y_bhp = ctrl_y_blp + ctrl_h + 6;
+cur_bus_hp = slider74;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y_bhp + 2;
+gfx_drawstr("HP   ");
+cur_bus_hp > 0.001 ? (
+  bus_hp_hz_disp = 20 * pow(1000, cur_bus_hp);
+  bus_hp_hz_disp >= 1000 ? (
+    gfx_drawnumber(bus_hp_hz_disp / 1000, 1);
+    gfx_drawstr("k");
+  ) : (
+    gfx_drawnumber(floor(bus_hp_hz_disp + 0.5), 0);
+    gfx_drawstr("Hz");
+  );
+) : (
+  gfx_drawstr("OFF");
+);
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y_bhp, ctrl_bar_w, ctrl_h);
+cur_bus_hp > 0.001 ? (
+  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+  gfx_rect(ctrl_x, ctrl_y_bhp, ctrl_bar_w * cur_bus_hp, ctrl_h);
+);
+
+mouse_cap & 1 && (drag_id == 10 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y_bhp && mouse_y < ctrl_y_bhp + ctrl_h ? (
+    drag_id = 10;
+    slider74 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+  );
+);
+
+// ---- Comp Input Gain bar ----
+ctrl_y_cin = ctrl_y_bhp + ctrl_h + 6;
+cur_cin = slider75;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y_cin + 2;
+gfx_drawstr("In   ");
+cur_cin >= 0 ? gfx_drawstr("+");
+gfx_drawnumber(cur_cin, 1);
+gfx_drawstr("dB");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y_cin, ctrl_bar_w, ctrl_h);
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y_cin, 2, ctrl_h);
+cin_norm = (cur_cin + 12) / 24;
+gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
+cin_px = ctrl_x + max(0, min(1, cin_norm)) * ctrl_bar_w;
+gfx_rect(cin_px - 4, ctrl_y_cin, 8, ctrl_h);
+
+mouse_cap & 1 && (drag_id == 11 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y_cin && mouse_y < ctrl_y_cin + ctrl_h ? (
+    drag_id = 11;
+    new_cin = max(-12, min(12, ((mouse_x - ctrl_x) / ctrl_bar_w) * 24 - 12));
+    new_cin = floor(new_cin * 2 + 0.5) / 2;
+    slider75 = new_cin;
+  );
+);
+
+// ---- Comp Peak Reduction bar ----
+ctrl_y5 = ctrl_y_cin + ctrl_h + 6;
+cur_comp = slider71;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y5 + 2;
+gfx_drawstr("Comp ");
+gfx_drawnumber(floor(cur_comp + 0.5), 0);
+gfx_drawstr("%");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y5, ctrl_bar_w, ctrl_h);
+// Bar fill (orange-red)
+cur_comp > 0 ? (
+  gfx_r = 0.9; gfx_g = 0.4; gfx_b = 0.15;
+  gfx_rect(ctrl_x, ctrl_y5, ctrl_bar_w * (cur_comp / 100), ctrl_h);
+);
+
+// Drag to adjust comp
+mouse_cap & 1 && (drag_id == 7 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y5 && mouse_y < ctrl_y5 + ctrl_h ? (
+    drag_id = 7;
+    slider71 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+  );
+);
+
+// ---- GR Meter ----
+ctrl_y6 = ctrl_y5 + ctrl_h + 4;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y6 + 1;
+gfx_drawstr("GR   -");
+gfx_drawnumber(comp_gr_display, 1);
+gfx_drawstr("dB");
+
+// GR meter background
+gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+gfx_rect(ctrl_x, ctrl_y6, ctrl_bar_w, 12);
+// GR meter fill (red, capped at 30dB for visual range)
+comp_gr_display > 0.1 ? (
+  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+  gr_fill_w = min(comp_gr_display / 30, 1) * ctrl_bar_w;
+  gfx_rect(ctrl_x, ctrl_y6, gr_fill_w, 12);
+);
+
+// ---- Comp Gain bar ----
+ctrl_y7 = ctrl_y6 + 18;
+cur_gain = slider72;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y7 + 2;
+gfx_drawstr("Gain ");
+cur_gain >= 0 ? gfx_drawstr("+");
+gfx_drawnumber(cur_gain, 1);
+gfx_drawstr("dB");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y7, ctrl_bar_w, ctrl_h);
+// Center line (0 dB)
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y7, 2, ctrl_h);
+// Gain indicator
+gain_norm = (cur_gain + 12) / 24;  // -12..+12 → 0..1
+gfx_r = 0.4; gfx_g = 0.6; gfx_b = 1.0;
+gain_px = ctrl_x + max(0, min(1, gain_norm)) * ctrl_bar_w;
+gfx_rect(gain_px - 4, ctrl_y7, 8, ctrl_h);
+
+// Drag to adjust gain
+mouse_cap & 1 && (drag_id == 8 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y7 && mouse_y < ctrl_y7 + ctrl_h ? (
+    drag_id = 8;
+    new_gain = max(-12, min(12, ((mouse_x - ctrl_x) / ctrl_bar_w) * 24 - 12));
+    // Snap to 0.5 dB
+    new_gain = floor(new_gain * 2 + 0.5) / 2;
+    slider72 = new_gain;
+  );
+);
+
+// ---- Sticky drag management ----
+!(mouse_cap & 1) ? (
+  // Mouse released — clear drag target, start cooldown
+  drag_id > 0 ? drag_cooldown = 8;  // ~8 GFX frames cooldown
+  drag_id = 0;
+) : (
+  drag_cooldown > 0 ? drag_cooldown -= 1;
+);
+
+// ============================================
+// VELOCITY EDITOR OVERLAY
+// ============================================
+vel_edit_open ? (
+  // Read current velocity
+  vel_edit_sub < 0 ? (
+    cur_edit_vel = get_seq_step(vel_edit_pattern, vel_edit_step, vel_edit_pad);
+  ) : (
+    cur_edit_vel = get_sub_seq_step(vel_edit_pattern, vel_edit_step, vel_edit_pad, vel_edit_sub);
+  );
+
+  // Overlay background
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 140);
+  gfx_a = 1;
+
+  // Border
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y + 139, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y, 1, 140);
+  gfx_rect(vel_edit_x + 49, vel_edit_y, 1, 140);
+
+  // Numeric display
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = vel_edit_x + 5; gfx_y = vel_edit_y + 4;
+  gfx_drawstr("v:");
+  gfx_drawnumber(cur_edit_vel, 0);
+
+  // Slider track
+  vslider_x = vel_edit_x + 10;
+  vslider_y = vel_edit_y + 22;
+  vslider_w = 30;
+  vslider_h = 110;
+
+  // Track background
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(vslider_x, vslider_y, vslider_w, vslider_h);
+
+  // Fill from bottom
+  cur_edit_vel > 0 ? (
+    vel_fill_h = (cur_edit_vel / 127) * vslider_h;
+    vel_brightness = cur_edit_vel / 127;
+    gfx_r = COL_STEP_R * vel_brightness; gfx_g = COL_STEP_G * vel_brightness; gfx_b = COL_STEP_B * vel_brightness;
+    gfx_rect(vslider_x, vslider_y + vslider_h - vel_fill_h, vslider_w, vel_fill_h);
+  );
+
+  // Thumb line
+  vel_thumb_y = vslider_y + vslider_h - (cur_edit_vel / 127) * vslider_h;
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gfx_rect(vslider_x, vel_thumb_y - 1, vslider_w, 3);
+
+  // Drag interaction
+  mouse_cap & 1 ? (
+    mouse_x >= vslider_x && mouse_x < vslider_x + vslider_w &&
+    mouse_y >= vslider_y && mouse_y < vslider_y + vslider_h ? (
+      vel_edit_dragging = 1;
+    );
+    vel_edit_dragging ? (
+      new_vel = ((vslider_y + vslider_h - mouse_y) / vslider_h) * 127;
+      new_vel = max(0, min(127, (new_vel + 0.5) | 0));
+      vel_edit_sub < 0 ? (
+        set_seq_step(vel_edit_pattern, vel_edit_step, vel_edit_pad, new_vel);
+      ) : (
+        set_sub_seq_step(vel_edit_pattern, vel_edit_step, vel_edit_pad, vel_edit_sub, new_vel);
+      );
+    );
+  ) : (
+    vel_edit_dragging = 0;
+  );
+
+  // Close on left-click outside overlay (not while dragging)
+  mouse_cap & 1 && !(last_mouse_cap & 1) && !vel_edit_dragging ? (
+    !(mouse_x >= vel_edit_x && mouse_x < vel_edit_x + 50 &&
+      mouse_y >= vel_edit_y && mouse_y < vel_edit_y + 140) ? (
+      vel_edit_open = 0;
+    );
+  );
+
+  // Close on right-click outside step grid (right-click on step reopens at new position)
+  mouse_cap & 2 && !(last_mouse_cap & 2) ? (
+    !(mouse_y >= seq_grid_y && mouse_y < seq_grid_y + step_h) ? (
+      vel_edit_open = 0;
+    );
+  );
+);
+
+// ---- Sticky drag management ----
+!(mouse_cap & 1) ? (
+  // Mouse released — clear drag target, start cooldown
+  drag_id > 0 ? drag_cooldown = 8;  // ~8 GFX frames cooldown
+  drag_id = 0;
+) : (
+  drag_cooldown > 0 ? drag_cooldown -= 1;
+);
+
+// ---- Store mouse state for debounce ----
+last_mouse_cap = mouse_cap;
+
+// ============================================
+// SECTION 4: STATUS BAR
+// ============================================
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = gfx_h - 18;
+transport_playing ? gfx_drawstr("▶ ") : gfx_drawstr("■ ");
+seq_mode ? gfx_drawstr("SEQ  ") : gfx_drawstr("FREE  ");
+gfx_drawstr("BPM: ");
+bpm_display = tempo > 0 ? tempo : slider1;
+gfx_drawnumber(bpm_display, 1);
+gfx_drawstr("  Bar: ");
+gfx_drawnumber(measure_num + 1, 0);
+gfx_drawstr("/");
+gfx_drawnumber(cur_pattern_bars, 0);
+gfx_drawstr("  Step: ");
+gfx_drawnumber(seq_step + 1, 0);
+gfx_drawstr("/");
+gfx_drawnumber(total_pattern_steps, 0);
+gfx_drawstr("  Pat: ");
+gfx_drawnumber(slider3 + 1, 0);
+gfx_drawstr("  Kit: ");
+gfx_drawnumber(kit_loaded, 0);
+gfx_drawstr("/16");
+slider6 == 1 ? (
+  gfx_r = 0.9; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_drawstr("  REC");
+);
+
+// ============================================
+// MIDI ROOT NOTE DISPLAY + OCTAVE BUTTONS
+// ============================================
+gfx_setfont(1, "Arial", 12);
+
+// Note name lookup
+root_note = slider8;
+root_nn = root_note % 12;
+root_oct = (root_note / 12 | 0) - 2;
+root_nn == 0  ? strcpy(#rn, "C") :
+root_nn == 1  ? strcpy(#rn, "C#") :
+root_nn == 2  ? strcpy(#rn, "D") :
+root_nn == 3  ? strcpy(#rn, "D#") :
+root_nn == 4  ? strcpy(#rn, "E") :
+root_nn == 5  ? strcpy(#rn, "F") :
+root_nn == 6  ? strcpy(#rn, "F#") :
+root_nn == 7  ? strcpy(#rn, "G") :
+root_nn == 8  ? strcpy(#rn, "G#") :
+root_nn == 9  ? strcpy(#rn, "A") :
+root_nn == 10 ? strcpy(#rn, "A#") :
+strcpy(#rn, "B");
+
+// Layout: "Root: C1 [-] [+]" at top-right
+rn_label_x = gfx_w - 200;
+rn_y = 4;
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = rn_label_x; gfx_y = rn_y;
+gfx_drawstr("Root: ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_drawstr(#rn);
+gfx_drawnumber(root_oct, 0);
+gfx_drawstr(" (");
+gfx_drawnumber(root_note, 0);
+gfx_drawstr(")");
+
+// [-] button (down one octave)
+rn_btn_w = 22;
+rn_btn_h = 14;
+rn_minus_x = gfx_w - 80;
+gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_rect(rn_minus_x, rn_y, rn_btn_w, rn_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = rn_minus_x + 7; gfx_y = rn_y + 1;
+gfx_drawstr("-");
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= rn_minus_x && mouse_x < rn_minus_x + rn_btn_w &&
+  mouse_y >= rn_y && mouse_y < rn_y + rn_btn_h ? (
+    slider8 = max(0, slider8 - 12);
+    slider_automate(slider8);
+  );
+);
+
+// [+] button (up one octave)
+rn_plus_x = rn_minus_x + rn_btn_w + 4;
+gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_rect(rn_plus_x, rn_y, rn_btn_w, rn_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = rn_plus_x + 6; gfx_y = rn_y + 1;
+gfx_drawstr("+");
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= rn_plus_x && mouse_x < rn_plus_x + rn_btn_w &&
+  mouse_y >= rn_y && mouse_y < rn_y + rn_btn_h ? (
+    slider8 = min(112, slider8 + 12);
+    slider_automate(slider8);
+  );
+);
+
+// --- NOTICE BUTTON ---
+notice_btn_x = gfx_w - 60;
+notice_btn_y = gfx_h - 18;
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+gfx_r = 0; gfx_g = 0; gfx_b = 0;
+gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+gfx_drawstr("NOTICE");
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+  notice_show = !notice_show;
+  notice_clicked = 1;
+);
+!(mouse_cap & 1) ? notice_clicked = 0;
+notice_show ? (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_a = 1;
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = 15; gfx_y = 10;
+  gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = 15; gfx_y = 35;
+  gfx_drawstr("The algorithms in our favorite software are decades old.");
+  gfx_x = 15; gfx_y = 50;
+  gfx_drawstr("A mathematical model is a truth about the world,");
+  gfx_x = 15; gfx_y = 65;
+  gfx_drawstr("not a copyrightable product. Our digital products are all");
+  gfx_x = 15; gfx_y = 80;
+  gfx_drawstr("Turing machines replicating our favorite physical machines,");
+  gfx_x = 15; gfx_y = 95;
+  gfx_drawstr("with math.");
+  gfx_x = 15; gfx_y = 120;
+  gfx_drawstr("You do not have to stay a slave to subscription software.");
+  gfx_x = 15; gfx_y = 135;
+  gfx_drawstr("Install Linux. Build your own tools. Believe in yourself.");
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = 15; gfx_y = 165;
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+  // Redraw NOTICE button on top of overlay so it's clickable
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+);
+
+// ============================================================
+// @SERIALIZE — Save/restore sequencer patterns
+// ============================================================
+@serialize
+
+serial_version = 6;
+file_var(0, serial_version);
+// After file_var: serial_version = 6 when saving, = saved version when loading
+
+// ---- v6: expanded pattern data (8 pat * 64 steps * 16 pads = 8192) ----
+serial_version >= 6 ? (
+  i = 0;
+  loop(8192, file_var(0, SEQ_BASE[i]); i += 1);
+) : (
+  // Legacy v1-5: read 2048 values (8 pat * 16 steps * 16 pads)
+  // Clear expanded area first
+  i = 0; loop(8192, SEQ_BASE[i] = 0; i += 1);
+  // Read old data sequentially into [0..2047]
+  i = 0;
+  loop(NUM_PATTERNS * NUM_STEPS * NUM_PADS,
+    file_var(0, SEQ_BASE[i]);
+    i += 1;
+  );
+  // Remap: old stride 256/pattern → new stride 1024/pattern
+  // Process from last pattern to first to avoid clobbering
+  p = NUM_PATTERNS - 1;
+  while(p >= 1) (
+    j = 255;
+    while(j >= 0) (
+      SEQ_BASE[p * 1024 + j] = SEQ_BASE[p * 256 + j];
+      j -= 1;
+    );
+    p -= 1;
+  );
+  // Clear gap areas (old data remnants in expanded regions)
+  p = 0;
+  loop(NUM_PATTERNS,
+    j = 256;
+    loop(768, SEQ_BASE[p * 1024 + j] = 0; j += 1);
+    p += 1;
+  );
+);
+
+// v2: UI state
+serial_version >= 2 ? (
+  file_var(0, ui_selected_pad);
+);
+
+// v3: pad subdivision
+serial_version >= 3 ? (
+  i = 0;
+  loop(NUM_PADS,
+    file_var(0, PAD_SUBDIV[i]);
+    i += 1;
+  );
+);
+
+// v4: seq subdivision + sub-step velocities
+serial_version >= 4 ? (
+  i = 0;
+  loop(NUM_PADS,
+    file_var(0, PAD_SEQ_SUBDIV[i]);
+    i += 1;
+  );
+
+  serial_version >= 6 ? (
+    // v6: expanded sub-step data (8 pat * 64 steps * 16 pads * 3 = 24576)
+    i = 0;
+    loop(24576, file_var(0, SUB_SEQ_BASE[i]); i += 1);
+  ) : (
+    // Legacy v4-5: 6144 values, old stride 768/pattern → new stride 3072
+    i = 0; loop(24576, SUB_SEQ_BASE[i] = 0; i += 1);
+    i = 0;
+    loop(6144, file_var(0, SUB_SEQ_BASE[i]); i += 1);
+    // Remap from last pattern to first
+    p = NUM_PATTERNS - 1;
+    while(p >= 1) (
+      j = 767;
+      while(j >= 0) (
+        SUB_SEQ_BASE[p * 3072 + j] = SUB_SEQ_BASE[p * 768 + j];
+        j -= 1;
+      );
+      p -= 1;
+    );
+    p = 0;
+    loop(NUM_PATTERNS,
+      j = 768;
+      loop(2304, SUB_SEQ_BASE[p * 3072 + j] = 0; j += 1);
+      p += 1;
+    );
+  );
+);
+
+// v5: parameter locks (LP + HP per step)
+serial_version >= 5 ? (
+  serial_version >= 6 ? (
+    // v6: expanded (8192 each)
+    i = 0;
+    loop(8192, file_var(0, PLOCK_LP_BASE[i]); i += 1);
+    i = 0;
+    loop(8192, file_var(0, PLOCK_HP_BASE[i]); i += 1);
+  ) : (
+    // Legacy v5: 2048 each, old stride 256 → new stride 1024
+    i = 0; loop(8192, PLOCK_LP_BASE[i] = -1; i += 1);
+    i = 0;
+    loop(2048, file_var(0, PLOCK_LP_BASE[i]); i += 1);
+    p = NUM_PATTERNS - 1;
+    while(p >= 1) (
+      j = 255;
+      while(j >= 0) (
+        PLOCK_LP_BASE[p * 1024 + j] = PLOCK_LP_BASE[p * 256 + j];
+        j -= 1;
+      );
+      p -= 1;
+    );
+    p = 0;
+    loop(NUM_PATTERNS,
+      j = 256;
+      loop(768, PLOCK_LP_BASE[p * 1024 + j] = -1; j += 1);
+      p += 1;
+    );
+
+    i = 0; loop(8192, PLOCK_HP_BASE[i] = -1; i += 1);
+    i = 0;
+    loop(2048, file_var(0, PLOCK_HP_BASE[i]); i += 1);
+    p = NUM_PATTERNS - 1;
+    while(p >= 1) (
+      j = 255;
+      while(j >= 0) (
+        PLOCK_HP_BASE[p * 1024 + j] = PLOCK_HP_BASE[p * 256 + j];
+        j -= 1;
+      );
+      p -= 1;
+    );
+    p = 0;
+    loop(NUM_PATTERNS,
+      j = 256;
+      loop(768, PLOCK_HP_BASE[p * 1024 + j] = -1; j += 1);
+      p += 1;
+    );
+  );
+);
+
+// v6: per-pattern bar counts
+serial_version >= 6 ? (
+  i = 0;
+  loop(NUM_PATTERNS,
+    file_var(0, PAT_BAR_COUNT[i]);
+    i += 1;
+  );
+);

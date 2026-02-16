@@ -1,0 +1,279 @@
+desc:LMS Distressor (Analog Style)
+//tags: compressor distortion analog distressor
+//author: LMS + Claude
+
+slider1:0<-12,24,0.1>Input (dB)
+slider2:-12<-40,0,0.5>Threshold (dB)
+slider3:3<0,7,1{1:1,2:1,3:1,4:1,6:1,10:1,20:1,Nuke}>Ratio
+slider4:5<0.05,20,0.05>Attack (ms)
+slider5:250<50,2500,10>Release (ms)
+slider6:0<0,2,1{Off,Dist 2 (Tape),Dist 3 (Tube)}>Distortion Mode
+slider7:0<0,1,1{Off,On}>HP Sidechain
+slider8:150<60,400,1>HP SC Freq (Hz)
+slider9:0<-12,12,0.1>Output (dB)
+slider10:100<0,100,1>Mix (%)
+
+@init
+  comp_env = 0;
+  comp_gr_db = 0;
+
+  // HP sidechain filter state
+  sc_xl1 = 0; sc_xl2 = 0; sc_yl1 = 0; sc_yl2 = 0;
+  sc_xr1 = 0; sc_xr2 = 0; sc_yr1 = 0; sc_yr2 = 0;
+  sc_b0 = 1; sc_b1 = 0; sc_b2 = 0; sc_a1 = 0; sc_a2 = 0;
+
+notice_show = 0;
+
+@slider
+  input_gain = 10 ^ (slider1 / 20);
+  comp_thresh = slider2;
+
+  // Ratio mapping
+  slider3 == 0 ? comp_ratio = 1;
+  slider3 == 1 ? comp_ratio = 2;
+  slider3 == 2 ? comp_ratio = 3;
+  slider3 == 3 ? comp_ratio = 4;
+  slider3 == 4 ? comp_ratio = 6;
+  slider3 == 5 ? comp_ratio = 10;
+  slider3 == 6 ? comp_ratio = 20;
+  slider3 == 7 ? comp_ratio = 100;  // Nuke = brickwall
+
+  comp_att = exp(-1 / (slider4 * 0.001 * srate));
+  comp_rel = exp(-1 / (slider5 * 0.001 * srate));
+
+  dist_mode = slider6;
+  sc_hp_on = slider7;
+  output_gain = 10 ^ (slider9 / 20);
+  mix = slider10 / 100;
+
+  // HP sidechain filter coefficients
+  sc_hp_on ? (
+    w0 = 2 * $pi * slider8 / srate;
+    cs = cos(w0); sn = sin(w0);
+    alpha = sn / (2 * 0.707);
+    a0_inv = 1 / (1 + alpha);
+    sc_b0 = (1 + cs) / 2 * a0_inv;
+    sc_b1 = -(1 + cs) * a0_inv;
+    sc_b2 = (1 + cs) / 2 * a0_inv;
+    sc_a1 = -2 * cs * a0_inv;
+    sc_a2 = (1 - alpha) * a0_inv;
+  );
+
+@sample
+  // Dry signal for mix
+  dry_l = spl0;
+  dry_r = spl1;
+
+  // Input gain
+  l = spl0 * input_gain;
+  r = spl1 * input_gain;
+
+  // === DISTORTION (pre-compression, like the real Distressor) ===
+  dist_mode == 1 ? (
+    // Dist 2: even harmonics (tape-like warmth)
+    // Asymmetric soft clipping generates even harmonics
+    // Manual tanh: (exp(2x)-1)/(exp(2x)+1)
+    x = l * 2.0; e = exp(2*x); th1 = (e - 1) / (e + 1);
+    x = l * l * 0.5; e = exp(2*x); th2 = (e - 1) / (e + 1);
+    l = (th1 + th2 * 0.3) / 2.3 * 1.15;
+    x = r * 2.0; e = exp(2*x); th1 = (e - 1) / (e + 1);
+    x = r * r * 0.5; e = exp(2*x); th2 = (e - 1) / (e + 1);
+    r = (th1 + th2 * 0.3) / 2.3 * 1.15;
+  );
+  dist_mode == 2 ? (
+    // Dist 3: odd harmonics (tube-like grit)
+    // Symmetric soft clipping
+    drive = 3.0;
+    x = l * drive; e = exp(2*x); l = (e - 1) / (e + 1);
+    x = r * drive; e = exp(2*x); r = (e - 1) / (e + 1);
+    // Normalize by tanh(drive)
+    e = exp(2*drive); norm = (e - 1) / (e + 1);
+    l /= norm;
+    r /= norm;
+  );
+
+  // === SIDECHAIN DETECTION ===
+  // Use the audio signal (optionally HP filtered) for detection
+  sc_l = l;
+  sc_r = r;
+
+  sc_hp_on ? (
+    // HP filter the sidechain (lets low end through without triggering comp)
+    ol = sc_b0 * sc_l + sc_b1 * sc_xl1 + sc_b2 * sc_xl2 - sc_a1 * sc_yl1 - sc_a2 * sc_yl2;
+    sc_xl2 = sc_xl1; sc_xl1 = sc_l; sc_yl2 = sc_yl1; sc_yl1 = ol;
+    sc_l = ol;
+    ol = sc_b0 * sc_r + sc_b1 * sc_xr1 + sc_b2 * sc_xr2 - sc_a1 * sc_yr1 - sc_a2 * sc_yr2;
+    sc_xr2 = sc_xr1; sc_xr1 = sc_r; sc_yr2 = sc_yr1; sc_yr1 = ol;
+    sc_r = ol;
+  );
+
+  // === COMPRESSION ===
+  // Peak detection - stereo linked
+  det = max(abs(sc_l), abs(sc_r));
+  det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+
+  // Gain computation with soft knee for lower ratios
+  over = det_db - comp_thresh;
+  over > 0 ? (
+    // Soft knee for ratios <= 4
+    comp_ratio <= 4 ? (
+      knee_w = 6;  // 6dB soft knee
+      over < knee_w ? (
+        // Quadratic knee region
+        target_gr = over * over / (4 * knee_w) * (1 - 1/comp_ratio);
+      ) : (
+        target_gr = over - over / comp_ratio;
+      );
+    ) : (
+      // Hard knee for aggressive ratios
+      target_gr = over - over / comp_ratio;
+    );
+  ) : (
+    target_gr = 0;
+  );
+
+  // Envelope follower
+  target_gr > comp_env ? (
+    comp_env = comp_att * comp_env + (1 - comp_att) * target_gr;
+  ) : (
+    comp_env = comp_rel * comp_env + (1 - comp_rel) * target_gr;
+  );
+
+  // Apply gain reduction
+  gr = 10 ^ (-comp_env / 20);
+  comp_gr_db = comp_env;
+
+  l *= gr;
+  r *= gr;
+
+  // === OUTPUT ===
+  l *= output_gain;
+  r *= output_gain;
+
+  // Dry/wet mix
+  mix < 1 ? (
+    spl0 = dry_l * (1 - mix) + l * mix;
+    spl1 = dry_r * (1 - mix) + r * mix;
+  ) : (
+    spl0 = l;
+    spl1 = r;
+  );
+
+@gfx 500 220
+  gfx_r = 0.08; gfx_g = 0.05; gfx_b = 0.05;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+
+  // Title
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.3;
+  gfx_x = 10; gfx_y = 8;
+  gfx_drawstr("LMS DISTRESSOR");
+
+  // Ratio display
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.5;
+  gfx_x = 10; gfx_y = 28;
+  gfx_drawstr("Ratio: ");
+  gfx_r = 0.8; gfx_g = 0.8; gfx_b = 0.6;
+  slider3 == 0 ? gfx_drawstr("1:1 (Bypass)");
+  slider3 == 1 ? gfx_drawstr("2:1");
+  slider3 == 2 ? gfx_drawstr("3:1");
+  slider3 == 3 ? gfx_drawstr("4:1");
+  slider3 == 4 ? gfx_drawstr("6:1");
+  slider3 == 5 ? gfx_drawstr("10:1");
+  slider3 == 6 ? gfx_drawstr("20:1");
+  slider3 == 7 ? (
+    gfx_r = 1.0; gfx_g = 0.2; gfx_b = 0.2;
+    gfx_drawstr("NUKE");
+  );
+
+  // Distortion mode
+  gfx_x = 10; gfx_y = 48;
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.5;
+  gfx_drawstr("Dist: ");
+  dist_mode == 0 ? (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("Off");
+  );
+  dist_mode == 1 ? (
+    gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.3;
+    gfx_drawstr("Dist 2 (Tape)");
+  );
+  dist_mode == 2 ? (
+    gfx_r = 1.0; gfx_g = 0.4; gfx_b = 0.3;
+    gfx_drawstr("Dist 3 (Tube)");
+  );
+
+  // HP Sidechain
+  gfx_x = 10; gfx_y = 68;
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.5;
+  gfx_drawstr("SC HP: ");
+  sc_hp_on ? (
+    gfx_r = 0.3; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_drawnumber(slider8, 0);
+    gfx_drawstr(" Hz");
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("Off");
+  );
+
+  // GR meter
+  gfx_x = 10; gfx_y = 98;
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_drawstr("GR: ");
+  gfx_r = 1.0; gfx_g = 0.4; gfx_b = 0.2;
+  gfx_drawstr("-");
+  gfx_drawnumber(comp_gr_db, 1);
+  gfx_drawstr(" dB");
+
+  // Visual GR bar
+  gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.1;
+  gr_width = min(comp_gr_db * 8, gfx_w - 20);
+  gr_width > 0 ? gfx_rect(10, 116, gr_width, 8);
+
+  // Nuke warning
+  slider3 == 7 ? (
+    gfx_r = 1.0; gfx_g = 0.1; gfx_b = 0.1;
+    gfx_x = 10; gfx_y = 140;
+    gfx_drawstr(">>> NUKE MODE ENGAGED <<<");
+  );
+  // --- NOTICE BUTTON ---
+  notice_btn_x = gfx_w - 60;
+  notice_btn_y = gfx_h - 18;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  notice_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h);
+    gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = 15; gfx_y = 10;
+    gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = 15; gfx_y = 30;
+    gfx_drawstr("The algorithms in our favorite software are decades old.");
+    gfx_x = 15; gfx_y = 45;
+    gfx_drawstr("A mathematical model is a truth about the world,");
+    gfx_x = 15; gfx_y = 60;
+    gfx_drawstr("not a copyrightable product. You do not have to stay");
+    gfx_x = 15; gfx_y = 75;
+    gfx_drawstr("a slave to subscription software. Install Linux.");
+    gfx_x = 15; gfx_y = 90;
+    gfx_drawstr("Build your own tools. Believe in yourself.");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = 15; gfx_y = 115;
+    gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_x = 15; gfx_y = 140;
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+    gfx_drawstr("NOTICE");
+  );
