@@ -17,6 +17,8 @@ Clean UI. Open source. No bloat. No subscriptions. No iLok.
 - Output bus LP/HP filters (automatable)
 - Swing, saturation, LA-2A style optical compressor
 - Sample pool with subfolder organization and folder dropdown
+- **One-click sampling** from REAPER's arrange view (with FX chain)
+- **Waveform display** with playback position and chop boundaries
 - Pattern clear and duplicate buttons
 - Kit system with hot-swappable sample loading
 - Host tempo sync
@@ -54,7 +56,29 @@ DrumBox16 loads samples from a **pool folder**:
 3. Assign a keyboard shortcut
 4. Select a pad in DrumBox16, run the action — it opens a file picker, copies the wav into the pool, and loads it onto the selected pad automatically
 
-### Method 3: Export from Reaper arrangement
+### Method 3: SAMPLE button (one-click from arrange view)
+
+The fastest way to get audio into DRUMBANGER:
+
+1. **Start the background service** (one-time per session):
+   - Actions > Show Action List > New Action > Load ReaScript
+   - Select `scripts/drumbanger_service.lua`
+   - Run it — the SAMPLE button in DrumBox16 lights up
+
+2. **Sample from any track:**
+   - Edit a drum hit on a REAPER track (apply whatever FX you want)
+   - Select the media item, or make a time selection on the timeline
+   - Optionally select a track (defaults to master bus)
+   - Click **SAMPLE** in DrumBox16
+   - Wait for "LOADED!" flash — the sample is on the selected pad, FX and all
+
+The waveform display shows what you loaded. Use `<` `>` to keep browsing.
+
+**Tip:** Set the service as a startup action so it runs automatically:
+- If you have SWS extension: Extensions > Startup Actions > add the service
+- Or just run it once each session from the Actions list
+
+### Method 4: Export from Reaper arrangement (manual)
 
 1. Select audio in the arrange view
 2. File > Render (or glue the item)
@@ -103,13 +127,14 @@ Each kit is a folder containing `01.wav` through `16.wav`:
 | `scripts/scan_pool.sh` | Scan pool folder, generate manifest.txt |
 | `scripts/drumbanger_load.lua` | ReaScript: file picker to load sample onto selected pad |
 | `scripts/drumbanger_rescan.lua` | ReaScript: trigger pool rescan from within Reaper |
+| `scripts/drumbanger_service.lua` | Background service: enables the SAMPLE button in DrumBox16 |
+| `scripts/drumbanger_sample.lua` | Standalone ReaScript: sample from arrange view (hotkey alternative) |
 | `scripts/install_kit.sh` | Install a kit folder into the kits directory |
 | `scripts/prepare_kit.sh` | Prepare a folder of wavs as a numbered kit |
 
 ## Roadmap
 
 - Choke groups — assign pads to choke lanes so triggering one cuts another (e.g. open/closed hi-hat)
-- Improved sample chop mechanism — more accurate slicing with visual waveform editing
 - Synth integration — built-in synthesis engine for layering with samples
 - Sidechain outputs — per-pad or bus sidechain sends for ducking/pumping other tracks
 
