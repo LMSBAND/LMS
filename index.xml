@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="LMS Plugins">
+  <category name="LMS">
+    <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS Channel Strip (Analog Style)">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_distressor.jsfx" type="effect" desc="LMS Distressor (Analog Style)">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_passive_eq.jsfx" type="effect" desc="LMS Passive EQ">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_tape_echo.jsfx" type="effect" desc="LMS Tape Echo">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Sound City Drum Room">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="LMS/DRUMBANGER">
+    <reapack name="DrumBox16.jsfx" type="effect" desc="LMS DRUMBANGER - 16-Pad Drum Machine">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release — 16-pad drum sampler with multi-bar step sequencer, per-step velocity, sample pool with folder browser, bus filters, compressor, and more.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumBox16.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="LMS/DRUMBANGER/Scripts">
+    <reapack name="drumbanger_load.lua" type="script" desc="DRUMBANGER: Load Sample">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release — file picker to load samples onto selected pad]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
+      </version>
+    </reapack>
+    <reapack name="drumbanger_rescan.lua" type="script" desc="DRUMBANGER: Rescan Pool">
+      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
+        <changelog><![CDATA[Initial release — trigger pool rescan from within Reaper]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <metadata>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, and the DRUMBANGER 16-pad drum machine. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
+  </metadata>
+</index>
