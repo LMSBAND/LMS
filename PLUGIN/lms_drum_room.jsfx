@@ -1,0 +1,976 @@
+desc:LMS Sound City Drum Room
+//tags: reverb room drums compressor
+//author: LMS + Claude
+
+slider1:50<0,100,0.1>Room Size (%)
+slider2:50<0,100,0.1>Decay (%)
+slider3:40<0,100,0.1>Damping (%)
+slider4:10<0,50,0.1>Pre-delay (ms)
+slider5:0<-60,6,0.1>Near Mic (dB)
+slider6:-3<-60,6,0.1>Mid Mic (dB)
+slider7:-6<-60,6,0.1>Far Mic (dB)
+slider8:0<0,2,1{U87 Condenser,Ribbon,421 Dynamic}>Mic Type
+slider9:-12<-40,0,0.1>Comp Threshold (dB)
+slider10:50<0,100,1>Comp Amount (%)
+slider11:0<-12,12,0.1>Output Gain (dB)
+slider12:50<0,100,1>Dry/Wet (%)
+slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
+
+@init
+  MAX_BUF = 96000;
+  buf_pos = 0;
+
+  // ==========================================
+  // SHARED: Early reflection delay lines
+  // ==========================================
+  er_buf_l = buf_pos; buf_pos += MAX_BUF;
+  er_buf_r = buf_pos; buf_pos += MAX_BUF;
+
+  // ==========================================
+  // SCHROEDER: 8 comb + 4 allpass buffers (stereo)
+  // ==========================================
+  comb_buf_l0 = buf_pos; buf_pos += 4096;
+  comb_buf_l1 = buf_pos; buf_pos += 4096;
+  comb_buf_l2 = buf_pos; buf_pos += 4096;
+  comb_buf_l3 = buf_pos; buf_pos += 4096;
+  comb_buf_l4 = buf_pos; buf_pos += 4096;
+  comb_buf_l5 = buf_pos; buf_pos += 4096;
+  comb_buf_l6 = buf_pos; buf_pos += 4096;
+  comb_buf_l7 = buf_pos; buf_pos += 4096;
+  comb_buf_r0 = buf_pos; buf_pos += 4096;
+  comb_buf_r1 = buf_pos; buf_pos += 4096;
+  comb_buf_r2 = buf_pos; buf_pos += 4096;
+  comb_buf_r3 = buf_pos; buf_pos += 4096;
+  comb_buf_r4 = buf_pos; buf_pos += 4096;
+  comb_buf_r5 = buf_pos; buf_pos += 4096;
+  comb_buf_r6 = buf_pos; buf_pos += 4096;
+  comb_buf_r7 = buf_pos; buf_pos += 4096;
+
+  ap_buf_l0 = buf_pos; buf_pos += 2048;
+  ap_buf_l1 = buf_pos; buf_pos += 2048;
+  ap_buf_l2 = buf_pos; buf_pos += 2048;
+  ap_buf_l3 = buf_pos; buf_pos += 2048;
+  ap_buf_r0 = buf_pos; buf_pos += 2048;
+  ap_buf_r1 = buf_pos; buf_pos += 2048;
+  ap_buf_r2 = buf_pos; buf_pos += 2048;
+  ap_buf_r3 = buf_pos; buf_pos += 2048;
+
+  // ==========================================
+  // FDN: 8 delay lines with Hadamard mixing matrix
+  // ==========================================
+  fdn_buf0 = buf_pos; buf_pos += 8192;
+  fdn_buf1 = buf_pos; buf_pos += 8192;
+  fdn_buf2 = buf_pos; buf_pos += 8192;
+  fdn_buf3 = buf_pos; buf_pos += 8192;
+  fdn_buf4 = buf_pos; buf_pos += 8192;
+  fdn_buf5 = buf_pos; buf_pos += 8192;
+  fdn_buf6 = buf_pos; buf_pos += 8192;
+  fdn_buf7 = buf_pos; buf_pos += 8192;
+
+  fdn_pos0 = 0; fdn_pos1 = 0; fdn_pos2 = 0; fdn_pos3 = 0;
+  fdn_pos4 = 0; fdn_pos5 = 0; fdn_pos6 = 0; fdn_pos7 = 0;
+  fdn_lp0 = 0; fdn_lp1 = 0; fdn_lp2 = 0; fdn_lp3 = 0;
+  fdn_lp4 = 0; fdn_lp5 = 0; fdn_lp6 = 0; fdn_lp7 = 0;
+
+  // FDN base delays - mutually prime, spread nicely
+  fdn_base0 = 1087; fdn_base1 = 1283; fdn_base2 = 1499; fdn_base3 = 1693;
+  fdn_base4 = 1877; fdn_base5 = 2081; fdn_base6 = 2293; fdn_base7 = 2477;
+
+  // ==========================================
+  // DATTORRO PLATE: based on the 1997 paper
+  // Input diffusors (4 allpass) -> tank (2 loops with modulated allpass + delay)
+  // ==========================================
+  // Input diffusors
+  dat_idif0 = buf_pos; buf_pos += 2048;
+  dat_idif1 = buf_pos; buf_pos += 2048;
+  dat_idif2 = buf_pos; buf_pos += 2048;
+  dat_idif3 = buf_pos; buf_pos += 2048;
+  dat_idif_pos0 = 0; dat_idif_pos1 = 0; dat_idif_pos2 = 0; dat_idif_pos3 = 0;
+
+  // Tank left loop: decay_diffusor1 -> delay1 -> damping -> decay_diffusor2 -> delay2
+  dat_dd1_buf = buf_pos; buf_pos += 4096;
+  dat_del1_buf = buf_pos; buf_pos += 8192;
+  dat_dd2_buf = buf_pos; buf_pos += 4096;
+  dat_del2_buf = buf_pos; buf_pos += 8192;
+
+  // Tank right loop
+  dat_dd3_buf = buf_pos; buf_pos += 4096;
+  dat_del3_buf = buf_pos; buf_pos += 8192;
+  dat_dd4_buf = buf_pos; buf_pos += 4096;
+  dat_del4_buf = buf_pos; buf_pos += 8192;
+
+  dat_dd1_pos = 0; dat_del1_pos = 0; dat_dd2_pos = 0; dat_del2_pos = 0;
+  dat_dd3_pos = 0; dat_del3_pos = 0; dat_dd4_pos = 0; dat_del4_pos = 0;
+
+  // Tank damping lowpass states
+  dat_damp1 = 0; dat_damp2 = 0;
+
+  // Dattorro base delays (from the paper, scaled for 29761 Hz reference rate)
+  // Input diffusors
+  dat_idif_len0_base = 142; dat_idif_len1_base = 107;
+  dat_idif_len2_base = 379; dat_idif_len3_base = 277;
+
+  // Tank elements
+  dat_dd1_len_base = 672; dat_del1_len_base = 4453;
+  dat_dd2_len_base = 1800; dat_del2_len_base = 3720;
+  dat_dd3_len_base = 908; dat_del3_len_base = 4217;
+  dat_dd4_len_base = 2656; dat_del4_len_base = 3163;
+
+  // Dattorro tap positions for output (from the paper)
+  dat_tap_base = buf_pos; buf_pos += 14;
+  dat_tap_base[0] = 266;   // del1 tap L+
+  dat_tap_base[1] = 2974;  // del1 tap L+
+  dat_tap_base[2] = 1913;  // dd2 tap L-
+  dat_tap_base[3] = 1996;  // del2 tap L+
+  dat_tap_base[4] = 1990;  // del2 tap L-
+  dat_tap_base[5] = 187;   // del3 tap L-
+  dat_tap_base[6] = 1066;  // dd4 tap L-
+  dat_tap_base[7] = 353;   // del3 tap R+
+  dat_tap_base[8] = 3627;  // del3 tap R+
+  dat_tap_base[9] = 1228;  // dd4 tap R-
+  dat_tap_base[10] = 2673; // del4 tap R+
+  dat_tap_base[11] = 2111; // del4 tap R-
+  dat_tap_base[12] = 335;  // del1 tap R-
+  dat_tap_base[13] = 121;  // dd2 tap R-
+
+  // ==========================================
+  // SHARED: Pre-delay buffers for 3 mic positions
+  // ==========================================
+  pd_buf_near_l = buf_pos; buf_pos += 4800;
+  pd_buf_near_r = buf_pos; buf_pos += 4800;
+  pd_buf_mid_l = buf_pos; buf_pos += 4800;
+  pd_buf_mid_r = buf_pos; buf_pos += 4800;
+  pd_buf_far_l = buf_pos; buf_pos += 4800;
+  pd_buf_far_r = buf_pos; buf_pos += 4800;
+
+  // Write positions
+  er_pos = 0;
+  comb_pos_l0 = 0; comb_pos_l1 = 0; comb_pos_l2 = 0; comb_pos_l3 = 0;
+  comb_pos_l4 = 0; comb_pos_l5 = 0; comb_pos_l6 = 0; comb_pos_l7 = 0;
+  comb_pos_r0 = 0; comb_pos_r1 = 0; comb_pos_r2 = 0; comb_pos_r3 = 0;
+  comb_pos_r4 = 0; comb_pos_r5 = 0; comb_pos_r6 = 0; comb_pos_r7 = 0;
+  ap_pos_l0 = 0; ap_pos_l1 = 0; ap_pos_l2 = 0; ap_pos_l3 = 0;
+  ap_pos_r0 = 0; ap_pos_r1 = 0; ap_pos_r2 = 0; ap_pos_r3 = 0;
+  pd_pos_near = 0; pd_pos_mid = 0; pd_pos_far = 0;
+
+  // Comb filter lowpass states
+  comb_lp_l0 = 0; comb_lp_l1 = 0; comb_lp_l2 = 0; comb_lp_l3 = 0;
+  comb_lp_l4 = 0; comb_lp_l5 = 0; comb_lp_l6 = 0; comb_lp_l7 = 0;
+  comb_lp_r0 = 0; comb_lp_r1 = 0; comb_lp_r2 = 0; comb_lp_r3 = 0;
+  comb_lp_r4 = 0; comb_lp_r5 = 0; comb_lp_r6 = 0; comb_lp_r7 = 0;
+
+  // Compressor state
+  comp_env_l = 0;
+  comp_env_r = 0;
+  gr_display = 0;
+
+  // Mic EQ biquad states
+  mic_eq_states = buf_pos; buf_pos += 32;
+
+  // Meter smoothing
+  meter_near = 0; meter_mid = 0; meter_far = 0;
+  meter_smooth = 0.995;
+
+  // Schroeder base delays
+  base_comb_0 = 1116; base_comb_1 = 1188; base_comb_2 = 1277; base_comb_3 = 1356;
+  base_comb_4 = 1422; base_comb_5 = 1491; base_comb_6 = 1557; base_comb_7 = 1617;
+  stereo_spread = 23;
+  base_ap_0 = 556; base_ap_1 = 441; base_ap_2 = 341; base_ap_3 = 225;
+
+  // Early reflection taps
+  er_tap_count = 12;
+  er_delays_ms = buf_pos; buf_pos += 12;
+  er_gains = buf_pos; buf_pos += 12;
+  er_pans = buf_pos; buf_pos += 12;
+
+  er_delays_ms[0] = 2.3;   er_gains[0] = 0.85;  er_pans[0] = 0.3;
+  er_delays_ms[1] = 4.1;   er_gains[1] = 0.75;  er_pans[1] = 0.7;
+  er_delays_ms[2] = 5.8;   er_gains[2] = 0.70;  er_pans[2] = 0.2;
+  er_delays_ms[3] = 8.2;   er_gains[3] = 0.60;  er_pans[3] = 0.8;
+  er_delays_ms[4] = 11.7;  er_gains[4] = 0.50;  er_pans[4] = 0.4;
+  er_delays_ms[5] = 14.3;  er_gains[5] = 0.45;  er_pans[5] = 0.6;
+  er_delays_ms[6] = 18.1;  er_gains[6] = 0.38;  er_pans[6] = 0.15;
+  er_delays_ms[7] = 22.5;  er_gains[7] = 0.32;  er_pans[7] = 0.85;
+  er_delays_ms[8] = 27.3;  er_gains[8] = 0.26;  er_pans[8] = 0.5;
+  er_delays_ms[9] = 33.1;  er_gains[9] = 0.21;  er_pans[9] = 0.35;
+  er_delays_ms[10] = 39.7; er_gains[10] = 0.17; er_pans[10] = 0.65;
+  er_delays_ms[11] = 47.2; er_gains[11] = 0.13; er_pans[11] = 0.45;
+
+  // EQ functions
+  function calc_peaking(base, freq, gain_db, q)
+    local(a, w0, alpha, a0)
+  (
+    a = 10 ^ (gain_db / 20);
+    w0 = 2 * $pi * freq / srate;
+    alpha = sin(w0) / (2 * q);
+    a0 = 1 + alpha / a;
+    base[0] = (1 + alpha * a) / a0;
+    base[1] = (-2 * cos(w0)) / a0;
+    base[2] = (1 - alpha * a) / a0;
+    base[3] = (-2 * cos(w0)) / a0;
+    base[4] = (1 - alpha / a) / a0;
+  );
+
+  function calc_lowpass(base, freq, q)
+    local(w0, alpha, a0)
+  (
+    w0 = 2 * $pi * freq / srate;
+    alpha = sin(w0) / (2 * q);
+    a0 = 1 + alpha;
+    base[0] = ((1 - cos(w0)) / 2) / a0;
+    base[1] = (1 - cos(w0)) / a0;
+    base[2] = ((1 - cos(w0)) / 2) / a0;
+    base[3] = (-2 * cos(w0)) / a0;
+    base[4] = (1 - alpha) / a0;
+  );
+
+  function apply_eq(base, input, s)
+    local(output)
+  (
+    output = base[0] * input + base[1] * base[s] + base[2] * base[s+1]
+           - base[3] * base[s+2] - base[4] * base[s+3];
+    base[s+1] = base[s];
+    base[s] = input;
+    base[s+3] = base[s+2];
+    base[s+2] = output;
+    output;
+  );
+
+  mic_eq_b1 = buf_pos; buf_pos += 16;
+  mic_eq_b2 = buf_pos; buf_pos += 16;
+
+  // Dattorro modulation LFO
+  dat_lfo_phase = 0;
+
+notice_show = 0;
+
+@slider
+  room_size = slider1 / 100;
+  decay = slider2 / 100;
+  damping = slider3 / 100;
+  predelay_ms = slider4;
+  near_gain = slider5 <= -59.9 ? 0 : 10 ^ (slider5 / 20);
+  mid_gain = slider6 <= -59.9 ? 0 : 10 ^ (slider6 / 20);
+  far_gain = slider7 <= -59.9 ? 0 : 10 ^ (slider7 / 20);
+  mic_type = slider8;
+  comp_thresh = 10 ^ (slider9 / 20);
+  comp_amount = slider10 / 100;
+  out_gain = 10 ^ (slider11 / 20);
+  dry_wet = slider12 / 100;
+  algo = slider13;
+
+  scale = 0.5 + room_size;
+  srate_scale = srate / 44100;
+
+  // === SCHROEDER delay lengths ===
+  comb_len_l0 = (base_comb_0 * scale * srate_scale)|0;
+  comb_len_l1 = (base_comb_1 * scale * srate_scale)|0;
+  comb_len_l2 = (base_comb_2 * scale * srate_scale)|0;
+  comb_len_l3 = (base_comb_3 * scale * srate_scale)|0;
+  comb_len_l4 = (base_comb_4 * scale * srate_scale)|0;
+  comb_len_l5 = (base_comb_5 * scale * srate_scale)|0;
+  comb_len_l6 = (base_comb_6 * scale * srate_scale)|0;
+  comb_len_l7 = (base_comb_7 * scale * srate_scale)|0;
+  comb_len_r0 = ((base_comb_0 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r1 = ((base_comb_1 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r2 = ((base_comb_2 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r3 = ((base_comb_3 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r4 = ((base_comb_4 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r5 = ((base_comb_5 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r6 = ((base_comb_6 + stereo_spread) * scale * srate_scale)|0;
+  comb_len_r7 = ((base_comb_7 + stereo_spread) * scale * srate_scale)|0;
+  ap_len_l0 = (base_ap_0 * srate_scale)|0;
+  ap_len_l1 = (base_ap_1 * srate_scale)|0;
+  ap_len_l2 = (base_ap_2 * srate_scale)|0;
+  ap_len_l3 = (base_ap_3 * srate_scale)|0;
+  ap_len_r0 = ((base_ap_0 + 13) * srate_scale)|0;
+  ap_len_r1 = ((base_ap_1 + 17) * srate_scale)|0;
+  ap_len_r2 = ((base_ap_2 + 11) * srate_scale)|0;
+  ap_len_r3 = ((base_ap_3 + 7) * srate_scale)|0;
+
+  comb_fb = 0.6 + decay * 0.35;
+  damp1 = damping * 0.4;
+  damp2 = 1 - damp1;
+  ap_fb = 0.5;
+
+  // === FDN delay lengths ===
+  fdn_len0 = min(8191, (fdn_base0 * scale * srate_scale)|0);
+  fdn_len1 = min(8191, (fdn_base1 * scale * srate_scale)|0);
+  fdn_len2 = min(8191, (fdn_base2 * scale * srate_scale)|0);
+  fdn_len3 = min(8191, (fdn_base3 * scale * srate_scale)|0);
+  fdn_len4 = min(8191, (fdn_base4 * scale * srate_scale)|0);
+  fdn_len5 = min(8191, (fdn_base5 * scale * srate_scale)|0);
+  fdn_len6 = min(8191, (fdn_base6 * scale * srate_scale)|0);
+  fdn_len7 = min(8191, (fdn_base7 * scale * srate_scale)|0);
+
+  // FDN feedback gain - scaled by decay
+  fdn_fb = 0.55 + decay * 0.4;
+  // FDN damping
+  fdn_damp1 = damping * 0.5;
+  fdn_damp2 = 1 - fdn_damp1;
+
+  // === DATTORRO delay lengths (scale from 29761 Hz reference) ===
+  dat_scale = srate / 29761;
+  dat_size = 0.5 + room_size;
+
+  dat_idif_len0 = max(1, (dat_idif_len0_base * dat_scale * dat_size)|0);
+  dat_idif_len1 = max(1, (dat_idif_len1_base * dat_scale * dat_size)|0);
+  dat_idif_len2 = max(1, (dat_idif_len2_base * dat_scale * dat_size)|0);
+  dat_idif_len3 = max(1, (dat_idif_len3_base * dat_scale * dat_size)|0);
+
+  dat_dd1_len = max(1, (dat_dd1_len_base * dat_scale * dat_size)|0);
+  dat_del1_len = max(1, min(8191, (dat_del1_len_base * dat_scale * dat_size)|0));
+  dat_dd2_len = max(1, (dat_dd2_len_base * dat_scale * dat_size)|0);
+  dat_del2_len = max(1, min(8191, (dat_del2_len_base * dat_scale * dat_size)|0));
+  dat_dd3_len = max(1, (dat_dd3_len_base * dat_scale * dat_size)|0);
+  dat_del3_len = max(1, min(8191, (dat_del3_len_base * dat_scale * dat_size)|0));
+  dat_dd4_len = max(1, (dat_dd4_len_base * dat_scale * dat_size)|0);
+  dat_del4_len = max(1, min(8191, (dat_del4_len_base * dat_scale * dat_size)|0));
+
+  // Dattorro coefficients
+  dat_input_diff1 = 0.75;
+  dat_input_diff2 = 0.625;
+  dat_decay_diff1 = 0.7;
+  dat_decay_diff2 = 0.5;
+  dat_decay = 0.3 + decay * 0.65;
+  dat_damping = damping * 0.7;
+
+  // Dattorro output tap lengths
+  dat_tap0 = min(dat_del1_len - 1, max(0, (dat_tap_base[0] * dat_scale * dat_size)|0));
+  dat_tap1 = min(dat_del1_len - 1, max(0, (dat_tap_base[1] * dat_scale * dat_size)|0));
+  dat_tap2 = min(dat_dd2_len - 1, max(0, (dat_tap_base[2] * dat_scale * dat_size)|0));
+  dat_tap3 = min(dat_del2_len - 1, max(0, (dat_tap_base[3] * dat_scale * dat_size)|0));
+  dat_tap4 = min(dat_del2_len - 1, max(0, (dat_tap_base[4] * dat_scale * dat_size)|0));
+  dat_tap5 = min(dat_del3_len - 1, max(0, (dat_tap_base[5] * dat_scale * dat_size)|0));
+  dat_tap6 = min(dat_dd4_len - 1, max(0, (dat_tap_base[6] * dat_scale * dat_size)|0));
+  dat_tap7 = min(dat_del3_len - 1, max(0, (dat_tap_base[7] * dat_scale * dat_size)|0));
+  dat_tap8 = min(dat_del3_len - 1, max(0, (dat_tap_base[8] * dat_scale * dat_size)|0));
+  dat_tap9 = min(dat_dd4_len - 1, max(0, (dat_tap_base[9] * dat_scale * dat_size)|0));
+  dat_tap10 = min(dat_del4_len - 1, max(0, (dat_tap_base[10] * dat_scale * dat_size)|0));
+  dat_tap11 = min(dat_del4_len - 1, max(0, (dat_tap_base[11] * dat_scale * dat_size)|0));
+  dat_tap12 = min(dat_del1_len - 1, max(0, (dat_tap_base[12] * dat_scale * dat_size)|0));
+  dat_tap13 = min(dat_dd2_len - 1, max(0, (dat_tap_base[13] * dat_scale * dat_size)|0));
+
+  // LFO speed
+  dat_lfo_inc = 2 * $pi * 0.5 / srate;
+
+  // Pre-delay for each mic
+  pd_near = max(1, (2 + predelay_ms * 0.1) * srate / 1000)|0;
+  pd_mid = max(1, (10 + predelay_ms * 0.5) * srate / 1000)|0;
+  pd_far = max(1, (25 + predelay_ms) * srate / 1000)|0;
+
+  // Compressor
+  comp_att = exp(-1 / (0.010 * srate));
+  comp_rel = exp(-1 / (0.080 * srate));
+
+  // Mic type EQ
+  mic_type == 0 ? (
+    this.calc_peaking(mic_eq_b1, 10000, 3.0, 0.7);
+    this.calc_peaking(mic_eq_b2, 100, 1.5, 0.8);
+  ) : mic_type == 1 ? (
+    this.calc_lowpass(mic_eq_b1, 8000, 0.7);
+    this.calc_peaking(mic_eq_b2, 2000, 2.0, 0.8);
+  ) : (
+    this.calc_peaking(mic_eq_b1, 400, -3.0, 1.0);
+    this.calc_peaking(mic_eq_b2, 4000, 2.0, 1.0);
+  );
+
+@sample
+  dry_l = spl0;
+  dry_r = spl1;
+  in_l = spl0;
+  in_r = spl1;
+
+  // ==========================================
+  // EARLY REFLECTIONS (shared by all algos)
+  // ==========================================
+  er_buf_l[er_pos] = in_l;
+  er_buf_r[er_pos] = in_r;
+
+  er_l = 0; er_r = 0;
+  i = 0;
+  loop(er_tap_count,
+    tap_delay = (er_delays_ms[i] * (0.5 + room_size) * srate / 1000)|0;
+    tap_delay = min(tap_delay, MAX_BUF - 1);
+    read_pos = er_pos - tap_delay;
+    read_pos < 0 ? read_pos += MAX_BUF;
+    tap_val_l = er_buf_l[read_pos] * er_gains[i];
+    tap_val_r = er_buf_r[read_pos] * er_gains[i];
+    pan = er_pans[i];
+    er_l += tap_val_l * (1 - pan) + tap_val_r * pan;
+    er_r += tap_val_r * (1 - pan) + tap_val_l * pan;
+    i += 1;
+  );
+  er_pos = (er_pos + 1) % MAX_BUF;
+
+  // ==========================================
+  // LATE REVERB - algorithm selector
+  // ==========================================
+
+  algo == 0 ? (
+    // ========== SCHROEDER-MOORER ==========
+    // L comb filters
+    out_l0 = comb_buf_l0[(comb_pos_l0 - comb_len_l0 + 4096) % 4096];
+    comb_lp_l0 = out_l0 * damp2 + comb_lp_l0 * damp1;
+    comb_buf_l0[comb_pos_l0] = in_l + comb_lp_l0 * comb_fb;
+    comb_pos_l0 = (comb_pos_l0 + 1) % 4096;
+
+    out_l1 = comb_buf_l1[(comb_pos_l1 - comb_len_l1 + 4096) % 4096];
+    comb_lp_l1 = out_l1 * damp2 + comb_lp_l1 * damp1;
+    comb_buf_l1[comb_pos_l1] = in_l + comb_lp_l1 * comb_fb;
+    comb_pos_l1 = (comb_pos_l1 + 1) % 4096;
+
+    out_l2 = comb_buf_l2[(comb_pos_l2 - comb_len_l2 + 4096) % 4096];
+    comb_lp_l2 = out_l2 * damp2 + comb_lp_l2 * damp1;
+    comb_buf_l2[comb_pos_l2] = in_l + comb_lp_l2 * comb_fb;
+    comb_pos_l2 = (comb_pos_l2 + 1) % 4096;
+
+    out_l3 = comb_buf_l3[(comb_pos_l3 - comb_len_l3 + 4096) % 4096];
+    comb_lp_l3 = out_l3 * damp2 + comb_lp_l3 * damp1;
+    comb_buf_l3[comb_pos_l3] = in_l + comb_lp_l3 * comb_fb;
+    comb_pos_l3 = (comb_pos_l3 + 1) % 4096;
+
+    out_l4 = comb_buf_l4[(comb_pos_l4 - comb_len_l4 + 4096) % 4096];
+    comb_lp_l4 = out_l4 * damp2 + comb_lp_l4 * damp1;
+    comb_buf_l4[comb_pos_l4] = in_l + comb_lp_l4 * comb_fb;
+    comb_pos_l4 = (comb_pos_l4 + 1) % 4096;
+
+    out_l5 = comb_buf_l5[(comb_pos_l5 - comb_len_l5 + 4096) % 4096];
+    comb_lp_l5 = out_l5 * damp2 + comb_lp_l5 * damp1;
+    comb_buf_l5[comb_pos_l5] = in_l + comb_lp_l5 * comb_fb;
+    comb_pos_l5 = (comb_pos_l5 + 1) % 4096;
+
+    out_l6 = comb_buf_l6[(comb_pos_l6 - comb_len_l6 + 4096) % 4096];
+    comb_lp_l6 = out_l6 * damp2 + comb_lp_l6 * damp1;
+    comb_buf_l6[comb_pos_l6] = in_l + comb_lp_l6 * comb_fb;
+    comb_pos_l6 = (comb_pos_l6 + 1) % 4096;
+
+    out_l7 = comb_buf_l7[(comb_pos_l7 - comb_len_l7 + 4096) % 4096];
+    comb_lp_l7 = out_l7 * damp2 + comb_lp_l7 * damp1;
+    comb_buf_l7[comb_pos_l7] = in_l + comb_lp_l7 * comb_fb;
+    comb_pos_l7 = (comb_pos_l7 + 1) % 4096;
+
+    late_l = (out_l0 + out_l1 + out_l2 + out_l3 + out_l4 + out_l5 + out_l6 + out_l7) * 0.125;
+
+    // R comb filters
+    out_r0 = comb_buf_r0[(comb_pos_r0 - comb_len_r0 + 4096) % 4096];
+    comb_lp_r0 = out_r0 * damp2 + comb_lp_r0 * damp1;
+    comb_buf_r0[comb_pos_r0] = in_r + comb_lp_r0 * comb_fb;
+    comb_pos_r0 = (comb_pos_r0 + 1) % 4096;
+
+    out_r1 = comb_buf_r1[(comb_pos_r1 - comb_len_r1 + 4096) % 4096];
+    comb_lp_r1 = out_r1 * damp2 + comb_lp_r1 * damp1;
+    comb_buf_r1[comb_pos_r1] = in_r + comb_lp_r1 * comb_fb;
+    comb_pos_r1 = (comb_pos_r1 + 1) % 4096;
+
+    out_r2 = comb_buf_r2[(comb_pos_r2 - comb_len_r2 + 4096) % 4096];
+    comb_lp_r2 = out_r2 * damp2 + comb_lp_r2 * damp1;
+    comb_buf_r2[comb_pos_r2] = in_r + comb_lp_r2 * comb_fb;
+    comb_pos_r2 = (comb_pos_r2 + 1) % 4096;
+
+    out_r3 = comb_buf_r3[(comb_pos_r3 - comb_len_r3 + 4096) % 4096];
+    comb_lp_r3 = out_r3 * damp2 + comb_lp_r3 * damp1;
+    comb_buf_r3[comb_pos_r3] = in_r + comb_lp_r3 * comb_fb;
+    comb_pos_r3 = (comb_pos_r3 + 1) % 4096;
+
+    out_r4 = comb_buf_r4[(comb_pos_r4 - comb_len_r4 + 4096) % 4096];
+    comb_lp_r4 = out_r4 * damp2 + comb_lp_r4 * damp1;
+    comb_buf_r4[comb_pos_r4] = in_r + comb_lp_r4 * comb_fb;
+    comb_pos_r4 = (comb_pos_r4 + 1) % 4096;
+
+    out_r5 = comb_buf_r5[(comb_pos_r5 - comb_len_r5 + 4096) % 4096];
+    comb_lp_r5 = out_r5 * damp2 + comb_lp_r5 * damp1;
+    comb_buf_r5[comb_pos_r5] = in_r + comb_lp_r5 * comb_fb;
+    comb_pos_r5 = (comb_pos_r5 + 1) % 4096;
+
+    out_r6 = comb_buf_r6[(comb_pos_r6 - comb_len_r6 + 4096) % 4096];
+    comb_lp_r6 = out_r6 * damp2 + comb_lp_r6 * damp1;
+    comb_buf_r6[comb_pos_r6] = in_r + comb_lp_r6 * comb_fb;
+    comb_pos_r6 = (comb_pos_r6 + 1) % 4096;
+
+    out_r7 = comb_buf_r7[(comb_pos_r7 - comb_len_r7 + 4096) % 4096];
+    comb_lp_r7 = out_r7 * damp2 + comb_lp_r7 * damp1;
+    comb_buf_r7[comb_pos_r7] = in_r + comb_lp_r7 * comb_fb;
+    comb_pos_r7 = (comb_pos_r7 + 1) % 4096;
+
+    late_r = (out_r0 + out_r1 + out_r2 + out_r3 + out_r4 + out_r5 + out_r6 + out_r7) * 0.125;
+
+    // Allpass diffusion (4 stages, stereo)
+    ap_read = ap_buf_l0[(ap_pos_l0 - ap_len_l0 + 2048) % 2048];
+    ap_out = -late_l + ap_read;
+    ap_buf_l0[ap_pos_l0] = late_l + ap_read * ap_fb;
+    late_l = ap_out; ap_pos_l0 = (ap_pos_l0 + 1) % 2048;
+
+    ap_read = ap_buf_l1[(ap_pos_l1 - ap_len_l1 + 2048) % 2048];
+    ap_out = -late_l + ap_read;
+    ap_buf_l1[ap_pos_l1] = late_l + ap_read * ap_fb;
+    late_l = ap_out; ap_pos_l1 = (ap_pos_l1 + 1) % 2048;
+
+    ap_read = ap_buf_l2[(ap_pos_l2 - ap_len_l2 + 2048) % 2048];
+    ap_out = -late_l + ap_read;
+    ap_buf_l2[ap_pos_l2] = late_l + ap_read * ap_fb;
+    late_l = ap_out; ap_pos_l2 = (ap_pos_l2 + 1) % 2048;
+
+    ap_read = ap_buf_l3[(ap_pos_l3 - ap_len_l3 + 2048) % 2048];
+    ap_out = -late_l + ap_read;
+    ap_buf_l3[ap_pos_l3] = late_l + ap_read * ap_fb;
+    late_l = ap_out; ap_pos_l3 = (ap_pos_l3 + 1) % 2048;
+
+    ap_read = ap_buf_r0[(ap_pos_r0 - ap_len_r0 + 2048) % 2048];
+    ap_out = -late_r + ap_read;
+    ap_buf_r0[ap_pos_r0] = late_r + ap_read * ap_fb;
+    late_r = ap_out; ap_pos_r0 = (ap_pos_r0 + 1) % 2048;
+
+    ap_read = ap_buf_r1[(ap_pos_r1 - ap_len_r1 + 2048) % 2048];
+    ap_out = -late_r + ap_read;
+    ap_buf_r1[ap_pos_r1] = late_r + ap_read * ap_fb;
+    late_r = ap_out; ap_pos_r1 = (ap_pos_r1 + 1) % 2048;
+
+    ap_read = ap_buf_r2[(ap_pos_r2 - ap_len_r2 + 2048) % 2048];
+    ap_out = -late_r + ap_read;
+    ap_buf_r2[ap_pos_r2] = late_r + ap_read * ap_fb;
+    late_r = ap_out; ap_pos_r2 = (ap_pos_r2 + 1) % 2048;
+
+    ap_read = ap_buf_r3[(ap_pos_r3 - ap_len_r3 + 2048) % 2048];
+    ap_out = -late_r + ap_read;
+    ap_buf_r3[ap_pos_r3] = late_r + ap_read * ap_fb;
+    late_r = ap_out; ap_pos_r3 = (ap_pos_r3 + 1) % 2048;
+
+  ) : algo == 1 ? (
+    // ========== FDN (Feedback Delay Network) ==========
+    // Read from 8 delay lines
+    d0 = fdn_buf0[(fdn_pos0 - fdn_len0 + 8192) % 8192];
+    d1 = fdn_buf1[(fdn_pos1 - fdn_len1 + 8192) % 8192];
+    d2 = fdn_buf2[(fdn_pos2 - fdn_len2 + 8192) % 8192];
+    d3 = fdn_buf3[(fdn_pos3 - fdn_len3 + 8192) % 8192];
+    d4 = fdn_buf4[(fdn_pos4 - fdn_len4 + 8192) % 8192];
+    d5 = fdn_buf5[(fdn_pos5 - fdn_len5 + 8192) % 8192];
+    d6 = fdn_buf6[(fdn_pos6 - fdn_len6 + 8192) % 8192];
+    d7 = fdn_buf7[(fdn_pos7 - fdn_len7 + 8192) % 8192];
+
+    // Damping lowpass on each line
+    fdn_lp0 = d0 * fdn_damp2 + fdn_lp0 * fdn_damp1;
+    fdn_lp1 = d1 * fdn_damp2 + fdn_lp1 * fdn_damp1;
+    fdn_lp2 = d2 * fdn_damp2 + fdn_lp2 * fdn_damp1;
+    fdn_lp3 = d3 * fdn_damp2 + fdn_lp3 * fdn_damp1;
+    fdn_lp4 = d4 * fdn_damp2 + fdn_lp4 * fdn_damp1;
+    fdn_lp5 = d5 * fdn_damp2 + fdn_lp5 * fdn_damp1;
+    fdn_lp6 = d6 * fdn_damp2 + fdn_lp6 * fdn_damp1;
+    fdn_lp7 = d7 * fdn_damp2 + fdn_lp7 * fdn_damp1;
+
+    // Hadamard-like mixing matrix (orthogonal, preserves energy)
+    // Using a simplified 8x8 Hadamard: pairs then quads then octets
+    // Stage 1: butterfly pairs
+    s0 = fdn_lp0 + fdn_lp1; s1 = fdn_lp0 - fdn_lp1;
+    s2 = fdn_lp2 + fdn_lp3; s3 = fdn_lp2 - fdn_lp3;
+    s4 = fdn_lp4 + fdn_lp5; s5 = fdn_lp4 - fdn_lp5;
+    s6 = fdn_lp6 + fdn_lp7; s7 = fdn_lp6 - fdn_lp7;
+    // Stage 2: quad mix
+    t0 = s0 + s2; t1 = s1 + s3;
+    t2 = s0 - s2; t3 = s1 - s3;
+    t4 = s4 + s6; t5 = s5 + s7;
+    t6 = s4 - s6; t7 = s5 - s7;
+    // Stage 3: final mix + normalize
+    h_norm = 0.353553; // 1/sqrt(8)
+    m0 = (t0 + t4) * h_norm;
+    m1 = (t1 + t5) * h_norm;
+    m2 = (t2 + t6) * h_norm;
+    m3 = (t3 + t7) * h_norm;
+    m4 = (t0 - t4) * h_norm;
+    m5 = (t1 - t5) * h_norm;
+    m6 = (t2 - t6) * h_norm;
+    m7 = (t3 - t7) * h_norm;
+
+    // Write back with input and feedback
+    in_mono = (in_l + in_r) * 0.5;
+    fdn_buf0[fdn_pos0] = in_mono + m0 * fdn_fb;
+    fdn_buf1[fdn_pos1] = in_mono + m1 * fdn_fb;
+    fdn_buf2[fdn_pos2] = in_mono + m2 * fdn_fb;
+    fdn_buf3[fdn_pos3] = in_mono + m3 * fdn_fb;
+    fdn_buf4[fdn_pos4] = in_mono + m4 * fdn_fb;
+    fdn_buf5[fdn_pos5] = in_mono + m5 * fdn_fb;
+    fdn_buf6[fdn_pos6] = in_mono + m6 * fdn_fb;
+    fdn_buf7[fdn_pos7] = in_mono + m7 * fdn_fb;
+
+    fdn_pos0 = (fdn_pos0 + 1) % 8192;
+    fdn_pos1 = (fdn_pos1 + 1) % 8192;
+    fdn_pos2 = (fdn_pos2 + 1) % 8192;
+    fdn_pos3 = (fdn_pos3 + 1) % 8192;
+    fdn_pos4 = (fdn_pos4 + 1) % 8192;
+    fdn_pos5 = (fdn_pos5 + 1) % 8192;
+    fdn_pos6 = (fdn_pos6 + 1) % 8192;
+    fdn_pos7 = (fdn_pos7 + 1) % 8192;
+
+    // Output: sum alternating lines for L/R decorrelation
+    late_l = (d0 + d2 + d4 + d6) * 0.25;
+    late_r = (d1 + d3 + d5 + d7) * 0.25;
+
+  ) : (
+    // ========== DATTORRO PLATE REVERB ==========
+    // Input: sum to mono, feed through 4 input diffusors
+    dat_in = (in_l + in_r) * 0.5;
+
+    // Input diffusor 1
+    ap_read = dat_idif0[(dat_idif_pos0 - dat_idif_len0 + 2048) % 2048];
+    dat_idif0[dat_idif_pos0] = dat_in + ap_read * dat_input_diff1;
+    dat_in = -dat_in * dat_input_diff1 + ap_read;
+    dat_idif_pos0 = (dat_idif_pos0 + 1) % 2048;
+
+    // Input diffusor 2
+    ap_read = dat_idif1[(dat_idif_pos1 - dat_idif_len1 + 2048) % 2048];
+    dat_idif1[dat_idif_pos1] = dat_in + ap_read * dat_input_diff1;
+    dat_in = -dat_in * dat_input_diff1 + ap_read;
+    dat_idif_pos1 = (dat_idif_pos1 + 1) % 2048;
+
+    // Input diffusor 3
+    ap_read = dat_idif2[(dat_idif_pos2 - dat_idif_len2 + 2048) % 2048];
+    dat_idif2[dat_idif_pos2] = dat_in + ap_read * dat_input_diff2;
+    dat_in = -dat_in * dat_input_diff2 + ap_read;
+    dat_idif_pos2 = (dat_idif_pos2 + 1) % 2048;
+
+    // Input diffusor 4
+    ap_read = dat_idif3[(dat_idif_pos3 - dat_idif_len3 + 2048) % 2048];
+    dat_idif3[dat_idif_pos3] = dat_in + ap_read * dat_input_diff2;
+    dat_in = -dat_in * dat_input_diff2 + ap_read;
+    dat_idif_pos3 = (dat_idif_pos3 + 1) % 2048;
+
+    // === TANK LEFT LOOP ===
+    // Read cross-feed from right loop (del4 output)
+    tank_r_fb = dat_del4_buf[(dat_del4_pos - dat_del4_len + 8192) % 8192];
+
+    // Decay diffusor 1 (modulated allpass)
+    tank_l_in = dat_in + tank_r_fb * dat_decay;
+    ap_read = dat_dd1_buf[(dat_dd1_pos - dat_dd1_len + 4096) % 4096];
+    dat_dd1_buf[dat_dd1_pos] = tank_l_in + ap_read * dat_decay_diff1;
+    tank_l = -tank_l_in * dat_decay_diff1 + ap_read;
+    dat_dd1_pos = (dat_dd1_pos + 1) % 4096;
+
+    // Delay 1
+    dat_del1_buf[dat_del1_pos] = tank_l;
+    tank_l = dat_del1_buf[(dat_del1_pos - dat_del1_len + 8192) % 8192];
+    dat_del1_pos = (dat_del1_pos + 1) % 8192;
+
+    // Damping lowpass
+    dat_damp1 = tank_l * (1 - dat_damping) + dat_damp1 * dat_damping;
+    tank_l = dat_damp1 * dat_decay;
+
+    // Decay diffusor 2
+    ap_read = dat_dd2_buf[(dat_dd2_pos - dat_dd2_len + 4096) % 4096];
+    dat_dd2_buf[dat_dd2_pos] = tank_l + ap_read * dat_decay_diff2;
+    tank_l = -tank_l * dat_decay_diff2 + ap_read;
+    dat_dd2_pos = (dat_dd2_pos + 1) % 4096;
+
+    // Delay 2
+    dat_del2_buf[dat_del2_pos] = tank_l;
+    dat_del2_pos = (dat_del2_pos + 1) % 8192;
+
+    // === TANK RIGHT LOOP ===
+    // Read cross-feed from left loop (del2 output)
+    tank_l_fb = dat_del2_buf[(dat_del2_pos - dat_del2_len + 8192) % 8192];
+
+    // Decay diffusor 3
+    tank_r_in = dat_in + tank_l_fb * dat_decay;
+    ap_read = dat_dd3_buf[(dat_dd3_pos - dat_dd3_len + 4096) % 4096];
+    dat_dd3_buf[dat_dd3_pos] = tank_r_in + ap_read * dat_decay_diff1;
+    tank_r = -tank_r_in * dat_decay_diff1 + ap_read;
+    dat_dd3_pos = (dat_dd3_pos + 1) % 4096;
+
+    // Delay 3
+    dat_del3_buf[dat_del3_pos] = tank_r;
+    tank_r = dat_del3_buf[(dat_del3_pos - dat_del3_len + 8192) % 8192];
+    dat_del3_pos = (dat_del3_pos + 1) % 8192;
+
+    // Damping lowpass
+    dat_damp2 = tank_r * (1 - dat_damping) + dat_damp2 * dat_damping;
+    tank_r = dat_damp2 * dat_decay;
+
+    // Decay diffusor 4
+    ap_read = dat_dd4_buf[(dat_dd4_pos - dat_dd4_len + 4096) % 4096];
+    dat_dd4_buf[dat_dd4_pos] = tank_r + ap_read * dat_decay_diff2;
+    tank_r = -tank_r * dat_decay_diff2 + ap_read;
+    dat_dd4_pos = (dat_dd4_pos + 1) % 4096;
+
+    // Delay 4
+    dat_del4_buf[dat_del4_pos] = tank_r;
+    dat_del4_pos = (dat_del4_pos + 1) % 8192;
+
+    // === OUTPUT TAPS (from Dattorro paper) ===
+    // Left output taps
+    late_l = dat_del1_buf[(dat_del1_pos - dat_tap0 + 8192) % 8192];
+    late_l += dat_del1_buf[(dat_del1_pos - dat_tap1 + 8192) % 8192];
+    late_l -= dat_dd2_buf[(dat_dd2_pos - dat_tap2 + 4096) % 4096];
+    late_l += dat_del2_buf[(dat_del2_pos - dat_tap3 + 8192) % 8192];
+    late_l -= dat_del3_buf[(dat_del3_pos - dat_tap5 + 8192) % 8192];
+    late_l -= dat_dd4_buf[(dat_dd4_pos - dat_tap6 + 4096) % 4096];
+    late_l -= dat_del1_buf[(dat_del1_pos - dat_tap12 + 8192) % 8192];
+
+    // Right output taps
+    late_r = dat_del3_buf[(dat_del3_pos - dat_tap7 + 8192) % 8192];
+    late_r += dat_del3_buf[(dat_del3_pos - dat_tap8 + 8192) % 8192];
+    late_r -= dat_dd4_buf[(dat_dd4_pos - dat_tap9 + 4096) % 4096];
+    late_r += dat_del4_buf[(dat_del4_pos - dat_tap10 + 8192) % 8192];
+    late_r -= dat_del1_buf[(dat_del1_pos - dat_tap12 + 8192) % 8192];
+    late_r -= dat_dd2_buf[(dat_dd2_pos - dat_tap13 + 4096) % 4096];
+    late_r -= dat_del4_buf[(dat_del4_pos - dat_tap11 + 8192) % 8192];
+
+    late_l *= 0.2;
+    late_r *= 0.2;
+  );
+
+  // ==========================================
+  // THREE MIC POSITIONS with pre-delay
+  // ==========================================
+  near_raw_l = er_l * 0.8 + late_l * 0.2;
+  near_raw_r = er_r * 0.8 + late_r * 0.2;
+  mid_raw_l = er_l * 0.4 + late_l * 0.6;
+  mid_raw_r = er_r * 0.4 + late_r * 0.6;
+  far_raw_l = er_l * 0.1 + late_l * 0.9;
+  far_raw_r = er_r * 0.1 + late_r * 0.9;
+
+  pd_buf_near_l[pd_pos_near] = near_raw_l;
+  pd_buf_near_r[pd_pos_near] = near_raw_r;
+  near_l = pd_buf_near_l[(pd_pos_near - pd_near + 4800) % 4800];
+  near_r = pd_buf_near_r[(pd_pos_near - pd_near + 4800) % 4800];
+
+  pd_buf_mid_l[pd_pos_mid] = mid_raw_l;
+  pd_buf_mid_r[pd_pos_mid] = mid_raw_r;
+  mid_l = pd_buf_mid_l[(pd_pos_mid - pd_mid + 4800) % 4800];
+  mid_r = pd_buf_mid_r[(pd_pos_mid - pd_mid + 4800) % 4800];
+
+  pd_buf_far_l[pd_pos_far] = far_raw_l;
+  pd_buf_far_r[pd_pos_far] = far_raw_r;
+  far_l = pd_buf_far_l[(pd_pos_far - pd_far + 4800) % 4800];
+  far_r = pd_buf_far_r[(pd_pos_far - pd_far + 4800) % 4800];
+
+  pd_pos_near = (pd_pos_near + 1) % 4800;
+  pd_pos_mid = (pd_pos_mid + 1) % 4800;
+  pd_pos_far = (pd_pos_far + 1) % 4800;
+
+  // Mix the three mics
+  rev_l = near_l * near_gain + mid_l * mid_gain + far_l * far_gain;
+  rev_r = near_r * near_gain + mid_r * mid_gain + far_r * far_gain;
+
+  // Meters
+  meter_near = max(meter_near * meter_smooth, abs(near_l + near_r) * 0.5 * near_gain);
+  meter_mid = max(meter_mid * meter_smooth, abs(mid_l + mid_r) * 0.5 * mid_gain);
+  meter_far = max(meter_far * meter_smooth, abs(far_l + far_r) * 0.5 * far_gain);
+
+  // ==========================================
+  // MIC TYPE EQ
+  // ==========================================
+  rev_l = this.apply_eq(mic_eq_b1, rev_l, 5);
+  rev_r = this.apply_eq(mic_eq_b1, rev_r, 9);
+  rev_l = this.apply_eq(mic_eq_b2, rev_l, 5);
+  rev_r = this.apply_eq(mic_eq_b2, rev_r, 9);
+
+  // ==========================================
+  // OPTICAL COMPRESSOR
+  // ==========================================
+  comp_amount > 0 ? (
+    env_in = sqrt((rev_l * rev_l + rev_r * rev_r) * 0.5);
+    env_in > comp_env_l ? (
+      comp_env_l += (1 - comp_att) * (env_in - comp_env_l);
+    ) : (
+      comp_env_l += (1 - comp_rel) * (env_in - comp_env_l);
+    );
+    comp_env_l > comp_thresh ? (
+      over = comp_env_l / comp_thresh;
+      gr = 1 / (1 + (over - 1) * 0.67);
+    ) : (
+      gr = 1;
+    );
+    gr_display = gr_display * 0.99 + gr * 0.01;
+    comp_l = rev_l * gr;
+    comp_r = rev_r * gr;
+    rev_l = rev_l * (1 - comp_amount) + comp_l * comp_amount;
+    rev_r = rev_r * (1 - comp_amount) + comp_r * comp_amount;
+  );
+
+  // Output gain
+  rev_l *= out_gain;
+  rev_r *= out_gain;
+
+  // Dry/wet
+  spl0 = dry_l * (1 - dry_wet) + rev_l * dry_wet;
+  spl1 = dry_r * (1 - dry_wet) + rev_r * dry_wet;
+
+@gfx 550 300
+  // Background
+  gfx_r = 0.08; gfx_g = 0.07; gfx_b = 0.06;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+
+  // Title bar
+  gfx_r = 0.15; gfx_g = 0.12; gfx_b = 0.08;
+  gfx_rect(0, 0, gfx_w, 30);
+
+  gfx_r = 0.95; gfx_g = 0.8; gfx_b = 0.4;
+  gfx_x = 10; gfx_y = 8;
+  gfx_drawstr("SOUND CITY DRUM ROOM");
+
+  // Algorithm indicator
+  gfx_r = 0.7; gfx_g = 0.55; gfx_b = 0.2;
+  gfx_x = 220; gfx_y = 8;
+  algo == 0 ? gfx_drawstr("SCHROEDER");
+  algo == 1 ? gfx_drawstr("FDN");
+  algo == 2 ? gfx_drawstr("PLATE");
+
+  // Mic type indicator
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_x = gfx_w - 150; gfx_y = 8;
+  mic_type == 0 ? gfx_drawstr("[ U87 Condenser ]");
+  mic_type == 1 ? gfx_drawstr("[ Ribbon ]");
+  mic_type == 2 ? gfx_drawstr("[ 421 Dynamic ]");
+
+  // ==========================================
+  // MIC LEVEL METERS
+  // ==========================================
+  meter_x = 30;
+  meter_w = 25;
+  meter_top = 50;
+  meter_bot = gfx_h - 60;
+  meter_ht = meter_bot - meter_top;
+
+  // Near meter
+  gfx_r = 0.15; gfx_g = 0.13; gfx_b = 0.1;
+  gfx_rect(meter_x, meter_top, meter_w, meter_ht);
+  fill = min(1, meter_near * 5) * meter_ht;
+  meter_near * 5 < 0.6 ? (gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.3;)
+  : meter_near * 5 < 0.85 ? (gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;)
+  : (gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.1;);
+  gfx_rect(meter_x, meter_bot - fill, meter_w, fill);
+  gfx_r = 0.5; gfx_g = 0.4; gfx_b = 0.3;
+  gfx_x = meter_x; gfx_y = meter_bot + 5;
+  gfx_drawstr("NEAR");
+
+  // Mid meter
+  meter_x += 50;
+  gfx_r = 0.15; gfx_g = 0.13; gfx_b = 0.1;
+  gfx_rect(meter_x, meter_top, meter_w, meter_ht);
+  fill = min(1, meter_mid * 5) * meter_ht;
+  meter_mid * 5 < 0.6 ? (gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.3;)
+  : meter_mid * 5 < 0.85 ? (gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;)
+  : (gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.1;);
+  gfx_rect(meter_x, meter_bot - fill, meter_w, fill);
+  gfx_r = 0.5; gfx_g = 0.4; gfx_b = 0.3;
+  gfx_x = meter_x + 2; gfx_y = meter_bot + 5;
+  gfx_drawstr("MID");
+
+  // Far meter
+  meter_x += 50;
+  gfx_r = 0.15; gfx_g = 0.13; gfx_b = 0.1;
+  gfx_rect(meter_x, meter_top, meter_w, meter_ht);
+  fill = min(1, meter_far * 5) * meter_ht;
+  meter_far * 5 < 0.6 ? (gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.3;)
+  : meter_far * 5 < 0.85 ? (gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;)
+  : (gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.1;);
+  gfx_rect(meter_x, meter_bot - fill, meter_w, fill);
+  gfx_r = 0.5; gfx_g = 0.4; gfx_b = 0.3;
+  gfx_x = meter_x + 2; gfx_y = meter_bot + 5;
+  gfx_drawstr("FAR");
+
+  // ==========================================
+  // ROOM VISUALIZATION
+  // ==========================================
+  room_cx = gfx_w * 0.52;
+  room_cy = gfx_h * 0.48;
+  room_w = 120 + room_size * 80;
+  room_h = 80 + room_size * 60;
+
+  // Room outline
+  gfx_r = 0.3; gfx_g = 0.25; gfx_b = 0.15;
+  gfx_line(room_cx - room_w/2, room_cy - room_h/2, room_cx + room_w/2, room_cy - room_h/2);
+  gfx_line(room_cx + room_w/2, room_cy - room_h/2, room_cx + room_w/2, room_cy + room_h/2);
+  gfx_line(room_cx + room_w/2, room_cy + room_h/2, room_cx - room_w/2, room_cy + room_h/2);
+  gfx_line(room_cx - room_w/2, room_cy + room_h/2, room_cx - room_w/2, room_cy - room_h/2);
+
+  // Drum kit
+  gfx_r = 0.5; gfx_g = 0.4; gfx_b = 0.2;
+  gfx_circle(room_cx, room_cy, 8, 0);
+  gfx_circle(room_cx - 12, room_cy + 5, 5, 0);
+  gfx_circle(room_cx + 12, room_cy + 5, 5, 0);
+
+  // Mic dots
+  near_gain > 0 ? (
+    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+    gfx_circle(room_cx, room_cy - 20, 4, 1);
+  );
+  mid_gain > 0 ? (
+    gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;
+    gfx_circle(room_cx + room_w * 0.25, room_cy - room_h * 0.3, 4, 1);
+  );
+  far_gain > 0 ? (
+    gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.1;
+    gfx_circle(room_cx + room_w * 0.43, room_cy - room_h * 0.43, 4, 1);
+  );
+
+  // ==========================================
+  // GR METER
+  // ==========================================
+  gr_x = gfx_w - 50;
+  gfx_r = 0.15; gfx_g = 0.13; gfx_b = 0.1;
+  gfx_rect(gr_x, meter_top, meter_w, meter_ht);
+  gr_amount = max(0, min(1, 1 - gr_display));
+  gr_fill = gr_amount * meter_ht;
+  gfx_r = 0.8; gfx_g = 0.2; gfx_b = 0.2;
+  gfx_rect(gr_x, meter_top, meter_w, gr_fill);
+  gfx_r = 0.5; gfx_g = 0.4; gfx_b = 0.3;
+  gfx_x = gr_x + 4; gfx_y = meter_bot + 5;
+  gfx_drawstr("GR");
+
+  gr_db = 20 * log10(max(0.001, gr_display));
+  gfx_x = gr_x - 8; gfx_y = meter_top - 15;
+  gfx_r = 0.8; gfx_g = 0.4; gfx_b = 0.2;
+  sprintf(#gr_str, "%.1fdB", gr_db);
+  gfx_drawstr(#gr_str);
+
+  // Labels
+  gfx_r = 0.4; gfx_g = 0.35; gfx_b = 0.25;
+  gfx_x = room_cx - 25; gfx_y = room_cy + room_h/2 + 10;
+  sprintf(#room_str, "Room: %d%%", slider1|0);
+  gfx_drawstr(#room_str);
+
+  gfx_x = room_cx - 25; gfx_y = room_cy + room_h/2 + 25;
+  sprintf(#decay_str, "Decay: %d%%", slider2|0);
+  gfx_drawstr(#decay_str);
+  // --- NOTICE BUTTON ---
+  notice_btn_x = gfx_w - 60;
+  notice_btn_y = gfx_h - 18;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  notice_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h);
+    gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = 15; gfx_y = 10;
+    gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = 15; gfx_y = 30;
+    gfx_drawstr("The algorithms in our favorite software are decades old.");
+    gfx_x = 15; gfx_y = 45;
+    gfx_drawstr("A mathematical model is a truth about the world,");
+    gfx_x = 15; gfx_y = 60;
+    gfx_drawstr("not a copyrightable product. You do not have to stay");
+    gfx_x = 15; gfx_y = 75;
+    gfx_drawstr("a slave to subscription software. Install Linux.");
+    gfx_x = 15; gfx_y = 90;
+    gfx_drawstr("Build your own tools. Believe in yourself.");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = 15; gfx_y = 115;
+    gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_x = 15; gfx_y = 140;
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+    gfx_drawstr("NOTICE");
+  );
