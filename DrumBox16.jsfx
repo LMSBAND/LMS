@@ -185,6 +185,9 @@ POOL_FOLDER_IDX = 408; // per-pool-entry folder index (up to 500 entries, 408-90
 MAX_POOL_FOLDERS = 32;
 // Folder names in string slots 700+ (700="ALL", 701=first folder, etc.)
 
+// Per-pad chop offset (nudge all slice boundaries left/right)
+PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
+
 // Per-pattern bar count and display bar
 PAT_BAR_COUNT  = 910;   // 910-917: bars per pattern (1-4), default 1
 PAT_DISPLAY_BAR = 920;  // 920-927: currently displayed bar (0-3), runtime only
@@ -255,6 +258,7 @@ function load_kit_samples(kit_num) local(i, handle, nch, sr, buf_offset, num_rea
     PAD_POOL_IDX[i] = -1;
     PAD_SUBDIV[i] = 1;
     PAD_SLICE[i] = 0;
+    PAD_CHOP_OFFSET[i] = 0;
     PAD_SLICE_END[i] = PAD_LENGTH[i];
     i += 1;
   );
@@ -331,6 +335,7 @@ function scan_pool() local(mf, ci, slash_pos, fi, found) (
     PAD_POOL_IDX[i] = -1;
     PAD_SUBDIV[i] = 1;
     PAD_SLICE[i] = 0;
+    PAD_CHOP_OFFSET[i] = 0;
     PAD_SEQ_SUBDIV[i] = 1;
     SUB_FIRED[i] = 0;
     i += 1;
@@ -452,14 +457,15 @@ function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start) (
     v = vel / 127;
     PAD_PLAYING[pad] = 1;
 
-    // Calculate slice boundaries
+    // Calculate slice boundaries (with chop offset for nudge)
     subdiv = PAD_SUBDIV[pad];
     slice = PAD_SLICE[pad];
     subdiv > 1 && PAD_LENGTH[pad] > 0 ? (
       slice_len = (PAD_LENGTH[pad] / subdiv) | 0;
-      slice_start = slice * slice_len;
+      slice_start = slice * slice_len + PAD_CHOP_OFFSET[pad];
+      slice_start = max(0, min(slice_start, PAD_LENGTH[pad] - 1));
       PAD_POS[pad] = slice_start;
-      PAD_SLICE_END[pad] = slice_start + slice_len;
+      PAD_SLICE_END[pad] = min(slice_start + slice_len, PAD_LENGTH[pad]);
     ) : (
       PAD_POS[pad] = 0;
       PAD_SLICE_END[pad] = PAD_LENGTH[pad];
@@ -1791,6 +1797,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
       PAD_SUBDIV[sp] = 1;
     );
     PAD_SLICE[sp] = 0;
+    PAD_CHOP_OFFSET[sp] = 0;
     PAD_SLICE_END[sp] = PAD_LENGTH[sp];
   );
 );
@@ -2232,23 +2239,77 @@ WF_NUM_BINS > 0 ? (
     gfx_rect(wf_play_x, wf_y, 1, wf_h);
   );
 
-  // CHOP slice boundaries (dim yellow lines)
+  // CHOP slice boundaries (yellow lines, shifted by chop offset)
   PAD_SUBDIV[sp] > 1 ? (
     gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.2;
-    wf_ci = 1;
-    loop(PAD_SUBDIV[sp] - 1,
-      wf_slice_x = margin + (wf_ci * wf_draw_w / PAD_SUBDIV[sp]) | 0;
-      gfx_rect(wf_slice_x, wf_y, 1, wf_h);
+    wf_off_frac = PAD_LENGTH[sp] > 0 ? PAD_CHOP_OFFSET[sp] / PAD_LENGTH[sp] : 0;
+    wf_ci = 0;
+    loop(PAD_SUBDIV[sp] + 1,
+      wf_slice_frac = wf_ci / PAD_SUBDIV[sp] + wf_off_frac;
+      wf_slice_frac >= 0 && wf_slice_frac <= 1 ? (
+        wf_slice_x = margin + (wf_slice_frac * wf_draw_w) | 0;
+        wf_ci == 0 || wf_ci == PAD_SUBDIV[sp] ? (
+          gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.1;
+        ) : (
+          gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.2;
+        );
+        gfx_rect(wf_slice_x, wf_y, 1, wf_h);
+      );
       wf_ci += 1;
+    );
+
+    // Nudge buttons: << >> at bottom-right of waveform
+    wf_ndg_w = 24;
+    wf_ndg_h = 14;
+    wf_ndg_y = wf_y + wf_h - wf_ndg_h - 2;
+    wf_ndg_gap = 3;
+    wf_ndg_r_x = margin + wf_draw_w - wf_ndg_w - 2;
+    wf_ndg_l_x = wf_ndg_r_x - wf_ndg_w - wf_ndg_gap;
+
+    // Nudge amount: 1% of sample length per click
+    wf_ndg_amt = max(1, (PAD_LENGTH[sp] / 100) | 0);
+
+    // << button
+    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_rect(wf_ndg_l_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
+    gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
+    gfx_x = wf_ndg_l_x + 6; gfx_y = wf_ndg_y + 1;
+    gfx_drawstr("<<");
+
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= wf_ndg_l_x && mouse_x < wf_ndg_l_x + wf_ndg_w &&
+      mouse_y >= wf_ndg_y && mouse_y < wf_ndg_y + wf_ndg_h ? (
+        PAD_CHOP_OFFSET[sp] -= wf_ndg_amt;
+        // Clamp: don't let first slice start before 0
+        PAD_CHOP_OFFSET[sp] = max(-(PAD_LENGTH[sp] / PAD_SUBDIV[sp]) | 0, PAD_CHOP_OFFSET[sp]);
+      );
+    );
+
+    // >> button
+    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_rect(wf_ndg_r_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
+    gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
+    gfx_x = wf_ndg_r_x + 6; gfx_y = wf_ndg_y + 1;
+    gfx_drawstr(">>");
+
+    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+      mouse_x >= wf_ndg_r_x && mouse_x < wf_ndg_r_x + wf_ndg_w &&
+      mouse_y >= wf_ndg_y && mouse_y < wf_ndg_y + wf_ndg_h ? (
+        PAD_CHOP_OFFSET[sp] += wf_ndg_amt;
+        // Clamp: don't let last slice go past end
+        PAD_CHOP_OFFSET[sp] = min((PAD_LENGTH[sp] / PAD_SUBDIV[sp]) | 0, PAD_CHOP_OFFSET[sp]);
+      );
     );
   );
 );
 
-// "no sample" text when empty
+// Sampling instructions when no sample loaded
 PAD_LENGTH[sp] == 0 || PAD_NCH[sp] == 0 ? (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_x = gfx_w / 2 - 30; gfx_y = wf_center - 6;
-  gfx_drawstr("no sample");
+  gfx_r = 0.35; gfx_g = 0.35; gfx_b = 0.4;
+  gfx_x = margin + 8; gfx_y = wf_y + 6;
+  gfx_drawstr("1. Bounce/edit audio on a track  2. Select item");
+  gfx_x = margin + 8; gfx_y = wf_y + 20;
+  gfx_drawstr("3. Click SAMPLE  4. Make beats");
 );
 
 // ---- Volume bar ----
