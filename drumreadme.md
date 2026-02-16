@@ -106,6 +106,13 @@ Each kit is a folder containing `01.wav` through `16.wav`:
 | `scripts/install_kit.sh` | Install a kit folder into the kits directory |
 | `scripts/prepare_kit.sh` | Prepare a folder of wavs as a numbered kit |
 
+## Roadmap
+
+- Choke groups — assign pads to choke lanes so triggering one cuts another (e.g. open/closed hi-hat)
+- Improved sample chop mechanism — more accurate slicing with visual waveform editing
+- Synth integration — built-in synthesis engine for layering with samples
+- Sidechain outputs — per-pad or bus sidechain sends for ducking/pumping other tracks
+
 ## License
 
 GPL-3.0
