@@ -1,0 +1,772 @@
+desc:LMS DrumbangerDrone FX
+//author: LMS
+//version: 0.2.0
+//license: GPL-3.0
+//
+// Audio FX satellite for LMS Drumbanger.
+// Place AFTER a synth in the FX chain.
+// Reads trigger/gate timing from Drumbanger via gmem[] and
+// processes the synth's audio with sidechain, gate, filter,
+// flanger, and delay effects.
+//
+// Pair with DrumbangerDroneMIDI BEFORE the synth for note output.
+//
+// Signal chain:  DroneMIDI → Synth → DroneFX
+//
+// Requires LMS Drumbanger running on another track.
+
+options:maxmem=1048576
+options:gmem=DrumBanger
+
+// ============================================================
+// SLIDERS
+// ============================================================
+
+// -- Connection --
+slider1:0<0,16,1{All Pads,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8,Pad 9,Pad 10,Pad 11,Pad 12,Pad 13,Pad 14,Pad 15,Pad 16}>Watch
+slider2:0<0,1,1{Sidechain,Gate}>Mode
+
+// -- Sidechain / Gate --
+slider10:0.8<0,1,0.01>Duck Depth (Sidechain)
+slider11:10<1,200,1>Attack (ms)
+slider12:100<5,1000,1>Release (ms)
+slider13:0<0,1,1{Hard,Soft}>Gate Mode
+
+// -- Filter --
+slider20:0<0,2,1{Off,Low Pass,High Pass}>Filter Type
+slider21:20000<20,20000,1>Filter Cutoff (Hz)
+slider22:0.5<0.1,10,0.01>Filter Resonance (Q)
+
+// -- Flanger --
+slider30:0<0,100,0.1>Flanger Depth (%)
+slider31:0.25<0.01,10,0.01>Flanger Rate (Hz)
+slider32:0.5<0,0.95,0.01>Flanger Feedback
+slider33:0.5<0,1,0.01>Flanger Mix
+
+// -- Delay --
+slider40:0<0,100,0.1>Delay Mix (%)
+slider41:3<0,5,1{1/16,1/8,1/4,1/2,1/1,1/8D}>Delay Time
+slider42:0.4<0,0.95,0.01>Delay Feedback
+slider43:4000<200,20000,10>Delay LP (Hz)
+slider44:0<0,1,1{Mono,Ping Pong}>Delay Stereo
+
+// -- Output --
+slider50:0<-24,24,0.1>Output Gain (dB)
+slider51:0.5<0,1,0.01>Dry/Wet Mix
+
+@init
+
+// ---- State ----
+last_heartbeat = 0;
+connected = 0;
+connected_timeout = 0;
+env_level = 0;
+
+// ---- Filter state (biquad) ----
+f_x1l = 0; f_x2l = 0; f_y1l = 0; f_y2l = 0;
+f_x1r = 0; f_x2r = 0; f_y1r = 0; f_y2r = 0;
+f_a0 = 1; f_a1 = 0; f_a2 = 0; f_b1 = 0; f_b2 = 0;
+
+// ---- Flanger state ----
+FLANGE_BUF_L = 100000;
+FLANGE_BUF_R = 200000;
+FLANGE_BUF_SIZE = 48000;
+flange_write_pos = 0;
+flange_phase = 0;
+
+i = 0;
+loop(FLANGE_BUF_SIZE,
+  FLANGE_BUF_L[i] = 0;
+  FLANGE_BUF_R[i] = 0;
+  i += 1;
+);
+
+// ---- Delay state ----
+DELAY_BUF_L = 300000;
+DELAY_BUF_R = 400000;
+DELAY_BUF_SIZE = 192000;
+delay_write_pos = 0;
+
+i = 0;
+loop(DELAY_BUF_SIZE,
+  DELAY_BUF_L[i] = 0;
+  DELAY_BUF_R[i] = 0;
+  i += 1;
+);
+
+// ---- Colors (match DrumBanger palette) ----
+COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
+COL_PAD_R = 0.15; COL_PAD_G = 0.16; COL_PAD_B = 0.20;
+COL_HIT_R = 0.95; COL_HIT_G = 0.45; COL_HIT_B = 0.15;
+COL_TXT_R = 0.85; COL_TXT_G = 0.85; COL_TXT_B = 0.88;
+COL_ACC_R = 0.95; COL_ACC_G = 0.45; COL_ACC_B = 0.15;
+COL_STEP_R = 0.30; COL_STEP_G = 0.75; COL_STEP_B = 0.55;
+COL_DIM_R = 0.45; COL_DIM_G = 0.45; COL_DIM_B = 0.50;
+
+// ============================================================
+// FUNCTIONS
+// ============================================================
+
+function calc_filter_coeffs(type, fc, q) local(w0, alpha, cosw, sinw, a0_inv) (
+  fc = max(20, min(fc, srate * 0.49));
+  w0 = 2 * $pi * fc / srate;
+  cosw = cos(w0);
+  sinw = sin(w0);
+  alpha = sinw / (2 * q);
+
+  type == 1 ? (
+    f_a0 = (1 - cosw) / 2;
+    f_a1 = 1 - cosw;
+    f_a2 = (1 - cosw) / 2;
+    f_b1 = -2 * cosw;
+    f_b2 = 1 - alpha;
+    a0_inv = 1 / (1 + alpha);
+  ) : type == 2 ? (
+    f_a0 = (1 + cosw) / 2;
+    f_a1 = -(1 + cosw);
+    f_a2 = (1 + cosw) / 2;
+    f_b1 = -2 * cosw;
+    f_b2 = 1 - alpha;
+    a0_inv = 1 / (1 + alpha);
+  ) : (
+    f_a0 = 1; f_a1 = 0; f_a2 = 0;
+    f_b1 = 0; f_b2 = 0;
+    a0_inv = 1;
+  );
+
+  f_a0 *= a0_inv;
+  f_a1 *= a0_inv;
+  f_a2 *= a0_inv;
+  f_b1 *= a0_inv;
+  f_b2 *= a0_inv;
+);
+
+function filter_l(x) local(y) (
+  y = f_a0 * x + f_a1 * f_x1l + f_a2 * f_x2l - f_b1 * f_y1l - f_b2 * f_y2l;
+  f_x2l = f_x1l; f_x1l = x;
+  f_y2l = f_y1l; f_y1l = y;
+  y;
+);
+
+function filter_r(x) local(y) (
+  y = f_a0 * x + f_a1 * f_x1r + f_a2 * f_x2r - f_b1 * f_y1r - f_b2 * f_y2r;
+  f_x2r = f_x1r; f_x1r = x;
+  f_y2r = f_y1r; f_y1r = y;
+  y;
+);
+
+function get_delay_samples() local(bpm, beat_len) (
+  bpm = gmem[14];
+  bpm <= 0 ? bpm = 120;
+  beat_len = srate * 60 / bpm;
+
+  slider41 == 0 ? beat_len / 4 :
+  slider41 == 1 ? beat_len / 2 :
+  slider41 == 2 ? beat_len :
+  slider41 == 3 ? beat_len * 2 :
+  slider41 == 4 ? beat_len * 4 :
+  slider41 == 5 ? beat_len * 0.75 :
+  beat_len / 2;
+);
+
+// ============================================================
+// @BLOCK — Read state from Drumbanger
+// ============================================================
+@block
+
+// ---- Decode combined Watch slider ----
+slider1 == 0 ? (
+  watch_pad = -1;  // all pads
+) : (
+  watch_pad = slider1 - 1;
+);
+mode = slider2;
+
+// ---- Check connection (timeout-based, no flicker) ----
+heartbeat = gmem[10];
+heartbeat != last_heartbeat ? (
+  last_heartbeat = heartbeat;
+  connected_timeout = srate * 0.5;
+);
+connected_timeout > 0 ? (
+  connected_timeout -= samplesblock;
+  connected = 1;
+) : (
+  connected = 0;
+);
+
+// ---- Read Drumbanger state ----
+db_step = gmem[11];
+db_steps_per_measure = gmem[12];
+db_pattern = gmem[13];
+db_bpm = gmem[14];
+db_playing = gmem[15];
+
+// ---- Read trigger/active for watched pad(s) ----
+watch_pad >= 0 ? (
+  pad_triggered = gmem[100 + watch_pad];
+  pad_active = gmem[120 + watch_pad];
+) : (
+  // All pads: active if ANY pad is active
+  pad_triggered = 0;
+  pad_active = 0;
+  gm_p = 0;
+  loop(16,
+    gmem[100 + gm_p] > 0 ? pad_triggered = 1;
+    gmem[120 + gm_p] > 0 ? pad_active = 1;
+    gm_p += 1;
+  );
+);
+
+// ---- Update filter coefficients ----
+calc_filter_coeffs(slider20, slider21, slider22);
+
+// ============================================================
+// @SAMPLE — Audio processing
+// ============================================================
+@sample
+
+in_l = spl0;
+in_r = spl1;
+
+// ---- Sidechain / Gate envelope ----
+mode == 0 ? (
+  // Sidechain: duck when pad active
+  env_target = pad_active ? slider10 : 0;
+) : (
+  // Gate: pass when pad active, silence when not
+  env_target = pad_active ? 0 : 1;
+);
+
+// Smooth envelope
+env_target > env_level ? (
+  att_coeff = exp(-1 / (slider11 * 0.001 * srate));
+  env_level = att_coeff * env_level + (1 - att_coeff) * env_target;
+) : (
+  rel_coeff = exp(-1 / (slider12 * 0.001 * srate));
+  env_level = rel_coeff * env_level + (1 - rel_coeff) * env_target;
+);
+
+// Apply envelope
+mode == 0 ? (
+  gain = 1 - env_level;
+) : (
+  slider13 == 0 ? (
+    gain = env_level < 0.5 ? 1 : 0;
+  ) : (
+    gain = 1 - env_level;
+  );
+);
+
+in_l *= gain;
+in_r *= gain;
+
+// ---- Filter ----
+slider20 > 0 ? (
+  in_l = filter_l(in_l);
+  in_r = filter_r(in_r);
+);
+
+// ---- Flanger ----
+slider30 > 0 ? (
+  FLANGE_BUF_L[flange_write_pos] = in_l;
+  FLANGE_BUF_R[flange_write_pos] = in_r;
+
+  flange_phase += slider31 / srate;
+  flange_phase >= 1 ? flange_phase -= 1;
+  lfo = (sin(2 * $pi * flange_phase) + 1) * 0.5;
+
+  flange_depth = slider30 / 100;
+  flange_delay_samples = (0.0005 + lfo * 0.0045 * flange_depth) * srate;
+
+  flange_read = flange_write_pos - flange_delay_samples;
+  flange_read < 0 ? flange_read += FLANGE_BUF_SIZE;
+  flange_idx = (flange_read | 0);
+  flange_frac = flange_read - flange_idx;
+  flange_idx2 = (flange_idx + 1) % FLANGE_BUF_SIZE;
+
+  fl_l = FLANGE_BUF_L[flange_idx] + flange_frac * (FLANGE_BUF_L[flange_idx2] - FLANGE_BUF_L[flange_idx]);
+  fl_r = FLANGE_BUF_R[flange_idx] + flange_frac * (FLANGE_BUF_R[flange_idx2] - FLANGE_BUF_R[flange_idx]);
+
+  FLANGE_BUF_L[flange_write_pos] += fl_l * slider32;
+  FLANGE_BUF_R[flange_write_pos] += fl_r * slider32;
+
+  flange_mix = slider33;
+  in_l = in_l * (1 - flange_mix) + fl_l * flange_mix;
+  in_r = in_r * (1 - flange_mix) + fl_r * flange_mix;
+
+  flange_write_pos = (flange_write_pos + 1) % FLANGE_BUF_SIZE;
+);
+
+// ---- Delay ----
+slider40 > 0 ? (
+  delay_samples = get_delay_samples();
+  delay_samples = min(delay_samples, DELAY_BUF_SIZE - 1);
+
+  delay_read_pos = delay_write_pos - (delay_samples | 0);
+  delay_read_pos < 0 ? delay_read_pos += DELAY_BUF_SIZE;
+
+  del_l = DELAY_BUF_L[delay_read_pos];
+  del_r = DELAY_BUF_R[delay_read_pos];
+
+  delay_lp_coeff = exp(-2 * $pi * slider43 / srate);
+  del_l = del_l * (1 - delay_lp_coeff) + delay_prev_l * delay_lp_coeff;
+  del_r = del_r * (1 - delay_lp_coeff) + delay_prev_r * delay_lp_coeff;
+  delay_prev_l = del_l;
+  delay_prev_r = del_r;
+
+  slider44 == 0 ? (
+    DELAY_BUF_L[delay_write_pos] = in_l + del_l * slider42;
+    DELAY_BUF_R[delay_write_pos] = in_r + del_r * slider42;
+  ) : (
+    DELAY_BUF_L[delay_write_pos] = in_l + del_r * slider42;
+    DELAY_BUF_R[delay_write_pos] = in_r + del_l * slider42;
+  );
+
+  delay_mix = slider40 / 100;
+  in_l = in_l + del_l * delay_mix;
+  in_r = in_r + del_r * delay_mix;
+
+  delay_write_pos = (delay_write_pos + 1) % DELAY_BUF_SIZE;
+);
+
+// ---- Output gain ----
+out_gain = 10 ^ (slider50 / 20);
+
+// ---- Dry/Wet ----
+wet = slider51;
+spl0 = (spl0 * (1 - wet) + in_l * wet) * out_gain;
+spl1 = (spl1 * (1 - wet) + in_r * wet) * out_gain;
+
+// ============================================================
+// @GFX — User Interface (DrumBanger-matched aesthetic)
+// ============================================================
+@gfx 750 500
+
+// ---- Background ----
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+margin = 10;
+gfx_setfont(1, "Arial", 12);
+
+// ============================================
+// HEADER
+// ============================================
+gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+gfx_x = margin; gfx_y = 4;
+gfx_drawstr("DRONE FX");
+
+// Signal chain hint
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = gfx_w - 170; gfx_y = 6;
+gfx_drawstr("DroneMIDI >> Synth >>");
+
+// Connection + mode info
+gfx_x = margin; gfx_y = 22;
+connected ? (
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_drawstr("LINKED");
+) : (
+  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+  gfx_drawstr("NO SIGNAL");
+);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+slider1 == 0 ? (
+  gfx_drawstr("  |  ALL PADS");
+) : (
+  gfx_drawstr("  |  Pad: ");
+  gfx_drawnumber(slider1, 0);
+);
+gfx_drawstr("  |  ");
+mode == 0 ? gfx_drawstr("SIDECHAIN") : gfx_drawstr("GATE");
+gfx_drawstr("  |  Pat: ");
+gfx_drawnumber(db_pattern + 1, 0);
+
+// Activity indicator
+gfx_drawstr("  |  ");
+pad_active ? (
+  gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+  gfx_drawstr("ACTIVE");
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawstr("idle");
+);
+
+// ============================================
+// STEP DISPLAY
+// ============================================
+step_y = 44;
+step_w = (gfx_w - margin * 2 - 15 * 3) / 16;
+step_h = 24;
+
+connected ? (
+  s = 0;
+  loop(16,
+    sx = margin + s * (step_w + margin / 5);
+
+    // Read from pattern source (show max velocity across all pads if All Pads mode)
+    watch_pad >= 0 ? (
+      step_vel = gmem[1000 + db_pattern * 256 + s * 16 + watch_pad];
+    ) : (
+      step_vel = 0;
+      gfx_pp = 0;
+      loop(16,
+        gfx_tv = gmem[1000 + db_pattern * 256 + s * 16 + gfx_pp];
+        gfx_tv > step_vel ? step_vel = gfx_tv;
+        gfx_pp += 1;
+      );
+    );
+
+    s < db_steps_per_measure ? (
+      step_vel > 0 ? (
+        gfx_r = COL_STEP_R * (step_vel / 127);
+        gfx_g = COL_STEP_G * (step_vel / 127);
+        gfx_b = COL_STEP_B * (step_vel / 127);
+      ) : (
+        gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+      );
+    ) : (
+      gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+    );
+
+    gfx_rect(sx, step_y, step_w, step_h);
+
+    // Playhead border
+    s == db_step && db_playing ? (
+      gfx_r = 1; gfx_g = 1; gfx_b = 1;
+      gfx_rect(sx, step_y, step_w, 2);
+      gfx_rect(sx, step_y + step_h - 2, step_w, 2);
+      gfx_rect(sx, step_y, 2, step_h);
+      gfx_rect(sx + step_w - 2, step_y, 2, step_h);
+    );
+
+    // Beat markers
+    s % 4 == 0 ? (
+      gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+      gfx_rect(sx, step_y + step_h + 2, step_w, 2);
+    );
+
+    s += 1;
+  );
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = margin; gfx_y = step_y + 4;
+  gfx_drawstr("Waiting for Drumbanger...");
+);
+
+// ============================================
+// SECTION: ENVELOPE (draggable bars)
+// ============================================
+ctrl_h = 20;
+ctrl_bar_w = gfx_w - margin * 2 - 120;
+ctrl_x = margin + 120;
+ctrl_y = step_y + step_h + 20;
+
+// -- Section label --
+gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = margin; gfx_y = ctrl_y - 14;
+mode == 0 ? gfx_drawstr("SIDECHAIN") : gfx_drawstr("GATE");
+
+// ---- Duck Depth / Gate bar ----
+cur_duck = slider10;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_y + 2;
+mode == 0 ? gfx_drawstr("Duck ") : gfx_drawstr("Depth ");
+gfx_drawnumber(floor(cur_duck * 100 + 0.5), 0);
+gfx_drawstr("%");
+
+// Bar background
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w, ctrl_h);
+// Bar fill
+gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w * cur_duck, ctrl_h);
+
+// Drag
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+    slider10 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+  );
+);
+
+// ---- Attack bar ----
+cy2 = ctrl_y + ctrl_h + 6;
+cur_att = slider11;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy2 + 2;
+gfx_drawstr("Atk  ");
+gfx_drawnumber(floor(cur_att + 0.5), 0);
+gfx_drawstr("ms");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy2, ctrl_bar_w, ctrl_h);
+gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+gfx_rect(ctrl_x, cy2, ctrl_bar_w * ((cur_att - 1) / 199), ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy2 && mouse_y < cy2 + ctrl_h ? (
+    slider11 = max(1, min(200, floor((mouse_x - ctrl_x) / ctrl_bar_w * 199 + 1 + 0.5)));
+  );
+);
+
+// ---- Release bar ----
+cy3 = cy2 + ctrl_h + 6;
+cur_rel = slider12;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy3 + 2;
+gfx_drawstr("Rel  ");
+gfx_drawnumber(floor(cur_rel + 0.5), 0);
+gfx_drawstr("ms");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy3, ctrl_bar_w, ctrl_h);
+gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+gfx_rect(ctrl_x, cy3, ctrl_bar_w * ((cur_rel - 5) / 995), ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy3 && mouse_y < cy3 + ctrl_h ? (
+    slider12 = max(5, min(1000, floor((mouse_x - ctrl_x) / ctrl_bar_w * 995 + 5 + 0.5)));
+  );
+);
+
+// ---- Envelope meter ----
+cy_env = cy3 + ctrl_h + 4;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy_env + 1;
+gfx_drawstr("Env  ");
+gfx_drawnumber(env_level * 100, 0);
+gfx_drawstr("%");
+
+gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+gfx_rect(ctrl_x, cy_env, ctrl_bar_w, 12);
+env_level > 0.01 ? (
+  gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+  gfx_rect(ctrl_x, cy_env, ctrl_bar_w * env_level, 12);
+);
+
+// ============================================
+// SECTION: FILTER
+// ============================================
+cy4 = cy_env + 26;
+gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = margin; gfx_y = cy4 - 14;
+slider20 > 0 ? (
+  slider20 == 1 ? gfx_drawstr("FILTER — LOW PASS") : gfx_drawstr("FILTER — HIGH PASS");
+) : (
+  gfx_drawstr("FILTER");
+);
+
+// ---- Filter Cutoff bar ----
+cur_fc = slider21;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy4 + 2;
+gfx_drawstr("Freq ");
+gfx_drawnumber(floor(cur_fc + 0.5), 0);
+gfx_drawstr("Hz");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy4, ctrl_bar_w, ctrl_h);
+slider20 > 0 ? (
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+) : (
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.22;
+);
+// Log scale display for frequency
+fc_norm = log(cur_fc / 20) / log(1000);  // 20..20000 → 0..1 (log scale)
+gfx_rect(ctrl_x, cy4, ctrl_bar_w * max(0, min(1, fc_norm)), ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy4 && mouse_y < cy4 + ctrl_h ? (
+    fc_mouse = (mouse_x - ctrl_x) / ctrl_bar_w;
+    slider21 = max(20, min(20000, floor(20 * pow(1000, fc_mouse) + 0.5)));
+  );
+);
+
+// ---- Filter Resonance bar ----
+cy5 = cy4 + ctrl_h + 6;
+cur_q = slider22;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy5 + 2;
+gfx_drawstr("Reso ");
+gfx_drawnumber(cur_q, 1);
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy5, ctrl_bar_w, ctrl_h);
+slider20 > 0 ? (
+  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 1.0;
+) : (
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.22;
+);
+q_norm = (cur_q - 0.1) / 9.9;
+gfx_rect(ctrl_x, cy5, ctrl_bar_w * q_norm, ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy5 && mouse_y < cy5 + ctrl_h ? (
+    slider22 = max(0.1, min(10, (mouse_x - ctrl_x) / ctrl_bar_w * 9.9 + 0.1));
+    // Snap to 0.1
+    slider22 = floor(slider22 * 10 + 0.5) / 10;
+  );
+);
+
+// ============================================
+// SECTION: MODULATION (Flanger + Delay)
+// ============================================
+cy6 = cy5 + ctrl_h + 16;
+gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = margin; gfx_y = cy6 - 14;
+gfx_drawstr("MODULATION");
+
+// ---- Flanger Depth bar ----
+cur_flg = slider30;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy6 + 2;
+gfx_drawstr("Flang ");
+gfx_drawnumber(floor(cur_flg + 0.5), 0);
+gfx_drawstr("%");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy6, ctrl_bar_w, ctrl_h);
+cur_flg > 0 ? (
+  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 1.0;
+  gfx_rect(ctrl_x, cy6, ctrl_bar_w * (cur_flg / 100), ctrl_h);
+);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy6 && mouse_y < cy6 + ctrl_h ? (
+    slider30 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+  );
+);
+
+// ---- Delay Mix bar ----
+cy7 = cy6 + ctrl_h + 6;
+cur_dly = slider40;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy7 + 2;
+gfx_drawstr("Delay ");
+gfx_drawnumber(floor(cur_dly + 0.5), 0);
+gfx_drawstr("%");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy7, ctrl_bar_w, ctrl_h);
+cur_dly > 0 ? (
+  gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_rect(ctrl_x, cy7, ctrl_bar_w * (cur_dly / 100), ctrl_h);
+);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy7 && mouse_y < cy7 + ctrl_h ? (
+    slider40 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+  );
+);
+
+// ---- Delay Feedback bar ----
+cy8 = cy7 + ctrl_h + 6;
+cur_dfb = slider42;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy8 + 2;
+gfx_drawstr("DlyFb ");
+gfx_drawnumber(floor(cur_dfb * 100 + 0.5), 0);
+gfx_drawstr("%");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy8, ctrl_bar_w, ctrl_h);
+cur_dfb > 0 ? (
+  gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_rect(ctrl_x, cy8, ctrl_bar_w * (cur_dfb / 0.95), ctrl_h);
+);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy8 && mouse_y < cy8 + ctrl_h ? (
+    slider42 = max(0, min(0.95, (mouse_x - ctrl_x) / ctrl_bar_w * 0.95));
+    slider42 = floor(slider42 * 100 + 0.5) / 100;
+  );
+);
+
+// ============================================
+// SECTION: OUTPUT
+// ============================================
+cy9 = cy8 + ctrl_h + 16;
+gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_x = margin; gfx_y = cy9 - 14;
+gfx_drawstr("OUTPUT");
+
+// ---- Output Gain bar ----
+cur_gain = slider50;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy9 + 2;
+gfx_drawstr("Gain ");
+cur_gain >= 0 ? gfx_drawstr("+");
+gfx_drawnumber(cur_gain, 1);
+gfx_drawstr("dB");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy9, ctrl_bar_w, ctrl_h);
+// Center line
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, cy9, 2, ctrl_h);
+// Gain indicator
+gain_norm = (cur_gain + 24) / 48;
+gfx_r = 0.4; gfx_g = 0.6; gfx_b = 1.0;
+gain_px = ctrl_x + max(0, min(1, gain_norm)) * ctrl_bar_w;
+gfx_rect(gain_px - 4, cy9, 8, ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy9 && mouse_y < cy9 + ctrl_h ? (
+    new_gain = max(-24, min(24, ((mouse_x - ctrl_x) / ctrl_bar_w) * 48 - 24));
+    slider50 = floor(new_gain * 2 + 0.5) / 2;
+  );
+);
+
+// ---- Dry/Wet bar ----
+cy10 = cy9 + ctrl_h + 6;
+cur_wet = slider51;
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = cy10 + 2;
+gfx_drawstr("D/W  ");
+gfx_drawnumber(floor(cur_wet * 100 + 0.5), 0);
+gfx_drawstr("%");
+
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_rect(ctrl_x, cy10, ctrl_bar_w, ctrl_h);
+gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+gfx_rect(ctrl_x, cy10, ctrl_bar_w * cur_wet, ctrl_h);
+
+mouse_cap & 1 ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= cy10 && mouse_y < cy10 + ctrl_h ? (
+    slider51 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+  );
+);
+
+// ---- Store mouse state for debounce ----
+last_mouse_cap = mouse_cap;
+
+// ============================================
+// STATUS BAR
+// ============================================
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = gfx_h - 18;
+connected ? (
+  db_playing ? gfx_drawstr("▶ ") : gfx_drawstr("■ ");
+  gfx_drawstr("BPM: ");
+  gfx_drawnumber(db_bpm, 1);
+  gfx_drawstr("  Step: ");
+  gfx_drawnumber(db_step + 1, 0);
+  gfx_drawstr("/");
+  gfx_drawnumber(db_steps_per_measure, 0);
+  gfx_drawstr("  Pat: ");
+  gfx_drawnumber(db_pattern + 1, 0);
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawstr("No Drumbanger detected — add LMS Drumbanger to any track");
+);
