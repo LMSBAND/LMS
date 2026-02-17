@@ -1056,7 +1056,7 @@ inner_w = comp_pw - pad * 2;
 slider2 = draw_toggle(comp_px + pad, cy, slider2, "COMP ON");
 comp_on = slider2;
 cy += 20;
-slider21 = draw_mod_selector(comp_px + pad, cy, inner_w, 16, slider21, 3, "None", "Duck", "Thresh", "Ratio");
+slider21 = draw_mod_selector(comp_px + pad, cy, inner_w, 16, slider21, 3, "None", "Duck", "Thresh", "Ratio", "");
 comp_mod_target = slider21;
 cy += 20;
 
@@ -1166,7 +1166,7 @@ inner_w = fl_pw - pad * 2;
 slider14 = draw_toggle(fl_px + pad, cy, slider14, "FLANGE ON");
 flange_on = slider14;
 cy += 20;
-slider23 = draw_mod_selector(fl_px + pad, cy, inner_w, 16, slider23, 3, "None", "Depth", "Rate", "Mix");
+slider23 = draw_mod_selector(fl_px + pad, cy, inner_w, 16, slider23, 3, "None", "Depth", "Rate", "Mix", "");
 flanger_mod_target = slider23;
 cy += 20;
 
