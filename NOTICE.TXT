@@ -34,6 +34,9 @@ PADS
   - The selected pad's controls appear in the control strip below the pads
   - Drag left/right on VOL, PAN, PITCH, LP, HP, SAT, COMP, GAIN to adjust
   - MIDI notes 36-51 (C1 to D#2) trigger pads 1-16
+  - Ctrl+click a pad to mark it as copy source (turns yellow). Then click
+    any other pad to paste all settings: sample, vol, pan, pitch, filters,
+    slicing, link/choke groups, and the full sequencer pattern (all bars).
 
 STEP SEQUENCER
   - Click steps to toggle them on/off for the selected pad
