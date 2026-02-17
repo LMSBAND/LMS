@@ -46,6 +46,9 @@ slider18:50<0,100,1>Flanger Mix (%)
 // -- Master --
 slider19:0<-24,24,0.1>Output (dB)
 
+// -- Mode: Follow (live from DrumBanger) or Lock (captured pattern) --
+slider20:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>Mode
+
 in_pin:Left
 in_pin:Right
 out_pin:Left
@@ -87,6 +90,20 @@ SCOPE_BUF = FLANGE_BUF_R + FLANGE_BUF_SIZE + 100;
 SCOPE_SIZE = 1024;
 scope_pos = 0;
 memset(SCOPE_BUF, 0, SCOPE_SIZE);
+
+// Lock mode: local pattern storage (8 slots × 16 steps × 16 pads)
+NUM_STEPS = 16;
+NUM_PADS = 16;
+NUM_LOCKS = 8;
+LOCAL_PAT = SCOPE_BUF + SCOPE_SIZE + 100;  // 8*16*16 = 2048
+LOCK_HAS_DATA = LOCAL_PAT + NUM_LOCKS * NUM_STEPS * NUM_PADS;  // 8 flags
+memset(LOCAL_PAT, 0, NUM_LOCKS * NUM_STEPS * NUM_PADS);
+memset(LOCK_HAS_DATA, 0, NUM_LOCKS);
+
+// Lock mode state
+prev_mode = -1;         // detect mode changes
+lock_seq_step = 0;      // local sequencer step for locked pattern playback
+lock_seq_prev_step = -1;
 
 // FET compressor state
 comp_env = 0;
@@ -148,6 +165,34 @@ function buf_read_cubic(buf, pos, bmax)
   d = x1;
 
   ((a * frac + b) * frac + c) * frac + d;
+);
+
+// ============================================================
+//  LOCK MODE HELPERS
+// ============================================================
+
+function get_local_step(slot, step, pad) (
+  LOCAL_PAT[slot * 256 + step * 16 + pad];
+);
+
+function set_local_step(slot, step, pad, vel) (
+  LOCAL_PAT[slot * 256 + step * 16 + pad] = vel;
+);
+
+function toggle_local_step(slot, step, pad) local(addr, val) (
+  addr = slot * 256 + step * 16 + pad;
+  val = LOCAL_PAT[addr];
+  val > 0 ? LOCAL_PAT[addr] = 0 : LOCAL_PAT[addr] = 100;
+);
+
+// Get step velocity from the active source (follow=gmem, lock=local)
+function get_active_step(step, pad) local(src_pat) (
+  slider20 == 0 ? (
+    src_pat = gmem[13];
+    gmem[1000 + src_pat * 1024 + step * 16 + pad];
+  ) : (
+    get_local_step(slider20 - 1, step, pad);
+  );
 );
 
 // ============================================================
@@ -232,48 +277,109 @@ db_connected ? (
   db_pattern = gmem[13];
   db_playing = gmem[15];
 
+  // ---- Detect mode change: snapshot on switch to Lock ----
+  slider20 != prev_mode ? (
+    slider20 > 0 ? (
+      lock_slot = slider20 - 1;
+      // Only snapshot if the slot is empty
+      LOCK_HAS_DATA[lock_slot] == 0 ? (
+        src_pat = gmem[13];
+        snap_i = 0;
+        loop(NUM_STEPS * NUM_PADS,
+          LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+          snap_i += 1;
+        );
+        LOCK_HAS_DATA[lock_slot] = 1;
+      );
+    );
+    prev_mode = slider20;
+  );
+
   // ---- Trigger detection ----
   got_trigger = 0;
   trig_vel = 0;
 
-  trig_source == 0 ? (
-    // All pads: check if any pad just triggered
-    p = 0;
-    loop(16,
-      tv = gmem[100 + p];
+  is_follow = (slider20 == 0);
+
+  is_follow ? (
+    // ==== FOLLOW MODE: live triggers from gmem (original behavior) ====
+    trig_source == 0 ? (
+      // All pads: check if any pad just triggered
+      p = 0;
+      loop(16,
+        tv = gmem[100 + p];
+        tv > 0 ? (
+          got_trigger = 1;
+          trig_vel = max(trig_vel, tv);
+          gmem[100 + p] = 0;  // consume
+        );
+        p += 1;
+      );
+    ) : (
+      // Specific pad
+      watch_pad = trig_source - 1;
+      tv = gmem[100 + watch_pad];
       tv > 0 ? (
         got_trigger = 1;
-        trig_vel = max(trig_vel, tv);
-        gmem[100 + p] = 0;  // consume
+        trig_vel = tv;
+        gmem[100 + watch_pad] = 0;
       );
-      p += 1;
     );
+
+    // Check if any watched pad is still active
+    any_active = 0;
+    trig_source == 0 ? (
+      p = 0;
+      loop(16, gmem[120 + p] ? any_active = 1; p += 1);
+    ) : (
+      any_active = gmem[120 + trig_source - 1];
+    );
+    !any_active ? trig_active = 0;
+
   ) : (
-    // Specific pad
-    watch_pad = trig_source - 1;
-    tv = gmem[100 + watch_pad];
-    tv > 0 ? (
-      got_trigger = 1;
-      trig_vel = tv;
-      gmem[100 + watch_pad] = 0;
+    // ==== LOCK MODE: triggers from captured pattern via DrumBanger transport ====
+    lock_slot = slider20 - 1;
+    LOCK_HAS_DATA[lock_slot] && db_playing ? (
+      lock_seq_step = db_step;  // follow DrumBanger's step position
+
+      // On step change, check if locked pattern has hits
+      lock_seq_step != lock_seq_prev_step ? (
+        lock_seq_prev_step = lock_seq_step;
+
+        // Check all pads (or specific pad) in the locked pattern
+        trig_source == 0 ? (
+          p = 0;
+          loop(NUM_PADS,
+            tv = get_local_step(lock_slot, lock_seq_step, p);
+            tv > 0 ? (
+              got_trigger = 1;
+              trig_vel = max(trig_vel, tv);
+            );
+            p += 1;
+          );
+        ) : (
+          watch_pad = trig_source - 1;
+          tv = get_local_step(lock_slot, lock_seq_step, watch_pad);
+          tv > 0 ? (
+            got_trigger = 1;
+            trig_vel = tv;
+          );
+        );
+      );
+    ) : (
+      // Not playing or no data — release trigger
+      !db_playing ? (
+        lock_seq_prev_step = -1;
+        trig_active = 0;
+      );
     );
   );
 
-  // Update trigger envelope
+  // Update trigger envelope (both modes)
   got_trigger ? (
     trig_active = 1;
     trig_env = trig_vel / 127;
   );
-
-  // Check if any watched pad is still active
-  any_active = 0;
-  trig_source == 0 ? (
-    p = 0;
-    loop(16, gmem[120 + p] ? any_active = 1; p += 1);
-  ) : (
-    any_active = gmem[120 + trig_source - 1];
-  );
-  !any_active ? trig_active = 0;
 );
 
 // ============================================================
@@ -578,12 +684,41 @@ function draw_toggle(tx, ty, is_on, label) (
 );
 
 // ============================================================
-//  TITLE
+//  TITLE + MODE INDICATOR
 // ============================================================
+gfx_is_follow = (slider20 == 0);
+gfx_is_locked = !gfx_is_follow;
+gfx_lock_slot = gfx_is_locked ? (slider20 - 1) : 0;
+
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", 20);
 gfx_x = 14; gfx_y = 8;
 gfx_drawstr("LMS DRONE FX");
+
+// Mode display
+gfx_setfont(1, "Arial", 13);
+gfx_is_follow ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_x = 180; gfx_y = 11;
+  gfx_drawstr("FOLLOW");
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_drawstr("  (live from DrumBanger)");
+) : (
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  gfx_x = 180; gfx_y = 11;
+  gfx_drawstr("LOCK ");
+  gfx_drawnumber(gfx_lock_slot + 1, 0);
+  LOCK_HAS_DATA[gfx_lock_slot] ? (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_setfont(1, "Arial", 11);
+    gfx_drawstr("  (captured — editable)");
+  ) : (
+    gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.3;
+    gfx_setfont(1, "Arial", 11);
+    gfx_drawstr("  (empty — switch to Follow, then back to capture)");
+  );
+);
 
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", 11);
@@ -606,6 +741,64 @@ db_connected ? (
   gfx_drawstr("DB ---");
 );
 
+// ---- RE-CAPTURE and CLEAR buttons (Lock mode only) ----
+gfx_is_locked ? (
+  recap_btn_w = 90;
+  recap_btn_h = 18;
+  recap_btn_x = gfx_w - 110;
+  recap_btn_y = 35;
+
+  // RE-CAPTURE button
+  gfx_r = COL_CYAN_R * 0.4; gfx_g = COL_CYAN_G * 0.4; gfx_b = COL_CYAN_B * 0.4;
+  gfx_rect(recap_btn_x, recap_btn_y, recap_btn_w, recap_btn_h);
+  gfx_r = COL_CYAN_R * 0.7; gfx_g = COL_CYAN_G * 0.7; gfx_b = COL_CYAN_B * 0.7;
+  gfx_rect(recap_btn_x, recap_btn_y, recap_btn_w, 1);
+  gfx_rect(recap_btn_x, recap_btn_y, 1, recap_btn_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = recap_btn_x + 8; gfx_y = recap_btn_y + 3;
+  gfx_drawstr("RE-CAPTURE");
+
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= recap_btn_x && mouse_x < recap_btn_x + recap_btn_w &&
+    mouse_y >= recap_btn_y && mouse_y < recap_btn_y + recap_btn_h ? (
+    src_pat = gmem[13];
+    snap_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[gfx_lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+      snap_i += 1;
+    );
+    LOCK_HAS_DATA[gfx_lock_slot] = 1;
+  );
+
+  // CLEAR button
+  clear_btn_w = 50;
+  clear_btn_x = recap_btn_x - clear_btn_w - 6;
+  clear_btn_y = recap_btn_y;
+  clear_btn_h = recap_btn_h;
+
+  gfx_r = 0.3; gfx_g = 0.12; gfx_b = 0.12;
+  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, clear_btn_h);
+  gfx_r = 0.5; gfx_g = 0.2; gfx_b = 0.2;
+  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, 1);
+  gfx_rect(clear_btn_x, clear_btn_y, 1, clear_btn_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = clear_btn_x + 8; gfx_y = clear_btn_y + 3;
+  gfx_drawstr("CLEAR");
+
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= clear_btn_x && mouse_x < clear_btn_x + clear_btn_w &&
+    mouse_y >= clear_btn_y && mouse_y < clear_btn_y + clear_btn_h ? (
+    clr_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[gfx_lock_slot * 256 + clr_i] = 0;
+      clr_i += 1;
+    );
+    LOCK_HAS_DATA[gfx_lock_slot] = 0;
+  );
+);
+
 // ============================================================
 //  PATTERN DISPLAY — 16-step × 16-pad overview
 // ============================================================
@@ -622,19 +815,22 @@ loop(16,
     cx = 10 + s * cell_w;
     cy = pat_y + p * cell_h;
 
-    // Get velocity from DrumBanger pattern
-    db_connected ? (
-      pv = gmem[1000 + db_pattern * 1024 + s * 16 + p];
-    ) : (
-      pv = 0;
-    );
+    // Get velocity from active source (follow=gmem, lock=local)
+    pv = get_active_step(s, p);
 
     s < db_steps ? (
       pv > 0 ? (
         br = pv / 127;
-        gfx_r = COL_ACCENT_R * br;
-        gfx_g = COL_ACCENT_G * br;
-        gfx_b = COL_ACCENT_B * br;
+        gfx_is_locked ? (
+          // Cyan tint in lock mode
+          gfx_r = COL_CYAN_R * br;
+          gfx_g = COL_CYAN_G * br;
+          gfx_b = COL_CYAN_B * br;
+        ) : (
+          gfx_r = COL_ACCENT_R * br;
+          gfx_g = COL_ACCENT_G * br;
+          gfx_b = COL_ACCENT_B * br;
+        );
       ) : (
         gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
       );
@@ -648,6 +844,14 @@ loop(16,
       gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.12;
       gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
       gfx_a = 1;
+    );
+
+    // Click to toggle step (Lock mode only)
+    gfx_is_locked && LOCK_HAS_DATA[gfx_lock_slot] && s < db_steps &&
+      (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= cx && mouse_x < cx + cell_w - 1 &&
+      mouse_y >= cy && mouse_y < cy + cell_h - 1 ? (
+      toggle_local_step(gfx_lock_slot, s, p);
     );
 
     s += 1;
@@ -849,21 +1053,29 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("Processes audio based on DrumBanger pad activity. Place AFTER a synth."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Signal chain: DroneMIDI (or MIDI2) > Synth > DroneFX"); _ny += _nl + 2;
+  gfx_drawstr("Signal chain: Tape Delay > Flanger > FET Comp/Duck > DC Blocker > Output"); _ny += _nl + 2;
+
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("MODES: Sidechain (ducks audio when pad fires) / Gate (silences when inactive)"); _ny += _nl;
+  gfx_drawstr("FOLLOW / LOCK MODE"); _ny += _nl + 2;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Watch Pad: All Pads or specific pad (1-16)"); _ny += _nl;
+  gfx_drawstr("FOLLOW: Sidechain reacts to live DrumBanger pad hits in real time."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Duck Depth: volume reduction. Attack/Release: envelope timing."); _ny += _nl;
+  gfx_drawstr("LOCK 1-8: Captures current DrumBanger pattern. Sidechain plays from snapshot."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Gate Mode: Hard (binary on/off) or Soft (smooth fade)"); _ny += _nl + 2;
+  gfx_drawstr("  Switch to a Lock slot to auto-capture. Click grid to edit. RE-CAPTURE to refresh."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("EFFECTS: Filter (LP/HP + cutoff + resonance), Flanger, Delay (tempo-synced)"); _ny += _nl;
+  gfx_drawstr("  Use Lock for consistent ducking (e.g. four-on-the-floor kick pattern)."); _ny += _nl + 2;
+
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Delay modes: 1/16 to 1/1 + dotted 1/8, Mono or Ping-Pong stereo"); _ny += _nl;
+  gfx_drawstr("Trigger Source: All Pads or specific pad (1-16) for sidechain input."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Output Gain: -24 to +24 dB. Dry/Wet mix."); _ny += _nl;
+  gfx_drawstr("FET Comp: Threshold, Ratio, Attack, Release, Duck Depth."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Tape Delay: Time, Feedback, Mix, Tape Age, Wow/Flutter."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Flanger: Rate, Depth, Feedback, Mix. Output: -24 to +24 dB."); _ny += _nl;
 
   gfx_setfont(1, "Arial", 12);
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
@@ -874,3 +1086,22 @@ notice_show ? (
 );
 
 last_cap = mouse_cap;
+
+// ============================================================
+//  @SERIALIZE — save/load lock slot data
+// ============================================================
+@serialize
+
+// Save/load all 8 lock slots (8 × 16 steps × 16 pads = 2048)
+i = 0;
+loop(NUM_LOCKS * NUM_STEPS * NUM_PADS,
+  file_var(0, LOCAL_PAT[i]);
+  i += 1;
+);
+
+// Save/load lock-has-data flags
+i = 0;
+loop(NUM_LOCKS,
+  file_var(0, LOCK_HAS_DATA[i]);
+  i += 1;
+);
