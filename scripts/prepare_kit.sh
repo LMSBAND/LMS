@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # ============================================================
-# DrumBox16 Kit Preparation Script
+# DRUMBANGER Kit Preparation Script
 # ============================================================
 # Usage:
 #   ./prepare_kit.sh synth [kit_name]              — Generate synthetic drum kit (ffmpeg)
 #   ./prepare_kit.sh convert <source_folder> [kit_name] — Convert existing samples
 #
-# Output: ~/.config/REAPER/Effects/DrumBox16/kits/<kit_name>/01.wav-16.wav
+# Output: ~/.config/REAPER/Effects/DRUMBANGER/kits/<kit_name>/01.wav-16.wav
 #
 # Standard pad mapping:
 #   01=Kick, 02=Snare, 03=Rimshot, 04=Clap,
@@ -18,7 +18,7 @@ set -euo pipefail
 # ============================================================
 
 REAPER_EFFECTS="$HOME/.config/REAPER/Effects"
-DRUMBOX_DIR="$REAPER_EFFECTS/DrumBox16"
+DRUMBOX_DIR="$REAPER_EFFECTS/DRUMBANGER"
 KITS_DIR="$DRUMBOX_DIR/kits"
 
 # Pad names for display and file matching
@@ -259,7 +259,7 @@ generate_synth_kit() {
   cat > "$out_dir/kit.txt" <<KITEOF
 name: Synth Kit
 description: Synthetic drum sounds generated with ffmpeg
-author: DrumBox16 prepare_kit.sh
+author: DRUMBANGER prepare_kit.sh
 license: Public Domain
 date: $(date +%Y-%m-%d)
 KITEOF
@@ -270,7 +270,7 @@ KITEOF
 }
 
 # ============================================================
-# CONVERT MODE — Convert existing samples to DrumBox16 format
+# CONVERT MODE — Convert existing samples to DRUMBANGER format
 # ============================================================
 
 convert_existing_kit() {
@@ -365,7 +365,7 @@ KITEOF
 # ============================================================
 
 usage() {
-  echo "DrumBox16 Kit Preparation Script"
+  echo "DRUMBANGER Kit Preparation Script"
   echo ""
   echo "Usage:"
   echo "  $(basename "$0") synth [kit_name]                  Generate synthetic test kit"

@@ -2,7 +2,7 @@
 # scan_pool.sh — Scan pool AND kits, generate manifests for DrumBanger
 #
 # Usage: ./scan_pool.sh [base_dir]
-#   Default base: ~/.config/REAPER/Effects/DrumBox16
+#   Default base: ~/.config/REAPER/Effects/DRUMBANGER
 #
 # Generates:
 #   pool/manifest.txt  — flat list of pool samples
@@ -13,7 +13,7 @@
 
 set -e
 
-BASE_DIR="${1:-$HOME/.config/REAPER/Effects/DrumBox16}"
+BASE_DIR="${1:-$HOME/.config/REAPER/Effects/DRUMBANGER}"
 POOL_DIR="$BASE_DIR/pool"
 KITS_DIR="$BASE_DIR/kits"
 

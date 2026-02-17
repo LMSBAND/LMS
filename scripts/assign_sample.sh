@@ -9,7 +9,7 @@
 
 set -e
 
-KITS_DIR="$HOME/.config/REAPER/Effects/DrumBox16/kits"
+KITS_DIR="$HOME/.config/REAPER/Effects/DRUMBANGER/kits"
 
 if [ $# -lt 3 ]; then
     echo "Usage: $0 <wav_file> <kit 1-8> <pad 1-16>"
@@ -53,4 +53,4 @@ mkdir -p "$DEST"
 PADNUM=$(printf "%02d" "$PAD")
 cp "$WAV" "$DEST/$PADNUM.wav"
 echo "Pad $PAD (Kit $KIT) ← $(basename "$WAV")"
-echo "Switch to Kit $KIT in DrumBox16 to hear it."
+echo "Switch to Kit $KIT in DRUMBANGER to hear it."

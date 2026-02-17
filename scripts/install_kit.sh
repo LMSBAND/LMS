@@ -1,5 +1,5 @@
 #!/bin/bash
-# install_kit.sh — Install a folder of wav files as a DrumBox16 kit
+# install_kit.sh — Install a folder of wav files as a DRUMBANGER kit
 #
 # Usage:  ./install_kit.sh <source_folder> <kit_number 1-8>
 # Example: ./install_kit.sh ~/Downloads/808_samples 2
@@ -9,7 +9,7 @@
 
 set -e
 
-KITS_DIR="$HOME/.config/REAPER/Effects/DrumBox16/kits"
+KITS_DIR="$HOME/.config/REAPER/Effects/DRUMBANGER/kits"
 
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <source_folder> <kit_number 1-8>"
@@ -62,4 +62,4 @@ done
 
 echo ""
 echo "Done! Kit $KIT loaded with ${#wavs[@]} samples."
-echo "Switch to Kit $KIT in DrumBox16 to use them."
+echo "Switch to Kit $KIT in DRUMBANGER to use them."

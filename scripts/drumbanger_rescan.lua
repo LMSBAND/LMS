@@ -4,8 +4,8 @@
 -- Also scans the kits folder and rebuilds kits/manifest.txt.
 -- Run this after adding .wav files to pool or dropping kit folders into kits/.
 --
--- Pool folder: <REAPER resource>/Effects/DrumBox16/pool/
--- Kit folder:  <REAPER resource>/Effects/DrumBox16/kits/
+-- Pool folder: <REAPER resource>/Effects/DRUMBANGER/pool/
+-- Kit folder:  <REAPER resource>/Effects/DRUMBANGER/kits/
 --   Drop ANY folder of .wav files into kits/ — no renaming needed!
 --   First 16 .wav files (alphabetical) map to pads 1-16.
 --
@@ -96,8 +96,8 @@ end
 
 local function main()
   local resource_path = reaper.GetResourcePath()
-  local pool_dir = resource_path .. "/Effects/DrumBox16/pool"
-  local kits_dir = resource_path .. "/Effects/DrumBox16/kits"
+  local pool_dir = resource_path .. "/Effects/DRUMBANGER/pool"
+  local kits_dir = resource_path .. "/Effects/DRUMBANGER/kits"
   reaper.RecursiveCreateDirectory(pool_dir, 0)
   reaper.RecursiveCreateDirectory(kits_dir, 0)
 
