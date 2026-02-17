@@ -186,6 +186,10 @@ POOL_FOLDER_IDX = 408; // per-pool-entry folder index (up to 500 entries, 408-90
 MAX_POOL_FOLDERS = 32;
 // Folder names in string slots 700+ (700="ALL", 701=first folder, etc.)
 
+// Kit manifest metadata
+KIT_COUNT = 950;       // address: number of kits found in manifest (0-8)
+// Kit display names in string slots 600-607
+
 // Per-pad chop offset (nudge all slice boundaries left/right)
 PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
 
@@ -223,7 +227,8 @@ PAD_BUF_SIZE = 480000;
 freembuf(SAMPLE_BUF + NUM_PADS * PAD_BUF_SIZE);
 
 // ---- Load kit function (defined before first call) ----
-function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_read) (
+// Reads from kits/manifest.txt if available, falls back to legacy kits/{num}/{02d}.wav
+function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_read, mf, cur_kit, pad_idx) (
   // Stop all voices — sample data is about to be overwritten
   i = 0;
   loop(NUM_PADS,
@@ -237,22 +242,77 @@ function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_
     PAD_NCH[i] = 0;
     PAD_SRATE[i] = 0;
     PAD_LENGTH[i] = 0;
-    sprintf(#pad_filename, "kits/%d/%02d.wav", kit_num + 1, i + 1);
-    handle = file_open(#pad_filename);
-    handle >= 0 ? (
-      file_riff(handle, nch, sr);
-      nch > 0 ? (
-        PAD_NCH[i] = nch;
-        PAD_SRATE[i] = sr;
-        buf_offset = SAMPLE_BUF + i * PAD_BUF_SIZE;
-        num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
-        PAD_LENGTH[i] = nch > 1 ? (num_read / nch) : num_read;
-        kit_loaded += 1;
+    i += 1;
+  );
+
+  // Try manifest-based loading first
+  mf = file_open("kits/manifest.txt");
+  mf >= 0 ? (
+    file_text(mf);
+    cur_kit = -1;
+    pad_idx = 0;
+    while(file_avail(mf) > 0) (
+      file_string(mf, #kit_line);
+      // Trim trailing whitespace/newlines/CR
+      while(strlen(#kit_line) > 0 &&
+            str_getchar(#kit_line, strlen(#kit_line) - 1) <= 32) (
+        str_setlen(#kit_line, strlen(#kit_line) - 1);
       );
-      file_close(handle);
+      strcmp(#kit_line, "---") == 0 ? (
+        // Kit separator — next line is the kit name
+        cur_kit += 1;
+        pad_idx = 0;
+        file_avail(mf) > 0 ? file_string(mf, #kit_line); // consume name line
+      ) : (
+        // Sample path line — load if this is our target kit
+        cur_kit == kit_num && pad_idx < NUM_PADS && strlen(#kit_line) > 0 ? (
+          strcpy(#pad_filename, "kits/");
+          strcat(#pad_filename, #kit_line);
+          handle = file_open(#pad_filename);
+          handle >= 0 ? (
+            file_riff(handle, nch, sr);
+            nch > 0 ? (
+              PAD_NCH[pad_idx] = nch;
+              PAD_SRATE[pad_idx] = sr;
+              buf_offset = SAMPLE_BUF + pad_idx * PAD_BUF_SIZE;
+              num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
+              PAD_LENGTH[pad_idx] = nch > 1 ? (num_read / nch) : num_read;
+              kit_loaded += 1;
+            );
+            file_close(handle);
+          );
+          pad_idx += 1;
+        ) : (
+          cur_kit == kit_num ? pad_idx += 1;
+        );
+      );
     );
-    // Empty pad: fill with short silent phantom so normal playback
-    // handles it (no clicks, still triggers Drones via gmem)
+    file_close(mf);
+  ) : (
+    // FALLBACK: No manifest — try legacy numbered folder format
+    i = 0;
+    loop(NUM_PADS,
+      sprintf(#pad_filename, "kits/%d/%02d.wav", kit_num + 1, i + 1);
+      handle = file_open(#pad_filename);
+      handle >= 0 ? (
+        file_riff(handle, nch, sr);
+        nch > 0 ? (
+          PAD_NCH[i] = nch;
+          PAD_SRATE[i] = sr;
+          buf_offset = SAMPLE_BUF + i * PAD_BUF_SIZE;
+          num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
+          PAD_LENGTH[i] = nch > 1 ? (num_read / nch) : num_read;
+          kit_loaded += 1;
+        );
+        file_close(handle);
+      );
+      i += 1;
+    );
+  );
+
+  // Fill empty pads with silent phantom (no clicks, still triggers Drones)
+  i = 0;
+  loop(NUM_PADS,
     PAD_LENGTH[i] == 0 ? (
       PAD_NCH[i] = 1;
       PAD_SRATE[i] = srate;
@@ -263,6 +323,7 @@ function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_
     );
     i += 1;
   );
+
   // Reset pool indices and subdivisions — all pads now come from this kit
   i = 0;
   loop(NUM_PADS,
@@ -333,10 +394,44 @@ function scan_pool() local(mf, ci, slash_pos, fi, found) (
   );
 );
 
+// ---- Scan kit manifest (defined before first call) ----
+// Reads kits/manifest.txt to discover available kits and their display names.
+// Kit names stored in string slots 600-607. Kit count at KIT_COUNT.
+function scan_kits() local(mf, kit_idx) (
+  KIT_COUNT[] = 0;
+  kit_idx = 0;
+  mf = file_open("kits/manifest.txt");
+  mf >= 0 ? (
+    file_text(mf);
+    while(file_avail(mf) > 0 && kit_idx < 8) (
+      file_string(mf, #kit_line);
+      // Trim trailing whitespace
+      while(strlen(#kit_line) > 0 &&
+            str_getchar(#kit_line, strlen(#kit_line) - 1) <= 32) (
+        str_setlen(#kit_line, strlen(#kit_line) - 1);
+      );
+      // Check for kit separator
+      strcmp(#kit_line, "---") == 0 ? (
+        // Next line is the kit name
+        file_avail(mf) > 0 ? (
+          file_string(mf, 600 + kit_idx);
+          // Trim trailing whitespace from name
+          while(strlen(600 + kit_idx) > 0 &&
+                str_getchar(600 + kit_idx, strlen(600 + kit_idx) - 1) <= 32) (
+            str_setlen(600 + kit_idx, strlen(600 + kit_idx) - 1);
+          );
+          kit_idx += 1;
+        );
+      );
+    );
+    file_close(mf);
+  );
+  KIT_COUNT[] = kit_idx;
+);
+
 // ---- Load initial kit (first run only) ----
-// Kits live in: <effect_dir>/kits/1/01.wav through 16.wav
-//               <effect_dir>/kits/2/01.wav through 16.wav  etc.
-// 8 kit slots, numbered folders 1-8. 16 wav files each (01.wav-16.wav).
+// Kits discovered from kits/manifest.txt (any folder name, any filenames).
+// Fallback: legacy kits/{1-8}/{01-16}.wav if no manifest exists.
 // Guard: only load on first @init. Subsequent @init (sample rate change,
 // undo, etc.) must NOT wipe pool-loaded samples.
 !init_done ? (
@@ -374,6 +469,10 @@ function scan_pool() local(mf, ci, slash_pos, fi, found) (
 // Pool lives in: <effect_dir>/pool/*.wav
 // Run scan_pool.sh to generate pool/manifest.txt
 scan_pool();
+
+// ---- Kit manifest ----
+// Drop any folder into kits/, run rescan. Names appear in GUI.
+scan_kits();
 
 // ---- Pool load request (GFX → block communication) ----
 pool_load_pad = -1;   // -1 = no request, 0-15 = pad to load into
@@ -1039,11 +1138,69 @@ gfx_rect(0, 0, gfx_w, gfx_h);
 
 // ---- Layout constants ----
 margin = 10;
-pad_area_y = 20;
+pad_area_y = 38;
 pad_area_h = 180;
 seq_area_y = pad_area_y + pad_area_h + 20;
 seq_area_h = 180;
 mixer_y = seq_area_y + seq_area_h + 20;
+
+// ============================================
+// KIT NAVIGATION: [<] Kit Name [>]
+// ============================================
+kit_nav_y = 2;
+kit_nav_h = 18;
+kit_arrow_w = 22;
+kit_name_w = 160;
+kit_nav_x = margin;
+max_kit = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
+
+gfx_setfont(1, "Arial", 12, 'b');
+
+// [<] button
+gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
+gfx_rect(kit_nav_x, kit_nav_y, kit_arrow_w, kit_nav_h);
+gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
+gfx_x = kit_nav_x + 7; gfx_y = kit_nav_y + 3;
+gfx_drawchar($'<');
+mouse_cap & 1 && !(last_mouse_cap & 1) &&
+  mouse_x >= kit_nav_x && mouse_x < kit_nav_x + kit_arrow_w &&
+  mouse_y >= kit_nav_y && mouse_y < kit_nav_y + kit_nav_h ? (
+  slider7 = slider7 > 0 ? slider7 - 1 : max_kit;
+  slider_automate(slider7);
+);
+
+// Kit name display
+gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+gfx_rect(kit_nav_x + kit_arrow_w + 2, kit_nav_y, kit_name_w, kit_nav_h);
+gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
+gfx_x = kit_nav_x + kit_arrow_w + 8; gfx_y = kit_nav_y + 3;
+KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
+  gfx_drawstr(600 + slider7);
+) : (
+  sprintf(#kit_label, "Kit %d", slider7 + 1);
+  gfx_drawstr(#kit_label);
+);
+
+// [>] button
+kit_next_x = kit_nav_x + kit_arrow_w + 2 + kit_name_w + 2;
+gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
+gfx_rect(kit_next_x, kit_nav_y, kit_arrow_w, kit_nav_h);
+gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
+gfx_x = kit_next_x + 7; gfx_y = kit_nav_y + 3;
+gfx_drawchar($'>');
+mouse_cap & 1 && !(last_mouse_cap & 1) &&
+  mouse_x >= kit_next_x && mouse_x < kit_next_x + kit_arrow_w &&
+  mouse_y >= kit_nav_y && mouse_y < kit_nav_y + kit_nav_h ? (
+  slider7 = slider7 < max_kit ? slider7 + 1 : 0;
+  slider_automate(slider7);
+);
+
+// Pad count indicator (right of kit name)
+gfx_setfont(1, "Arial", 10);
+gfx_r = 0.45; gfx_g = 0.45; gfx_b = 0.50;
+gfx_x = kit_next_x + kit_arrow_w + 8; gfx_y = kit_nav_y + 4;
+gfx_drawnumber(kit_loaded, 0);
+gfx_drawstr("/16 loaded");
 
 // ============================================
 // SECTION 1: PAD GRID (4x4)
@@ -1954,6 +2111,13 @@ gmem[0] > 0 ? (
   gmem[0] = 0;
   gmem[1] = 0;
   gmem[2] = 0;
+);
+
+// -- gmem[7]: ReaScript signals kit rescan (after adding new kit folders) --
+gmem[7] > 0 ? (
+  scan_kits();
+  loaded_kit_num = -1; // force reload on next @block
+  gmem[7] = 0;
 );
 
 // -- Helper: find next/prev pool sample respecting folder filter --
@@ -2928,9 +3092,17 @@ gfx_drawstr("/");
 gfx_drawnumber(total_pattern_steps, 0);
 gfx_drawstr("  Pat: ");
 gfx_drawnumber(slider3 + 1, 0);
+// Kit display: show name from manifest or fallback to "Kit N"
 gfx_drawstr("  Kit: ");
+KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
+  gfx_drawstr(600 + slider7);
+) : (
+  sprintf(#kit_disp, "Kit %d", slider7 + 1);
+  gfx_drawstr(#kit_disp);
+);
+gfx_drawstr(" (");
 gfx_drawnumber(kit_loaded, 0);
-gfx_drawstr("/16");
+gfx_drawstr("/16)");
 slider6 == 1 ? (
   gfx_r = 0.9; gfx_g = 0.1; gfx_b = 0.1;
   gfx_drawstr("  REC");
