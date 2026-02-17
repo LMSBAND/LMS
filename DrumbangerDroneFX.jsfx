@@ -959,8 +959,8 @@ pat_h = 96;
 cell_w = floor((gfx_w - 20) / 16);
 cell_h = floor(pat_h / 16);
 
-// In Follow mode with specific pad, determine which pad row to show
-gfx_filter_pad = (gfx_is_follow && slider1 > 0) ? (slider1 - 1) : -1;
+// When a specific pad is selected, filter grid to show only that pad's row
+gfx_filter_pad = (slider1 > 0) ? (slider1 - 1) : -1;
 
 // Grid
 p = 0;
@@ -1341,3 +1341,6 @@ loop(NUM_LOCKS,
   file_var(0, LOCK_HAS_DATA[i]);
   i += 1;
 );
+
+// Save/load prev_mode so mode-change detection doesn't re-trigger on reload
+file_var(0, prev_mode);
