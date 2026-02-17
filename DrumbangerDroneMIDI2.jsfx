@@ -64,6 +64,12 @@ prev_playing = 0;
 // ---- Mode tracking ----
 prev_slider1 = -1;  // detect mode changes
 
+// ---- Velocity editor state ----
+vel_edit_open = 0;
+vel_edit_step = 0;
+vel_edit_pad = 0;
+vel_edit_dragging = 0;
+
 // ---- Scale tables ----
 // Each scale: 24 semitone offsets (enough for 16 pads + chord extensions)
 // Chromatic
@@ -517,11 +523,24 @@ loop(NUM_STEPS,
   );
 
   // Click to toggle step (Lock mode only)
-  is_locked && LOCK_HAS_DATA[lock_slot] && s < steps_per_measure &&
+  !vel_edit_open && is_locked && LOCK_HAS_DATA[lock_slot] && s < steps_per_measure &&
     mouse_cap & 1 && !(last_mouse_cap & 1) &&
     mouse_x >= sx && mouse_x < sx + step_w &&
     mouse_y >= sy && mouse_y < sy + step_h ? (
     toggle_local_step(lock_slot, s, ui_selected_pad);
+  );
+
+  // Right-click: open velocity editor (Lock mode only)
+  is_locked && LOCK_HAS_DATA[lock_slot] && s < steps_per_measure &&
+    mouse_cap & 2 && !(last_mouse_cap & 2) &&
+    mouse_x >= sx && mouse_x < sx + step_w &&
+    mouse_y >= sy && mouse_y < sy + step_h ? (
+    vel_edit_open = 1;
+    vel_edit_step = s;
+    vel_edit_pad = ui_selected_pad;
+    vel_edit_x = min(mouse_x, gfx_w - 55);
+    vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+    vel_edit_dragging = 0;
   );
 
   // Beat markers
@@ -582,12 +601,26 @@ loop(NUM_PADS,
     gfx_rect(ox, oy, ov_cell_w, ov_cell_h);
 
     // Click to toggle (Lock mode only)
-    is_locked && LOCK_HAS_DATA[lock_slot] && os < steps_per_measure &&
+    !vel_edit_open && is_locked && LOCK_HAS_DATA[lock_slot] && os < steps_per_measure &&
       mouse_cap & 1 && !(last_mouse_cap & 1) &&
       mouse_x >= ox && mouse_x < ox + ov_cell_w &&
       mouse_y >= oy && mouse_y < oy + ov_cell_h ? (
       toggle_local_step(lock_slot, os, op);
       ui_selected_pad = op;
+    );
+
+    // Right-click: open velocity editor (Lock mode only)
+    is_locked && LOCK_HAS_DATA[lock_slot] && os < steps_per_measure &&
+      mouse_cap & 2 && !(last_mouse_cap & 2) &&
+      mouse_x >= ox && mouse_x < ox + ov_cell_w &&
+      mouse_y >= oy && mouse_y < oy + ov_cell_h ? (
+      vel_edit_open = 1;
+      vel_edit_step = os;
+      vel_edit_pad = op;
+      ui_selected_pad = op;
+      vel_edit_x = min(mouse_x, gfx_w - 55);
+      vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+      vel_edit_dragging = 0;
     );
 
     // Highlight current step column
@@ -693,7 +726,7 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("  1. Set mode to Lock slot > pattern auto-snapshots"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  2. Click steps in grid to edit the captured pattern"); _ny += _nl;
+  gfx_drawstr("  2. Click steps to toggle. Right-click = velocity slider."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("  3. Switch back to Follow for live jamming"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
@@ -709,6 +742,85 @@ notice_show ? (
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
   gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
   gfx_drawstr("NOTICE");
+);
+
+// ============================================
+// VELOCITY EDITOR POPUP (right-click on step)
+// ============================================
+vel_edit_open && is_locked ? (
+  lock_slot = slider1 - 1;
+  cur_edit_vel = LOCAL_PAT[lock_slot * 256 + vel_edit_step * 16 + vel_edit_pad];
+
+  // Background
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 140);
+  gfx_a = 1;
+
+  // Border
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y + 139, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y, 1, 140);
+  gfx_rect(vel_edit_x + 49, vel_edit_y, 1, 140);
+
+  // Numeric display
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = vel_edit_x + 5; gfx_y = vel_edit_y + 4;
+  gfx_drawstr("v:");
+  gfx_drawnumber(cur_edit_vel, 0);
+
+  // Vertical slider
+  vslider_x = vel_edit_x + 10;
+  vslider_y = vel_edit_y + 22;
+  vslider_w = 30;
+  vslider_h = 110;
+
+  // Slider background
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(vslider_x, vslider_y, vslider_w, vslider_h);
+
+  // Fill from bottom
+  vel_fill_h = (cur_edit_vel / 127) * vslider_h;
+  gfx_r = COL_STEP_R * 0.6; gfx_g = COL_STEP_G * 0.6; gfx_b = COL_STEP_B * 0.6;
+  gfx_rect(vslider_x, vslider_y + vslider_h - vel_fill_h, vslider_w, vel_fill_h);
+
+  // Thumb line
+  vel_thumb_y = vslider_y + vslider_h - vel_fill_h;
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_rect(vslider_x, vel_thumb_y - 1, vslider_w, 3);
+
+  // Drag interaction
+  mouse_cap & 1 ? (
+    mouse_x >= vslider_x - 5 && mouse_x < vslider_x + vslider_w + 5 &&
+    mouse_y >= vslider_y - 5 && mouse_y < vslider_y + vslider_h + 5 ? (
+      vel_edit_dragging = 1;
+    );
+    vel_edit_dragging ? (
+      new_vel = ((vslider_y + vslider_h - mouse_y) / vslider_h) * 127;
+      new_vel = max(0, min(127, (new_vel + 0.5) | 0));
+      set_local_step(lock_slot, vel_edit_step, vel_edit_pad, new_vel);
+    );
+  ) : (
+    vel_edit_dragging = 0;
+  );
+
+  // Close on left-click outside popup (not while dragging)
+  mouse_cap & 1 && !(last_mouse_cap & 1) && !vel_edit_dragging ? (
+    !(mouse_x >= vel_edit_x && mouse_x < vel_edit_x + 50 &&
+      mouse_y >= vel_edit_y && mouse_y < vel_edit_y + 140) ? (
+      vel_edit_open = 0;
+    );
+  );
+
+  // Close on right-click anywhere outside step grids
+  mouse_cap & 2 && !(last_mouse_cap & 2) ? (
+    !(mouse_y >= seq_grid_y && mouse_y < seq_grid_y + step_h) &&
+    !(mouse_y >= overview_y && mouse_y < overview_y + NUM_PADS * (ov_cell_h + ov_gap)) ? (
+      vel_edit_open = 0;
+    );
+  );
+) : (
+  vel_edit_open = 0;
 );
 
 // ---- Track mouse state ----
