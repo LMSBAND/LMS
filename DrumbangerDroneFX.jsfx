@@ -191,6 +191,31 @@ trig_rel = exp(-1 / (80 * 0.001 * srate));     // 80ms decay
 // ============================================================
 @block
 
+// ---- Recalculate effect parameters from sliders (GFX changes don't trigger @slider) ----
+trig_source = slider1;
+comp_on = slider2;
+comp_thresh = 1 - slider3 / 100;
+comp_ratio = 1 + slider4 / 100 * 19;
+comp_att = exp(-1 / (max(0.1, slider5) * 0.001 * srate));
+comp_rel = exp(-1 / (slider6 * 0.001 * srate));
+duck_depth = slider7 / 100;
+delay_on = slider8;
+delay_time_ms = slider9;
+delay_feedback = slider10 / 100;
+delay_mix = slider11 / 100;
+tape_age = slider12 / 100;
+wf_amount = slider13 / 100;
+delay_samples = min(delay_time_ms * 0.001 * srate, DELAY_BUF_SIZE - 1);
+fb_lp_coeff = exp(-2 * $pi * 4000 / srate);
+flange_on = slider14;
+flange_rate = slider15;
+flange_depth = slider16 / 100;
+flange_fb = slider17 / 100 * 0.95;
+flange_mix = slider18 / 100;
+master_vol = 10 ^ (slider19 / 20);
+trig_att = exp(-1 / (0.5 * 0.001 * srate));
+trig_rel = exp(-1 / (80 * 0.001 * srate));
+
 // ---- Heartbeat check ----
 heartbeat = gmem[10];
 heartbeat != last_heartbeat ? (
