@@ -145,8 +145,14 @@ slider75:0<-12,12,0.1>-Comp Input Gain (dB)
 // 9200-33775:  SUB_SEQ_BASE — sub-step velocities (8 pat * 64 * 16 * 3)
 // 34000-42191: PLOCK_LP_BASE — LP parameter locks (8 pat * 64 * 16)
 // 42200-50391: PLOCK_HP_BASE — HP parameter locks
-// 50500-50999: MENU_MAP (temp: maps menu selection -> pool index)
-// 51000+:      sample data buffer (loaded via file_open)
+// 951-966:    PAD_LINK_GROUP[16]  — link group (0=none, 1-8)
+// 967-982:    PAD_LINK_ROLE[16]   — 0=Daddy, 1=Bootlicker
+// 983-998:    PAD_CHOKE_GROUP[16] — choke group (0=none, 1-8)
+//
+// 50400-58591: TIE_BASE — step ties (8 pat * 64 steps * 16 pads = 8192)
+//   address = 50400 + N*1024 + S*16 + P, value = 0 or 1 (tie into next step)
+// 58700-59199: MENU_MAP (temp: maps menu selection -> pool index)
+// 59200+:      sample data buffer (loaded via file_open)
 
 @init
 
@@ -190,6 +196,12 @@ MAX_POOL_FOLDERS = 32;
 KIT_COUNT = 950;       // address: number of kits found in manifest (0-8)
 // Kit display names in string slots 600-607
 
+// Pad link groups (Daddy/Bootlicker)
+PAD_LINK_GROUP  = 951;  // 951-966: link group 0=none, 1-8 (16 pads)
+PAD_LINK_ROLE   = 967;  // 967-982: 0=Daddy, 1=Bootlicker (16 pads)
+// Choke groups
+PAD_CHOKE_GROUP = 983;  // 983-998: choke group 0=none, 1-8 (16 pads)
+
 // Per-pad chop offset (nudge all slice boundaries left/right)
 PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
 
@@ -202,8 +214,9 @@ SEQ_BASE      = 1000;    // 8 pat * 64 steps * 16 pads = 8192 (1000-9191)
 SUB_SEQ_BASE  = 9200;    // 8 pat * 64 steps * 16 pads * 3 subs = 24576 (9200-33775)
 PLOCK_LP_BASE = 34000;   // 8 pat * 64 steps * 16 pads = 8192 (34000-42191)
 PLOCK_HP_BASE = 42200;   // same = 8192 (42200-50391)
-MENU_MAP      = 50500;   // temp: maps pool menu index -> pool manifest index (up to 500)
-SAMPLE_BUF    = 51000;
+TIE_BASE      = 50400;   // 8 pat * 64 steps * 16 pads = 8192 (50400-58591)
+MENU_MAP      = 58700;   // temp: maps pool menu index -> pool manifest index (up to 500)
+SAMPLE_BUF    = 59200;
 
 // ---- Sequencer state ----
 seq_step = 0;
@@ -461,6 +474,17 @@ function scan_kits() local(mf, kit_idx) (
     i += 1;
   );
   bar_follow_locked = 0;
+  // Initialize link groups, choke groups, ties
+  i = 0;
+  loop(NUM_PADS,
+    PAD_LINK_GROUP[i] = 0;
+    PAD_LINK_ROLE[i] = 0;
+    PAD_CHOKE_GROUP[i] = 0;
+    i += 1;
+  );
+  i = 0;
+  loop(8192, TIE_BASE[i] = 0; i += 1);
+  _trigger_depth = 0;  // recursion guard for Daddy/Bootlicker linking
   load_kit_samples(slider7);
   init_done = 1;
 );
@@ -556,7 +580,16 @@ function tanh(x) local(e2x) (
   );
 );
 
-function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start) (
+function kill_pad(pad) (
+  PAD_PLAYING[pad] ? (
+    PAD_KILL_POS[pad] = PAD_POS[pad];
+    PAD_KILL_VEL[pad] = PAD_VELOCITY[pad];
+    PAD_KILL_FADE[pad] = XFADE_LEN;
+    PAD_PLAYING[pad] = 0;
+  );
+);
+
+function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start, cg, lg, lp) (
   pad >= 0 && pad < NUM_PADS ? (
     // If already playing, save old voice for crossfade-out
     PAD_PLAYING[pad] ? (
@@ -583,6 +616,32 @@ function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start) (
 
     PAD_VELOCITY[pad] = v;
     PAD_DECAY[pad] = 1.0;
+
+    // -- Choke group: kill other pads in same group --
+    cg = PAD_CHOKE_GROUP[pad];
+    cg > 0 ? (
+      lp = 0;
+      loop(NUM_PADS,
+        lp != pad && PAD_CHOKE_GROUP[lp] == cg ? kill_pad(lp);
+        lp += 1;
+      );
+    );
+
+    // -- Link group: Daddy triggers all Bootlickers --
+    !_trigger_depth ? (
+      lg = PAD_LINK_GROUP[pad];
+      lg > 0 && PAD_LINK_ROLE[pad] == 0 ? (
+        _trigger_depth = 1;
+        lp = 0;
+        loop(NUM_PADS,
+          lp != pad && PAD_LINK_GROUP[lp] == lg && PAD_LINK_ROLE[lp] == 1 ? (
+            trigger_pad(lp, vel);
+          );
+          lp += 1;
+        );
+        _trigger_depth = 0;
+      );
+    );
   );
 );
 
@@ -602,6 +661,19 @@ function toggle_seq_step(pattern, step, pad) local(addr, val) (
   addr = get_seq_addr(pattern, step, pad);
   val = addr[];
   val > 0 ? addr[] = 0 : addr[] = 100;
+);
+
+// ---- Step tie functions ----
+// A tie on step S means "sustain into step S+1 without retriggering"
+function get_tie(pattern, step, pad) (
+  TIE_BASE[pattern * 1024 + step * 16 + pad];
+);
+function set_tie(pattern, step, pad, val) (
+  TIE_BASE[pattern * 1024 + step * 16 + pad] = val;
+);
+function toggle_tie(pattern, step, pad) local(addr) (
+  addr = TIE_BASE + pattern * 1024 + step * 16 + pad;
+  addr[] = addr[] > 0 ? 0 : 1;
 );
 
 // ---- Sub-step sequencer functions ----
@@ -784,7 +856,18 @@ seq_mode && transport_playing && (timeline_step != seq_step || transport_started
     plock_val >= 0 ? slider(100 + p) = plock_val;
 
     vel = get_seq_step(cur_pattern, timeline_step, p);
-    vel > 0 ? trigger_pad(p, vel);
+    vel > 0 ? (
+      // Step tie: if previous step was tied, sustain — don't retrigger
+      tie_skip = 0;
+      !transport_started && timeline_step > 0 ? (
+        prev_step = timeline_step - 1;
+        get_tie(cur_pattern, prev_step, p) > 0 &&
+        get_seq_step(cur_pattern, prev_step, p) > 0 ? (
+          tie_skip = 1;
+        );
+      );
+      !tie_skip ? trigger_pad(p, vel);
+    );
     p += 1;
   );
 );
@@ -1333,6 +1416,28 @@ loop(NUM_PADS,
   gfx_x = px + 4; gfx_y = py + 4;
   gfx_drawnumber(gfx_p + 1, 0);
 
+  // Link group badge (bottom-left)
+  gfx_setfont(1, "Arial", 9);
+  PAD_LINK_GROUP[gfx_p] > 0 ? (
+    PAD_LINK_ROLE[gfx_p] == 0 ? (
+      gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.1;  // orange = Daddy
+    ) : (
+      gfx_r = 0.4; gfx_g = 0.7; gfx_b = 0.9;  // blue = Bootlicker
+    );
+    gfx_x = px + 2; gfx_y = py + pad_size - 12;
+    PAD_LINK_ROLE[gfx_p] == 0 ? gfx_drawstr("D") : gfx_drawstr("B");
+    gfx_drawnumber(PAD_LINK_GROUP[gfx_p], 0);
+  );
+
+  // Choke group badge (bottom-right)
+  PAD_CHOKE_GROUP[gfx_p] > 0 ? (
+    gfx_r = 0.9; gfx_g = 0.2; gfx_b = 0.2;  // red = choke
+    gfx_x = px + pad_size - 16; gfx_y = py + pad_size - 12;
+    gfx_drawstr("C");
+    gfx_drawnumber(PAD_CHOKE_GROUP[gfx_p], 0);
+  );
+  gfx_setfont(1, "Arial", 12);
+
   gfx_p += 1;
 );
 
@@ -1385,6 +1490,78 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
     ) : (
       PAD_SEQ_SUBDIV[ui_selected_pad] = 1;
     );
+  );
+);
+
+// -- LINK button (for selected pad: Daddy/Bootlicker group) --
+gfx_link_w = 56;
+gfx_link_h = 16;
+gfx_link_x = gfx_res_x + gfx_res_w + 6;
+gfx_link_y = seq_grid_y - 18;
+gfx_cur_link = PAD_LINK_GROUP[ui_selected_pad];
+gfx_cur_role = PAD_LINK_ROLE[ui_selected_pad];
+
+gfx_cur_link > 0 ? (
+  gfx_cur_role == 0 ? (
+    gfx_r = 0.5; gfx_g = 0.35; gfx_b = 0.08;  // Daddy = warm orange
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.3; gfx_b = 0.5;   // Bootlicker = blue
+  );
+) : (
+  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+);
+gfx_rect(gfx_link_x, gfx_link_y, gfx_link_w, gfx_link_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_link_x + 3; gfx_y = gfx_link_y + 2;
+gfx_cur_link > 0 ? (
+  gfx_cur_role == 0 ? gfx_drawstr("D") : gfx_drawstr("B");
+  gfx_drawnumber(gfx_cur_link, 0);
+) : (
+  gfx_drawstr("LINK");
+);
+
+// Left-click: cycle link group (0→1→...→8→0)
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_link_x && mouse_x < gfx_link_x + gfx_link_w &&
+  mouse_y >= gfx_link_y && mouse_y < gfx_link_y + gfx_link_h ? (
+    PAD_LINK_GROUP[ui_selected_pad] = (gfx_cur_link + 1) % 9;
+  );
+);
+// Right-click: toggle role (Daddy ↔ Bootlicker)
+mouse_cap & 2 && !(last_mouse_cap & 2) ? (
+  mouse_x >= gfx_link_x && mouse_x < gfx_link_x + gfx_link_w &&
+  mouse_y >= gfx_link_y && mouse_y < gfx_link_y + gfx_link_h ? (
+    PAD_LINK_ROLE[ui_selected_pad] = 1 - gfx_cur_role;
+  );
+);
+
+// -- CHOKE button (for selected pad: choke group) --
+gfx_choke_w = 50;
+gfx_choke_h = 16;
+gfx_choke_x = gfx_link_x + gfx_link_w + 6;
+gfx_choke_y = seq_grid_y - 18;
+gfx_cur_choke = PAD_CHOKE_GROUP[ui_selected_pad];
+
+gfx_cur_choke > 0 ? (
+  gfx_r = 0.5; gfx_g = 0.12; gfx_b = 0.12;  // red = choke active
+) : (
+  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+);
+gfx_rect(gfx_choke_x, gfx_choke_y, gfx_choke_w, gfx_choke_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_choke_x + 3; gfx_y = gfx_choke_y + 2;
+gfx_cur_choke > 0 ? (
+  gfx_drawstr("C");
+  gfx_drawnumber(gfx_cur_choke, 0);
+) : (
+  gfx_drawstr("CHOKE");
+);
+
+// Left-click: cycle choke group (0→1→...→8→0)
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= gfx_choke_x && mouse_x < gfx_choke_x + gfx_choke_w &&
+  mouse_y >= gfx_choke_y && mouse_y < gfx_choke_y + gfx_choke_h ? (
+    PAD_CHOKE_GROUP[ui_selected_pad] = (gfx_cur_choke + 1) % 9;
   );
 );
 
@@ -1514,11 +1691,18 @@ loop(NUM_STEPS,
     );
     gfx_rect(sx, sy, step_w, step_h);
 
-    // Click to toggle
+    // Click to toggle (normal click), Shift+click to toggle tie
     !vel_edit_open && mouse_cap & 1 && s < steps_per_bar ? (
       mouse_x >= sx && mouse_x < sx + step_w &&
       mouse_y >= sy && mouse_y < sy + step_h ? (
-        !last_mouse_cap ? toggle_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad);
+        !last_mouse_cap ? (
+          mouse_cap & 8 ? (
+            // Shift+click: toggle tie (only if step is active)
+            gfx_vel > 0 ? toggle_tie(gfx_cur_pattern, gfx_global_step, ui_selected_pad);
+          ) : (
+            toggle_seq_step(gfx_cur_pattern, gfx_global_step, ui_selected_pad);
+          );
+        );
       );
     );
 
@@ -1535,6 +1719,13 @@ loop(NUM_STEPS,
         vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
         vel_edit_dragging = 0;
       );
+    );
+
+    // Tie indicator: orange bar from right edge to next step
+    gfx_vel > 0 && get_tie(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > 0 ? (
+      gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+      tie_bar_y = sy + step_h - 4;
+      gfx_rect(sx + step_w - 2, tie_bar_y, (margin / 4) + 4, 3);
     );
 
   ) : gfx_seq_subdiv == 2 ? (
@@ -3226,9 +3417,9 @@ notice_show ? (
 // ============================================================
 @serialize
 
-serial_version = 6;
+serial_version = 7;
 file_var(0, serial_version);
-// After file_var: serial_version = 6 when saving, = saved version when loading
+// After file_var: serial_version = 7 when saving, = saved version when loading
 
 // ---- v6: expanded pattern data (8 pat * 64 steps * 16 pads = 8192) ----
 serial_version >= 6 ? (
@@ -3371,4 +3562,12 @@ serial_version >= 6 ? (
     file_var(0, PAT_BAR_COUNT[i]);
     i += 1;
   );
+);
+
+// v7: pad link groups, choke groups, step ties
+serial_version >= 7 ? (
+  i = 0; loop(NUM_PADS, file_var(0, PAD_LINK_GROUP[i]); i += 1);
+  i = 0; loop(NUM_PADS, file_var(0, PAD_LINK_ROLE[i]); i += 1);
+  i = 0; loop(NUM_PADS, file_var(0, PAD_CHOKE_GROUP[i]); i += 1);
+  i = 0; loop(8192, file_var(0, TIE_BASE[i]); i += 1);
 );
