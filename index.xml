@@ -134,6 +134,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
       </version>
     </reapack>
+    <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS Drone FX Satellite — FET Comp + Tape Delay + Flanger">
+      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
+        <changelog><![CDATA[Initial release — Audio FX satellite for DRUMBANGER. FET compressor with sidechain ducking from pad triggers, tape delay with wow/flutter and saturation in feedback, exaggerated through-zero flanger with tanh self-oscillation. Pattern grid display, waveform scope, GR meter. All in-house DSP.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
+      </version>
+    </reapack>
   </category>
   <category name="DRUMBANGER/Scripts">
     <reapack name="drumbanger_load.lua" type="script" desc="DRUMBANGER: Load Sample">
@@ -162,7 +168,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

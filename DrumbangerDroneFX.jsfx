@@ -1,0 +1,787 @@
+desc:LMS DroneFX
+//author: LMS
+//version: 1.0
+//license: GPL-3.0
+//
+// Audio FX satellite for DrumBanger.
+// Put this AFTER a synth/instrument on the same track.
+// DrumBanger pad triggers drive:
+//   - FET compressor (sidechain ducking from pad hits)
+//   - Tape delay (wow/flutter, saturation in feedback)
+//   - Flanger (exaggerated, deep, Maschine-style)
+// All DSP in-house from the LMS suite.
+
+options:gmem=DrumBanger
+
+// ============================================================
+// SLIDERS
+// ============================================================
+
+// -- Trigger Source --
+slider1:0<0,16,1{All Pads,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8,Pad 9,Pad 10,Pad 11,Pad 12,Pad 13,Pad 14,Pad 15,Pad 16}>Trigger Source
+
+// -- FET Compressor (sidechain duck) --
+slider2:0<0,1,1{Off,On}>Compressor
+slider3:50<0,100,1>Threshold
+slider4:60<0,100,1>Ratio
+slider5:5<0,100,1>Attack (ms)
+slider6:150<10,1000,1>Release (ms)
+slider7:50<0,100,1>Duck Depth
+
+// -- Tape Delay --
+slider8:0<0,1,1{Off,On}>Delay
+slider9:300<1,1000,1>Delay Time (ms)
+slider10:45<0,90,1>Feedback (%)
+slider11:50<0,100,1>Delay Mix (%)
+slider12:30<0,100,1>Tape Age
+slider13:40<0,100,1>Wow/Flutter
+
+// -- Flanger --
+slider14:0<0,1,1{Off,On}>Flanger
+slider15:0.4<0.05,5,0.01>Flanger Rate (Hz)
+slider16:70<0,100,1>Flanger Depth
+slider17:60<0,100,1>Flanger Feedback
+slider18:50<0,100,1>Flanger Mix (%)
+
+// -- Master --
+slider19:0<-24,24,0.1>Output (dB)
+
+in_pin:Left
+in_pin:Right
+out_pin:Left
+out_pin:Right
+
+@init
+
+// ============================================================
+//  MEMORY
+// ============================================================
+
+// Delay buffer — 2 seconds max
+DELAY_BUF_SIZE = 96000;
+DELAY_BUF_L = 0;
+DELAY_BUF_R = DELAY_BUF_SIZE;
+delay_wpos = 0;
+memset(DELAY_BUF_L, 0, DELAY_BUF_SIZE);
+memset(DELAY_BUF_R, 0, DELAY_BUF_SIZE);
+
+// Delay feedback filter state
+fb_lp_l = 0; fb_lp_r = 0;
+fb_l = 0; fb_r = 0;
+
+// Wow/flutter phases
+wow_phase = 0;
+flutter_phase = 0;
+
+// Flanger buffer — 20ms max
+FLANGE_BUF_SIZE = 2048;
+FLANGE_BUF_L = DELAY_BUF_R + DELAY_BUF_SIZE + 100;
+FLANGE_BUF_R = FLANGE_BUF_L + FLANGE_BUF_SIZE;
+flange_wpos = 0;
+flange_lfo_phase = 0;
+memset(FLANGE_BUF_L, 0, FLANGE_BUF_SIZE);
+memset(FLANGE_BUF_R, 0, FLANGE_BUF_SIZE);
+
+// Scope buffer
+SCOPE_BUF = FLANGE_BUF_R + FLANGE_BUF_SIZE + 100;
+SCOPE_SIZE = 1024;
+scope_pos = 0;
+memset(SCOPE_BUF, 0, SCOPE_SIZE);
+
+// FET compressor state
+comp_env = 0;
+comp_gain = 1;
+comp_gr_display = 0;
+
+// DrumBanger state
+db_connected = 0;
+db_timeout = 0;
+last_heartbeat = 0;
+db_step = 0;
+db_steps = 16;
+db_playing = 0;
+db_pattern = 0;
+trig_env = 0;       // trigger envelope for comp sidechain
+trig_active = 0;
+
+// DC blocker
+dc_l_x1 = 0; dc_l_y1 = 0;
+dc_r_x1 = 0; dc_r_y1 = 0;
+
+// ============================================================
+//  DSP FUNCTIONS — all in-house from LMS suite
+// ============================================================
+
+function fast_tanh(x)
+  local(e2x)
+(
+  x > 10 ? 1 : x < -10 ? -1 : (
+    e2x = exp(2 * x);
+    (e2x - 1) / (e2x + 1);
+  );
+);
+
+function tape_sat(x, amount)
+  local(b)
+(
+  b = x * (1 + amount * 1.5);
+  b = (2 / $pi) * atan(b * $pi * 0.5);
+  b;
+);
+
+function buf_read_cubic(buf, pos, bmax)
+  local(p0, p1, p2, p3, x0, x1, x2, x3, a, b, c, d, frac, idx)
+(
+  idx = floor(pos);
+  frac = pos - idx;
+
+  p0 = idx - 1; p0 < 0 ? p0 += bmax;
+  p1 = idx;     p1 >= bmax ? p1 -= bmax;
+  p2 = idx + 1; p2 >= bmax ? p2 -= bmax;
+  p3 = idx + 2; p3 >= bmax ? p3 -= bmax;
+
+  x0 = buf[p0]; x1 = buf[p1]; x2 = buf[p2]; x3 = buf[p3];
+
+  a = -0.5*x0 + 1.5*x1 - 1.5*x2 + 0.5*x3;
+  b = x0 - 2.5*x1 + 2*x2 - 0.5*x3;
+  c = -0.5*x0 + 0.5*x2;
+  d = x1;
+
+  ((a * frac + b) * frac + c) * frac + d;
+);
+
+// ============================================================
+//  @SLIDER
+// ============================================================
+@slider
+
+trig_source = slider1;  // 0=all, 1-16=specific pad
+
+comp_on = slider2;
+comp_thresh = 1 - slider3 / 100;  // invert: higher slider = lower threshold
+comp_ratio = 1 + slider4 / 100 * 19;  // 1:1 to 20:1
+comp_att = exp(-1 / (max(0.1, slider5) * 0.001 * srate));
+comp_rel = exp(-1 / (slider6 * 0.001 * srate));
+duck_depth = slider7 / 100;
+
+delay_on = slider8;
+delay_time_ms = slider9;
+delay_feedback = slider10 / 100;
+delay_mix = slider11 / 100;
+tape_age = slider12 / 100;
+wf_amount = slider13 / 100;
+delay_samples = min(delay_time_ms * 0.001 * srate, DELAY_BUF_SIZE - 1);
+// Feedback lowpass: tape eats highs each pass — around 4kHz
+fb_lp_coeff = exp(-2 * $pi * 4000 / srate);
+
+flange_on = slider14;
+flange_rate = slider15;
+flange_depth = slider16 / 100;
+flange_fb = slider17 / 100 * 0.95;  // cap at 0.95 for stability
+flange_mix = slider18 / 100;
+
+master_vol = 10 ^ (slider19 / 20);
+
+// Trigger envelope attack/release for sidechain
+trig_att = exp(-1 / (0.5 * 0.001 * srate));   // 0.5ms — instant
+trig_rel = exp(-1 / (80 * 0.001 * srate));     // 80ms decay
+
+// ============================================================
+//  @BLOCK — DrumBanger gmem sync + trigger detection
+// ============================================================
+@block
+
+// ---- Heartbeat check ----
+heartbeat = gmem[10];
+heartbeat != last_heartbeat ? (
+  last_heartbeat = heartbeat;
+  db_connected = 1;
+  db_timeout = srate;
+);
+db_timeout > 0 ? db_timeout -= samplesblock : db_connected = 0;
+
+// ---- Read DrumBanger state ----
+db_connected ? (
+  db_step = gmem[11];
+  db_steps = max(1, gmem[12]);
+  db_pattern = gmem[13];
+  db_playing = gmem[15];
+
+  // ---- Trigger detection ----
+  got_trigger = 0;
+  trig_vel = 0;
+
+  trig_source == 0 ? (
+    // All pads: check if any pad just triggered
+    p = 0;
+    loop(16,
+      tv = gmem[100 + p];
+      tv > 0 ? (
+        got_trigger = 1;
+        trig_vel = max(trig_vel, tv);
+        gmem[100 + p] = 0;  // consume
+      );
+      p += 1;
+    );
+  ) : (
+    // Specific pad
+    watch_pad = trig_source - 1;
+    tv = gmem[100 + watch_pad];
+    tv > 0 ? (
+      got_trigger = 1;
+      trig_vel = tv;
+      gmem[100 + watch_pad] = 0;
+    );
+  );
+
+  // Update trigger envelope
+  got_trigger ? (
+    trig_active = 1;
+    trig_env = trig_vel / 127;
+  );
+
+  // Check if any watched pad is still active
+  any_active = 0;
+  trig_source == 0 ? (
+    p = 0;
+    loop(16, gmem[120 + p] ? any_active = 1; p += 1);
+  ) : (
+    any_active = gmem[120 + trig_source - 1];
+  );
+  !any_active ? trig_active = 0;
+);
+
+// ============================================================
+//  @SAMPLE — THE FX ENGINE
+// ============================================================
+@sample
+
+in_l = spl0;
+in_r = spl1;
+
+// ============================================================
+//  FET COMPRESSOR — sidechain from DrumBanger triggers
+// ============================================================
+//
+// Classic FET topology: fast attack, program-dependent release,
+// soft-knee at threshold, gain reduction driven by trigger envelope.
+// The trigger env acts as the sidechain signal — when a pad fires,
+// the compressor clamps down, creating that pumping sidechain duck.
+
+comp_on ? (
+  // Trigger envelope: fast attack, smooth release
+  trig_active ? (
+    trig_env = trig_env;  // hold at current level while active
+  ) : (
+    trig_env *= trig_rel;  // decay
+    trig_env < 0.001 ? trig_env = 0;
+  );
+
+  // Sidechain level = trigger envelope × duck depth
+  sc_level = trig_env * duck_depth;
+
+  // FET gain computation
+  // When sc_level > threshold, compress
+  sc_level > comp_thresh ? (
+    over = sc_level - comp_thresh;
+    target_gr = comp_thresh + over / comp_ratio;
+    // FET characteristic: soft saturation of gain reduction
+    comp_target = target_gr / sc_level;
+    comp_target = max(0.01, comp_target);
+  ) : (
+    comp_target = 1;
+  );
+
+  // Ballistics: fast attack, slower release (FET style)
+  comp_target < comp_gain ? (
+    comp_gain = comp_gain * comp_att + comp_target * (1 - comp_att);
+  ) : (
+    comp_gain = comp_gain * comp_rel + comp_target * (1 - comp_rel);
+  );
+
+  // Apply FET gain with soft saturation at extreme reduction
+  fet_gain = comp_gain;
+  // FET nonlinearity: slight harmonic warmth at high GR
+  comp_gain < 0.5 ? (
+    in_l = fast_tanh(in_l * 1.2) * fet_gain;
+    in_r = fast_tanh(in_r * 1.2) * fet_gain;
+  ) : (
+    in_l *= fet_gain;
+    in_r *= fet_gain;
+  );
+
+  // Store GR for display (in dB)
+  comp_gr_display = comp_gain < 0.999 ? -20 * log10(max(0.001, comp_gain)) : 0;
+);
+
+// ============================================================
+//  TAPE DELAY — from lms_tape_echo, simplified single-head
+// ============================================================
+
+delay_on ? (
+  // ---- Wow & Flutter ----
+  wow_phase += 0.5 / srate;
+  wow_phase >= 1 ? wow_phase -= 1;
+  flutter_phase += 6.3 / srate;
+  flutter_phase >= 1 ? flutter_phase -= 1;
+
+  // Wow: triangle wave for natural drift
+  wow_val = wow_phase < 0.5 ? (wow_phase * 4 - 1) : (3 - wow_phase * 4);
+  // Flutter: sine
+  flutter_val = sin(2 * $pi * flutter_phase);
+
+  total_mod = (wow_val * 3.0 + flutter_val * 0.5) * wf_amount * srate / 1000;
+
+  // ---- Write: input + feedback with tape saturation ----
+  tape_in_l = in_l + fb_l * delay_feedback;
+  tape_in_r = in_r + fb_r * delay_feedback;
+
+  // Tape saturation in the write path
+  tape_age > 0.01 ? (
+    tape_in_l = tape_sat(tape_in_l, tape_age);
+    tape_in_r = tape_sat(tape_in_r, tape_age);
+  );
+
+  DELAY_BUF_L[delay_wpos] = tape_in_l;
+  DELAY_BUF_R[delay_wpos] = tape_in_r;
+
+  // ---- Read with wow/flutter modulation ----
+  rd = delay_wpos - delay_samples - total_mod;
+  rd < 0 ? rd += DELAY_BUF_SIZE;
+  rd >= DELAY_BUF_SIZE ? rd -= DELAY_BUF_SIZE;
+
+  wet_l = buf_read_cubic(DELAY_BUF_L, rd, DELAY_BUF_SIZE);
+  wet_r = buf_read_cubic(DELAY_BUF_R, rd, DELAY_BUF_SIZE);
+
+  // ---- Feedback lowpass: tape eats highs each pass ----
+  fb_lp_l = fb_lp_l * fb_lp_coeff + wet_l * (1 - fb_lp_coeff);
+  fb_lp_r = fb_lp_r * fb_lp_coeff + wet_r * (1 - fb_lp_coeff);
+  fb_l = fb_lp_l;
+  fb_r = fb_lp_r;
+
+  // ---- Mix ----
+  in_l = in_l * (1 - delay_mix) + wet_l * delay_mix;
+  in_r = in_r * (1 - delay_mix) + wet_r * delay_mix;
+
+  delay_wpos += 1;
+  delay_wpos >= DELAY_BUF_SIZE ? delay_wpos = 0;
+);
+
+// ============================================================
+//  FLANGER — deep, exaggerated, Maschine-style
+// ============================================================
+//
+// Through-zero capable, high feedback, wide stereo spread.
+// LFO sweeps delay from ~0.2ms to ~7ms for maximum jet effect.
+// Feedback runs through tanh for warm self-oscillation at high settings.
+
+flange_on ? (
+  // Write to flange buffer
+  FLANGE_BUF_L[flange_wpos] = in_l + flange_fb_l * flange_fb;
+  FLANGE_BUF_R[flange_wpos] = in_r + flange_fb_r * flange_fb;
+
+  // LFO — triangle for smooth sweep
+  flange_lfo_phase += flange_rate / srate;
+  flange_lfo_phase >= 1 ? flange_lfo_phase -= 1;
+  flange_lfo = flange_lfo_phase < 0.5 ? (flange_lfo_phase * 4 - 1) : (3 - flange_lfo_phase * 4);
+
+  // Delay range: 0.2ms to 7ms — wide sweep for jet sound
+  base_delay = 0.002 * srate;       // 2ms center
+  mod_range = 0.005 * srate;        // ±5ms sweep at full depth
+
+  // Stereo: L and R slightly offset for width
+  delay_l = base_delay + flange_lfo * mod_range * flange_depth;
+  delay_r = base_delay - flange_lfo * mod_range * flange_depth * 0.85;  // slightly asymmetric
+
+  delay_l = max(1, min(delay_l, FLANGE_BUF_SIZE - 2));
+  delay_r = max(1, min(delay_r, FLANGE_BUF_SIZE - 2));
+
+  rd_l = flange_wpos - delay_l;
+  rd_r = flange_wpos - delay_r;
+  rd_l < 0 ? rd_l += FLANGE_BUF_SIZE;
+  rd_r < 0 ? rd_r += FLANGE_BUF_SIZE;
+
+  fl_out_l = buf_read_cubic(FLANGE_BUF_L, rd_l, FLANGE_BUF_SIZE);
+  fl_out_r = buf_read_cubic(FLANGE_BUF_R, rd_r, FLANGE_BUF_SIZE);
+
+  // Feedback through tanh for warm self-oscillation
+  flange_fb_l = fast_tanh(fl_out_l);
+  flange_fb_r = fast_tanh(fl_out_r);
+
+  // Mix — heavy mix for exaggerated effect
+  in_l = in_l * (1 - flange_mix) + fl_out_l * flange_mix;
+  in_r = in_r * (1 - flange_mix) + fl_out_r * flange_mix;
+
+  flange_wpos += 1;
+  flange_wpos >= FLANGE_BUF_SIZE ? flange_wpos = 0;
+);
+
+// ============================================================
+//  DC BLOCKER
+// ============================================================
+dc_coeff = 0.995;
+dc_out_l = in_l - dc_l_x1 + dc_coeff * dc_l_y1;
+dc_l_x1 = in_l; dc_l_y1 = dc_out_l;
+dc_out_r = in_r - dc_r_x1 + dc_coeff * dc_r_y1;
+dc_r_x1 = in_r; dc_r_y1 = dc_out_r;
+in_l = dc_out_l;
+in_r = dc_out_r;
+
+// ============================================================
+//  MASTER OUTPUT
+// ============================================================
+in_l *= master_vol;
+in_r *= master_vol;
+
+// Scope
+SCOPE_BUF[scope_pos] = (in_l + in_r) * 0.5;
+scope_pos += 1;
+scope_pos >= SCOPE_SIZE ? scope_pos = 0;
+
+spl0 = in_l;
+spl1 = in_r;
+
+
+// ============================================================
+//  @GFX
+// ============================================================
+@gfx 680 460
+
+// ---- Colors ----
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+
+// Background
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+// Header band
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 52);
+gfx_r = COL_ACCENT_R * 0.6; gfx_g = COL_ACCENT_G * 0.6; gfx_b = COL_ACCENT_B * 0.6;
+gfx_rect(0, 52, gfx_w, 2);
+
+// ============================================================
+//  HELPERS
+// ============================================================
+
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh/2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by+bh-1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx+bw-1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12)/2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11)/2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
+
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py+22, pw, 1);
+  gfx_r = COL_BORDER_R*0.7; gfx_g = COL_BORDER_G*0.7; gfx_b = COL_BORDER_B*0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px+pw-1, py, 1, ph); gfx_rect(px, py+ph-1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_drawstr(title);
+);
+
+function draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + 8, ty + 8, 7, 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  );
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + 90 &&
+    mouse_y >= ty && mouse_y <= ty + 16 ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ============================================================
+//  TITLE
+// ============================================================
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", 20);
+gfx_x = 14; gfx_y = 8;
+gfx_drawstr("LMS DRONE FX");
+
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 11);
+gfx_x = 14; gfx_y = 32;
+gfx_drawstr("FET Comp  //  Tape Delay  //  Flanger  //  DrumBanger Sidechain");
+
+// Connection indicator
+db_connected ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_circle(gfx_w - 30, 25, 6, 1);
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = gfx_w - 95; gfx_y = 20;
+  gfx_drawstr("DB LIVE");
+) : (
+  gfx_r = 0.3; gfx_g = 0.15; gfx_b = 0.15;
+  gfx_circle(gfx_w - 30, 25, 6, 1);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = gfx_w - 95; gfx_y = 20;
+  gfx_drawstr("DB ---");
+);
+
+// ============================================================
+//  PATTERN DISPLAY — 16-step × 16-pad overview
+// ============================================================
+pat_y = 58;
+pat_h = 96;
+cell_w = floor((gfx_w - 20) / 16);
+cell_h = floor(pat_h / 16);
+
+// Grid
+p = 0;
+loop(16,
+  s = 0;
+  loop(16,
+    cx = 10 + s * cell_w;
+    cy = pat_y + p * cell_h;
+
+    // Get velocity from DrumBanger pattern
+    db_connected ? (
+      pv = gmem[1000 + db_pattern * 1024 + s * 16 + p];
+    ) : (
+      pv = 0;
+    );
+
+    s < db_steps ? (
+      pv > 0 ? (
+        br = pv / 127;
+        gfx_r = COL_ACCENT_R * br;
+        gfx_g = COL_ACCENT_G * br;
+        gfx_b = COL_ACCENT_B * br;
+      ) : (
+        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+      );
+    ) : (
+      gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.04;
+    );
+    gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
+
+    // Current step column highlight
+    s == db_step && db_playing ? (
+      gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.12;
+      gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
+      gfx_a = 1;
+    );
+
+    s += 1;
+  );
+  p += 1;
+);
+
+// Step numbers below pattern
+gfx_setfont(1, "Arial", 8);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+s = 0;
+loop(16,
+  s % 4 == 0 ? (
+    gfx_x = 10 + s * cell_w + 2; gfx_y = pat_y + pat_h + 2;
+    gfx_drawnumber(s + 1, 0);
+  );
+  s += 1;
+);
+
+// ============================================================
+//  FX PANELS
+// ============================================================
+row_y = pat_y + pat_h + 18;
+margin = 10;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+pad = 8;
+
+// ---- FET COMPRESSOR ----
+comp_pw = floor((gfx_w - margin * 2 - gap * 2) / 3);
+comp_px = margin;
+comp_ph = 168;
+draw_panel(comp_px, row_y, comp_pw, comp_ph, "FET COMPRESSOR");
+
+cy = row_y + 28;
+inner_w = comp_pw - pad * 2;
+
+slider2 = draw_toggle(comp_px + pad, cy, slider2, "COMP ON");
+comp_on = slider2;
+cy += 22;
+
+slider3 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, "THRESH", 1);
+cy += bar_sp;
+slider4 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider4, 0, 100, "RATIO", 1);
+cy += bar_sp;
+slider5 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider5, 0, 100, "ATTACK", 1);
+cy += bar_sp;
+slider6 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider6, 10, 1000, "RELEASE", 1);
+cy += bar_sp;
+slider7 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider7, 0, 100, "DUCK", 1);
+
+// GR meter
+cy += bar_sp + 2;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = comp_px + pad; gfx_y = cy;
+gfx_drawstr("GR:");
+gr_bar_x = comp_px + pad + 28;
+gr_bar_w = inner_w - 28;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(gr_bar_x, cy, gr_bar_w, 10);
+gr_fill = min(1, comp_gr_display / 20);
+gr_fill > 0 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.3; gfx_b = 0;
+  gfx_rect(gr_bar_x, cy, gr_fill * gr_bar_w, 10);
+);
+
+// ---- TAPE DELAY ----
+delay_px = comp_px + comp_pw + gap;
+delay_pw = comp_pw;
+delay_ph = comp_ph;
+draw_panel(delay_px, row_y, delay_pw, delay_ph, "TAPE DELAY");
+
+cy = row_y + 28;
+inner_w = delay_pw - pad * 2;
+
+slider8 = draw_toggle(delay_px + pad, cy, slider8, "DELAY ON");
+delay_on = slider8;
+cy += 22;
+
+slider9 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, "TIME ms", 1);
+cy += bar_sp;
+slider10 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider10, 0, 90, "FEEDBACK", 1);
+cy += bar_sp;
+slider11 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider11, 0, 100, "MIX", 1);
+cy += bar_sp;
+slider12 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider12, 0, 100, "TAPE AGE", 1);
+cy += bar_sp;
+slider13 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider13, 0, 100, "WOW/FLT", 1);
+
+// ---- FLANGER ----
+fl_px = delay_px + delay_pw + gap;
+fl_pw = gfx_w - fl_px - margin;
+fl_ph = comp_ph;
+draw_panel(fl_px, row_y, fl_pw, fl_ph, "FLANGER");
+
+cy = row_y + 28;
+inner_w = fl_pw - pad * 2;
+
+slider14 = draw_toggle(fl_px + pad, cy, slider14, "FLANGE ON");
+flange_on = slider14;
+cy += 22;
+
+slider15 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, "RATE Hz", 1);
+cy += bar_sp;
+slider16 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider16, 0, 100, "DEPTH", 1);
+cy += bar_sp;
+slider17 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider17, 0, 100, "FEEDBACK", 1);
+cy += bar_sp;
+slider18 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider18, 0, 100, "MIX", 1);
+
+// ---- OUTPUT + SCOPE ----
+out_y = row_y + comp_ph + gap;
+out_w = gfx_w - margin * 2;
+out_h = gfx_h - out_y - margin;
+
+// Scope background
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(margin, out_y, out_w, out_h);
+gfx_r = COL_BORDER_R * 0.5; gfx_g = COL_BORDER_G * 0.5; gfx_b = COL_BORDER_B * 0.5;
+gfx_rect(margin, out_y, out_w, 1); gfx_rect(margin, out_y + out_h - 1, out_w, 1);
+gfx_rect(margin, out_y, 1, out_h); gfx_rect(margin + out_w - 1, out_y, 1, out_h);
+
+// Center line
+gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+gfx_rect(margin + 1, out_y + floor(out_h / 2), out_w - 2, 1);
+
+// Waveform
+gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+scope_step = SCOPE_SIZE / out_w;
+i = 0;
+loop(out_w - 2,
+  idx = floor(i * scope_step);
+  idx >= SCOPE_SIZE ? idx = SCOPE_SIZE - 1;
+  sv = SCOPE_BUF[(scope_pos + idx) % SCOPE_SIZE];
+  sy = out_y + out_h * 0.5 - sv * out_h * 0.4;
+  sy = max(out_y + 1, min(out_y + out_h - 2, sy));
+  i == 0 ? (
+    gfx_x = margin + 1; gfx_y = sy;
+  ) : (
+    gfx_lineto(margin + 1 + i, sy);
+  );
+  i += 1;
+);
+
+// Master volume bar in scope area
+slider19 = draw_bar(margin + out_w - 120, out_y + 4, 116, 16, slider19, -24, 24, "OUTPUT", 1);
+
+// Trigger activity indicator
+trig_env > 0.01 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_circle(margin + 14, out_y + 12, 5, 1);
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = margin + 24; gfx_y = out_y + 6;
+  gfx_drawstr("TRIG");
+) : (
+  gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
+  gfx_circle(margin + 14, out_y + 12, 5, 1);
+);
+
+last_cap = mouse_cap;
