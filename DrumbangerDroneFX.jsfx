@@ -919,22 +919,19 @@ loop(NUM_LOCKS,
     mouse_y >= mode_row_y && mouse_y < mode_row_y + slot_h ? (
 
     gfx_is_follow && !has_data ? (
-      // CAPTURE: copy visible (filtered) data from gmem into this slot
-      src_pat = gmem[13];
+      // CAPTURE: snapshot exactly what the grid shows right now
       memset(LOCAL_PAT + si * 256, 0, 256);
-      slider1 == 0 ? (
-        snap_i = 0;
-        loop(NUM_STEPS * NUM_PADS,
-          LOCAL_PAT[si * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-          snap_i += 1;
+      snap_p = 0;
+      loop(NUM_PADS,
+        // Only capture visible pads (respects pad filter)
+        (slider1 == 0 || snap_p == slider1 - 1) ? (
+          snap_s = 0;
+          loop(NUM_STEPS,
+            LOCAL_PAT[si * 256 + snap_s * 16 + snap_p] = get_active_step(snap_s, snap_p);
+            snap_s += 1;
+          );
         );
-      ) : (
-        snap_pad = slider1 - 1;
-        snap_s = 0;
-        loop(NUM_STEPS,
-          LOCAL_PAT[si * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
-          snap_s += 1;
-        );
+        snap_p += 1;
       );
       LOCK_HAS_DATA[si] = 1;
       slider20 = si + 1;  // switch to that lock slot
@@ -948,7 +945,7 @@ loop(NUM_LOCKS,
 );
 
 // Trigger Source selector (click to cycle: All → Pad 1-16)
-trig_btn_x = mode_btn_x; trig_btn_y = 28; trig_btn_w = 100; trig_btn_h = 16;
+trig_btn_x = mode_row_x; trig_btn_y = 28; trig_btn_w = 100; trig_btn_h = 16;
 
 gfx_setfont(1, "Arial", 11);
 slider1 == 0 ? (
