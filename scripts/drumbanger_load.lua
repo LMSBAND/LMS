@@ -1,7 +1,7 @@
 -- DRUMBANGER: Load Sample
 -- -----------------------
 -- Opens a file picker. Copies the selected wav into the pool.
--- Auto-loads it onto the selected pad in DrumBox16.
+-- Auto-loads it onto the selected pad in DRUMBANGER.
 --
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 -- Assign a keyboard shortcut for instant loading.
@@ -9,7 +9,7 @@
 local GMEM_NAME = "DrumBanger"
 
 local function get_pool_dir()
-  return reaper.GetResourcePath() .. "/Effects/DrumBox16/pool"
+  return reaper.GetResourcePath() .. "/Effects/DRUMBANGER/pool"
 end
 
 local function update_manifest(pool_dir)
@@ -68,7 +68,7 @@ end
 
 local function main()
   -- Open file picker
-  local retval, filename = reaper.GetUserFileNameForRead("", "Load sample into DrumBox16", "*.wav;*.WAV")
+  local retval, filename = reaper.GetUserFileNameForRead("", "Load sample into DRUMBANGER", "*.wav;*.WAV")
   if not retval or filename == "" then return end
 
   -- Verify it's a wav
@@ -109,7 +109,7 @@ local function main()
     return
   end
 
-  -- Signal DrumBox16 via gmem
+  -- Signal DRUMBANGER via gmem
   reaper.gmem_attach(GMEM_NAME)
   reaper.gmem_write(1, new_idx)
   reaper.gmem_write(2, 1)         -- auto-load onto selected pad

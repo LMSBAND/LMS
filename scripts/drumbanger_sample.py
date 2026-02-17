@@ -1,16 +1,16 @@
 """
 DRUMBANGER: Sample from Arrange
 --------------------------------
-Captures the current time selection into DrumBox16's sample pool.
+Captures the current time selection into DRUMBANGER's sample pool.
 Select a track first, or it samples the master bus.
-The new sample auto-loads onto the selected pad in DrumBox16.
+The new sample auto-loads onto the selected pad in DRUMBANGER.
 
 How to use:
 1. Make a time selection in REAPER's arrange view
    (drag on the timeline ruler, or select a media item)
 2. (Optional) Select a track — defaults to master bus
 3. Run this script from Actions > Show Action List
-4. The sample appears on the selected pad in DrumBox16 instantly
+4. The sample appears on the selected pad in DRUMBANGER instantly
 
 Install: Actions > Show Action List > New Action > Load ReaScript
 Assign a keyboard shortcut for instant sampling.
@@ -25,7 +25,7 @@ import time
 import reaper
 
 GMEM_NAME = "DrumBanger"
-MAX_DURATION = 5.0    # DrumBox16 buffer limit (seconds)
+MAX_DURATION = 5.0    # DRUMBANGER buffer limit (seconds)
 SAMPLE_RATE = 48000
 NUM_CHANNELS = 2
 BITS = 16
@@ -138,7 +138,7 @@ def main():
 
     # ---- Determine pool path ----
     resource_path = RPR_GetResourcePath()
-    pool_dir = os.path.join(resource_path, "Effects", "DrumBox16", "pool")
+    pool_dir = os.path.join(resource_path, "Effects", "DRUMBANGER", "pool")
     if not os.path.exists(pool_dir):
         os.makedirs(pool_dir)
 
@@ -157,7 +157,7 @@ def main():
     wav_list = update_manifest(pool_dir)
     new_idx = wav_list.index(filename) if filename in wav_list else -1
 
-    # ---- Signal DrumBox16 via gmem ----
+    # ---- Signal DRUMBANGER via gmem ----
     reaper.gmem_attach(GMEM_NAME)
     reaper.gmem_write(1, new_idx)    # pool index of new sample
     reaper.gmem_write(2, 1)          # auto-load onto selected pad

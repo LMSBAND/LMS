@@ -1,13 +1,13 @@
 -- DRUMBANGER: Background Sampling Service
 -- -----------------------------------------
 -- Runs as a persistent background action via defer().
--- Monitors gmem[3] for sample requests from DrumBox16.
+-- Monitors gmem[3] for sample requests from DRUMBANGER.
 -- When triggered, captures audio from the arrange view
 -- (including the track's FX chain) and loads it onto
 -- the requested DRUMBANGER pad instantly.
 --
 -- IMPORTANT: This script must be running for the SAMPLE
--- button inside DrumBox16 to work. Start it once per session.
+-- button inside DRUMBANGER to work. Start it once per session.
 --
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 -- Recommended: Set as a startup action so it runs automatically.
@@ -19,7 +19,7 @@
 --   gmem[6]        Lua → JSFX: heartbeat (increments each frame)
 
 local GMEM_NAME      = "DrumBanger"
-local MAX_DURATION    = 5.0       -- DrumBox16 buffer limit (seconds)
+local MAX_DURATION    = 5.0       -- DRUMBANGER buffer limit (seconds)
 local SAMPLE_RATE     = 48000
 local NUM_CHANNELS    = 2
 local MAX_WAIT_CYCLES = 300       -- ~5 seconds at 60fps defer rate
@@ -167,7 +167,7 @@ local function write_wav_and_finish(state)
     end
   end
 
-  -- Signal DrumBox16 via gmem (existing rescan + auto-load protocol)
+  -- Signal DRUMBANGER via gmem (existing rescan + auto-load protocol)
   reaper.gmem_attach(GMEM_NAME)
   reaper.gmem_write(1, new_idx)   -- pool index of new sample
   reaper.gmem_write(2, 1)         -- auto-load onto selected pad
@@ -251,7 +251,7 @@ local function start_sampling()
 
   -- Determine pool path
   local resource_path = reaper.GetResourcePath()
-  local pool_dir = resource_path .. "/Effects/DrumBox16/pool"
+  local pool_dir = resource_path .. "/Effects/DRUMBANGER/pool"
   local sampled_dir = pool_dir .. "/sampled"
   reaper.RecursiveCreateDirectory(sampled_dir, 0)
 
@@ -321,5 +321,5 @@ end
 reaper.gmem_attach(GMEM_NAME)
 reaper.gmem_write(5, 0)   -- clear status
 reaper.gmem_write(3, 0)   -- clear any stale request
-reaper.ShowConsoleMsg("DRUMBANGER SERVICE: Started. SAMPLE button in DrumBox16 is now active.\n")
+reaper.ShowConsoleMsg("DRUMBANGER SERVICE: Started. SAMPLE button in DRUMBANGER is now active.\n")
 tick()

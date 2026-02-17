@@ -2333,7 +2333,7 @@ pool_count == 0 ? (
   // Show help text when pool is empty
   gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
   gfx_x = gfx_w - margin - 280; gfx_y = mixer_y - 18 + 2;
-  gfx_drawstr("Add .wav to Effects/DrumBox16/pool/ + run Rescan");
+  gfx_drawstr("Add .wav to Effects/DRUMBANGER/pool/ + run Rescan");
 );
 pool_count > 0 ? (
   gfx_pool_nav_w = 20;

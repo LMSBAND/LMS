@@ -1,20 +1,20 @@
 -- DRUMBANGER: Sample from Arrange
 -- --------------------------------
--- Captures the current time selection into DrumBox16's sample pool.
+-- Captures the current time selection into DRUMBANGER's sample pool.
 -- Select a track first, or it samples the master bus.
--- The new sample auto-loads onto the selected pad in DrumBox16.
+-- The new sample auto-loads onto the selected pad in DRUMBANGER.
 --
 -- How to use:
 -- 1. Make a time selection (drag on timeline ruler) or select a media item
 -- 2. (Optional) Select a track — defaults to master bus
 -- 3. Run this script from Actions > Show Action List
--- 4. The sample appears on the selected pad in DrumBox16 instantly
+-- 4. The sample appears on the selected pad in DRUMBANGER instantly
 --
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 -- Assign a keyboard shortcut for instant sampling.
 
 local GMEM_NAME  = "DrumBanger"
-local MAX_DURATION = 5.0     -- DrumBox16 buffer limit (seconds)
+local MAX_DURATION = 5.0     -- DRUMBANGER buffer limit (seconds)
 local SAMPLE_RATE  = 48000
 local NUM_CHANNELS = 2
 local MAX_WAIT_CYCLES = 300  -- ~5 seconds at 60fps defer rate
@@ -161,7 +161,7 @@ local function write_wav_and_finish(state)
     end
   end
 
-  -- Signal DrumBox16 via gmem
+  -- Signal DRUMBANGER via gmem
   reaper.gmem_attach(GMEM_NAME)
   reaper.gmem_write(1, new_idx)   -- pool index of new sample
   reaper.gmem_write(2, 1)         -- auto-load onto selected pad
@@ -239,7 +239,7 @@ local function main()
 
   -- Determine pool path
   local resource_path = reaper.GetResourcePath()
-  local pool_dir = resource_path .. "/Effects/DrumBox16/pool"
+  local pool_dir = resource_path .. "/Effects/DRUMBANGER/pool"
   local sampled_dir = pool_dir .. "/sampled"
   reaper.RecursiveCreateDirectory(sampled_dir, 0)
 
