@@ -99,8 +99,9 @@ NUM_PADS = 16;
 NUM_LOCKS = 8;
 LOCAL_PAT = SCOPE_BUF + SCOPE_SIZE + 100;  // 8*16*16 = 2048
 LOCK_HAS_DATA = LOCAL_PAT + NUM_LOCKS * NUM_STEPS * NUM_PADS;  // 8 flags
-memset(LOCAL_PAT, 0, NUM_LOCKS * NUM_STEPS * NUM_PADS);
-memset(LOCK_HAS_DATA, 0, NUM_LOCKS);
+// NOTE: do NOT memset LOCAL_PAT, LOCK_HAS_DATA, MOD_FLOOR, or lock_mode here.
+// @serialize restores them on project load. @init can re-run on play start,
+// which would nuke the user's captured lock data.
 
 // Mod range floor values (10 total)
 // Index: 0=comp_duck, 1=comp_thresh, 2=comp_ratio
@@ -108,10 +109,6 @@ memset(LOCK_HAS_DATA, 0, NUM_LOCKS);
 //        7=flange_depth, 8=flange_rate, 9=flange_mix
 NUM_MOD_FLOORS = 10;
 MOD_FLOOR = LOCK_HAS_DATA + NUM_LOCKS;
-memset(MOD_FLOOR, 0, NUM_MOD_FLOORS);
-
-// Lock mode state (0=follow, 1-8=lock slot) — NOT a slider, so REAPER can't reset it
-lock_mode = 0;
 lock_seq_step = 0;      // local sequencer step for locked pattern playback
 lock_seq_prev_step = -1;
 
