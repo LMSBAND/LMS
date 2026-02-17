@@ -686,53 +686,6 @@ function toggle_tie(pattern, step, pad) local(addr) (
   addr[] = addr[] > 0 ? 0 : 1;
 );
 
-// ---- Pad copy function (copies all settings from src to dst) ----
-function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
-  // Sliders: vol, pan, pitch, LP, HP
-  slider(10 + dst) = slider(10 + src);   // vol
-  slider(30 + dst) = slider(30 + src);   // pan
-  slider(50 + dst) = slider(50 + src);   // pitch
-  slider(80 + dst) = slider(80 + src);   // LP
-  slider(100 + dst) = slider(100 + src); // HP
-  // Memory arrays
-  PAD_SUBDIV[dst]     = PAD_SUBDIV[src];
-  PAD_SLICE[dst]      = PAD_SLICE[src];
-  PAD_SEQ_SUBDIV[dst] = PAD_SEQ_SUBDIV[src];
-  PAD_CHOP_OFFSET[dst] = PAD_CHOP_OFFSET[src];
-  PAD_LINK_GROUP[dst] = PAD_LINK_GROUP[src];
-  PAD_LINK_ROLE[dst]  = PAD_LINK_ROLE[src];
-  PAD_CHOKE_GROUP[dst] = PAD_CHOKE_GROUP[src];
-  // Copy sample data (pool idx + buffer)
-  PAD_POOL_IDX[dst]   = PAD_POOL_IDX[src];
-  PAD_LENGTH[dst]     = PAD_LENGTH[src];
-  PAD_NCH[dst]        = PAD_NCH[src];
-  PAD_SRATE[dst]      = PAD_SRATE[src];
-  PAD_SLICE_END[dst]  = PAD_SLICE_END[src];
-  buf_src = SAMPLE_BUF + src * PAD_BUF_SIZE;
-  buf_dst = SAMPLE_BUF + dst * PAD_BUF_SIZE;
-  copy_i = 0;
-  loop(PAD_LENGTH[src] * (PAD_NCH[src] > 1 ? 2 : 1),
-    buf_dst[copy_i] = buf_src[copy_i];
-    copy_i += 1;
-  );
-  // Copy sequencer pattern across all patterns, all steps (main + subs + ties + plocks)
-  copy_i = 0;
-  loop(NUM_PATTERNS,
-    _cs = 0;
-    loop(MAX_STEPS,
-      set_seq_step(copy_i, _cs, dst, get_seq_step(copy_i, _cs, src));
-      set_sub_seq_step(copy_i, _cs, dst, 1, get_sub_seq_step(copy_i, _cs, src, 1));
-      set_sub_seq_step(copy_i, _cs, dst, 2, get_sub_seq_step(copy_i, _cs, src, 2));
-      set_sub_seq_step(copy_i, _cs, dst, 3, get_sub_seq_step(copy_i, _cs, src, 3));
-      set_tie(copy_i, _cs, dst, get_tie(copy_i, _cs, src));
-      set_plock_lp(copy_i, _cs, dst, get_plock_lp(copy_i, _cs, src));
-      set_plock_hp(copy_i, _cs, dst, get_plock_hp(copy_i, _cs, src));
-      _cs += 1;
-    );
-    copy_i += 1;
-  );
-);
-
 // ---- Sub-step sequencer functions ----
 // Sub-step 0 uses the main SEQ_BASE. Sub-steps 1-3 live in SUB_SEQ_BASE.
 function get_sub_seq_addr(pattern, step, pad, sub_idx) (
@@ -785,6 +738,53 @@ function get_plock_hp(pattern, step, pad) (
 
 function set_plock_hp(pattern, step, pad, val) (
   plock_addr(PLOCK_HP_BASE, pattern, step, pad)[] = val;
+);
+
+// ---- Pad copy function (copies all settings from src to dst) ----
+function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
+  // Sliders: vol, pan, pitch, LP, HP
+  slider(10 + dst) = slider(10 + src);   // vol
+  slider(30 + dst) = slider(30 + src);   // pan
+  slider(50 + dst) = slider(50 + src);   // pitch
+  slider(80 + dst) = slider(80 + src);   // LP
+  slider(100 + dst) = slider(100 + src); // HP
+  // Memory arrays
+  PAD_SUBDIV[dst]     = PAD_SUBDIV[src];
+  PAD_SLICE[dst]      = PAD_SLICE[src];
+  PAD_SEQ_SUBDIV[dst] = PAD_SEQ_SUBDIV[src];
+  PAD_CHOP_OFFSET[dst] = PAD_CHOP_OFFSET[src];
+  PAD_LINK_GROUP[dst] = PAD_LINK_GROUP[src];
+  PAD_LINK_ROLE[dst]  = PAD_LINK_ROLE[src];
+  PAD_CHOKE_GROUP[dst] = PAD_CHOKE_GROUP[src];
+  // Copy sample data (pool idx + buffer)
+  PAD_POOL_IDX[dst]   = PAD_POOL_IDX[src];
+  PAD_LENGTH[dst]     = PAD_LENGTH[src];
+  PAD_NCH[dst]        = PAD_NCH[src];
+  PAD_SRATE[dst]      = PAD_SRATE[src];
+  PAD_SLICE_END[dst]  = PAD_SLICE_END[src];
+  buf_src = SAMPLE_BUF + src * PAD_BUF_SIZE;
+  buf_dst = SAMPLE_BUF + dst * PAD_BUF_SIZE;
+  copy_i = 0;
+  loop(PAD_LENGTH[src] * (PAD_NCH[src] > 1 ? 2 : 1),
+    buf_dst[copy_i] = buf_src[copy_i];
+    copy_i += 1;
+  );
+  // Copy sequencer pattern across all patterns, all steps (main + subs + ties + plocks)
+  copy_i = 0;
+  loop(NUM_PATTERNS,
+    _cs = 0;
+    loop(MAX_STEPS,
+      set_seq_step(copy_i, _cs, dst, get_seq_step(copy_i, _cs, src));
+      set_sub_seq_step(copy_i, _cs, dst, 1, get_sub_seq_step(copy_i, _cs, src, 1));
+      set_sub_seq_step(copy_i, _cs, dst, 2, get_sub_seq_step(copy_i, _cs, src, 2));
+      set_sub_seq_step(copy_i, _cs, dst, 3, get_sub_seq_step(copy_i, _cs, src, 3));
+      set_tie(copy_i, _cs, dst, get_tie(copy_i, _cs, src));
+      set_plock_lp(copy_i, _cs, dst, get_plock_lp(copy_i, _cs, src));
+      set_plock_hp(copy_i, _cs, dst, get_plock_hp(copy_i, _cs, src));
+      _cs += 1;
+    );
+    copy_i += 1;
+  );
 );
 
 function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, num_read) (
