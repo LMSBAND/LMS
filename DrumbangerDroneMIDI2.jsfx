@@ -14,12 +14,12 @@ options:gmem=DrumBanger
 // ============================================================
 // SLIDERS
 // ============================================================
-slider1:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>Mode
-slider2:0<0,15,1>MIDI Channel (0=1)
-slider3:60<0,127,1>Root Note
-slider4:0<0,7,1{Chromatic,Major,Minor,Pentatonic Maj,Pentatonic Min,Blues,Dorian,Mixolydian}>Scale
-slider5:0<0,4,1{Off,Single,Triad,7th,Power}>Chord Mode
-slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>Octave
+slider1:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>-Mode
+slider2:0<0,15,1>-MIDI Channel (0=1)
+slider3:60<0,127,1>-Root Note
+slider4:0<0,7,1{Chromatic,Major,Minor,Pentatonic Maj,Pentatonic Min,Blues,Dorian,Mixolydian}>-Scale
+slider5:0<0,4,1{Off,Single,Triad,7th,Power}>-Chord Mode
+slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>-Octave
 
 // ============================================================
 // MEMORY MAP
@@ -62,7 +62,9 @@ transport_playing = 0;
 prev_playing = 0;
 
 // ---- Mode tracking ----
-prev_slider1 = -1;  // detect mode changes
+// lock_mode: 0=Follow, 1-8=Lock slot (serialized, NOT zeroed here)
+// @serialize restores lock_mode on project load. @init can re-run on play start.
+prev_lock_mode = -1;  // detect mode changes
 
 // ---- Velocity editor state ----
 vel_edit_open = 0;
@@ -209,13 +211,13 @@ function toggle_local_step(slot, step, pad) local(addr, val) (
 
 // ---- Get velocity for current mode (follow=gmem, lock=local) ----
 function get_active_step(step, pad) local(src_pat) (
-  slider1 == 0 ? (
+  lock_mode == 0 ? (
     // Follow: read live from gmem, using DrumBanger's current pattern
     src_pat = gmem[13];
     gmem[1000 + src_pat * 1024 + step * 16 + pad];
   ) : (
     // Lock: read from local slot
-    get_local_step(slider1 - 1, step, pad);
+    get_local_step(lock_mode - 1, step, pad);
   );
 );
 
@@ -249,10 +251,10 @@ transport_started = transport_playing && !prev_playing;
 seq_step = timeline_step;
 
 // ---- Detect mode change: snapshot on switch to Lock ----
-slider1 != prev_slider1 ? (
+lock_mode != prev_lock_mode ? (
   // Switching TO a lock slot? Snapshot current gmem into that slot
-  slider1 > 0 ? (
-    lock_slot = slider1 - 1;
+  lock_mode > 0 ? (
+    lock_slot = lock_mode - 1;
     // Only snapshot if the slot is empty (no prior data)
     LOCK_HAS_DATA[lock_slot] == 0 ? (
       src_pat = gmem[13];  // DrumBanger's current pattern
@@ -265,7 +267,7 @@ slider1 != prev_slider1 ? (
       lock_src_pattern = src_pat;
     );
   );
-  prev_slider1 = slider1;
+  prev_lock_mode = lock_mode;
 );
 
 // ---- Detect step change ----
@@ -298,7 +300,7 @@ last_step = seq_step;
 // This lets you hear the drone synth even when transport is stopped.
 // New trigger kills previous notes then fires new ones — sustain is handled
 // by the downstream synth's envelope, not by pad sample length.
-slider1 == 0 ? (
+lock_mode == 0 ? (
   p = 0;
   loop(NUM_PADS,
     pad_now = gmem[120 + p];
@@ -331,7 +333,7 @@ spl1 = spl1;
 // ============================================================
 // @GFX — User Interface
 // ============================================================
-@gfx 620 420
+@gfx 620 440
 
 // ---- Colors ----
 COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
@@ -344,9 +346,9 @@ COL_LIVE_R = 0.2;  COL_LIVE_G = 0.8;  COL_LIVE_B = 0.3;
 margin = 10;
 gfx_setfont(1, "Arial", 13);
 
-is_follow = (slider1 == 0);
+is_follow = (lock_mode == 0);
 is_locked = !is_follow;
-lock_slot = is_locked ? (slider1 - 1) : 0;
+lock_slot = is_locked ? (lock_mode - 1) : 0;
 
 // ---- Background ----
 gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
@@ -382,6 +384,152 @@ gfx_drawnumber(seq_step + 1, 0);
 gfx_drawstr("/");
 gfx_drawnumber(steps_per_measure, 0);
 transport_playing ? gfx_drawstr("  PLAYING") : gfx_drawstr("  STOPPED");
+
+// ============================================
+// CONTROL ROW — Mode, MIDI Ch, Root, Scale, Chord, Octave
+// ============================================
+ctrl_y = margin + 36;
+ctrl_h = 16;
+gfx_setfont(1, "Arial", 11);
+
+// -- Mode (Follow / Lock 1-8) --
+ctrl_x = margin;
+is_follow ? (
+  gfx_r = COL_LIVE_R; gfx_g = COL_LIVE_G; gfx_b = COL_LIVE_B;
+  gfx_x = ctrl_x; gfx_y = ctrl_y;
+  gfx_drawstr("FOLLOW");
+) : (
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  gfx_x = ctrl_x; gfx_y = ctrl_y;
+  gfx_drawstr("LOCK ");
+  gfx_drawnumber(lock_mode, 0);
+);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 55 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  lock_mode = (lock_mode + 1) % 9;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 55 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  lock_mode = lock_mode - 1;
+  lock_mode < 0 ? lock_mode = 8;
+);
+
+// -- MIDI Channel --
+ctrl_x = 80;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl_y;
+gfx_drawstr("Ch ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_drawnumber(slider2 + 1, 0);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 42 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider2 = (slider2 + 1) % 16;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 42 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider2 = slider2 - 1;
+  slider2 < 0 ? slider2 = 15;
+);
+
+// -- Root Note --
+ctrl_x = 135;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl_y;
+gfx_drawstr("Root ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+rn = slider3 % 12;
+ro = (slider3 / 12) | 0;
+rn == 0 ? gfx_drawstr("C") : rn == 1 ? gfx_drawstr("C#") :
+rn == 2 ? gfx_drawstr("D") : rn == 3 ? gfx_drawstr("D#") :
+rn == 4 ? gfx_drawstr("E") : rn == 5 ? gfx_drawstr("F") :
+rn == 6 ? gfx_drawstr("F#") : rn == 7 ? gfx_drawstr("G") :
+rn == 8 ? gfx_drawstr("G#") : rn == 9 ? gfx_drawstr("A") :
+rn == 10 ? gfx_drawstr("A#") : gfx_drawstr("B");
+gfx_drawnumber(ro - 1, 0);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 65 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider3 = min(127, slider3 + 1);
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 65 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider3 = max(0, slider3 - 1);
+);
+
+// -- Scale --
+ctrl_x = 215;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl_y;
+gfx_drawstr("Scl ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+slider4 == 0 ? gfx_drawstr("CHROM") :
+slider4 == 1 ? gfx_drawstr("MAJOR") :
+slider4 == 2 ? gfx_drawstr("MINOR") :
+slider4 == 3 ? gfx_drawstr("PENT+") :
+slider4 == 4 ? gfx_drawstr("PENT-") :
+slider4 == 5 ? gfx_drawstr("BLUES") :
+slider4 == 6 ? gfx_drawstr("DORIAN") :
+gfx_drawstr("MIXO");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 90 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider4 = (slider4 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 90 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider4 = slider4 - 1;
+  slider4 < 0 ? slider4 = 7;
+);
+
+// -- Chord Mode --
+ctrl_x = 330;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl_y;
+gfx_drawstr("Chd ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+slider5 == 0 ? gfx_drawstr("OFF") :
+slider5 == 1 ? gfx_drawstr("SINGLE") :
+slider5 == 2 ? gfx_drawstr("TRIAD") :
+slider5 == 3 ? gfx_drawstr("7TH") :
+gfx_drawstr("POWER");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 85 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider5 = (slider5 + 1) % 5;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 85 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider5 = slider5 - 1;
+  slider5 < 0 ? slider5 = 4;
+);
+
+// -- Octave --
+ctrl_x = 430;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl_y;
+gfx_drawstr("Oct ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+oct_disp = slider6 - 2;
+oct_disp >= 0 ? gfx_drawstr("+");
+gfx_drawnumber(oct_disp, 0);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 50 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider6 = (slider6 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + 50 &&
+  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
+  slider6 = slider6 - 1;
+  slider6 < 0 ? slider6 = 7;
+);
 
 // ---- RESYNC button (Lock mode only — re-capture from gmem) ----
 is_locked ? (
@@ -447,7 +595,7 @@ is_locked ? (
 // ============================================
 // PAD SELECT — 16 buttons
 // ============================================
-pad_sel_y = margin + 44;
+pad_sel_y = margin + 58;
 pad_sel_h = 20;
 pad_sel_w = (gfx_w - margin * 2 - 15 * 3) / 16;
 pad_sel_gap = 3;
@@ -748,7 +896,7 @@ notice_show ? (
 // VELOCITY EDITOR POPUP (right-click on step)
 // ============================================
 vel_edit_open && is_locked ? (
-  lock_slot = slider1 - 1;
+  lock_slot = lock_mode - 1;
   cur_edit_vel = LOCAL_PAT[lock_slot * 256 + vel_edit_step * 16 + vel_edit_pad];
 
   // Background
@@ -844,4 +992,9 @@ i = 0;
 loop(NUM_LOCKS,
   file_var(0, LOCK_HAS_DATA[i]);
   i += 1;
+);
+
+// Save/load lock_mode (guard against old saves without this field)
+file_avail(0) >= 0 ? (
+  file_var(0, lock_mode);
 );

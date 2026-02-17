@@ -12,72 +12,72 @@ options:maxmem=33554432
 // ============================================================================
 
 // ---------- OSCILLATORS ----------
-slider1:0<0,4,1{Saw,Square,Triangle,Sine,Noise}>OSC 1 Wave
-slider2:0<-24,24,1>OSC 1 Tune (semi)
-slider3:0<-100,100,1>OSC 1 Fine (cents)
-slider4:100<0,100,1>OSC 1 Level
-slider5:50<0,100,1>OSC 1 Pulse Width (%)
+slider1:0<0,4,1{Saw,Square,Triangle,Sine,Noise}>-OSC 1 Wave
+slider2:0<-24,24,1>-OSC 1 Tune (semi)
+slider3:0<-100,100,1>-OSC 1 Fine (cents)
+slider4:100<0,100,1>-OSC 1 Level
+slider5:50<0,100,1>-OSC 1 Pulse Width (%)
 
-slider6:0<0,4,1{Saw,Square,Triangle,Sine,Noise}>OSC 2 Wave
-slider7:0<-24,24,1>OSC 2 Tune (semi)
-slider8:7<-100,100,1>OSC 2 Fine (cents)
-slider9:80<0,100,1>OSC 2 Level
+slider6:0<0,4,1{Saw,Square,Triangle,Sine,Noise}>-OSC 2 Wave
+slider7:0<-24,24,1>-OSC 2 Tune (semi)
+slider8:7<-100,100,1>-OSC 2 Fine (cents)
+slider9:80<0,100,1>-OSC 2 Level
 
-slider10:1<0,1,1{Off,On}>Sub Osc
-slider11:60<0,100,1>Sub Level
-slider12:30<0,100,1>Noise Level
-slider13:4<1,8,1>Unison Voices
-slider14:25<0,100,1>Unison Detune
+slider10:1<0,1,1{Off,On}>-Sub Osc
+slider11:60<0,100,1>-Sub Level
+slider12:30<0,100,1>-Noise Level
+slider13:4<1,8,1>-Unison Voices
+slider14:25<0,100,1>-Unison Detune
 
 // ---------- FILTER ----------
-slider15:800<20,20000,1>Filter Cutoff (Hz)
-slider16:0<0,100,1>Filter Resonance
-slider17:0<0,3,1{LP 24dB,LP 12dB,HP 24dB,BP 12dB}>Filter Mode
-slider18:50<0,100,1>Filter Env Amount
-slider19:5<0,2000,1>Filter Attack (ms)
-slider20:200<0,5000,1>Filter Decay (ms)
-slider21:30<0,100,1>Filter Sustain
-slider22:200<0,5000,1>Filter Release (ms)
+slider15:800<20,20000,1>-Filter Cutoff (Hz)
+slider16:0<0,100,1>-Filter Resonance
+slider17:0<0,3,1{LP 24dB,LP 12dB,HP 24dB,BP 12dB}>-Filter Mode
+slider18:50<0,100,1>-Filter Env Amount
+slider19:5<0,2000,1>-Filter Attack (ms)
+slider20:200<0,5000,1>-Filter Decay (ms)
+slider21:30<0,100,1>-Filter Sustain
+slider22:200<0,5000,1>-Filter Release (ms)
 
 // ---------- AMP ENVELOPE ----------
-slider23:2<0,2000,1>Amp Attack (ms)
-slider24:200<0,5000,1>Amp Decay (ms)
-slider25:70<0,100,1>Amp Sustain
-slider26:300<0,5000,1>Amp Release (ms)
+slider23:2<0,2000,1>-Amp Attack (ms)
+slider24:200<0,5000,1>-Amp Decay (ms)
+slider25:70<0,100,1>-Amp Sustain
+slider26:300<0,5000,1>-Amp Release (ms)
 
 // ---------- LFO ----------
-slider27:0<0,5,1{Sine,Triangle,Saw,Square,S&H,Random}>LFO Shape
-slider28:3.0<0.01,50,0.01>LFO Rate (Hz)
-slider29:0<0,1,1{Free,Sync}>LFO Sync
-slider30:0<0,100,1>LFO > Pitch
-slider31:0<0,100,1>LFO > Filter
-slider32:0<0,100,1>LFO > Amp
-slider33:0<0,100,1>LFO > PWM
+slider27:0<0,5,1{Sine,Triangle,Saw,Square,S&H,Random}>-LFO Shape
+slider28:3.0<0.01,50,0.01>-LFO Rate (Hz)
+slider29:0<0,1,1{Free,Sync}>-LFO Sync
+slider30:0<0,100,1>-LFO > Pitch
+slider31:0<0,100,1>-LFO > Filter
+slider32:0<0,100,1>-LFO > Amp
+slider33:0<0,100,1>-LFO > PWM
 
 // ---------- PERFORMANCE ----------
-slider34:0<0,1000,1>Glide Time (ms)
-slider35:0<0,1,1{Off,On}>Glide
-slider36:100<0,100,1>Velocity > Amp
-slider37:0<0,100,1>Velocity > Filter
+slider34:0<0,1000,1>-Glide Time (ms)
+slider35:0<0,1,1{Off,On}>-Glide
+slider36:100<0,100,1>-Velocity > Amp
+slider37:0<0,100,1>-Velocity > Filter
 
 // ---------- EFFECTS ----------
-slider38:0<0,3,1{Off,Warm,Hot,Fuzz}>Drive Type
-slider39:0<0,100,1>Drive Amount
-slider40:0<0,1,1{Off,On}>Chorus
-slider41:50<0,100,1>Chorus Depth
-slider42:1.5<0.1,5,0.1>Chorus Rate (Hz)
-slider43:0<0,1,1{Off,On}>Delay
-slider44:300<1,1000,1>Delay Time (ms)
-slider45:40<0,90,1>Delay Feedback (%)
-slider46:50<0,100,1>Delay Mix (%)
+slider38:0<0,3,1{Off,Warm,Hot,Fuzz}>-Drive Type
+slider39:0<0,100,1>-Drive Amount
+slider40:0<0,1,1{Off,On}>-Chorus
+slider41:50<0,100,1>-Chorus Depth
+slider42:1.5<0.1,5,0.1>-Chorus Rate (Hz)
+slider43:0<0,1,1{Off,On}>-Delay
+slider44:300<1,1000,1>-Delay Time (ms)
+slider45:40<0,90,1>-Delay Feedback (%)
+slider46:50<0,100,1>-Delay Mix (%)
 
 // ---------- MASTER ----------
-slider47:0<-24,24,0.1>Master Volume (dB)
-slider48:0<0,8,1{MIDI Only,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8}>DrumBanger Pad
-slider49:0<0,12,1{INIT,Fat Bass,Acid Lead,Warm Pad,Sub Growl,Pluck,Brass,Hoover,Wobble,FX Sweep,Noise Hit,Random Bass,Random Lead}>Preset
-slider50:0<0,4,1{All,Bass,Lead,Pad,FX}>Random Category
-slider51:0<0,1,1{-,RANDOMIZE!}>Randomize!
-slider52:50<0,100,1>FX Mix (%)
+slider47:0<-24,24,0.1>-Master Volume (dB)
+slider48:0<0,8,1{MIDI Only,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8}>-DrumBanger Pad
+slider49:0<0,12,1{INIT,Fat Bass,Acid Lead,Warm Pad,Sub Growl,Pluck,Brass,Hoover,Wobble,FX Sweep,Noise Hit,Random Bass,Random Lead}>-Preset
+slider50:0<0,4,1{All,Bass,Lead,Pad,FX}>-Random Category
+slider51:0<0,1,1{-,RANDOMIZE!}>-Randomize!
+slider52:50<0,100,1>-FX Mix (%)
 
 in_pin:none
 out_pin:Left
@@ -1455,6 +1455,19 @@ slider49 == 0 ? gfx_drawstr("INIT")
 : slider49 == 11 ? gfx_drawstr("RND BASS")
 : gfx_drawstr("RND LEAD");
 
+// Preset click — left=forward, right=backward
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= 320 && mouse_x < 500 &&
+  mouse_y >= 10 && mouse_y < 30 ? (
+  slider49 = (slider49 + 1) % 13;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= 320 && mouse_x < 500 &&
+  mouse_y >= 10 && mouse_y < 30 ? (
+  slider49 = slider49 - 1;
+  slider49 < 0 ? slider49 = 12;
+);
+
 // Note/vel display (top bar)
 gfx_setfont(1, "Arial", 11);
 gfx_x = 320; gfx_y = 34;
@@ -1527,6 +1540,30 @@ gfx_drawstr("RANDOMIZE!");
   mouse_x >= rand_btn_x && mouse_x <= rand_btn_x + rand_btn_w &&
   mouse_y >= rand_btn_y && mouse_y <= rand_btn_y + rand_btn_h ? (
     slider51 = 1;
+);
+
+// Random Category selector — below RANDOMIZE button
+cat_x = rand_btn_x; cat_y = rand_btn_y + rand_btn_h + 4;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = cat_x; gfx_y = cat_y;
+gfx_drawstr("CAT: ");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+slider50 == 0 ? gfx_drawstr("ALL")
+: slider50 == 1 ? gfx_drawstr("BASS")
+: slider50 == 2 ? gfx_drawstr("LEAD")
+: slider50 == 3 ? gfx_drawstr("PAD")
+: gfx_drawstr("FX");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= cat_x && mouse_x < cat_x + 80 &&
+  mouse_y >= cat_y && mouse_y < cat_y + 14 ? (
+  slider50 = (slider50 + 1) % 5;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= cat_x && mouse_x < cat_x + 80 &&
+  mouse_y >= cat_y && mouse_y < cat_y + 14 ? (
+  slider50 = slider50 - 1;
+  slider50 < 0 ? slider50 = 4;
 );
 
 // ============================================================================
@@ -1729,6 +1766,9 @@ lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
     slider27 = (slider27 + 1) % 6;
     lfo_shape = slider27;
 );
+// LFO Sync toggle (right side of SHAPE line)
+slider29 = draw_toggle(lfo_px + pad + inner_w - 60, cy, slider29, "SYNC");
+lfo_sync = slider29;
 cy += bar_sp;
 
 slider28 = draw_bar(lfo_px + pad, cy, inner_w, bar_h, slider28, 0.01, 50, "RATE", 1);
@@ -1778,7 +1818,9 @@ cy += bar_sp + 4;
 // Chorus
 slider40 = draw_toggle(fx_px + pad, cy, slider40, "CHORUS");
 chorus_on = slider40;
-slider41 = draw_bar(fx_px + pad + 80, cy, inner_w - 80, bar_h, slider41, 0, 100, "DPTH", 1);
+chr_half = floor((inner_w - 80) / 2) - 1;
+slider41 = draw_bar(fx_px + pad + 80, cy, chr_half, bar_h, slider41, 0, 100, "DPTH", 1);
+slider42 = draw_bar(fx_px + pad + 80 + chr_half + 2, cy, chr_half, bar_h, slider42, 0.1, 5, "RATE", 1);
 cy += 22;
 
 // Delay
@@ -1811,20 +1853,34 @@ slider47 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider47, -24, 24, "MASTE
 cy += bar_sp;
 slider52 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider52, 0, 100, "FX MIX", 1);
 
-// DrumBanger connection
+// DrumBanger Pad selector (clickable)
 cy += bar_sp + 4;
 db_connected ? (
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-  gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = perf_px + pad + 18; gfx_y = cy;
-  gfx_drawstr("DRUMBANGER");
 ) : (
   gfx_r = COL_DIM_R * 0.6; gfx_g = COL_DIM_G * 0.6; gfx_b = COL_DIM_B * 0.6;
-  gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = perf_px + pad + 18; gfx_y = cy;
-  gfx_drawstr("DB ---");
+);
+gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
+gfx_setfont(1, "Arial", 10);
+gfx_x = perf_px + pad + 18; gfx_y = cy;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_drawstr("DB: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+slider48 == 0 ? gfx_drawstr("MIDI")
+: (
+  gfx_drawstr("PAD ");
+  gfx_drawnumber(slider48, 0);
+);
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= perf_px + pad && mouse_x < perf_px + pad + inner_w &&
+  mouse_y >= cy && mouse_y < cy + 14 ? (
+  slider48 = (slider48 + 1) % 9;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= perf_px + pad && mouse_x < perf_px + pad + inner_w &&
+  mouse_y >= cy && mouse_y < cy + 14 ? (
+  slider48 = slider48 - 1;
+  slider48 < 0 ? slider48 = 8;
 );
 
 // Store mouse state
