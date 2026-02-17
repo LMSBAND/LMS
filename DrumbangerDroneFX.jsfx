@@ -46,9 +46,6 @@ slider18:50<0,100,1>Flanger Mix (%)
 // -- Master --
 slider19:0<-24,24,0.1>Output (dB)
 
-// -- Mode: Follow (live from DrumBanger) or Lock (captured pattern) --
-slider20:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>Mode
-
 // -- Mod Targets: which parameter each effect modulates from pattern velocity --
 slider21:0<0,3,1{None,Duck Depth,Threshold,Ratio}>Comp Mod
 slider22:0<0,4,1{None,Mix,Feedback,Wow/Flutter,Speed}>Delay Mod
@@ -113,7 +110,8 @@ NUM_MOD_FLOORS = 10;
 MOD_FLOOR = LOCK_HAS_DATA + NUM_LOCKS;
 memset(MOD_FLOOR, 0, NUM_MOD_FLOORS);
 
-// Lock mode state
+// Lock mode state (0=follow, 1-8=lock slot) — NOT a slider, so REAPER can't reset it
+lock_mode = 0;
 lock_seq_step = 0;      // local sequencer step for locked pattern playback
 lock_seq_prev_step = -1;
 
@@ -194,11 +192,11 @@ function get_local_step(slot, step, pad) (
 
 // Get step velocity from the active source (follow=gmem, lock=local)
 function get_active_step(step, pad) local(src_pat) (
-  slider20 == 0 ? (
+  lock_mode == 0 ? (
     src_pat = gmem[13];
     gmem[1000 + src_pat * 1024 + step * 16 + pad];
   ) : (
-    get_local_step(slider20 - 1, step, pad);
+    get_local_step(lock_mode - 1, step, pad);
   );
 );
 
@@ -295,7 +293,7 @@ db_connected ? (
   got_trigger = 0;
   trig_vel = 0;
 
-  is_follow = (slider20 == 0);
+  is_follow = (lock_mode == 0);
 
   is_follow ? (
     // ==== FOLLOW MODE: live triggers from gmem (original behavior) ====
@@ -334,7 +332,7 @@ db_connected ? (
 
   ) : (
     // ==== LOCK MODE: triggers from captured pattern via DrumBanger transport ====
-    lock_slot = slider20 - 1;
+    lock_slot = lock_mode - 1;
     LOCK_HAS_DATA[lock_slot] && db_playing ? (
       lock_seq_step = db_step;  // follow DrumBanger's step position
 
@@ -824,9 +822,9 @@ function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3, l4) (
 // ============================================================
 //  TITLE + MODE INDICATOR
 // ============================================================
-gfx_is_follow = (slider20 == 0);
+gfx_is_follow = (lock_mode == 0);
 gfx_is_locked = !gfx_is_follow;
-gfx_lock_slot = gfx_is_locked ? (slider20 - 1) : 0;
+gfx_lock_slot = gfx_is_locked ? (lock_mode - 1) : 0;
 
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", 20);
@@ -854,7 +852,7 @@ gfx_drawstr("FOLLOW");
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= mode_row_x && mouse_x < mode_row_x + follow_w &&
   mouse_y >= mode_row_y && mouse_y < mode_row_y + slot_h ? (
-  slider20 = 0;  // back to follow
+  lock_mode = 0;  // back to follow
 );
 
 // 8 lock slot buttons
@@ -934,10 +932,10 @@ loop(NUM_LOCKS,
         snap_p += 1;
       );
       LOCK_HAS_DATA[si] = 1;
-      slider20 = si + 1;  // switch to that lock slot
+      lock_mode = si + 1;  // switch to that lock slot
     ) : gfx_is_locked && has_data && !is_active ? (
       // Switch to another occupied lock slot
-      slider20 = si + 1;
+      lock_mode = si + 1;
     );
   );
 
@@ -993,6 +991,61 @@ db_connected ? (
   gfx_drawstr("DB ---");
 );
 
+// ---- CAPTURE button (Follow mode only) — captures grid into first empty slot ----
+gfx_is_follow ? (
+  cap_btn_w = 60;
+  cap_btn_h = 16;
+  cap_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + 4;
+  cap_btn_y = mode_row_y + 1;
+
+  // Find first empty slot
+  cap_target = -1;
+  ci = 0;
+  loop(NUM_LOCKS,
+    cap_target < 0 && LOCK_HAS_DATA[ci] == 0 ? cap_target = ci;
+    ci += 1;
+  );
+
+  cap_target >= 0 ? (
+    gfx_r = COL_GREEN_R * 0.35; gfx_g = COL_GREEN_G * 0.35; gfx_b = COL_GREEN_B * 0.35;
+    gfx_rect(cap_btn_x, cap_btn_y, cap_btn_w, cap_btn_h);
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  ) : (
+    // All slots full
+    gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+    gfx_rect(cap_btn_x, cap_btn_y, cap_btn_w, cap_btn_h);
+    gfx_r = COL_DIM_R * 0.4; gfx_g = COL_DIM_G * 0.4; gfx_b = COL_DIM_B * 0.4;
+  );
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = cap_btn_x + 4; gfx_y = cap_btn_y + 2;
+  cap_target >= 0 ? (
+    gfx_drawstr("CAPTURE");
+  ) : (
+    gfx_drawstr("FULL");
+  );
+
+  cap_target >= 0 &&
+    (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= cap_btn_x && mouse_x < cap_btn_x + cap_btn_w &&
+    mouse_y >= cap_btn_y && mouse_y < cap_btn_y + cap_btn_h ? (
+    // Snapshot exactly what the grid shows
+    memset(LOCAL_PAT + cap_target * 256, 0, 256);
+    snap_p = 0;
+    loop(NUM_PADS,
+      (slider1 == 0 || snap_p == slider1 - 1) ? (
+        snap_s = 0;
+        loop(NUM_STEPS,
+          LOCAL_PAT[cap_target * 256 + snap_s * 16 + snap_p] = get_active_step(snap_s, snap_p);
+          snap_s += 1;
+        );
+      );
+      snap_p += 1;
+    );
+    LOCK_HAS_DATA[cap_target] = 1;
+    lock_mode = cap_target + 1;
+  );
+);
+
 // ---- CLEAR button (Lock mode only) — clears slot and returns to Follow ----
 gfx_is_locked ? (
   clear_btn_w = 50;
@@ -1015,7 +1068,7 @@ gfx_is_locked ? (
     mouse_y >= clear_btn_y && mouse_y < clear_btn_y + clear_btn_h ? (
     memset(LOCAL_PAT + gfx_lock_slot * 256, 0, 256);
     LOCK_HAS_DATA[gfx_lock_slot] = 0;
-    slider20 = 0;  // back to Follow
+    lock_mode = 0;  // back to Follow
   );
 );
 
@@ -1353,6 +1406,9 @@ loop(NUM_LOCKS,
   file_var(0, LOCK_HAS_DATA[i]);
   i += 1;
 );
+
+// Save/load lock mode
+file_var(0, lock_mode);
 
 // Save/load mod range floor values
 i = 0;
