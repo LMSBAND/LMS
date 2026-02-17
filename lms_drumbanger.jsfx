@@ -532,6 +532,7 @@ prev_service_hb = 0;     // previous heartbeat value from service
 service_hb_stale = 0;    // frames since last heartbeat change
 service_alive = 0;       // 1 if service is running
 warn_timer = 0;          // countdown for warning banner display
+copy_src_pad = -1;       // Ctrl+click pad copy: -1 = none, 0-15 = source pad
 
 // Waveform cache
 wf_cached_pad = -1;      // which pad the cache is for
@@ -683,6 +684,53 @@ function set_tie(pattern, step, pad, val) (
 function toggle_tie(pattern, step, pad) local(addr) (
   addr = TIE_BASE + pattern * 1024 + step * 16 + pad;
   addr[] = addr[] > 0 ? 0 : 1;
+);
+
+// ---- Pad copy function (copies all settings from src to dst) ----
+function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
+  // Sliders: vol, pan, pitch, LP, HP
+  slider(10 + dst) = slider(10 + src);   // vol
+  slider(30 + dst) = slider(30 + src);   // pan
+  slider(50 + dst) = slider(50 + src);   // pitch
+  slider(80 + dst) = slider(80 + src);   // LP
+  slider(100 + dst) = slider(100 + src); // HP
+  // Memory arrays
+  PAD_SUBDIV[dst]     = PAD_SUBDIV[src];
+  PAD_SLICE[dst]      = PAD_SLICE[src];
+  PAD_SEQ_SUBDIV[dst] = PAD_SEQ_SUBDIV[src];
+  PAD_CHOP_OFFSET[dst] = PAD_CHOP_OFFSET[src];
+  PAD_LINK_GROUP[dst] = PAD_LINK_GROUP[src];
+  PAD_LINK_ROLE[dst]  = PAD_LINK_ROLE[src];
+  PAD_CHOKE_GROUP[dst] = PAD_CHOKE_GROUP[src];
+  // Copy sample data (pool idx + buffer)
+  PAD_POOL_IDX[dst]   = PAD_POOL_IDX[src];
+  PAD_LENGTH[dst]     = PAD_LENGTH[src];
+  PAD_NCH[dst]        = PAD_NCH[src];
+  PAD_SRATE[dst]      = PAD_SRATE[src];
+  PAD_SLICE_END[dst]  = PAD_SLICE_END[src];
+  buf_src = SAMPLE_BUF + src * PAD_BUF_SIZE;
+  buf_dst = SAMPLE_BUF + dst * PAD_BUF_SIZE;
+  copy_i = 0;
+  loop(PAD_LENGTH[src] * (PAD_NCH[src] > 1 ? 2 : 1),
+    buf_dst[copy_i] = buf_src[copy_i];
+    copy_i += 1;
+  );
+  // Copy sequencer pattern across all patterns, all steps (main + subs + ties + plocks)
+  copy_i = 0;
+  loop(NUM_PATTERNS,
+    _cs = 0;
+    loop(MAX_STEPS,
+      set_seq_step(copy_i, _cs, dst, get_seq_step(copy_i, _cs, src));
+      set_sub_seq_step(copy_i, _cs, dst, 1, get_sub_seq_step(copy_i, _cs, src, 1));
+      set_sub_seq_step(copy_i, _cs, dst, 2, get_sub_seq_step(copy_i, _cs, src, 2));
+      set_sub_seq_step(copy_i, _cs, dst, 3, get_sub_seq_step(copy_i, _cs, src, 3));
+      set_tie(copy_i, _cs, dst, get_tie(copy_i, _cs, src));
+      set_plock_lp(copy_i, _cs, dst, get_plock_lp(copy_i, _cs, src));
+      set_plock_hp(copy_i, _cs, dst, get_plock_hp(copy_i, _cs, src));
+      _cs += 1;
+    );
+    copy_i += 1;
+  );
 );
 
 // ---- Sub-step sequencer functions ----
@@ -1314,9 +1362,36 @@ loop(NUM_PADS,
   gfx_subdiv = PAD_SUBDIV[gfx_p];
   gfx_subdiv < 2 ? gfx_subdiv = 1;
 
+  // -- Ctrl+click: set copy source / paste to target --
+  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    mouse_x >= px && mouse_x < px + pad_size &&
+    mouse_y >= py && mouse_y < py + pad_size ? (
+      mouse_cap & 4 ? (
+        // Ctrl+click: mark this pad as copy source (yellow)
+        copy_src_pad = gfx_p;
+        _pad_handled = 1;
+      ) : copy_src_pad >= 0 && copy_src_pad != gfx_p ? (
+        // Normal click with copy pending: paste settings, then clear
+        copy_pad_settings(copy_src_pad, gfx_p);
+        copy_src_pad = -1;
+        _pad_handled = 1;
+        ui_selected_pad = gfx_p;
+        trigger_pad(gfx_p, 100);
+      ) : (
+        _pad_handled = 0;
+      );
+    ) : (
+      _pad_handled = 0;
+    );
+  ) : (
+    _pad_handled = 0;
+  );
+
   gfx_subdiv == 1 ? (
     // ---- Single pad (no subdivision) ----
-    PAD_PLAYING[gfx_p] ? (
+    gfx_p == copy_src_pad ? (
+      gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;  // yellow = copy source
+    ) : PAD_PLAYING[gfx_p] ? (
       gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
     ) : (
       gfx_p == ui_selected_pad ? (
@@ -1327,8 +1402,8 @@ loop(NUM_PADS,
     );
     gfx_rect(px, py, pad_size, pad_size);
 
-    // Click → select pad + trigger
-    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    // Click → select pad + trigger (only if not handled by copy logic)
+    !_pad_handled && mouse_cap & 1 && !(last_mouse_cap & 1) ? (
       mouse_x >= px && mouse_x < px + pad_size &&
       mouse_y >= py && mouse_y < py + pad_size ? (
         ui_selected_pad = gfx_p;
@@ -1347,7 +1422,9 @@ loop(NUM_PADS,
     loop(2,
       gfx_sx = px + gfx_si * (gfx_half_w + 2);
 
-      PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
+      gfx_p == copy_src_pad ? (
+        gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;
+      ) : PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
         gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
       ) : gfx_p == ui_selected_pad && PAD_SLICE[gfx_p] == gfx_si ? (
         gfx_r = COL_STEP_R * 0.6; gfx_g = COL_STEP_G * 0.6; gfx_b = COL_STEP_B * 0.6;
@@ -1361,8 +1438,8 @@ loop(NUM_PADS,
       gfx_si += 1;
     );
 
-    // Click → determine which half, select + trigger
-    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    // Click → determine which half, select + trigger (only if not handled by copy)
+    !_pad_handled && mouse_cap & 1 && !(last_mouse_cap & 1) ? (
       mouse_x >= px && mouse_x < px + pad_size &&
       mouse_y >= py && mouse_y < py + pad_size ? (
         ui_selected_pad = gfx_p;
@@ -1389,7 +1466,9 @@ loop(NUM_PADS,
       gfx_sx = px + gfx_qcol * (gfx_qsize + 2);
       gfx_sy = py + gfx_qrow * (gfx_qsize + 2);
 
-      PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
+      gfx_p == copy_src_pad ? (
+        gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.1;
+      ) : PAD_PLAYING[gfx_p] && PAD_SLICE[gfx_p] == gfx_si ? (
         gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
       ) : gfx_p == ui_selected_pad && PAD_SLICE[gfx_p] == gfx_si ? (
         gfx_r = COL_STEP_R * 0.6; gfx_g = COL_STEP_G * 0.6; gfx_b = COL_STEP_B * 0.6;
@@ -1403,8 +1482,8 @@ loop(NUM_PADS,
       gfx_si += 1;
     );
 
-    // Click → determine which quarter, select + trigger
-    mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+    // Click → determine which quarter, select + trigger (only if not handled by copy)
+    !_pad_handled && mouse_cap & 1 && !(last_mouse_cap & 1) ? (
       mouse_x >= px && mouse_x < px + pad_size &&
       mouse_y >= py && mouse_y < py + pad_size ? (
         ui_selected_pad = gfx_p;
@@ -1894,6 +1973,9 @@ gfx_fill_btn_h = 22;
 gfx_fill_btn_w = 50;
 gfx_fill_btn_gap = 8;
 
+// Total steps across all bars for fill operations
+gfx_fill_total = cur_bar_count * NUM_STEPS;
+
 // -- CLR button --
 gfx_fbx = margin;
 gfx_r = 0.3; gfx_g = 0.15; gfx_b = 0.15;
@@ -1905,11 +1987,11 @@ mouse_cap & 1 && !last_mouse_cap ? (
   mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
   mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
     gfx_fs = 0;
-    loop(NUM_STEPS,
-      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
-      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 1, 0);
-      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 2, 0);
-      set_sub_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 3, 0);
+    loop(gfx_fill_total,
+      set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 1, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 2, 0);
+      set_sub_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 3, 0);
       gfx_fs += 1;
     );
   );
@@ -1926,9 +2008,9 @@ mouse_cap & 1 && !last_mouse_cap ? (
   mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
   mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
     gfx_fs = 0;
-    loop(NUM_STEPS,
-      gfx_fs % 4 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100)
-                       : set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
+    loop(gfx_fill_total,
+      gfx_fs % 4 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 100)
+                       : set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 0);
       gfx_fs += 1;
     );
   );
@@ -1945,9 +2027,9 @@ mouse_cap & 1 && !last_mouse_cap ? (
   mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
   mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
     gfx_fs = 0;
-    loop(NUM_STEPS,
-      gfx_fs % 2 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100)
-                       : set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 0);
+    loop(gfx_fill_total,
+      gfx_fs % 2 == 0 ? set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 100)
+                       : set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 0);
       gfx_fs += 1;
     );
   );
@@ -1964,8 +2046,8 @@ mouse_cap & 1 && !last_mouse_cap ? (
   mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_fill_btn_w &&
   mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
     gfx_fs = 0;
-    loop(NUM_STEPS,
-      set_seq_step(gfx_cur_pattern, gfx_fs + display_step_offset, ui_selected_pad, 100);
+    loop(gfx_fill_total,
+      set_seq_step(gfx_cur_pattern, gfx_fs, ui_selected_pad, 100);
       gfx_fs += 1;
     );
   );
@@ -3436,9 +3518,13 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("MIDI notes 36-51 (C1-D#2) trigger pads 1-16."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Ctrl+click = copy pad (yellow). Click another pad to paste sample+settings+pattern."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("STEPS: Click to toggle. Shift+click = TIE (sustain into next step)."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("RES: cycle 1x/2x/4x step resolution. BARS: L-click extend, R-click shrink."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("FILL (CLR/1/1-2/1-4): fills ALL bars in pattern, not just visible bar."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("LINK: L-click = cycle group (1-8). R-click = toggle Daddy (D) / Bootlicker (B)."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
