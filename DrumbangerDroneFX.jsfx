@@ -51,7 +51,7 @@ slider20:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}
 
 // -- Mod Targets: which parameter each effect modulates from pattern velocity --
 slider21:0<0,3,1{None,Duck Depth,Threshold,Ratio}>Comp Mod
-slider22:0<0,3,1{None,Mix,Feedback,Wow/Flutter}>Delay Mod
+slider22:0<0,4,1{None,Mix,Feedback,Wow/Flutter,Speed}>Delay Mod
 slider23:0<0,3,1{None,Depth,Rate,Mix}>Flanger Mod
 
 in_pin:Left
@@ -407,9 +407,12 @@ db_connected ? (
   );
 
   // Update trigger envelope (both modes)
+  // Quantize velocity to 16 equal steps for maximum audible range
+  // vel 1-8=step1, 9-16=step2, ... 121-127=step16 → mapped to 1/16..16/16
   got_trigger ? (
     trig_active = 1;
-    trig_env = trig_vel / 127;
+    trig_step = min(16, max(1, ceil(trig_vel / 8)));
+    trig_env = trig_step / 16;
   );
 );
 
@@ -438,6 +441,7 @@ delay_on ? (
   eff_delay_mix = delay_mod_target == 1 ? delay_mix * trig_env : delay_mix;
   eff_delay_feedback = delay_mod_target == 2 ? delay_feedback * trig_env : delay_feedback;
   eff_wf_amount = delay_mod_target == 3 ? wf_amount * trig_env : wf_amount;
+  eff_delay_samples = delay_mod_target == 4 ? delay_samples * trig_env : delay_samples;
 
   // ---- Wow & Flutter ----
   wow_phase += 0.5 / srate;
@@ -466,7 +470,7 @@ delay_on ? (
   DELAY_BUF_R[delay_wpos] = tape_in_r;
 
   // ---- Read with wow/flutter modulation ----
-  rd = delay_wpos - delay_samples - total_mod;
+  rd = delay_wpos - eff_delay_samples - total_mod;
   rd < 0 ? rd += DELAY_BUF_SIZE;
   rd >= DELAY_BUF_SIZE ? rd -= DELAY_BUF_SIZE;
 
@@ -741,8 +745,8 @@ function draw_toggle(tx, ty, is_on, label) (
 );
 
 // Mod target selector: click to cycle through options
-// Returns new value. Labels are 4 strings for options 0-3.
-function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3) (
+// Returns new value. Labels are up to 5 strings for options 0-4.
+function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3, l4) (
   // Background
   cur > 0 ? (
     gfx_r = COL_ACCENT_R * 0.2; gfx_g = COL_ACCENT_G * 0.2; gfx_b = COL_ACCENT_B * 0.2;
@@ -773,6 +777,7 @@ function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3) (
   cur == 1 ? gfx_drawstr(l1);
   cur == 2 ? gfx_drawstr(l2);
   cur == 3 ? gfx_drawstr(l3);
+  cur == 4 ? gfx_drawstr(l4);
 
   // Click to cycle (left=forward, right=backward)
   (mouse_cap & 1) && !(last_cap & 1) &&
@@ -1056,14 +1061,32 @@ comp_mod_target = slider21;
 cy += 20;
 
 slider3 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, "THRESH", 1);
+// Mod marker: threshold
+comp_mod_target == 2 ? (
+  mod_norm = (slider3 + (1 - trig_env) * (100 - slider3)) / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider4 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider4, 0, 100, "RATIO", 1);
+// Mod marker: ratio
+comp_mod_target == 3 ? (
+  mod_norm = trig_env * slider4 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider5 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider5, 0, 100, "ATTACK", 1);
 cy += bar_sp;
 slider6 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider6, 10, 1000, "RELEASE", 1);
 cy += bar_sp;
 slider7 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider7, 0, 100, "DUCK", 1);
+// Mod marker: duck depth
+comp_mod_target == 1 ? (
+  mod_norm = trig_env * slider7 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 
 // GR meter
 cy += bar_sp + 2;
@@ -1093,19 +1116,43 @@ inner_w = delay_pw - pad * 2;
 slider8 = draw_toggle(delay_px + pad, cy, slider8, "DELAY ON");
 delay_on = slider8;
 cy += 20;
-slider22 = draw_mod_selector(delay_px + pad, cy, inner_w, 16, slider22, 3, "None", "Mix", "Feedback", "Wow/Flt");
+slider22 = draw_mod_selector(delay_px + pad, cy, inner_w, 16, slider22, 4, "None", "Mix", "Feedback", "Wow/Flt", "Speed");
 delay_mod_target = slider22;
 cy += 20;
 
 slider9 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, "TIME ms", 1);
+// Mod marker: speed
+delay_mod_target == 4 ? (
+  mod_norm = trig_env * (slider9 - 1) / 999;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider10 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider10, 0, 90, "FEEDBACK", 1);
+// Mod marker: feedback
+delay_mod_target == 2 ? (
+  mod_norm = trig_env * slider10 / 90;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider11 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider11, 0, 100, "MIX", 1);
+// Mod marker: mix
+delay_mod_target == 1 ? (
+  mod_norm = trig_env * slider11 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider12 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider12, 0, 100, "TAPE AGE", 1);
 cy += bar_sp;
 slider13 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider13, 0, 100, "WOW/FLT", 1);
+// Mod marker: wow/flutter
+delay_mod_target == 3 ? (
+  mod_norm = trig_env * slider13 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 
 // ---- FLANGER ----
 fl_px = delay_px + delay_pw + gap;
@@ -1124,12 +1171,30 @@ flanger_mod_target = slider23;
 cy += 20;
 
 slider15 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, "RATE Hz", 1);
+// Mod marker: rate
+flanger_mod_target == 2 ? (
+  mod_norm = trig_env * (slider15 - 0.05) / 4.95;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider16 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider16, 0, 100, "DEPTH", 1);
+// Mod marker: depth
+flanger_mod_target == 1 ? (
+  mod_norm = trig_env * slider16 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 cy += bar_sp;
 slider17 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider17, 0, 100, "FEEDBACK", 1);
 cy += bar_sp;
 slider18 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider18, 0, 100, "MIX", 1);
+// Mod marker: mix
+flanger_mod_target == 3 ? (
+  mod_norm = trig_env * slider18 / 100;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
+);
 
 // ---- OUTPUT + SCOPE ----
 out_y = row_y + comp_ph + gap;
