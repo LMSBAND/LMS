@@ -105,6 +105,14 @@ LOCK_HAS_DATA = LOCAL_PAT + NUM_LOCKS * NUM_STEPS * NUM_PADS;  // 8 flags
 memset(LOCAL_PAT, 0, NUM_LOCKS * NUM_STEPS * NUM_PADS);
 memset(LOCK_HAS_DATA, 0, NUM_LOCKS);
 
+// Mod range floor values (10 total)
+// Index: 0=comp_duck, 1=comp_thresh, 2=comp_ratio
+//        3=delay_mix, 4=delay_fb, 5=delay_wf, 6=delay_speed
+//        7=flange_depth, 8=flange_rate, 9=flange_mix
+NUM_MOD_FLOORS = 10;
+MOD_FLOOR = LOCK_HAS_DATA + NUM_LOCKS;
+memset(MOD_FLOOR, 0, NUM_MOD_FLOORS);
+
 // Lock mode state
 prev_mode = -1;         // detect mode changes
 lock_seq_step = 0;      // local sequencer step for locked pattern playback
@@ -437,11 +445,23 @@ trig_active ? (
 // ============================================================
 
 delay_on ? (
-  // Modulation from pattern velocity
-  eff_delay_mix = delay_mod_target == 1 ? delay_mix * trig_env : delay_mix;
-  eff_delay_feedback = delay_mod_target == 2 ? delay_feedback * trig_env : delay_feedback;
-  eff_wf_amount = delay_mod_target == 3 ? wf_amount * trig_env : wf_amount;
-  eff_delay_samples = delay_mod_target == 4 ? delay_samples * trig_env : delay_samples;
+  // Modulation: floor + (ceiling - floor) * trig_env. Floors stored in slider units.
+  delay_mod_target == 1 ? (
+    fl = MOD_FLOOR[3] / 100;  // floor in 0-1
+    eff_delay_mix = fl + (delay_mix - fl) * trig_env;
+  ) : eff_delay_mix = delay_mix;
+  delay_mod_target == 2 ? (
+    fl = MOD_FLOOR[4] / 100;
+    eff_delay_feedback = fl + (delay_feedback - fl) * trig_env;
+  ) : eff_delay_feedback = delay_feedback;
+  delay_mod_target == 3 ? (
+    fl = MOD_FLOOR[5] / 100;
+    eff_wf_amount = fl + (wf_amount - fl) * trig_env;
+  ) : eff_wf_amount = wf_amount;
+  delay_mod_target == 4 ? (
+    fl = min(MOD_FLOOR[6] * 0.001 * srate, DELAY_BUF_SIZE - 1);
+    eff_delay_samples = fl + (delay_samples - fl) * trig_env;
+  ) : eff_delay_samples = delay_samples;
 
   // ---- Wow & Flutter ----
   wow_phase += 0.5 / srate;
@@ -500,10 +520,19 @@ delay_on ? (
 // Feedback runs through tanh for warm self-oscillation at high settings.
 
 flange_on ? (
-  // Modulation from pattern velocity
-  eff_flange_depth = flanger_mod_target == 1 ? flange_depth * trig_env : flange_depth;
-  eff_flange_rate = flanger_mod_target == 2 ? flange_rate * trig_env : flange_rate;
-  eff_flange_mix = flanger_mod_target == 3 ? flange_mix * trig_env : flange_mix;
+  // Modulation: floor + (ceiling - floor) * trig_env
+  flanger_mod_target == 1 ? (
+    fl = MOD_FLOOR[7] / 100;
+    eff_flange_depth = fl + (flange_depth - fl) * trig_env;
+  ) : eff_flange_depth = flange_depth;
+  flanger_mod_target == 2 ? (
+    fl = MOD_FLOOR[8];  // rate is in Hz, slider units = Hz
+    eff_flange_rate = fl + (flange_rate - fl) * trig_env;
+  ) : eff_flange_rate = flange_rate;
+  flanger_mod_target == 3 ? (
+    fl = MOD_FLOOR[9] / 100;
+    eff_flange_mix = fl + (flange_mix - fl) * trig_env;
+  ) : eff_flange_mix = flange_mix;
 
   // Write to flange buffer
   FLANGE_BUF_L[flange_wpos] = in_l + flange_fb_l * flange_fb;
@@ -554,27 +583,30 @@ flange_on ? (
 
 comp_on ? (
   // Determine sidechain level and effective parameters based on mod target
+  // Floor values: 0=duck, 1=thresh, 2=ratio (in slider units)
   comp_mod_target == 0 ? (
     // OUTPUT MODE: normal compressor on audio signal
     sc_level = max(abs(in_l), abs(in_r));
-    eff_duck = duck_depth;
     eff_thresh = comp_thresh;
     eff_ratio = comp_ratio;
   ) : comp_mod_target == 1 ? (
-    // SIDECHAIN: Duck Depth modulated by velocity
-    sc_level = trig_env * duck_depth;
+    // SIDECHAIN: Duck Depth modulated by velocity (floor to ceiling)
+    fl = MOD_FLOOR[0] / 100;
+    sc_level = (fl + (duck_depth - fl) * trig_env);
     eff_thresh = comp_thresh;
     eff_ratio = comp_ratio;
   ) : comp_mod_target == 2 ? (
-    // SIDECHAIN: Threshold modulated (high vel = lower threshold = more compression)
+    // SIDECHAIN: Threshold modulated (floor to ceiling mapped)
     sc_level = trig_env * duck_depth;
-    eff_thresh = comp_thresh + (1 - trig_env) * (1 - comp_thresh);
+    fl_thresh = 1 - MOD_FLOOR[1] / 100;  // floor thresh in DSP units (inverted)
+    eff_thresh = fl_thresh + (comp_thresh - fl_thresh) * trig_env;
     eff_ratio = comp_ratio;
   ) : (
-    // SIDECHAIN: Ratio modulated (high vel = higher ratio)
+    // SIDECHAIN: Ratio modulated (floor to ceiling)
     sc_level = trig_env * duck_depth;
     eff_thresh = comp_thresh;
-    eff_ratio = 1 + (comp_ratio - 1) * trig_env;
+    fl_ratio = 1 + MOD_FLOOR[2] / 100 * 19;  // floor ratio in DSP units
+    eff_ratio = fl_ratio + (comp_ratio - fl_ratio) * trig_env;
   );
 
   // FET gain computation
@@ -742,6 +774,43 @@ function draw_toggle(tx, ty, is_on, label) (
       is_on = 1 - is_on;
   );
   is_on;
+);
+
+// Mod floor marker: draws red floor/ceiling lines on a modulated bar, handles right-click drag for floor.
+// Returns the new floor value (in slider units). Pass floor_idx = MOD_FLOOR index.
+function draw_mod_range(bx, by, bw, bh, slider_val, vmin, vmax, floor_idx, env) local(fl_val, fl_norm, ceil_norm, eff_norm) (
+  fl_val = MOD_FLOOR[floor_idx];
+  // Clamp floor to not exceed slider value (ceiling), persist the clamp
+  fl_val = max(vmin, min(fl_val, slider_val));
+  MOD_FLOOR[floor_idx] = fl_val;
+  fl_norm = (fl_val - vmin) / (vmax - vmin);
+  fl_norm = max(0, min(1, fl_norm));
+  ceil_norm = (slider_val - vmin) / (vmax - vmin);
+  ceil_norm = max(0, min(1, ceil_norm));
+
+  // Draw red floor line
+  gfx_r = 1; gfx_g = 0.2; gfx_b = 0.2;
+  gfx_rect(bx + fl_norm * bw, by, 2, bh);
+
+  // Draw red ceiling line
+  gfx_rect(bx + ceil_norm * bw, by, 2, bh);
+
+  // Draw effective value marker (yellow) between floor and ceiling
+  eff_norm = fl_norm + (ceil_norm - fl_norm) * env;
+  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
+  gfx_rect(bx + eff_norm * bw, by, 2, bh);
+
+  // Right-click drag sets the floor value
+  mouse_cap & 2 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      fl_val = vmin + new_norm * (vmax - vmin);
+      fl_val = min(fl_val, slider_val);
+      MOD_FLOOR[floor_idx] = fl_val;
+    );
+  );
 );
 
 // Mod target selector: click to cycle through options
@@ -1061,32 +1130,17 @@ comp_mod_target = slider21;
 cy += 20;
 
 slider3 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, "THRESH", 1);
-// Mod marker: threshold
-comp_mod_target == 2 ? (
-  mod_norm = (slider3 + (1 - trig_env) * (100 - slider3)) / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+comp_mod_target == 2 ? draw_mod_range(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, 1, trig_env);
 cy += bar_sp;
 slider4 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider4, 0, 100, "RATIO", 1);
-// Mod marker: ratio
-comp_mod_target == 3 ? (
-  mod_norm = trig_env * slider4 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+comp_mod_target == 3 ? draw_mod_range(comp_px + pad, cy, inner_w, bar_h, slider4, 0, 100, 2, trig_env);
 cy += bar_sp;
 slider5 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider5, 0, 100, "ATTACK", 1);
 cy += bar_sp;
 slider6 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider6, 10, 1000, "RELEASE", 1);
 cy += bar_sp;
 slider7 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider7, 0, 100, "DUCK", 1);
-// Mod marker: duck depth
-comp_mod_target == 1 ? (
-  mod_norm = trig_env * slider7 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(comp_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+comp_mod_target == 1 ? draw_mod_range(comp_px + pad, cy, inner_w, bar_h, slider7, 0, 100, 0, trig_env);
 
 // GR meter
 cy += bar_sp + 2;
@@ -1121,38 +1175,18 @@ delay_mod_target = slider22;
 cy += 20;
 
 slider9 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, "TIME ms", 1);
-// Mod marker: speed
-delay_mod_target == 4 ? (
-  mod_norm = trig_env * (slider9 - 1) / 999;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+delay_mod_target == 4 ? draw_mod_range(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, 6, trig_env);
 cy += bar_sp;
 slider10 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider10, 0, 90, "FEEDBACK", 1);
-// Mod marker: feedback
-delay_mod_target == 2 ? (
-  mod_norm = trig_env * slider10 / 90;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+delay_mod_target == 2 ? draw_mod_range(delay_px + pad, cy, inner_w, bar_h, slider10, 0, 90, 4, trig_env);
 cy += bar_sp;
 slider11 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider11, 0, 100, "MIX", 1);
-// Mod marker: mix
-delay_mod_target == 1 ? (
-  mod_norm = trig_env * slider11 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+delay_mod_target == 1 ? draw_mod_range(delay_px + pad, cy, inner_w, bar_h, slider11, 0, 100, 3, trig_env);
 cy += bar_sp;
 slider12 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider12, 0, 100, "TAPE AGE", 1);
 cy += bar_sp;
 slider13 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider13, 0, 100, "WOW/FLT", 1);
-// Mod marker: wow/flutter
-delay_mod_target == 3 ? (
-  mod_norm = trig_env * slider13 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(delay_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+delay_mod_target == 3 ? draw_mod_range(delay_px + pad, cy, inner_w, bar_h, slider13, 0, 100, 5, trig_env);
 
 // ---- FLANGER ----
 fl_px = delay_px + delay_pw + gap;
@@ -1171,30 +1205,15 @@ flanger_mod_target = slider23;
 cy += 20;
 
 slider15 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, "RATE Hz", 1);
-// Mod marker: rate
-flanger_mod_target == 2 ? (
-  mod_norm = trig_env * (slider15 - 0.05) / 4.95;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+flanger_mod_target == 2 ? draw_mod_range(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, 8, trig_env);
 cy += bar_sp;
 slider16 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider16, 0, 100, "DEPTH", 1);
-// Mod marker: depth
-flanger_mod_target == 1 ? (
-  mod_norm = trig_env * slider16 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+flanger_mod_target == 1 ? draw_mod_range(fl_px + pad, cy, inner_w, bar_h, slider16, 0, 100, 7, trig_env);
 cy += bar_sp;
 slider17 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider17, 0, 100, "FEEDBACK", 1);
 cy += bar_sp;
 slider18 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider18, 0, 100, "MIX", 1);
-// Mod marker: mix
-flanger_mod_target == 3 ? (
-  mod_norm = trig_env * slider18 / 100;
-  gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(fl_px + pad + mod_norm * inner_w, cy, 2, bar_h);
-);
+flanger_mod_target == 3 ? draw_mod_range(fl_px + pad, cy, inner_w, bar_h, slider18, 0, 100, 9, trig_env);
 
 // ---- OUTPUT + SCOPE ----
 out_y = row_y + comp_ph + gap;
@@ -1305,7 +1324,9 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("MOD: None = normal insert effect. Other options = pattern step modulator."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  Slider sets the max value. Pattern velocity scales from 0 up to that max."); _ny += _nl;
+  gfx_drawstr("  Left-drag sets ceiling (max). Right-drag sets floor (min). Red lines = range."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Yellow marker = current effective value. Velocity sweeps between floor and ceiling."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("  Comp: None (normal comp) / Duck / Thresh / Ratio"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
@@ -1344,3 +1365,10 @@ loop(NUM_LOCKS,
 
 // Save/load prev_mode so mode-change detection doesn't re-trigger on reload
 file_var(0, prev_mode);
+
+// Save/load mod range floor values
+i = 0;
+loop(NUM_MOD_FLOORS,
+  file_var(0, MOD_FLOOR[i]);
+  i += 1;
+);
