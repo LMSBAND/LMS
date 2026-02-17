@@ -553,7 +553,8 @@ slider49 != last_preset ? (
     slider34 = p[33]; slider35 = p[34]; slider36 = p[35]; slider37 = p[36];
     slider38 = p[37]; slider39 = p[38]; slider40 = p[39]; slider41 = p[40]; slider42 = p[41];
     slider43 = p[42]; slider44 = p[43]; slider45 = p[44]; slider46 = p[45];
-    slider47 = p[46]; slider48 = p[47];
+    slider47 = p[46];
+    // slider48 (DrumBanger Pad) intentionally NOT overwritten by presets
     slider50 = p[49]; slider51 = p[50]; slider52 = p[51];
   );
 );
