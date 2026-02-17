@@ -784,4 +784,68 @@ trig_env > 0.01 ? (
   gfx_circle(margin + 14, out_y + 12, 5, 1);
 );
 
+// --- NOTICE BUTTON ---
+notice_btn_x = gfx_w - 60;
+notice_btn_y = gfx_h - 18;
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+gfx_r = 0; gfx_g = 0; gfx_b = 0;
+gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+gfx_drawstr("NOTICE");
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+  notice_show = !notice_show;
+  notice_clicked = 1;
+);
+!(mouse_cap & 1) ? notice_clicked = 0;
+notice_show ? (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_a = 1;
+  gfx_setfont(1, "Arial", 10);
+  _nx = 15; _ny = 8; _nl = 13;
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER"); _ny += _nl + 4;
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("The algorithms in our favorite software are decades old. A mathematical model is a"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("truth about the world, not a copyrightable product. You do not have to stay a slave"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("to subscription software. Install Linux. Build your own tools. Believe in yourself."); _ny += _nl + 2;
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND"); _ny += _nl + 8;
+
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DroneFX — Audio Effects Satellite"); _ny += _nl + 2;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Processes audio based on DrumBanger pad activity. Place AFTER a synth."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Signal chain: DroneMIDI (or MIDI2) > Synth > DroneFX"); _ny += _nl + 2;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("MODES: Sidechain (ducks audio when pad fires) / Gate (silences when inactive)"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Watch Pad: All Pads or specific pad (1-16)"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Duck Depth: volume reduction. Attack/Release: envelope timing."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Gate Mode: Hard (binary on/off) or Soft (smooth fade)"); _ny += _nl + 2;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("EFFECTS: Filter (LP/HP + cutoff + resonance), Flanger, Delay (tempo-synced)"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Delay modes: 1/16 to 1/1 + dotted 1/8, Mono or Ping-Pong stereo"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Output Gain: -24 to +24 dB. Dry/Wet mix."); _ny += _nl;
+
+  gfx_setfont(1, "Arial", 12);
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+);
+
 last_cap = mouse_cap;

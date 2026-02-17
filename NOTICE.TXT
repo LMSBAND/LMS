@@ -13,3 +13,138 @@ I have been working on developing open source, Linux only software to replicate 
 
 https://github.com/LMSBAND
 https://instagram.com/LMSSKABAND
+
+================================================================================
+DRUMBANGER — 16-Pad Drum Sampler & Step Sequencer for REAPER
+================================================================================
+
+GETTING STARTED
+  1. Add DRUMBANGER to a track (FX browser → LMS → DRUMBANGER)
+  2. Drop sample folders into the kits/ directory inside the plugin folder
+  3. Run the rescan script (Actions → DrumBanger Rescan) to pick up new kits
+  4. Select a kit from the dropdown in the top-left corner
+
+  IMPORTANT: The sample pool browser requires drumbanger_service.lua to be
+  running. Add it as a background ReaScript (Actions → Run ReaScript) before
+  using right-click pad assignment. The service handles file I/O requests
+  between the plugin and your sample pool on disk.
+
+PADS
+  - Click a pad to trigger it and select it for editing
+  - The selected pad's controls appear in the control strip below the pads
+  - Drag left/right on VOL, PAN, PITCH, LP, HP, SAT, COMP, GAIN to adjust
+  - MIDI notes 36-51 (C1 to D#2) trigger pads 1-16
+
+STEP SEQUENCER
+  - Click steps to toggle them on/off for the selected pad
+  - RES button cycles step resolution: 1x (16th notes), 2x (32nd), 4x (64th)
+  - BARS buttons (1-4) extend the pattern length and navigate between bars
+    Left-click: select bar (or extend pattern to that bar)
+    Right-click: shrink pattern to that bar count
+  - Pattern buttons (1-8) on the right switch between patterns
+  - Shift+click a step to toggle a TIE — the note sustains into the next step
+    without retriggering (shown as an orange bar on the step's right edge)
+
+PAD LINKING (DADDY / BOOTLICKER)
+  - Select a pad and click the LINK button to assign it to a link group (1-8)
+  - Right-click LINK to toggle between Daddy (D) and Bootlicker (B)
+  - When a Daddy pad triggers, all Bootlicker pads in the same group fire too
+  - Example: Set kick pad to D1, set a sub-bass pad to B1. Now the kick
+    always triggers the sub with it. The sub can still be sequenced on its own.
+
+CHOKE GROUPS
+  - Select a pad and click the CHOKE button to assign it to a choke group (1-8)
+  - Pads in the same choke group cut each other off when triggered
+  - Classic use: put open hi-hat and closed hi-hat in the same choke group.
+    The closed hat chops the open hat's tail, just like real drums.
+
+SAMPLE POOL
+  - Right-click a pad to assign individual samples from the pool/ directory
+  - Run scan_pool.sh to index new samples added to the pool
+
+SLICING
+  - Use the SUBDIV knob to chop a sample into equal slices
+  - Use the SLICE knob to select which slice plays
+  - NUDGE fine-tunes the slice start point
+
+================================================================================
+DRONE MODULES — Satellites That Ride the DrumBanger Sequencer
+================================================================================
+
+All Drone modules talk to DrumBanger via shared global memory. They read the
+current step, pattern, BPM, and pad triggers in real time. Stack them on
+separate tracks after DrumBanger to build full arrangements from your drum
+patterns.
+
+SIGNAL CHAIN
+  DroneMIDI (or DroneMIDI2) → Synth → DroneFX
+  Put a MIDI drone before your synth. Put the FX drone after it.
+
+--------------------------------------------------------------------------------
+DroneFX — Audio Effects Satellite
+--------------------------------------------------------------------------------
+Processes audio based on DrumBanger pad activity. Place AFTER a synth.
+
+MODES
+  - Sidechain: ducks the audio when a watched pad fires (pumping effect)
+  - Gate: silences audio except when the watched pad is active
+
+CONTROLS
+  - Watch Pad: monitor All Pads or a specific pad (1-16)
+  - Duck Depth: how much volume gets cut (0-100%)
+  - Attack / Release: envelope timing in ms
+  - Gate Mode: Hard (binary on/off) or Soft (smooth fade)
+
+BUILT-IN EFFECTS
+  - Filter: Off / Low Pass / High Pass, with cutoff and resonance
+  - Flanger: depth, rate, feedback, mix
+  - Delay: tempo-synced (1/16 to 1/1 and dotted 1/8), feedback, LP filter,
+    Mono or Ping-Pong stereo
+  - Output Gain: -24 to +24 dB
+  - Dry/Wet Mix
+
+--------------------------------------------------------------------------------
+DroneMIDI — Melodic MIDI Sequencer
+--------------------------------------------------------------------------------
+Converts drum pad triggers into melodic MIDI notes with scales, chords, and
+an arpeggiator. Place BEFORE a synth.
+
+CONTROLS
+  - Watch: All Pads or specific pad (1-16)
+  - Root Note: sets the key (full piano range)
+  - Scale: Chromatic, Major, Minor, Dorian, Mixolydian, Pent Maj/Min, Blues
+  - Octave Offset: -2 to +2
+
+CHORDS
+  - Type: Off / Diatonic triad / Diatonic 7th / Major / Minor / Dom7 /
+    Power / Octave
+  - Stacks notes from the selected scale automatically
+
+ARPEGGIATOR
+  - Mode: Off / Up / Down / Up-Down / Random
+  - Rate: 1/4, 1/8, 1/16, 1/32, 1/8T, 1/16T (tempo-synced)
+  - Gate: 10-100% (note length between arp ticks)
+
+--------------------------------------------------------------------------------
+DroneMIDI2 — Simplified MIDI + Pattern Capture
+--------------------------------------------------------------------------------
+Lighter MIDI sequencer with a Follow/Lock workflow for capturing and editing
+patterns from DrumBanger.
+
+MODES
+  - Follow: real-time pass-through of the live DrumBanger pattern
+  - Lock 1-8: capture a snapshot of the current pattern into an editable slot
+
+WORKFLOW
+  1. Set mode to a Lock slot (Lock 1-8)
+  2. The current DrumBanger pattern auto-snapshots into that slot
+  3. Click steps in the grid to edit the captured pattern
+  4. Switch back to Follow to resume live jamming
+  5. RE-CAPTURE button updates a Lock slot from the current live pattern
+  6. CLEAR button erases a Lock slot
+
+CONTROLS
+  - Root Note, Scale, Chord Mode (Off / Single / Triad / 7th / Power)
+  - Octave: -2 to +5
+  - MIDI Channel: 1-16
+  - All 8 Lock slots persist across sessions
