@@ -1094,14 +1094,15 @@ loop(16,
         pv > 0 ? (
           br = pv / 127;
           gfx_is_locked ? (
-            // Cyan tint in lock mode
-            gfx_r = COL_CYAN_R * br;
-            gfx_g = COL_CYAN_G * br;
-            gfx_b = COL_CYAN_B * br;
+            // Orange in lock mode (matches DroneMIDI2 COL_STEP)
+            gfx_r = 0.95 * br;
+            gfx_g = 0.55 * br;
+            gfx_b = 0.1 * br;
           ) : (
-            gfx_r = COL_ACCENT_R * br;
-            gfx_g = COL_ACCENT_G * br;
-            gfx_b = COL_ACCENT_B * br;
+            // Green in follow mode (matches DroneMIDI2 COL_LIVE)
+            gfx_r = 0.2 * br;
+            gfx_g = 0.8 * br;
+            gfx_b = 0.3 * br;
           );
         ) : (
           gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
@@ -1135,6 +1136,7 @@ loop(16,
         mouse_x >= cx && mouse_x < cx + cell_w - 1 &&
         mouse_y >= cy && mouse_y < cy + cell_h - 1 ? (
         vel_edit_open = 1;
+        vel_edit_just_opened = 1;
         vel_edit_step = s;
         vel_edit_pad = p;
         vel_edit_x = min(mouse_x, gfx_w - 55);
@@ -1379,7 +1381,7 @@ vel_edit_open ? (
   vel_fill = cur_vel / 127;
   fill_h = vel_fill * vslider_h;
   fill_h > 0 ? (
-    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_r = 0.95 * 0.6; gfx_g = 0.55 * 0.6; gfx_b = 0.1 * 0.6;
     gfx_rect(vslider_x, vslider_y + vslider_h - fill_h, vslider_w, fill_h);
   );
 
@@ -1405,13 +1407,16 @@ vel_edit_open ? (
     vel_edit_dragging = 0;
   );
 
-  // Close: right-click or click outside popup
-  ((mouse_cap & 2) && !(last_cap & 2)) ||
-  ((mouse_cap & 1) && !(last_cap & 1) && !vel_edit_dragging &&
-    (mouse_x < vp_x || mouse_x > vp_x + vp_w ||
-     mouse_y < vp_y || mouse_y > vp_y + vp_h)) ? (
-    vel_edit_open = 0;
+  // Close: right-click or click outside popup (skip frame popup was opened)
+  !vel_edit_just_opened ? (
+    ((mouse_cap & 2) && !(last_cap & 2)) ||
+    ((mouse_cap & 1) && !(last_cap & 1) && !vel_edit_dragging &&
+      (mouse_x < vp_x || mouse_x > vp_x + vp_w ||
+       mouse_y < vp_y || mouse_y > vp_y + vp_h)) ? (
+      vel_edit_open = 0;
+    );
   );
+  vel_edit_just_opened = 0;
 );
 
 // --- NOTICE BUTTON ---
