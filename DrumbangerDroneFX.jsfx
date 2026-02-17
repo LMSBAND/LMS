@@ -1407,12 +1407,12 @@ loop(NUM_LOCKS,
   i += 1;
 );
 
-// Save/load lock mode
-file_var(0, lock_mode);
-
-// Save/load mod range floor values
-i = 0;
-loop(NUM_MOD_FLOORS,
-  file_var(0, MOD_FLOOR[i]);
-  i += 1;
+// Save/load lock mode + mod floors (added after initial release — guard against old saves)
+file_avail(0) >= 0 ? (
+  file_var(0, lock_mode);
+  i = 0;
+  loop(NUM_MOD_FLOORS,
+    file_var(0, MOD_FLOOR[i]);
+    i += 1;
+  );
 );
