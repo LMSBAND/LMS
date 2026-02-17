@@ -363,6 +363,10 @@ db_connected ? (
     trig_step = min(16, max(1, ceil(trig_vel / 8)));
     trig_env = trig_step / 16;
   );
+
+  // Lock mode: triggers are impulses, not gates. Clear trig_active immediately
+  // so the envelope decays from peak. Follow mode keeps gate behavior (pad held = held env).
+  !is_follow && got_trigger ? trig_active = 0;
 );
 
 // ============================================================
