@@ -1170,55 +1170,86 @@ spl1 = out_r;
 
 
 // ============================================================================
-//  @GFX — FULL GUI
+//  @GFX — FULL GUI (redesigned)
 // ============================================================================
 
-@gfx 700 420
+@gfx 750 480
 
-// Colors
-COL_BG_R = 0.06; COL_BG_G = 0.06; COL_BG_B = 0.09;
-COL_PANEL_R = 0.10; COL_PANEL_G = 0.10; COL_PANEL_B = 0.14;
-COL_TITLE_R = 0.85; COL_TITLE_G = 0.70; COL_TITLE_B = 0.40;
-COL_TEXT_R = 0.80; COL_TEXT_G = 0.80; COL_TEXT_B = 0.85;
-COL_DIM_R = 0.45; COL_DIM_G = 0.45; COL_DIM_B = 0.50;
+// ============================================================================
+//  COLOR PALETTE
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
 COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
-COL_GREEN_R = 0.30; COL_GREEN_G = 0.75; COL_GREEN_B = 0.45;
-COL_BAR_R = 0.20; COL_BAR_G = 0.55; COL_BAR_B = 0.80;
-COL_KNOB_BG_R = 0.15; COL_KNOB_BG_G = 0.15; COL_KNOB_BG_B = 0.20;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
 
-// Background
+// ============================================================================
+//  BACKGROUND — subtle gradient feel via two-tone
+// ============================================================================
 gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
 
-// ============================================================================
-//  HELPER: draw a horizontal bar control
-//  Returns new value if dragged, else returns current value
-// ============================================================================
+// Top strip — darker header band
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 58);
 
+// Header accent line (warm gold)
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, 58, gfx_w, 2);
+
+// ============================================================================
+//  HELPER: draw_bar — slick slider bar with glow fill
+// ============================================================================
 function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
-  // Background
-  gfx_r = COL_KNOB_BG_R; gfx_g = COL_KNOB_BG_G; gfx_b = COL_KNOB_BG_B;
+  // Bar background with subtle inset
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(bx, by, bw, bh);
 
-  // Fill
+  // Fill with gradient feel (brighter at top)
   norm = (val - vmin) / (vmax - vmin);
   norm = max(0, min(1, norm));
-  gfx_r = COL_BAR_R; gfx_g = COL_BAR_G; gfx_b = COL_BAR_B;
-  gfx_rect(bx, by, norm * bw, bh);
+  fill_w = norm * bw;
 
-  // Label
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    // Brighter top half for depth
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    // Bright edge line at top
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+
+  // Thin border
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1);
+  gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh);
+  gfx_rect(bx + bw - 1, by, 1, bh);
+
+  // Label (left)
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 11);
-  gfx_x = bx + 3; gfx_y = by + 1;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
   gfx_drawstr(label);
 
-  // Value text
+  // Value (right)
   show_val ? (
-    gfx_x = bx + bw - 35; gfx_y = by + 1;
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
     gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
 
-  // Drag interaction
+  // Drag
   mouse_cap & 1 ? (
     mouse_x >= bx && mouse_x <= bx + bw &&
     mouse_y >= by && mouse_y <= by + bh ? (
@@ -1232,48 +1263,102 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 );
 
 // ============================================================================
-//  HELPER: draw section panel
+//  HELPER: draw_panel — section panel with header bar
 // ============================================================================
-
 function draw_panel(px, py, pw, ph, title) (
+  // Panel body
   gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
   gfx_rect(px, py, pw, ph);
 
-  // Border
-  gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.30;
+  // Header bar
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
+
+  // Header bottom accent
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + 22, pw, 1);
+
+  // Panel border
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
   gfx_rect(px, py, pw, 1);
   gfx_rect(px, py, 1, ph);
   gfx_rect(px + pw - 1, py, 1, ph);
   gfx_rect(px, py + ph - 1, pw, 1);
 
-  // Title
-  gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+  // Title text
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
   gfx_setfont(1, "Arial", 12);
-  gfx_x = px + 6; gfx_y = py + 3;
+  gfx_x = px + 8; gfx_y = py + 4;
   gfx_drawstr(title);
 );
 
 // ============================================================================
-//  HELPER: draw wave selector (clickable)
+//  HELPER: wave_sel — draw waveform shape icon + click to cycle
 // ============================================================================
-
 function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
-  gfx_r = COL_KNOB_BG_R; gfx_g = COL_KNOB_BG_G; gfx_b = COL_KNOB_BG_B;
+  // Background
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(wx, wy, ww, wh);
+  // Border
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(wx, wy, ww, 1); gfx_rect(wx, wy+wh-1, ww, 1);
+  gfx_rect(wx, wy, 1, wh); gfx_rect(wx+ww-1, wy, 1, wh);
 
+  // Draw actual waveform shape
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_setfont(1, "Arial", 11);
-  gfx_x = wx + 3; gfx_y = wy + 1;
-  wave_val == 0 ? gfx_drawstr("SAW")
-  : wave_val == 1 ? gfx_drawstr("SQR")
-  : wave_val == 2 ? gfx_drawstr("TRI")
-  : wave_val == 3 ? gfx_drawstr("SIN")
-  : gfx_drawstr("NSE");
+  cx = wx + 4; cw = ww - 8; cmid = wy + floor(wh/2); camp = floor(wh/2) - 3;
+
+  wave_val == 0 ? ( // Saw — ramp up then drop
+    gfx_x = cx; gfx_y = cmid + camp;
+    gfx_lineto(cx + cw, cmid - camp);
+    gfx_lineto(cx + cw, cmid + camp);
+  ) : wave_val == 1 ? ( // Square
+    gfx_x = cx; gfx_y = cmid + camp;
+    gfx_lineto(cx, cmid - camp);
+    gfx_lineto(cx + floor(cw/2), cmid - camp);
+    gfx_lineto(cx + floor(cw/2), cmid + camp);
+    gfx_lineto(cx + cw, cmid + camp);
+  ) : wave_val == 2 ? ( // Triangle
+    gfx_x = cx; gfx_y = cmid;
+    gfx_lineto(cx + floor(cw/4), cmid - camp);
+    gfx_lineto(cx + floor(cw*3/4), cmid + camp);
+    gfx_lineto(cx + cw, cmid);
+  ) : wave_val == 3 ? ( // Sine (approximated with line segments)
+    gfx_x = cx; gfx_y = cmid;
+    gfx_lineto(cx + floor(cw*0.15), cmid - floor(camp*0.7));
+    gfx_lineto(cx + floor(cw*0.25), cmid - camp);
+    gfx_lineto(cx + floor(cw*0.35), cmid - floor(camp*0.7));
+    gfx_lineto(cx + floor(cw*0.5), cmid);
+    gfx_lineto(cx + floor(cw*0.65), cmid + floor(camp*0.7));
+    gfx_lineto(cx + floor(cw*0.75), cmid + camp);
+    gfx_lineto(cx + floor(cw*0.85), cmid + floor(camp*0.7));
+    gfx_lineto(cx + cw, cmid);
+  ) : ( // Noise — random-ish zigzag
+    gfx_x = cx; gfx_y = cmid;
+    gfx_lineto(cx + floor(cw*0.1), cmid - camp);
+    gfx_lineto(cx + floor(cw*0.2), cmid + floor(camp*0.5));
+    gfx_lineto(cx + floor(cw*0.35), cmid - floor(camp*0.3));
+    gfx_lineto(cx + floor(cw*0.45), cmid + camp);
+    gfx_lineto(cx + floor(cw*0.55), cmid - floor(camp*0.8));
+    gfx_lineto(cx + floor(cw*0.7), cmid + floor(camp*0.6));
+    gfx_lineto(cx + floor(cw*0.8), cmid - floor(camp*0.5));
+    gfx_lineto(cx + floor(cw*0.9), cmid + floor(camp*0.9));
+    gfx_lineto(cx + cw, cmid);
+  );
+
+  // Label text underneath shape
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", 9);
+  wave_val == 0 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SAW"); )
+  : wave_val == 1 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SQR"); )
+  : wave_val == 2 ? ( gfx_x = wx + floor((ww - 16)/2); gfx_y = wy + wh + 1; gfx_drawstr("TRI"); )
+  : wave_val == 3 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SIN"); )
+  : ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("NSE"); );
 
   // Click to cycle
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= wx && mouse_x <= wx + ww &&
-    mouse_y >= wy && mouse_y <= wy + wh ? (
+    mouse_y >= wy && mouse_y <= wy + wh + 12 ? (
       wave_val = (wave_val + 1) % (max_waves + 1);
   );
 
@@ -1281,423 +1366,81 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 );
 
 // ============================================================================
+//  HELPER: toggle button
+// ============================================================================
+function draw_toggle(tx, ty, is_on, label) (
+  // Outer ring
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + 8, ty + 8, 7, 0);
+  // Inner fill
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  );
+  // Label
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_drawstr(label);
+
+  // Click
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + 80 &&
+    mouse_y >= ty && mouse_y <= ty + 16 ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ============================================================================
+//  HELPER: clickable mode selector
+// ============================================================================
+function draw_mode_sel(mx, my, label, value_str) (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = mx; gfx_y = my;
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_drawstr("  ");
+  gfx_drawstr(value_str);
+);
+
+// ============================================================================
+//  LAYOUT CONSTANTS
+// ============================================================================
+margin = 10;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+col_w = floor((gfx_w - margin * 2 - gap * 2) / 3);
+body_y = 64;
+
+// ============================================================================
 //  TITLE BAR
 // ============================================================================
-
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
-gfx_setfont(1, "Arial", 18);
-gfx_x = 15; gfx_y = 8;
-gfx_drawstr("L M S   M O O G   S Y N T H");
+gfx_setfont(1, "Arial", 22);
+gfx_x = 18; gfx_y = 10;
+gfx_drawstr("LMS MOOG SYNTH");
 
-// Version / subtitle
+// Subtitle
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", 11);
-gfx_x = 15; gfx_y = 30;
-gfx_drawstr("Analog Mono Synth w/ Moog Ladder Filter");
+gfx_x = 18; gfx_y = 38;
+gfx_drawstr("Mono  //  Ladder Filter  //  Unison  //  FX");
 
-// RANDOMIZE button
-rand_btn_x = gfx_w - 130; rand_btn_y = 8; rand_btn_w = 115; rand_btn_h = 24;
-rand_flash > 0 ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-  rand_flash -= 1;
-) : (
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-);
-gfx_rect(rand_btn_x, rand_btn_y, rand_btn_w, rand_btn_h);
-gfx_r = 0; gfx_g = 0; gfx_b = 0;
-gfx_setfont(1, "Arial", 13);
-gfx_x = rand_btn_x + 12; gfx_y = rand_btn_y + 5;
-gfx_drawstr("RANDOMIZE!");
-
-// Click randomize button
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= rand_btn_x && mouse_x <= rand_btn_x + rand_btn_w &&
-  mouse_y >= rand_btn_y && mouse_y <= rand_btn_y + rand_btn_h ? (
-    slider51 = 1;
-);
-
-// Horizontal line under title
-gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.30;
-gfx_rect(10, 44, gfx_w - 20, 1);
-
-// ============================================================================
-//  ROW 1: OSCILLATORS | FILTER | AMP/SCOPE
-// ============================================================================
-
-row1_y = 50;
-bar_h = 15;
-bar_sp = 17;
-
-// ---- OSCILLATORS Panel ----
-osc_x = 10; osc_w = 220;
-draw_panel(osc_x, row1_y, osc_w, 175, "OSCILLATORS");
-
-cy = row1_y + 20;
-// OSC 1
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = osc_x + 6; gfx_y = cy;
-gfx_drawstr("OSC 1");
-slider1 = draw_wave_sel(osc_x + 45, cy, 36, 14, slider1, 4);
-slider4 = draw_bar(osc_x + 86, cy, 128, 14, slider4, 0, 100, "LVL", 1);
-cy += bar_sp;
-slider2 = draw_bar(osc_x + 6, cy, 100, 14, slider2, -24, 24, "TUNE", 1);
-slider3 = draw_bar(osc_x + 110, cy, 104, 14, slider3, -100, 100, "FINE", 1);
-cy += bar_sp;
-slider5 = draw_bar(osc_x + 6, cy, 208, 14, slider5, 0, 100, "PULSE WIDTH", 1);
-
-cy += bar_sp + 4;
-// OSC 2
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = osc_x + 6; gfx_y = cy;
-gfx_drawstr("OSC 2");
-slider6 = draw_wave_sel(osc_x + 45, cy, 36, 14, slider6, 4);
-slider9 = draw_bar(osc_x + 86, cy, 128, 14, slider9, 0, 100, "LVL", 1);
-cy += bar_sp;
-slider7 = draw_bar(osc_x + 6, cy, 100, 14, slider7, -24, 24, "TUNE", 1);
-slider8 = draw_bar(osc_x + 110, cy, 104, 14, slider8, -100, 100, "FINE", 1);
-
-cy += bar_sp + 4;
-// Sub / Noise / Unison
-slider11 = draw_bar(osc_x + 6, cy, 100, 14, slider11, 0, 100, "SUB", 1);
-slider12 = draw_bar(osc_x + 110, cy, 104, 14, slider12, 0, 100, "NOISE", 1);
-cy += bar_sp;
-slider13 = draw_bar(osc_x + 6, cy, 100, 14, slider13, 1, 8, "UNISON", 1);
-slider14 = draw_bar(osc_x + 110, cy, 104, 14, slider14, 0, 100, "DETUNE", 1);
-
-// Sub on/off indicator
-sub_on ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-) : (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.3;
-);
-gfx_circle(osc_x + 55, row1_y + 175 - 22, 4, 1);
-// Click sub toggle
-(mouse_cap & 1) && !(last_cap & 1) &&
-  abs(mouse_x - (osc_x + 55)) < 10 && abs(mouse_y - (row1_y + 175 - 22)) < 10 ? (
-    slider10 = 1 - slider10;
-    sub_on = slider10;
-);
-
-// ---- FILTER Panel ----
-flt_x = osc_x + osc_w + 5;
-flt_w = 220;
-draw_panel(flt_x, row1_y, flt_w, 175, "FILTER");
-
-cy = row1_y + 20;
-slider15 = draw_bar(flt_x + 6, cy, 208, 14, slider15, 20, 20000, "CUTOFF", 1);
-cy += bar_sp;
-slider16 = draw_bar(flt_x + 6, cy, 208, 14, slider16, 0, 100, "RESONANCE", 1);
-cy += bar_sp;
-slider18 = draw_bar(flt_x + 6, cy, 208, 14, slider18, 0, 100, "ENV AMOUNT", 1);
-cy += bar_sp + 4;
-
-// Filter mode selector (clickable text)
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = flt_x + 6; gfx_y = cy;
-gfx_drawstr("MODE:");
-gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-gfx_x = flt_x + 45; gfx_y = cy;
-filt_mode == 0 ? gfx_drawstr("LP 24dB")
-: filt_mode == 1 ? gfx_drawstr("LP 12dB")
-: filt_mode == 2 ? gfx_drawstr("HP 24dB")
-: gfx_drawstr("BP 12dB");
-
-// Click to cycle filter mode
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= flt_x + 6 && mouse_x <= flt_x + 120 &&
-  mouse_y >= cy && mouse_y <= cy + 14 ? (
-    slider17 = (slider17 + 1) % 4;
-    filt_mode = slider17;
-);
-
-cy += bar_sp + 2;
-// Filter envelope
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = flt_x + 6; gfx_y = cy;
-gfx_drawstr("FILTER ENV");
-cy += 14;
-slider19 = draw_bar(flt_x + 6, cy, 100, 14, slider19, 0, 2000, "A", 1);
-slider20 = draw_bar(flt_x + 110, cy, 104, 14, slider20, 0, 5000, "D", 1);
-cy += bar_sp;
-slider21 = draw_bar(flt_x + 6, cy, 100, 14, slider21, 0, 100, "S", 1);
-slider22 = draw_bar(flt_x + 110, cy, 104, 14, slider22, 0, 5000, "R", 1);
-
-// ---- AMP / SCOPE Panel ----
-amp_x = flt_x + flt_w + 5;
-amp_w = gfx_w - amp_x - 10;
-draw_panel(amp_x, row1_y, amp_w, 175, "AMP / OUTPUT");
-
-cy = row1_y + 20;
-slider23 = draw_bar(amp_x + 6, cy, amp_w - 12, 14, slider23, 0, 2000, "ATK", 1);
-cy += bar_sp;
-slider24 = draw_bar(amp_x + 6, cy, amp_w - 12, 14, slider24, 0, 5000, "DEC", 1);
-cy += bar_sp;
-slider25 = draw_bar(amp_x + 6, cy, amp_w - 12, 14, slider25, 0, 100, "SUS", 1);
-cy += bar_sp;
-slider26 = draw_bar(amp_x + 6, cy, amp_w - 12, 14, slider26, 0, 5000, "REL", 1);
-
-cy += bar_sp + 6;
-
-// Scope display
-scope_x = amp_x + 6;
-scope_y = cy;
-scope_w = amp_w - 12;
-scope_h = 175 - (cy - row1_y) - 6;
-
-gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
-gfx_rect(scope_x, scope_y, scope_w, scope_h);
-
-// Draw center line
-gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-gfx_rect(scope_x, scope_y + scope_h * 0.5, scope_w, 1);
-
-// Draw waveform
-gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-scope_step = SCOPE_SIZE / scope_w;
-i = 0;
-loop(scope_w,
-  idx = floor(i * scope_step);
-  idx >= SCOPE_SIZE ? idx = SCOPE_SIZE - 1;
-  sv = SCOPE_BUF[(scope_pos + idx) % SCOPE_SIZE];
-  sy = scope_y + scope_h * 0.5 - sv * scope_h * 0.4;
-  sy = max(scope_y, min(scope_y + scope_h - 1, sy));
-  i == 0 ? (
-    gfx_x = scope_x; gfx_y = sy;
-  ) : (
-    gfx_lineto(scope_x + i, sy);
-  );
-  i += 1;
-);
-
-// ============================================================================
-//  ROW 2: LFO | EFFECTS | PERFORMANCE
-// ============================================================================
-
-row2_y = row1_y + 180;
-
-// ---- LFO Panel ----
-lfo_px = 10; lfo_pw = 220;
-draw_panel(lfo_px, row2_y, lfo_pw, 140, "LFO");
-
-cy = row2_y + 20;
-// LFO shape selector
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = lfo_px + 6; gfx_y = cy;
-gfx_drawstr("SHAPE:");
-gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-gfx_x = lfo_px + 50; gfx_y = cy;
-lfo_shape == 0 ? gfx_drawstr("SINE")
-: lfo_shape == 1 ? gfx_drawstr("TRI")
-: lfo_shape == 2 ? gfx_drawstr("SAW")
-: lfo_shape == 3 ? gfx_drawstr("SQR")
-: lfo_shape == 4 ? gfx_drawstr("S&H")
-: gfx_drawstr("RND");
-
-// Click to cycle LFO shape
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= lfo_px + 6 && mouse_x <= lfo_px + 120 &&
-  mouse_y >= cy && mouse_y <= cy + 14 ? (
-    slider27 = (slider27 + 1) % 6;
-    lfo_shape = slider27;
-);
-
-cy += bar_sp;
-slider28 = draw_bar(lfo_px + 6, cy, 208, 14, slider28, 0.01, 50, "RATE Hz", 1);
-cy += bar_sp + 4;
-slider30 = draw_bar(lfo_px + 6, cy, 100, 14, slider30, 0, 100, ">PIT", 1);
-slider31 = draw_bar(lfo_px + 110, cy, 104, 14, slider31, 0, 100, ">FLT", 1);
-cy += bar_sp;
-slider32 = draw_bar(lfo_px + 6, cy, 100, 14, slider32, 0, 100, ">AMP", 1);
-slider33 = draw_bar(lfo_px + 110, cy, 104, 14, slider33, 0, 100, ">PWM", 1);
-
-// LFO indicator dot (shows current LFO value)
-cy += bar_sp + 2;
-lfo_dot_x = lfo_px + 110 + lfo_value * 50;
-lfo_dot_y = cy + 4;
-gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-gfx_circle(lfo_dot_x, lfo_dot_y, 3, 1);
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_rect(lfo_px + 60, cy + 3, 100, 1);
-
-// ---- EFFECTS Panel ----
-fx_px = lfo_px + lfo_pw + 5;
-fx_pw = 220;
-draw_panel(fx_px, row2_y, fx_pw, 140, "EFFECTS");
-
-cy = row2_y + 20;
-
-// Drive type selector
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = fx_px + 6; gfx_y = cy;
-gfx_drawstr("DRIVE:");
-gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-gfx_x = fx_px + 50; gfx_y = cy;
-drive_type == 0 ? gfx_drawstr("OFF")
-: drive_type == 1 ? gfx_drawstr("WARM")
-: drive_type == 2 ? gfx_drawstr("HOT")
-: gfx_drawstr("FUZZ");
-
-// Click to cycle drive
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= fx_px + 6 && mouse_x <= fx_px + 120 &&
-  mouse_y >= cy && mouse_y <= cy + 14 ? (
-    slider38 = (slider38 + 1) % 4;
-    drive_type = slider38;
-);
-
-cy += bar_sp;
-slider39 = draw_bar(fx_px + 6, cy, 208, 14, slider39, 0, 100, "DRIVE AMT", 1);
-cy += bar_sp + 4;
-
-// Chorus toggle
-chorus_on ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-) : (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.3;
-);
-gfx_circle(fx_px + 14, cy + 7, 5, 1);
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = fx_px + 24; gfx_y = cy;
-gfx_drawstr("CHORUS");
-slider41 = draw_bar(fx_px + 80, cy, 134, 14, slider41, 0, 100, "DEPTH", 1);
-
-// Click chorus toggle
-(mouse_cap & 1) && !(last_cap & 1) &&
-  abs(mouse_x - (fx_px + 14)) < 12 && abs(mouse_y - (cy + 7)) < 12 ? (
-    slider40 = 1 - slider40;
-    chorus_on = slider40;
-);
-
-cy += bar_sp + 2;
-
-// Delay toggle
-delay_on ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-) : (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.3;
-);
-gfx_circle(fx_px + 14, cy + 7, 5, 1);
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = fx_px + 24; gfx_y = cy;
-gfx_drawstr("DELAY");
-slider44 = draw_bar(fx_px + 80, cy, 134, 14, slider44, 1, 1000, "TIME", 1);
-
-// Click delay toggle
-(mouse_cap & 1) && !(last_cap & 1) &&
-  abs(mouse_x - (fx_px + 14)) < 12 && abs(mouse_y - (cy + 7)) < 12 ? (
-    slider43 = 1 - slider43;
-    delay_on = slider43;
-);
-
-cy += bar_sp;
-slider45 = draw_bar(fx_px + 6, cy, 100, 14, slider45, 0, 90, "FB %", 1);
-slider46 = draw_bar(fx_px + 110, cy, 104, 14, slider46, 0, 100, "MIX", 1);
-
-// ---- PERFORMANCE Panel ----
-perf_px = fx_px + fx_pw + 5;
-perf_pw = gfx_w - perf_px - 10;
-draw_panel(perf_px, row2_y, perf_pw, 140, "PERFORM");
-
-cy = row2_y + 20;
-slider34 = draw_bar(perf_px + 6, cy, perf_pw - 12, 14, slider34, 0, 1000, "GLIDE ms", 1);
-cy += bar_sp;
-
-// Glide on/off
-glide_on ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-) : (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.3;
-);
-gfx_circle(perf_px + 14, cy + 7, 5, 1);
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = perf_px + 24; gfx_y = cy;
-gfx_drawstr("GLIDE ON");
-
-// Click glide toggle
-(mouse_cap & 1) && !(last_cap & 1) &&
-  abs(mouse_x - (perf_px + 14)) < 12 && abs(mouse_y - (cy + 7)) < 12 ? (
-    slider35 = 1 - slider35;
-    glide_on = slider35;
-);
-
-cy += bar_sp + 4;
-slider36 = draw_bar(perf_px + 6, cy, perf_pw - 12, 14, slider36, 0, 100, "VEL>AMP", 1);
-cy += bar_sp;
-slider37 = draw_bar(perf_px + 6, cy, perf_pw - 12, 14, slider37, 0, 100, "VEL>FLT", 1);
-cy += bar_sp;
-slider47 = draw_bar(perf_px + 6, cy, perf_pw - 12, 14, slider47, -24, 24, "MASTER dB", 1);
-cy += bar_sp;
-slider52 = draw_bar(perf_px + 6, cy, perf_pw - 12, 14, slider52, 0, 100, "FX MIX", 1);
-
-// ---- DrumBanger connection indicator ----
-cy += bar_sp + 4;
-db_connected ? (
-  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-) : (
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.3;
-);
-gfx_circle(perf_px + 14, cy + 4, 4, 1);
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = perf_px + 24; gfx_y = cy;
-db_connected ? gfx_drawstr("DB CONNECTED") : gfx_drawstr("DB ---");
-
-// ============================================================================
-//  BOTTOM BAR: Preset display + envelope meters
-// ============================================================================
-
-bot_y = row2_y + 145;
-
-// Envelope meters
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
-gfx_x = 15; gfx_y = bot_y + 2;
-gfx_drawstr("AMP:");
-
-// Amp env bar
-gfx_r = COL_KNOB_BG_R; gfx_g = COL_KNOB_BG_G; gfx_b = COL_KNOB_BG_B;
-gfx_rect(50, bot_y + 2, 80, 10);
-gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-gfx_rect(50, bot_y + 2, amp_env_level * 80, 10);
-
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_x = 140; gfx_y = bot_y + 2;
-gfx_drawstr("FLT:");
-
-// Filter env bar
-gfx_r = COL_KNOB_BG_R; gfx_g = COL_KNOB_BG_G; gfx_b = COL_KNOB_BG_B;
-gfx_rect(170, bot_y + 2, 80, 10);
-gfx_r = COL_BAR_R; gfx_g = COL_BAR_G; gfx_b = COL_BAR_B;
-gfx_rect(170, bot_y + 2, filt_env_level * 80, 10);
-
-// Note display
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_setfont(1, "Arial", 11);
-gfx_x = 270; gfx_y = bot_y + 2;
-gate ? (
-  gfx_drawstr("NOTE: ");
-  gfx_drawnumber(current_note, 0);
-  gfx_drawstr("  VEL: ");
-  gfx_drawnumber(floor(current_vel * 127), 0);
-) : (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr("---");
-);
-
-// Preset name display
-gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
-gfx_setfont(1, "Arial", 11);
-gfx_x = gfx_w - 200; gfx_y = bot_y + 2;
+// Preset name (top bar, right of title)
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", 12);
+gfx_x = 320; gfx_y = 14;
 gfx_drawstr("PRESET: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
 slider49 == 0 ? gfx_drawstr("INIT")
 : slider49 == 1 ? gfx_drawstr("FAT BASS")
 : slider49 == 2 ? gfx_drawstr("ACID LEAD")
@@ -1712,5 +1455,377 @@ slider49 == 0 ? gfx_drawstr("INIT")
 : slider49 == 11 ? gfx_drawstr("RND BASS")
 : gfx_drawstr("RND LEAD");
 
-// Store mouse state for click detection
+// Note/vel display (top bar)
+gfx_setfont(1, "Arial", 11);
+gfx_x = 320; gfx_y = 34;
+gate ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  // Note name
+  note_num = current_note % 12;
+  note_num == 0 ? gfx_drawstr("C")
+  : note_num == 1 ? gfx_drawstr("C#")
+  : note_num == 2 ? gfx_drawstr("D")
+  : note_num == 3 ? gfx_drawstr("D#")
+  : note_num == 4 ? gfx_drawstr("E")
+  : note_num == 5 ? gfx_drawstr("F")
+  : note_num == 6 ? gfx_drawstr("F#")
+  : note_num == 7 ? gfx_drawstr("G")
+  : note_num == 8 ? gfx_drawstr("G#")
+  : note_num == 9 ? gfx_drawstr("A")
+  : note_num == 10 ? gfx_drawstr("A#")
+  : gfx_drawstr("B");
+  gfx_drawnumber(floor(current_note / 12) - 1, 0);
+  gfx_drawstr("  vel ");
+  gfx_drawnumber(floor(current_vel * 127), 0);
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawstr("--");
+);
+
+// Envelope meters in top bar
+env_bar_y = 16; env_bar_h = 6;
+// AMP
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 9);
+gfx_x = gfx_w - 280; gfx_y = env_bar_y - 2;
+gfx_drawstr("AMP");
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(gfx_w - 252, env_bar_y, 80, env_bar_h);
+gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+gfx_rect(gfx_w - 252, env_bar_y, amp_env_level * 80, env_bar_h);
+// FILT
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = gfx_w - 280; gfx_y = env_bar_y + env_bar_h + 6;
+gfx_drawstr("FLT");
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(gfx_w - 252, env_bar_y + env_bar_h + 6, 80, env_bar_h);
+gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+gfx_rect(gfx_w - 252, env_bar_y + env_bar_h + 6, filt_env_level * 80, env_bar_h);
+
+// RANDOMIZE button
+rand_btn_x = gfx_w - 145; rand_btn_y = 10; rand_btn_w = 130; rand_btn_h = 34;
+rand_flash > 0 ? (
+  // Flash green
+  flash_amt = rand_flash / 60;
+  gfx_r = COL_GREEN_R * flash_amt; gfx_g = COL_GREEN_G * flash_amt; gfx_b = COL_GREEN_B * flash_amt;
+  rand_flash -= 1;
+) : (
+  gfx_r = COL_ACCENT_R * 0.8; gfx_g = COL_ACCENT_G * 0.5; gfx_b = COL_ACCENT_B * 0.3;
+);
+gfx_rect(rand_btn_x, rand_btn_y, rand_btn_w, rand_btn_h);
+// Button highlight edge
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_rect(rand_btn_x, rand_btn_y, rand_btn_w, 2);
+// Button text
+gfx_r = 1; gfx_g = 1; gfx_b = 1;
+gfx_setfont(1, "Arial", 14);
+gfx_x = rand_btn_x + 14; gfx_y = rand_btn_y + 9;
+gfx_drawstr("RANDOMIZE!");
+
+// Click randomize
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= rand_btn_x && mouse_x <= rand_btn_x + rand_btn_w &&
+  mouse_y >= rand_btn_y && mouse_y <= rand_btn_y + rand_btn_h ? (
+    slider51 = 1;
+);
+
+// ============================================================================
+//  ROW 1: OSCILLATORS | FILTER | AMP + SCOPE
+// ============================================================================
+row1_h = 210;
+
+// ---- OSCILLATORS ----
+osc_x = margin; osc_w = col_w;
+draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
+
+cy = body_y + 28;
+pad = 8;
+inner_w = osc_w - pad * 2;
+
+// OSC 1 section
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", 11);
+gfx_x = osc_x + pad; gfx_y = cy;
+gfx_drawstr("OSC 1");
+
+// Wave icon
+slider1 = draw_wave_sel(osc_x + pad + 50, cy - 2, 42, 22, slider1, 4);
+
+// Level bar next to wave
+slider4 = draw_bar(osc_x + pad + 100, cy, inner_w - 100, bar_h, slider4, 0, 100, "LEVEL", 1);
+cy += bar_sp + 10;  // extra space for wave label beneath
+
+slider2 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider2, -24, 24, "TUNE", 1);
+slider3 = draw_bar(osc_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider3, -100, 100, "FINE", 1);
+cy += bar_sp;
+
+slider5 = draw_bar(osc_x + pad, cy, inner_w, bar_h, slider5, 0, 100, "PW", 1);
+cy += bar_sp + 6;
+
+// Divider line between OSC 1 and OSC 2
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(osc_x + pad, cy - 3, inner_w, 1);
+
+// OSC 2 section
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", 11);
+gfx_x = osc_x + pad; gfx_y = cy;
+gfx_drawstr("OSC 2");
+
+slider6 = draw_wave_sel(osc_x + pad + 50, cy - 2, 42, 22, slider6, 4);
+slider9 = draw_bar(osc_x + pad + 100, cy, inner_w - 100, bar_h, slider9, 0, 100, "LEVEL", 1);
+cy += bar_sp + 10;
+
+slider7 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider7, -24, 24, "TUNE", 1);
+slider8 = draw_bar(osc_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider8, -100, 100, "FINE", 1);
+
+// ---- FILTER ----
+flt_x = osc_x + osc_w + gap;
+flt_w = col_w;
+draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
+
+cy = body_y + 28;
+inner_w = flt_w - pad * 2;
+
+slider15 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider15, 20, 20000, "CUTOFF", 1);
+cy += bar_sp;
+slider16 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider16, 0, 100, "RESONANCE", 1);
+cy += bar_sp;
+slider18 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider18, 0, 100, "ENV AMT", 1);
+cy += bar_sp + 4;
+
+// Filter mode
+filt_mode == 0 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 24dB")
+: filt_mode == 1 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 12dB")
+: filt_mode == 2 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "HP 24dB")
+: draw_mode_sel(flt_x + pad, cy, "MODE:", "BP 12dB");
+
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= flt_x + pad && mouse_x <= flt_x + pad + 140 &&
+  mouse_y >= cy && mouse_y <= cy + 16 ? (
+    slider17 = (slider17 + 1) % 4;
+    filt_mode = slider17;
+);
+
+cy += bar_sp + 2;
+
+// Filter ADSR divider
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(flt_x + pad, cy - 3, inner_w, 1);
+
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = flt_x + pad; gfx_y = cy;
+gfx_drawstr("FILTER ENVELOPE");
+cy += 16;
+
+slider19 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider19, 0, 2000, "A", 1);
+slider20 = draw_bar(flt_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider20, 0, 5000, "D", 1);
+cy += bar_sp;
+slider21 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider21, 0, 100, "S", 1);
+slider22 = draw_bar(flt_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider22, 0, 5000, "R", 1);
+
+// ---- AMP + SCOPE ----
+amp_x = flt_x + flt_w + gap;
+amp_w = gfx_w - amp_x - margin;
+draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
+
+cy = body_y + 28;
+inner_w = amp_w - pad * 2;
+
+slider23 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider23, 0, 2000, "ATTACK", 1);
+cy += bar_sp;
+slider24 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider24, 0, 5000, "DECAY", 1);
+cy += bar_sp;
+slider25 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider25, 0, 100, "SUSTAIN", 1);
+cy += bar_sp;
+slider26 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider26, 0, 5000, "RELEASE", 1);
+cy += bar_sp + 6;
+
+// Scope
+scope_x = amp_x + pad;
+scope_y = cy;
+scope_w = inner_w;
+scope_h = row1_h - (cy - body_y) - pad;
+
+// Scope background
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(scope_x, scope_y, scope_w, scope_h);
+// Scope border
+gfx_r = COL_BORDER_R * 0.5; gfx_g = COL_BORDER_G * 0.5; gfx_b = COL_BORDER_B * 0.5;
+gfx_rect(scope_x, scope_y, scope_w, 1);
+gfx_rect(scope_x, scope_y+scope_h-1, scope_w, 1);
+gfx_rect(scope_x, scope_y, 1, scope_h);
+gfx_rect(scope_x+scope_w-1, scope_y, 1, scope_h);
+
+// Center line
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+gfx_rect(scope_x + 1, scope_y + floor(scope_h/2), scope_w - 2, 1);
+
+// Waveform
+gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; gfx_a = 0.9;
+scope_step = SCOPE_SIZE / scope_w;
+i = 0;
+loop(scope_w,
+  idx = floor(i * scope_step);
+  idx >= SCOPE_SIZE ? idx = SCOPE_SIZE - 1;
+  sv = SCOPE_BUF[(scope_pos + idx) % SCOPE_SIZE];
+  sy = scope_y + scope_h * 0.5 - sv * scope_h * 0.4;
+  sy = max(scope_y + 1, min(scope_y + scope_h - 2, sy));
+  i == 0 ? (
+    gfx_x = scope_x + 1; gfx_y = sy;
+  ) : (
+    gfx_lineto(scope_x + i, sy);
+  );
+  i += 1;
+);
+gfx_a = 1;
+
+// ============================================================================
+//  ROW 2: SUB/UNI | LFO | EFFECTS | PERFORM
+// ============================================================================
+row2_y = body_y + row1_h + gap;
+row2_h = 148;
+col2_w = floor((gfx_w - margin * 2 - gap * 3) / 4);
+
+// ---- SUB / UNISON ----
+sub_x = margin; sub_w = col2_w;
+draw_panel(sub_x, row2_y, sub_w, row2_h, "SUB / UNISON");
+
+cy = row2_y + 28;
+inner_w = sub_w - pad * 2;
+
+slider10 = draw_toggle(sub_x + pad, cy, slider10, "SUB OSC");
+sub_on = slider10;
+cy += 22;
+
+slider11 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider11, 0, 100, "SUB LVL", 1);
+cy += bar_sp;
+slider12 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider12, 0, 100, "NOISE", 1);
+cy += bar_sp;
+slider13 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider13, 1, 8, "UNISON", 1);
+cy += bar_sp;
+slider14 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider14, 0, 100, "DETUNE", 1);
+
+// ---- LFO ----
+lfo_px = sub_x + sub_w + gap;
+lfo_pw = col2_w;
+draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
+
+cy = row2_y + 28;
+inner_w = lfo_pw - pad * 2;
+
+// LFO shape
+lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
+: lfo_shape == 1 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "TRI")
+: lfo_shape == 2 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SAW")
+: lfo_shape == 3 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SQR")
+: lfo_shape == 4 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "S&H")
+: draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "RND");
+
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= lfo_px + pad && mouse_x <= lfo_px + pad + 140 &&
+  mouse_y >= cy && mouse_y <= cy + 16 ? (
+    slider27 = (slider27 + 1) % 6;
+    lfo_shape = slider27;
+);
+cy += bar_sp;
+
+slider28 = draw_bar(lfo_px + pad, cy, inner_w, bar_h, slider28, 0.01, 50, "RATE", 1);
+cy += bar_sp;
+slider30 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider30, 0, 100, ">PIT", 1);
+slider31 = draw_bar(lfo_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider31, 0, 100, ">FLT", 1);
+cy += bar_sp;
+slider32 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider32, 0, 100, ">AMP", 1);
+slider33 = draw_bar(lfo_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider33, 0, 100, ">PWM", 1);
+
+// LFO activity indicator — animated dot
+cy += bar_sp + 2;
+lfo_dot_cx = lfo_px + pad + floor(inner_w / 2);
+lfo_dot_x = lfo_dot_cx + lfo_value * floor(inner_w / 2 - 6);
+// Track line
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(lfo_px + pad, cy + 3, inner_w, 1);
+// Dot
+gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+gfx_circle(lfo_dot_x, cy + 3, 4, 1);
+
+// ---- EFFECTS ----
+fx_px = lfo_px + lfo_pw + gap;
+fx_pw = col2_w;
+draw_panel(fx_px, row2_y, fx_pw, row2_h, "EFFECTS");
+
+cy = row2_y + 28;
+inner_w = fx_pw - pad * 2;
+
+// Drive mode
+drive_type == 0 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "OFF")
+: drive_type == 1 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "WARM")
+: drive_type == 2 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "HOT")
+: draw_mode_sel(fx_px + pad, cy, "DRIVE:", "FUZZ");
+
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= fx_px + pad && mouse_x <= fx_px + pad + 140 &&
+  mouse_y >= cy && mouse_y <= cy + 16 ? (
+    slider38 = (slider38 + 1) % 4;
+    drive_type = slider38;
+);
+cy += bar_sp;
+
+slider39 = draw_bar(fx_px + pad, cy, inner_w, bar_h, slider39, 0, 100, "DRIVE", 1);
+cy += bar_sp + 4;
+
+// Chorus
+slider40 = draw_toggle(fx_px + pad, cy, slider40, "CHORUS");
+chorus_on = slider40;
+slider41 = draw_bar(fx_px + pad + 80, cy, inner_w - 80, bar_h, slider41, 0, 100, "DPTH", 1);
+cy += 22;
+
+// Delay
+slider43 = draw_toggle(fx_px + pad, cy, slider43, "DELAY");
+delay_on = slider43;
+slider44 = draw_bar(fx_px + pad + 80, cy, inner_w - 80, bar_h, slider44, 1, 1000, "TIME", 1);
+cy += 22;
+
+slider45 = draw_bar(fx_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider45, 0, 90, "FB %", 1);
+slider46 = draw_bar(fx_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider46, 0, 100, "MIX", 1);
+
+// ---- PERFORM ----
+perf_px = fx_px + fx_pw + gap;
+perf_pw = gfx_w - perf_px - margin;
+draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
+
+cy = row2_y + 28;
+inner_w = perf_pw - pad * 2;
+
+slider35 = draw_toggle(perf_px + pad, cy, slider35, "GLIDE");
+glide_on = slider35;
+slider34 = draw_bar(perf_px + pad + 80, cy, inner_w - 80, bar_h, slider34, 0, 1000, "ms", 1);
+cy += 24;
+
+slider36 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider36, 0, 100, "VEL > AMP", 1);
+cy += bar_sp;
+slider37 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider37, 0, 100, "VEL > FLT", 1);
+cy += bar_sp;
+slider47 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider47, -24, 24, "MASTER", 1);
+cy += bar_sp;
+slider52 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider52, 0, 100, "FX MIX", 1);
+
+// DrumBanger connection
+cy += bar_sp + 4;
+db_connected ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = perf_px + pad + 18; gfx_y = cy;
+  gfx_drawstr("DRUMBANGER");
+) : (
+  gfx_r = COL_DIM_R * 0.6; gfx_g = COL_DIM_G * 0.6; gfx_b = COL_DIM_B * 0.6;
+  gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = perf_px + pad + 18; gfx_y = cy;
+  gfx_drawstr("DB ---");
+);
+
+// Store mouse state
 last_cap = mouse_cap;
