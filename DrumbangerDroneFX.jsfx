@@ -114,7 +114,6 @@ MOD_FLOOR = LOCK_HAS_DATA + NUM_LOCKS;
 memset(MOD_FLOOR, 0, NUM_MOD_FLOORS);
 
 // Lock mode state
-prev_mode = -1;         // detect mode changes
 lock_seq_step = 0;      // local sequencer step for locked pattern playback
 lock_seq_prev_step = -1;
 
@@ -191,16 +190,6 @@ function buf_read_cubic(buf, pos, bmax)
 
 function get_local_step(slot, step, pad) (
   LOCAL_PAT[slot * 256 + step * 16 + pad];
-);
-
-function set_local_step(slot, step, pad, vel) (
-  LOCAL_PAT[slot * 256 + step * 16 + pad] = vel;
-);
-
-function toggle_local_step(slot, step, pad) local(addr, val) (
-  addr = slot * 256 + step * 16 + pad;
-  val = LOCAL_PAT[addr];
-  val > 0 ? LOCAL_PAT[addr] = 0 : LOCAL_PAT[addr] = 100;
 );
 
 // Get step velocity from the active source (follow=gmem, lock=local)
@@ -301,38 +290,6 @@ db_connected ? (
   db_steps = max(1, gmem[12]);
   db_pattern = gmem[13];
   db_playing = gmem[15];
-
-  // ---- Detect mode change: snapshot on switch to Lock ----
-  slider20 != prev_mode ? (
-    slider20 > 0 ? (
-      lock_slot = slider20 - 1;
-      // Only snapshot if the slot is empty
-      LOCK_HAS_DATA[lock_slot] == 0 ? (
-        src_pat = gmem[13];
-        // Clear the slot first
-        memset(LOCAL_PAT + lock_slot * 256, 0, 256);
-        // Only capture selected pad(s)
-        trig_source == 0 ? (
-          // All pads: copy everything
-          snap_i = 0;
-          loop(NUM_STEPS * NUM_PADS,
-            LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-            snap_i += 1;
-          );
-        ) : (
-          // Single pad: only copy that pad's steps, leave rest zeroed
-          snap_pad = trig_source - 1;
-          snap_s = 0;
-          loop(NUM_STEPS,
-            LOCAL_PAT[lock_slot * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
-            snap_s += 1;
-          );
-        );
-        LOCK_HAS_DATA[lock_slot] = 1;
-      );
-    );
-    prev_mode = slider20;
-  );
 
   // ---- Trigger detection ----
   got_trigger = 0;
@@ -876,31 +833,118 @@ gfx_setfont(1, "Arial", 20);
 gfx_x = 14; gfx_y = 8;
 gfx_drawstr("LMS DRONE FX");
 
-// Mode selector (click to cycle: Follow → Lock 1-8)
-mode_btn_x = 180; mode_btn_y = 6; mode_btn_w = 100; mode_btn_h = 18;
+// ---- MODE SELECTOR: Follow button + 8 lock slot buttons ----
+mode_row_x = 180; mode_row_y = 4;
+follow_w = 58; slot_w = 22; slot_gap = 2; slot_h = 18;
 
-gfx_setfont(1, "Arial", 13);
+// FOLLOW button
+gfx_setfont(1, "Arial", 11);
 gfx_is_follow ? (
-  gfx_r = COL_GREEN_R * 0.3; gfx_g = COL_GREEN_G * 0.3; gfx_b = COL_GREEN_B * 0.3;
-  gfx_rect(mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h);
+  gfx_r = COL_GREEN_R * 0.35; gfx_g = COL_GREEN_G * 0.35; gfx_b = COL_GREEN_B * 0.35;
+  gfx_rect(mode_row_x, mode_row_y, follow_w, slot_h);
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-  gfx_x = mode_btn_x + 4; gfx_y = mode_btn_y + 2;
-  gfx_drawstr("FOLLOW");
 ) : (
-  gfx_r = COL_CYAN_R * 0.3; gfx_g = COL_CYAN_G * 0.3; gfx_b = COL_CYAN_B * 0.3;
-  gfx_rect(mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h);
-  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
-  gfx_x = mode_btn_x + 4; gfx_y = mode_btn_y + 2;
-  gfx_drawstr("LOCK ");
-  gfx_drawnumber(gfx_lock_slot + 1, 0);
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(mode_row_x, mode_row_y, follow_w, slot_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+);
+gfx_x = mode_row_x + 6; gfx_y = mode_row_y + 3;
+gfx_drawstr("FOLLOW");
+
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= mode_row_x && mouse_x < mode_row_x + follow_w &&
+  mouse_y >= mode_row_y && mouse_y < mode_row_y + slot_h ? (
+  slider20 = 0;  // back to follow
 );
 
-// Click mode button to cycle
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= mode_btn_x && mouse_x < mode_btn_x + mode_btn_w &&
-  mouse_y >= mode_btn_y && mouse_y < mode_btn_y + mode_btn_h ? (
-  slider20 = slider20 + 1;
-  slider20 > 8 ? slider20 = 0;
+// 8 lock slot buttons
+slot_base_x = mode_row_x + follow_w + 4;
+gfx_setfont(1, "Arial", 10);
+si = 0;
+loop(NUM_LOCKS,
+  sx = slot_base_x + si * (slot_w + slot_gap);
+  has_data = LOCK_HAS_DATA[si];
+  is_active = (gfx_is_locked && gfx_lock_slot == si);
+
+  is_active ? (
+    // Active lock slot: bright cyan
+    gfx_r = COL_CYAN_R * 0.4; gfx_g = COL_CYAN_G * 0.4; gfx_b = COL_CYAN_B * 0.4;
+    gfx_rect(sx, mode_row_y, slot_w, slot_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  ) : has_data && gfx_is_follow ? (
+    // Occupied slot in Follow mode: ghosted (unclickable)
+    gfx_r = 0.05; gfx_g = 0.07; gfx_b = 0.09;
+    gfx_rect(sx, mode_row_y, slot_w, slot_h);
+    gfx_r = COL_CYAN_R * 0.3; gfx_g = COL_CYAN_G * 0.3; gfx_b = COL_CYAN_B * 0.3;
+  ) : has_data ? (
+    // Occupied slot in Lock mode (not active): dim cyan, clickable to switch
+    gfx_r = COL_CYAN_R * 0.15; gfx_g = COL_CYAN_G * 0.15; gfx_b = COL_CYAN_B * 0.15;
+    gfx_rect(sx, mode_row_y, slot_w, slot_h);
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+  ) : (
+    // Empty slot: dark, clickable from Follow mode to capture
+    gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+    gfx_rect(sx, mode_row_y, slot_w, slot_h);
+    gfx_is_follow ? (
+      gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
+    ) : (
+      gfx_r = COL_DIM_R * 0.3; gfx_g = COL_DIM_G * 0.3; gfx_b = COL_DIM_B * 0.3;
+    );
+  );
+
+  // Border
+  gfx_r = max(gfx_r * 0.5, 0.08); gfx_g = max(gfx_g * 0.5, 0.08); gfx_b = max(gfx_b * 0.5, 0.08);
+  is_active ? (gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;);
+  gfx_rect(sx, mode_row_y, slot_w, 1); gfx_rect(sx, mode_row_y + slot_h - 1, slot_w, 1);
+  gfx_rect(sx, mode_row_y, 1, slot_h); gfx_rect(sx + slot_w - 1, mode_row_y, 1, slot_h);
+
+  // Slot number
+  is_active ? (
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  ) : has_data && gfx_is_follow ? (
+    gfx_r = COL_CYAN_R * 0.3; gfx_g = COL_CYAN_G * 0.3; gfx_b = COL_CYAN_B * 0.3;
+  ) : has_data ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+  ) : gfx_is_follow ? (
+    gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
+  ) : (
+    gfx_r = COL_DIM_R * 0.3; gfx_g = COL_DIM_G * 0.3; gfx_b = COL_DIM_B * 0.3;
+  );
+  gfx_x = sx + 7; gfx_y = mode_row_y + 3;
+  gfx_drawnumber(si + 1, 0);
+
+  // Click handling
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= sx && mouse_x < sx + slot_w &&
+    mouse_y >= mode_row_y && mouse_y < mode_row_y + slot_h ? (
+
+    gfx_is_follow && !has_data ? (
+      // CAPTURE: copy visible (filtered) data from gmem into this slot
+      src_pat = gmem[13];
+      memset(LOCAL_PAT + si * 256, 0, 256);
+      slider1 == 0 ? (
+        snap_i = 0;
+        loop(NUM_STEPS * NUM_PADS,
+          LOCAL_PAT[si * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+          snap_i += 1;
+        );
+      ) : (
+        snap_pad = slider1 - 1;
+        snap_s = 0;
+        loop(NUM_STEPS,
+          LOCAL_PAT[si * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
+          snap_s += 1;
+        );
+      );
+      LOCK_HAS_DATA[si] = 1;
+      slider20 = si + 1;  // switch to that lock slot
+    ) : gfx_is_locked && has_data && !is_active ? (
+      // Switch to another occupied lock slot
+      slider20 = si + 1;
+    );
+  );
+
+  si += 1;
 );
 
 // Trigger Source selector (click to cycle: All → Pad 1-16)
@@ -952,51 +996,12 @@ db_connected ? (
   gfx_drawstr("DB ---");
 );
 
-// ---- RE-CAPTURE and CLEAR buttons (Lock mode only) ----
+// ---- CLEAR button (Lock mode only) — clears slot and returns to Follow ----
 gfx_is_locked ? (
-  recap_btn_w = 90;
-  recap_btn_h = 18;
-  recap_btn_x = gfx_w - 110;
-  recap_btn_y = 35;
-
-  // RE-CAPTURE button
-  gfx_r = COL_CYAN_R * 0.4; gfx_g = COL_CYAN_G * 0.4; gfx_b = COL_CYAN_B * 0.4;
-  gfx_rect(recap_btn_x, recap_btn_y, recap_btn_w, recap_btn_h);
-  gfx_r = COL_CYAN_R * 0.7; gfx_g = COL_CYAN_G * 0.7; gfx_b = COL_CYAN_B * 0.7;
-  gfx_rect(recap_btn_x, recap_btn_y, recap_btn_w, 1);
-  gfx_rect(recap_btn_x, recap_btn_y, 1, recap_btn_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = recap_btn_x + 8; gfx_y = recap_btn_y + 3;
-  gfx_drawstr("RE-CAPTURE");
-
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= recap_btn_x && mouse_x < recap_btn_x + recap_btn_w &&
-    mouse_y >= recap_btn_y && mouse_y < recap_btn_y + recap_btn_h ? (
-    src_pat = gmem[13];
-    memset(LOCAL_PAT + gfx_lock_slot * 256, 0, 256);
-    slider1 == 0 ? (
-      snap_i = 0;
-      loop(NUM_STEPS * NUM_PADS,
-        LOCAL_PAT[gfx_lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-        snap_i += 1;
-      );
-    ) : (
-      snap_pad = slider1 - 1;
-      snap_s = 0;
-      loop(NUM_STEPS,
-        LOCAL_PAT[gfx_lock_slot * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
-        snap_s += 1;
-      );
-    );
-    LOCK_HAS_DATA[gfx_lock_slot] = 1;
-  );
-
-  // CLEAR button
   clear_btn_w = 50;
-  clear_btn_x = recap_btn_x - clear_btn_w - 6;
-  clear_btn_y = recap_btn_y;
-  clear_btn_h = recap_btn_h;
+  clear_btn_h = 16;
+  clear_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + 4;
+  clear_btn_y = mode_row_y + 1;
 
   gfx_r = 0.3; gfx_g = 0.12; gfx_b = 0.12;
   gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, clear_btn_h);
@@ -1005,18 +1010,15 @@ gfx_is_locked ? (
   gfx_rect(clear_btn_x, clear_btn_y, 1, clear_btn_h);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
   gfx_setfont(1, "Arial", 10);
-  gfx_x = clear_btn_x + 8; gfx_y = clear_btn_y + 3;
+  gfx_x = clear_btn_x + 8; gfx_y = clear_btn_y + 2;
   gfx_drawstr("CLEAR");
 
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= clear_btn_x && mouse_x < clear_btn_x + clear_btn_w &&
     mouse_y >= clear_btn_y && mouse_y < clear_btn_y + clear_btn_h ? (
-    clr_i = 0;
-    loop(NUM_STEPS * NUM_PADS,
-      LOCAL_PAT[gfx_lock_slot * 256 + clr_i] = 0;
-      clr_i += 1;
-    );
+    memset(LOCAL_PAT + gfx_lock_slot * 256, 0, 256);
     LOCK_HAS_DATA[gfx_lock_slot] = 0;
+    slider20 = 0;  // back to Follow
   );
 );
 
@@ -1076,14 +1078,6 @@ loop(16,
       gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.12;
       gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
       gfx_a = 1;
-    );
-
-    // Click to toggle step (Lock mode only)
-    gfx_is_locked && LOCK_HAS_DATA[gfx_lock_slot] && s < db_steps &&
-      (mouse_cap & 1) && !(last_cap & 1) &&
-      mouse_x >= cx && mouse_x < cx + cell_w - 1 &&
-      mouse_y >= cy && mouse_y < cy + cell_h - 1 ? (
-      toggle_local_step(gfx_lock_slot, s, p);
     );
 
     s += 1;
@@ -1309,13 +1303,13 @@ notice_show ? (
   gfx_drawstr("HEADER CONTROLS (click to cycle, right-click = reverse)"); _ny += _nl + 2;
   gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("MODE: Follow (live from DrumBanger) / Lock 1-8 (captured pattern)."); _ny += _nl;
+  gfx_drawstr("FOLLOW = live from DrumBanger. Lock slots 1-8 = captured patterns."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  Lock auto-captures on switch. Click grid to edit. RE-CAPTURE / CLEAR buttons."); _ny += _nl;
+  gfx_drawstr("  In Follow: click an empty slot to capture. Occupied slots are ghosted."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("SRC: All Pads or Pad 1-16. Filters which pad drives the sidechain."); _ny += _nl;
+  gfx_drawstr("  In Lock: CLEAR frees the slot and returns to Follow."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  In Follow mode, grid hides non-selected pad rows. Lock captures only selected."); _ny += _nl + 2;
+  gfx_drawstr("SRC: All Pads or Pad 1-16. Hides other rows. Capture only copies visible pads."); _ny += _nl + 2;
 
   gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
   gfx_x = _nx; gfx_y = _ny;
@@ -1362,9 +1356,6 @@ loop(NUM_LOCKS,
   file_var(0, LOCK_HAS_DATA[i]);
   i += 1;
 );
-
-// Save/load prev_mode so mode-change detection doesn't re-trigger on reload
-file_var(0, prev_mode);
 
 // Save/load mod range floor values
 i = 0;
