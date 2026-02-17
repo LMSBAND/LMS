@@ -285,61 +285,6 @@ in_l = spl0;
 in_r = spl1;
 
 // ============================================================
-//  FET COMPRESSOR — sidechain from DrumBanger triggers
-// ============================================================
-//
-// Classic FET topology: fast attack, program-dependent release,
-// soft-knee at threshold, gain reduction driven by trigger envelope.
-// The trigger env acts as the sidechain signal — when a pad fires,
-// the compressor clamps down, creating that pumping sidechain duck.
-
-comp_on ? (
-  // Trigger envelope: fast attack, smooth release
-  trig_active ? (
-    trig_env = trig_env;  // hold at current level while active
-  ) : (
-    trig_env *= trig_rel;  // decay
-    trig_env < 0.001 ? trig_env = 0;
-  );
-
-  // Sidechain level = trigger envelope × duck depth
-  sc_level = trig_env * duck_depth;
-
-  // FET gain computation
-  // When sc_level > threshold, compress
-  sc_level > comp_thresh ? (
-    over = sc_level - comp_thresh;
-    target_gr = comp_thresh + over / comp_ratio;
-    // FET characteristic: soft saturation of gain reduction
-    comp_target = target_gr / sc_level;
-    comp_target = max(0.01, comp_target);
-  ) : (
-    comp_target = 1;
-  );
-
-  // Ballistics: fast attack, slower release (FET style)
-  comp_target < comp_gain ? (
-    comp_gain = comp_gain * comp_att + comp_target * (1 - comp_att);
-  ) : (
-    comp_gain = comp_gain * comp_rel + comp_target * (1 - comp_rel);
-  );
-
-  // Apply FET gain with soft saturation at extreme reduction
-  fet_gain = comp_gain;
-  // FET nonlinearity: slight harmonic warmth at high GR
-  comp_gain < 0.5 ? (
-    in_l = fast_tanh(in_l * 1.2) * fet_gain;
-    in_r = fast_tanh(in_r * 1.2) * fet_gain;
-  ) : (
-    in_l *= fet_gain;
-    in_r *= fet_gain;
-  );
-
-  // Store GR for display (in dB)
-  comp_gr_display = comp_gain < 0.999 ? -20 * log10(max(0.001, comp_gain)) : 0;
-);
-
-// ============================================================
 //  TAPE DELAY — from lms_tape_echo, simplified single-head
 // ============================================================
 
@@ -439,6 +384,61 @@ flange_on ? (
 
   flange_wpos += 1;
   flange_wpos >= FLANGE_BUF_SIZE ? flange_wpos = 0;
+);
+
+// ============================================================
+//  FET COMPRESSOR — sidechain from DrumBanger triggers
+// ============================================================
+//
+// Classic FET topology: fast attack, program-dependent release,
+// soft-knee at threshold, gain reduction driven by trigger envelope.
+// The trigger env acts as the sidechain signal — when a pad fires,
+// the compressor clamps down, creating that pumping sidechain duck.
+
+comp_on ? (
+  // Trigger envelope: fast attack, smooth release
+  trig_active ? (
+    trig_env = trig_env;  // hold at current level while active
+  ) : (
+    trig_env *= trig_rel;  // decay
+    trig_env < 0.001 ? trig_env = 0;
+  );
+
+  // Sidechain level = trigger envelope × duck depth
+  sc_level = trig_env * duck_depth;
+
+  // FET gain computation
+  // When sc_level > threshold, compress
+  sc_level > comp_thresh ? (
+    over = sc_level - comp_thresh;
+    target_gr = comp_thresh + over / comp_ratio;
+    // FET characteristic: soft saturation of gain reduction
+    comp_target = target_gr / sc_level;
+    comp_target = max(0.01, comp_target);
+  ) : (
+    comp_target = 1;
+  );
+
+  // Ballistics: fast attack, slower release (FET style)
+  comp_target < comp_gain ? (
+    comp_gain = comp_gain * comp_att + comp_target * (1 - comp_att);
+  ) : (
+    comp_gain = comp_gain * comp_rel + comp_target * (1 - comp_rel);
+  );
+
+  // Apply FET gain with soft saturation at extreme reduction
+  fet_gain = comp_gain;
+  // FET nonlinearity: slight harmonic warmth at high GR
+  comp_gain < 0.5 ? (
+    in_l = fast_tanh(in_l * 1.2) * fet_gain;
+    in_r = fast_tanh(in_r * 1.2) * fet_gain;
+  ) : (
+    in_l *= fet_gain;
+    in_r *= fet_gain;
+  );
+
+  // Store GR for display (in dB)
+  comp_gr_display = comp_gain < 0.999 ? -20 * log10(max(0.001, comp_gain)) : 0;
 );
 
 // ============================================================
