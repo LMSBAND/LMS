@@ -151,8 +151,11 @@ slider75:0<-12,12,0.1>-Comp Input Gain (dB)
 //
 // 50400-58591: TIE_BASE — step ties (8 pat * 64 steps * 16 pads = 8192)
 //   address = 50400 + N*1024 + S*16 + P, value = 0 or 1 (tie into next step)
-// 58700-59199: MENU_MAP (temp: maps menu selection -> pool index)
-// 59200+:      sample data buffer (loaded via file_open)
+// 58600-66791: PLOCK_VOL_BASE — volume parameter locks (8 pat * 64 * 16)
+// 66800-74991: PLOCK_PAN_BASE — pan parameter locks
+// 75000-83191: PLOCK_PITCH_BASE — pitch parameter locks
+// 83200-83699: MENU_MAP (temp: maps menu selection -> pool index)
+// 83700+:      sample data buffer (loaded via file_open)
 
 @init
 
@@ -215,8 +218,11 @@ SUB_SEQ_BASE  = 9200;    // 8 pat * 64 steps * 16 pads * 3 subs = 24576 (9200-33
 PLOCK_LP_BASE = 34000;   // 8 pat * 64 steps * 16 pads = 8192 (34000-42191)
 PLOCK_HP_BASE = 42200;   // same = 8192 (42200-50391)
 TIE_BASE      = 50400;   // 8 pat * 64 steps * 16 pads = 8192 (50400-58591)
-MENU_MAP      = 58700;   // temp: maps pool menu index -> pool manifest index (up to 500)
-SAMPLE_BUF    = 59200;
+PLOCK_VOL_BASE   = 58600;  // 8 pat * 64 steps * 16 pads = 8192 (58600-66791)
+PLOCK_PAN_BASE   = 66800;  // same = 8192 (66800-74991)
+PLOCK_PITCH_BASE = 75000;  // same = 8192 (75000-83191)
+MENU_MAP      = 83200;   // temp: maps pool menu index -> pool manifest index (up to 500)
+SAMPLE_BUF    = 83700;
 
 // ---- Sequencer state ----
 seq_step = 0;
@@ -466,6 +472,12 @@ function scan_kits() local(mf, kit_idx) (
   loop(8192, PLOCK_LP_BASE[i] = -1; i += 1);
   i = 0;
   loop(8192, PLOCK_HP_BASE[i] = -1; i += 1);
+  i = 0;
+  loop(8192, PLOCK_VOL_BASE[i] = -999; i += 1);
+  i = 0;
+  loop(8192, PLOCK_PAN_BASE[i] = -999; i += 1);
+  i = 0;
+  loop(8192, PLOCK_PITCH_BASE[i] = -999; i += 1);
   // Initialize per-pattern bar counts (default 1 bar)
   i = 0;
   loop(NUM_PATTERNS,
@@ -740,6 +752,30 @@ function set_plock_hp(pattern, step, pad, val) (
   plock_addr(PLOCK_HP_BASE, pattern, step, pad)[] = val;
 );
 
+function get_plock_vol(pattern, step, pad) (
+  plock_addr(PLOCK_VOL_BASE, pattern, step, pad)[];
+);
+
+function set_plock_vol(pattern, step, pad, val) (
+  plock_addr(PLOCK_VOL_BASE, pattern, step, pad)[] = val;
+);
+
+function get_plock_pan(pattern, step, pad) (
+  plock_addr(PLOCK_PAN_BASE, pattern, step, pad)[];
+);
+
+function set_plock_pan(pattern, step, pad, val) (
+  plock_addr(PLOCK_PAN_BASE, pattern, step, pad)[] = val;
+);
+
+function get_plock_pitch(pattern, step, pad) (
+  plock_addr(PLOCK_PITCH_BASE, pattern, step, pad)[];
+);
+
+function set_plock_pitch(pattern, step, pad, val) (
+  plock_addr(PLOCK_PITCH_BASE, pattern, step, pad)[] = val;
+);
+
 // ---- Pad copy function (copies all settings from src to dst) ----
 function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
   // Sliders: vol, pan, pitch, LP, HP
@@ -781,6 +817,9 @@ function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
       set_tie(copy_i, _cs, dst, get_tie(copy_i, _cs, src));
       set_plock_lp(copy_i, _cs, dst, get_plock_lp(copy_i, _cs, src));
       set_plock_hp(copy_i, _cs, dst, get_plock_hp(copy_i, _cs, src));
+      set_plock_vol(copy_i, _cs, dst, get_plock_vol(copy_i, _cs, src));
+      set_plock_pan(copy_i, _cs, dst, get_plock_pan(copy_i, _cs, src));
+      set_plock_pitch(copy_i, _cs, dst, get_plock_pitch(copy_i, _cs, src));
       _cs += 1;
     );
     copy_i += 1;
@@ -907,6 +946,12 @@ seq_mode && transport_playing && (timeline_step != seq_step || transport_started
   p = 0;
   loop(NUM_PADS,
     // Apply parameter locks for this step
+    plock_val = get_plock_vol(cur_pattern, timeline_step, p);
+    plock_val > -900 ? slider(10 + p) = plock_val;
+    plock_val = get_plock_pan(cur_pattern, timeline_step, p);
+    plock_val > -900 ? slider(30 + p) = plock_val;
+    plock_val = get_plock_pitch(cur_pattern, timeline_step, p);
+    plock_val > -900 ? slider(50 + p) = plock_val;
     plock_val = get_plock_lp(cur_pattern, timeline_step, p);
     plock_val >= 0 ? slider(80 + p) = plock_val;
     plock_val = get_plock_hp(cur_pattern, timeline_step, p);
@@ -1943,7 +1988,10 @@ loop(NUM_STEPS,
   // Parameter lock indicator (small cyan dot on locked steps)
   s < steps_per_bar ? (
     get_plock_lp(gfx_cur_pattern, gfx_global_step, ui_selected_pad) >= 0 ||
-    get_plock_hp(gfx_cur_pattern, gfx_global_step, ui_selected_pad) >= 0 ? (
+    get_plock_hp(gfx_cur_pattern, gfx_global_step, ui_selected_pad) >= 0 ||
+    get_plock_vol(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ||
+    get_plock_pan(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ||
+    get_plock_pitch(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ? (
       gfx_r = 0.2; gfx_g = 0.8; gfx_b = 1.0;
       gfx_rect(sx + step_w / 2 - 2, sy + step_h - 5, 4, 3);
     );
@@ -2121,6 +2169,9 @@ mouse_cap & 1 && !last_mouse_cap ? (
         set_sub_seq_step(cp, gfx_cp_s, gfx_cp_p, 3, 0);
         set_plock_lp(cp, gfx_cp_s, gfx_cp_p, -1);
         set_plock_hp(cp, gfx_cp_s, gfx_cp_p, -1);
+        set_plock_vol(cp, gfx_cp_s, gfx_cp_p, -999);
+        set_plock_pan(cp, gfx_cp_s, gfx_cp_p, -999);
+        set_plock_pitch(cp, gfx_cp_s, gfx_cp_p, -999);
         gfx_cp_s += 1;
       );
       gfx_cp_p += 1;
@@ -2176,6 +2227,9 @@ mouse_cap & 1 && !last_mouse_cap ? (
           set_sub_seq_step(dst_pat, gfx_ds, gfx_dp, 3, get_sub_seq_step(src_pat, gfx_ds, gfx_dp, 3));
           set_plock_lp(dst_pat, gfx_ds, gfx_dp, get_plock_lp(src_pat, gfx_ds, gfx_dp));
           set_plock_hp(dst_pat, gfx_ds, gfx_dp, get_plock_hp(src_pat, gfx_ds, gfx_dp));
+          set_plock_vol(dst_pat, gfx_ds, gfx_dp, get_plock_vol(src_pat, gfx_ds, gfx_dp));
+          set_plock_pan(dst_pat, gfx_ds, gfx_dp, get_plock_pan(src_pat, gfx_ds, gfx_dp));
+          set_plock_pitch(dst_pat, gfx_ds, gfx_dp, get_plock_pitch(src_pat, gfx_ds, gfx_dp));
           gfx_ds += 1;
         );
         gfx_dp += 1;
@@ -2823,13 +2877,17 @@ gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w, ctrl_h);
 gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
 gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w * cur_vol, ctrl_h);
 
-// Drag to adjust volume
+// Drag to adjust volume (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 1 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
   mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
     drag_id = 1;
     new_vol = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
     slider(10 + sp) = new_vol;
+    // Record parameter lock
+    slider6 == 1 && seq_mode && transport_playing ? (
+      set_plock_vol(slider3, seq_step, sp, new_vol);
+    );
   );
 );
 
@@ -2861,13 +2919,17 @@ gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
 pan_px = ctrl_x + pan_norm * ctrl_bar_w;
 gfx_rect(pan_px - 4, ctrl_y2, 8, ctrl_h);
 
-// Drag to adjust pan
+// Drag to adjust pan (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 2 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
   mouse_y >= ctrl_y2 && mouse_y < ctrl_y2 + ctrl_h ? (
     drag_id = 2;
     new_pan = max(-1, min(1, ((mouse_x - ctrl_x) / ctrl_bar_w) * 2 - 1));
     slider(30 + sp) = new_pan;
+    // Record parameter lock
+    slider6 == 1 && seq_mode && transport_playing ? (
+      set_plock_pan(slider3, seq_step, sp, new_pan);
+    );
   );
 );
 
@@ -2893,7 +2955,7 @@ gfx_r = 0.5; gfx_g = 0.6; gfx_b = 1.0;
 pitch_px = ctrl_x + max(0, min(1, pitch_norm)) * ctrl_bar_w;
 gfx_rect(pitch_px - 4, ctrl_y3, 8, ctrl_h);
 
-// Drag to adjust pitch
+// Drag to adjust pitch (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 3 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
   mouse_y >= ctrl_y3 && mouse_y < ctrl_y3 + ctrl_h ? (
@@ -2902,6 +2964,10 @@ mouse_cap & 1 && (drag_id == 3 || (drag_id == 0 && drag_cooldown == 0)) ? (
     // Snap to semitones
     new_pitch = floor(new_pitch + 0.5);
     slider(50 + sp) = new_pitch;
+    // Record parameter lock
+    slider6 == 1 && seq_mode && transport_playing ? (
+      set_plock_pitch(slider3, seq_step, sp, new_pitch);
+    );
   );
 );
 
@@ -3536,7 +3602,11 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("SAMPLE: requires drumbanger_service.lua running (Actions > Run ReaScript)."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("SLICING: SUBDIV chops sample, SLICE picks which slice, NUDGE fine-tunes start."); _ny += _nl + 6;
+  gfx_drawstr("SLICING: SUBDIV chops sample, SLICE picks which slice, NUDGE fine-tunes start."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("REC: arms p-lock recording. Tweak VOL/PAN/PITCH/LP/HP while playing to automate per-step."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Cyan dot on step = has parameter lock. CLR PAT clears all locks."); _ny += _nl + 6;
 
   // -- DRONE MODULES --
   gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
@@ -3587,7 +3657,7 @@ notice_show ? (
 // ============================================================
 @serialize
 
-serial_version = 7;
+serial_version = 8;
 file_var(0, serial_version);
 // After file_var: serial_version = 7 when saving, = saved version when loading
 
@@ -3740,4 +3810,11 @@ serial_version >= 7 ? (
   i = 0; loop(NUM_PADS, file_var(0, PAD_LINK_ROLE[i]); i += 1);
   i = 0; loop(NUM_PADS, file_var(0, PAD_CHOKE_GROUP[i]); i += 1);
   i = 0; loop(8192, file_var(0, TIE_BASE[i]); i += 1);
+);
+
+// v8: vol/pan/pitch parameter locks
+serial_version >= 8 ? (
+  i = 0; loop(8192, file_var(0, PLOCK_VOL_BASE[i]); i += 1);
+  i = 0; loop(8192, file_var(0, PLOCK_PAN_BASE[i]); i += 1);
+  i = 0; loop(8192, file_var(0, PLOCK_PITCH_BASE[i]); i += 1);
 );
