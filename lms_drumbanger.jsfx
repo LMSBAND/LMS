@@ -589,7 +589,8 @@ function kill_pad(pad) (
   );
 );
 
-function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start, cg, lg, lp) (
+// Core trigger: starts playback + crossfade, no choke/link processing
+function trigger_pad_core(pad, vel) local(v, subdiv, slice, slice_len, slice_start) (
   pad >= 0 && pad < NUM_PADS ? (
     // If already playing, save old voice for crossfade-out
     PAD_PLAYING[pad] ? (
@@ -616,6 +617,13 @@ function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start, c
 
     PAD_VELOCITY[pad] = v;
     PAD_DECAY[pad] = 1.0;
+  );
+);
+
+// Full trigger: core playback + choke groups + Daddy/Bootlicker link groups
+function trigger_pad(pad, vel) local(cg, lg, lp) (
+  pad >= 0 && pad < NUM_PADS ? (
+    trigger_pad_core(pad, vel);
 
     // -- Choke group: kill other pads in same group --
     cg = PAD_CHOKE_GROUP[pad];
@@ -635,7 +643,7 @@ function trigger_pad(pad, vel) local(v, subdiv, slice, slice_len, slice_start, c
         lp = 0;
         loop(NUM_PADS,
           lp != pad && PAD_LINK_GROUP[lp] == lg && PAD_LINK_ROLE[lp] == 1 ? (
-            trigger_pad(lp, vel);
+            trigger_pad_core(lp, vel);
           );
           lp += 1;
         );
