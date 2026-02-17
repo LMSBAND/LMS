@@ -531,6 +531,7 @@ gfx_sample_blink = 0;    // blink counter for SAMPLING... animation
 prev_service_hb = 0;     // previous heartbeat value from service
 service_hb_stale = 0;    // frames since last heartbeat change
 service_alive = 0;       // 1 if service is running
+warn_timer = 0;          // countdown for warning banner display
 
 // Waveform cache
 wf_cached_pad = -1;      // which pad the cache is for
@@ -1577,7 +1578,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
 gfx_bar_btn_w = 18;
 gfx_bar_btn_h = 16;
 gfx_bar_btn_gap = 2;
-gfx_bar_label_x = gfx_res_x + gfx_res_w + 12;
+gfx_bar_label_x = gfx_choke_x + gfx_choke_w + 12;
 gfx_bar_btn_x0 = gfx_bar_label_x + 38;
 gfx_bar_btn_y = seq_grid_y - 18;
 
@@ -2285,16 +2286,21 @@ sample_btn_state == 2 ? gfx_drawstr("LOADED!") :
 sample_btn_state == 3 ? gfx_drawstr("ERROR!") :
 gfx_drawstr("SAMPLE");
 
-// Click: fire sample request
+// Click: fire sample request (or warn if service not running)
 mouse_cap & 1 && !(last_mouse_cap & 1) ? (
   mouse_x >= gfx_sample_x && mouse_x < gfx_sample_x + gfx_sample_w &&
   mouse_y >= gfx_sample_y && mouse_y < gfx_sample_y + gfx_sample_h ? (
     sample_btn_state == 0 ? (
-      gmem[4] = ui_selected_pad;
-      gmem[3] = 1;
-      sample_btn_state = 1;
-      gfx_sample_blink = 0;
-      sample_btn_timeout = 0;
+      !service_alive ? (
+        // Service not running — show warning banner
+        warn_timer = 120;
+      ) : (
+        gmem[4] = ui_selected_pad;
+        gmem[3] = 1;
+        sample_btn_state = 1;
+        gfx_sample_blink = 0;
+        sample_btn_timeout = 0;
+      );
     );
   );
 );
@@ -3374,6 +3380,17 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
   );
 );
 
+// --- WARNING BANNER (service not running, etc.) ---
+warn_timer > 0 ? (
+  warn_timer -= 1;
+  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, 20);
+  gfx_a = 1;
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gfx_x = 10; gfx_y = 3;
+  gfx_drawstr("Run drumbanger_service.lua first! (Actions \xE2\x86\x92 Run ReaScript)");
+);
+
 // --- NOTICE BUTTON ---
 notice_btn_x = gfx_w - 60;
 notice_btn_y = gfx_h - 18;
@@ -3391,28 +3408,87 @@ notice_show ? (
   gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
   gfx_rect(0, 0, gfx_w, gfx_h);
   gfx_a = 1;
+  gfx_setfont(1, "Arial", 10);
+  _nx = 15; _ny = 8; _nl = 13;
+  // -- Title --
   gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
-  gfx_x = 15; gfx_y = 10;
+  gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+  _ny += _nl + 4;
   gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
-  gfx_x = 15; gfx_y = 35;
-  gfx_drawstr("The algorithms in our favorite software are decades old.");
-  gfx_x = 15; gfx_y = 50;
-  gfx_drawstr("A mathematical model is a truth about the world,");
-  gfx_x = 15; gfx_y = 65;
-  gfx_drawstr("not a copyrightable product. Our digital products are all");
-  gfx_x = 15; gfx_y = 80;
-  gfx_drawstr("Turing machines replicating our favorite physical machines,");
-  gfx_x = 15; gfx_y = 95;
-  gfx_drawstr("with math.");
-  gfx_x = 15; gfx_y = 120;
-  gfx_drawstr("You do not have to stay a slave to subscription software.");
-  gfx_x = 15; gfx_y = 135;
-  gfx_drawstr("Install Linux. Build your own tools. Believe in yourself.");
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("The algorithms in our favorite software are decades old. A mathematical model is a"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("truth about the world, not a copyrightable product. You do not have to stay a slave"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("to subscription software. Install Linux. Build your own tools. Believe in yourself."); _ny += _nl + 2;
   gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
-  gfx_x = 15; gfx_y = 165;
-  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
-  // Redraw NOTICE button on top of overlay so it's clickable
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND"); _ny += _nl + 6;
+
+  // -- DRUMBANGER instructions (left column) --
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DRUMBANGER"); _ny += _nl + 2;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("PADS: Click to trigger + select. Drag VOL/PAN/PITCH/LP/HP/SAT/COMP/GAIN."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("MIDI notes 36-51 (C1-D#2) trigger pads 1-16."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("STEPS: Click to toggle. Shift+click = TIE (sustain into next step)."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("RES: cycle 1x/2x/4x step resolution. BARS: L-click extend, R-click shrink."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("LINK: L-click = cycle group (1-8). R-click = toggle Daddy (D) / Bootlicker (B)."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Daddy triggers all Bootlickers in same group. (e.g. D1 fires all B1 pads)"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("CHOKE: L-click = cycle group (1-8). Pads in same group cut each other off."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("POOL: browse + assign samples per-pad. FOLDER filters by subfolder."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("SAMPLE: requires drumbanger_service.lua running (Actions > Run ReaScript)."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("SLICING: SUBDIV chops sample, SLICE picks which slice, NUDGE fine-tunes start."); _ny += _nl + 6;
+
+  // -- DRONE MODULES --
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DRONE MODULES — Satellites that ride the DrumBanger sequencer"); _ny += _nl + 2;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("Signal chain: DroneMIDI (or MIDI2) > Synth > DroneFX"); _ny += _nl + 2;
+
+  gfx_r = 0.7; gfx_g = 0.8; gfx_b = 0.6;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DroneFX"); _ny += _nl;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Audio FX triggered by pad activity. Modes: Sidechain (duck) / Gate (cut)."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Built-in Filter, Flanger, Delay (tempo-synced, mono/ping-pong)."); _ny += _nl + 2;
+
+  gfx_r = 0.7; gfx_g = 0.8; gfx_b = 0.6;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DroneMIDI"); _ny += _nl;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Turns drum triggers into melodic MIDI. Scales, chords, arpeggiator."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  8 scales, 8 chord types, arp modes: Up/Down/Up-Down/Random."); _ny += _nl + 2;
+
+  gfx_r = 0.7; gfx_g = 0.8; gfx_b = 0.6;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("DroneMIDI2"); _ny += _nl;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Simpler MIDI sequencer with Follow/Lock workflow."); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Follow = live pattern. Lock 1-8 = capture + edit snapshots."); _ny += _nl;
+
+  gfx_setfont(1, "Arial", 12);
+  // Redraw NOTICE button on top so it's clickable
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
   gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
