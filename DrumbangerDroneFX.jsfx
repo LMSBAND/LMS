@@ -49,6 +49,11 @@ slider19:0<-24,24,0.1>Output (dB)
 // -- Mode: Follow (live from DrumBanger) or Lock (captured pattern) --
 slider20:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>Mode
 
+// -- Mod Targets: which parameter each effect modulates from pattern velocity --
+slider21:0<0,3,1{None,Duck Depth,Threshold,Ratio}>Comp Mod
+slider22:0<0,3,1{None,Mix,Feedback,Wow/Flutter}>Delay Mod
+slider23:0<0,3,1{None,Depth,Rate,Mix}>Flanger Mod
+
 in_pin:Left
 in_pin:Right
 out_pin:Left
@@ -104,6 +109,11 @@ memset(LOCK_HAS_DATA, 0, NUM_LOCKS);
 prev_mode = -1;         // detect mode changes
 lock_seq_step = 0;      // local sequencer step for locked pattern playback
 lock_seq_prev_step = -1;
+
+// Mod targets
+comp_mod_target = 0;
+delay_mod_target = 0;
+flanger_mod_target = 0;
 
 // FET compressor state
 comp_env = 0;
@@ -227,6 +237,10 @@ flange_mix = slider18 / 100;
 
 master_vol = 10 ^ (slider19 / 20);
 
+comp_mod_target = slider21;
+delay_mod_target = slider22;
+flanger_mod_target = slider23;
+
 // Trigger envelope attack/release for sidechain
 trig_att = exp(-1 / (0.5 * 0.001 * srate));   // 0.5ms — instant
 trig_rel = exp(-1 / (80 * 0.001 * srate));     // 80ms decay
@@ -258,6 +272,9 @@ flange_depth = slider16 / 100;
 flange_fb = slider17 / 100 * 0.95;
 flange_mix = slider18 / 100;
 master_vol = 10 ^ (slider19 / 20);
+comp_mod_target = slider21;
+delay_mod_target = slider22;
+flanger_mod_target = slider23;
 trig_att = exp(-1 / (0.5 * 0.001 * srate));
 trig_rel = exp(-1 / (80 * 0.001 * srate));
 
@@ -284,10 +301,24 @@ db_connected ? (
       // Only snapshot if the slot is empty
       LOCK_HAS_DATA[lock_slot] == 0 ? (
         src_pat = gmem[13];
-        snap_i = 0;
-        loop(NUM_STEPS * NUM_PADS,
-          LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-          snap_i += 1;
+        // Clear the slot first
+        memset(LOCAL_PAT + lock_slot * 256, 0, 256);
+        // Only capture selected pad(s)
+        trig_source == 0 ? (
+          // All pads: copy everything
+          snap_i = 0;
+          loop(NUM_STEPS * NUM_PADS,
+            LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+            snap_i += 1;
+          );
+        ) : (
+          // Single pad: only copy that pad's steps, leave rest zeroed
+          snap_pad = trig_source - 1;
+          snap_s = 0;
+          loop(NUM_STEPS,
+            LOCAL_PAT[lock_slot * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
+            snap_s += 1;
+          );
         );
         LOCK_HAS_DATA[lock_slot] = 1;
       );
@@ -390,11 +421,24 @@ db_connected ? (
 in_l = spl0;
 in_r = spl1;
 
+// ---- Shared trigger envelope decay (used by all mod targets) ----
+trig_active ? (
+  trig_env = trig_env;  // hold while active
+) : (
+  trig_env *= trig_rel;  // decay
+  trig_env < 0.001 ? trig_env = 0;
+);
+
 // ============================================================
 //  TAPE DELAY — from lms_tape_echo, simplified single-head
 // ============================================================
 
 delay_on ? (
+  // Modulation from pattern velocity
+  eff_delay_mix = delay_mod_target == 1 ? delay_mix * trig_env : delay_mix;
+  eff_delay_feedback = delay_mod_target == 2 ? delay_feedback * trig_env : delay_feedback;
+  eff_wf_amount = delay_mod_target == 3 ? wf_amount * trig_env : wf_amount;
+
   // ---- Wow & Flutter ----
   wow_phase += 0.5 / srate;
   wow_phase >= 1 ? wow_phase -= 1;
@@ -406,11 +450,11 @@ delay_on ? (
   // Flutter: sine
   flutter_val = sin(2 * $pi * flutter_phase);
 
-  total_mod = (wow_val * 3.0 + flutter_val * 0.5) * wf_amount * srate / 1000;
+  total_mod = (wow_val * 3.0 + flutter_val * 0.5) * eff_wf_amount * srate / 1000;
 
   // ---- Write: input + feedback with tape saturation ----
-  tape_in_l = in_l + fb_l * delay_feedback;
-  tape_in_r = in_r + fb_r * delay_feedback;
+  tape_in_l = in_l + fb_l * eff_delay_feedback;
+  tape_in_r = in_r + fb_r * eff_delay_feedback;
 
   // Tape saturation in the write path
   tape_age > 0.01 ? (
@@ -436,8 +480,8 @@ delay_on ? (
   fb_r = fb_lp_r;
 
   // ---- Mix ----
-  in_l = in_l * (1 - delay_mix) + wet_l * delay_mix;
-  in_r = in_r * (1 - delay_mix) + wet_r * delay_mix;
+  in_l = in_l * (1 - eff_delay_mix) + wet_l * eff_delay_mix;
+  in_r = in_r * (1 - eff_delay_mix) + wet_r * eff_delay_mix;
 
   delay_wpos += 1;
   delay_wpos >= DELAY_BUF_SIZE ? delay_wpos = 0;
@@ -452,12 +496,17 @@ delay_on ? (
 // Feedback runs through tanh for warm self-oscillation at high settings.
 
 flange_on ? (
+  // Modulation from pattern velocity
+  eff_flange_depth = flanger_mod_target == 1 ? flange_depth * trig_env : flange_depth;
+  eff_flange_rate = flanger_mod_target == 2 ? flange_rate * trig_env : flange_rate;
+  eff_flange_mix = flanger_mod_target == 3 ? flange_mix * trig_env : flange_mix;
+
   // Write to flange buffer
   FLANGE_BUF_L[flange_wpos] = in_l + flange_fb_l * flange_fb;
   FLANGE_BUF_R[flange_wpos] = in_r + flange_fb_r * flange_fb;
 
   // LFO — triangle for smooth sweep
-  flange_lfo_phase += flange_rate / srate;
+  flange_lfo_phase += eff_flange_rate / srate;
   flange_lfo_phase >= 1 ? flange_lfo_phase -= 1;
   flange_lfo = flange_lfo_phase < 0.5 ? (flange_lfo_phase * 4 - 1) : (3 - flange_lfo_phase * 4);
 
@@ -466,8 +515,8 @@ flange_on ? (
   mod_range = 0.005 * srate;        // ±5ms sweep at full depth
 
   // Stereo: L and R slightly offset for width
-  delay_l = base_delay + flange_lfo * mod_range * flange_depth;
-  delay_r = base_delay - flange_lfo * mod_range * flange_depth * 0.85;  // slightly asymmetric
+  delay_l = base_delay + flange_lfo * mod_range * eff_flange_depth;
+  delay_r = base_delay - flange_lfo * mod_range * eff_flange_depth * 0.85;  // slightly asymmetric
 
   delay_l = max(1, min(delay_l, FLANGE_BUF_SIZE - 2));
   delay_r = max(1, min(delay_r, FLANGE_BUF_SIZE - 2));
@@ -485,40 +534,49 @@ flange_on ? (
   flange_fb_r = fast_tanh(fl_out_r);
 
   // Mix — heavy mix for exaggerated effect
-  in_l = in_l * (1 - flange_mix) + fl_out_l * flange_mix;
-  in_r = in_r * (1 - flange_mix) + fl_out_r * flange_mix;
+  in_l = in_l * (1 - eff_flange_mix) + fl_out_l * eff_flange_mix;
+  in_r = in_r * (1 - eff_flange_mix) + fl_out_r * eff_flange_mix;
 
   flange_wpos += 1;
   flange_wpos >= FLANGE_BUF_SIZE ? flange_wpos = 0;
 );
 
 // ============================================================
-//  FET COMPRESSOR — sidechain from DrumBanger triggers
+//  FET COMPRESSOR — sidechain or output mode
 // ============================================================
 //
-// Classic FET topology: fast attack, program-dependent release,
-// soft-knee at threshold, gain reduction driven by trigger envelope.
-// The trigger env acts as the sidechain signal — when a pad fires,
-// the compressor clamps down, creating that pumping sidechain duck.
+// comp_mod_target: 0=None (normal comp on audio), 1=Duck Depth,
+//                  2=Threshold, 3=Ratio (modulated by pattern velocity)
 
 comp_on ? (
-  // Trigger envelope: fast attack, smooth release
-  trig_active ? (
-    trig_env = trig_env;  // hold at current level while active
+  // Determine sidechain level and effective parameters based on mod target
+  comp_mod_target == 0 ? (
+    // OUTPUT MODE: normal compressor on audio signal
+    sc_level = max(abs(in_l), abs(in_r));
+    eff_duck = duck_depth;
+    eff_thresh = comp_thresh;
+    eff_ratio = comp_ratio;
+  ) : comp_mod_target == 1 ? (
+    // SIDECHAIN: Duck Depth modulated by velocity
+    sc_level = trig_env * duck_depth;
+    eff_thresh = comp_thresh;
+    eff_ratio = comp_ratio;
+  ) : comp_mod_target == 2 ? (
+    // SIDECHAIN: Threshold modulated (high vel = lower threshold = more compression)
+    sc_level = trig_env * duck_depth;
+    eff_thresh = comp_thresh + (1 - trig_env) * (1 - comp_thresh);
+    eff_ratio = comp_ratio;
   ) : (
-    trig_env *= trig_rel;  // decay
-    trig_env < 0.001 ? trig_env = 0;
+    // SIDECHAIN: Ratio modulated (high vel = higher ratio)
+    sc_level = trig_env * duck_depth;
+    eff_thresh = comp_thresh;
+    eff_ratio = 1 + (comp_ratio - 1) * trig_env;
   );
 
-  // Sidechain level = trigger envelope × duck depth
-  sc_level = trig_env * duck_depth;
-
   // FET gain computation
-  // When sc_level > threshold, compress
-  sc_level > comp_thresh ? (
-    over = sc_level - comp_thresh;
-    target_gr = comp_thresh + over / comp_ratio;
-    // FET characteristic: soft saturation of gain reduction
+  sc_level > eff_thresh ? (
+    over = sc_level - eff_thresh;
+    target_gr = eff_thresh + over / eff_ratio;
     comp_target = target_gr / sc_level;
     comp_target = max(0.01, comp_target);
   ) : (
@@ -534,7 +592,6 @@ comp_on ? (
 
   // Apply FET gain with soft saturation at extreme reduction
   fet_gain = comp_gain;
-  // FET nonlinearity: slight harmonic warmth at high GR
   comp_gain < 0.5 ? (
     in_l = fast_tanh(in_l * 1.2) * fet_gain;
     in_r = fast_tanh(in_r * 1.2) * fet_gain;
@@ -576,7 +633,7 @@ spl1 = in_r;
 // ============================================================
 //  @GFX
 // ============================================================
-@gfx 680 460
+@gfx 680 490
 
 // ---- Colors ----
 COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
@@ -683,6 +740,56 @@ function draw_toggle(tx, ty, is_on, label) (
   is_on;
 );
 
+// Mod target selector: click to cycle through options
+// Returns new value. Labels are 4 strings for options 0-3.
+function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3) (
+  // Background
+  cur > 0 ? (
+    gfx_r = COL_ACCENT_R * 0.2; gfx_g = COL_ACCENT_G * 0.2; gfx_b = COL_ACCENT_B * 0.2;
+  ) : (
+    gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  );
+  gfx_rect(sx, sy, sw, sh);
+
+  // Border
+  cur > 0 ? (
+    gfx_r = COL_ACCENT_R * 0.5; gfx_g = COL_ACCENT_G * 0.5; gfx_b = COL_ACCENT_B * 0.5;
+  ) : (
+    gfx_r = COL_BORDER_R * 0.6; gfx_g = COL_BORDER_G * 0.6; gfx_b = COL_BORDER_B * 0.6;
+  );
+  gfx_rect(sx, sy, sw, 1); gfx_rect(sx, sy+sh-1, sw, 1);
+  gfx_rect(sx, sy, 1, sh); gfx_rect(sx+sw-1, sy, 1, sh);
+
+  // Label text
+  cur > 0 ? (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  ) : (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  );
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = sx + 4; gfx_y = sy + 2;
+  gfx_drawstr("MOD: ");
+  cur == 0 ? gfx_drawstr(l0);
+  cur == 1 ? gfx_drawstr(l1);
+  cur == 2 ? gfx_drawstr(l2);
+  cur == 3 ? gfx_drawstr(l3);
+
+  // Click to cycle (left=forward, right=backward)
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= sx && mouse_x < sx + sw &&
+    mouse_y >= sy && mouse_y < sy + sh ? (
+    cur += 1;
+    cur > nmax ? cur = 0;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= sx && mouse_x < sx + sw &&
+    mouse_y >= sy && mouse_y < sy + sh ? (
+    cur -= 1;
+    cur < 0 ? cur = nmax;
+  );
+  cur;
+);
+
 // ============================================================
 //  TITLE + MODE INDICATOR
 // ============================================================
@@ -695,35 +802,65 @@ gfx_setfont(1, "Arial", 20);
 gfx_x = 14; gfx_y = 8;
 gfx_drawstr("LMS DRONE FX");
 
-// Mode display
+// Mode selector (click to cycle: Follow → Lock 1-8)
+mode_btn_x = 180; mode_btn_y = 6; mode_btn_w = 100; mode_btn_h = 18;
+
 gfx_setfont(1, "Arial", 13);
 gfx_is_follow ? (
+  gfx_r = COL_GREEN_R * 0.3; gfx_g = COL_GREEN_G * 0.3; gfx_b = COL_GREEN_B * 0.3;
+  gfx_rect(mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h);
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-  gfx_x = 180; gfx_y = 11;
+  gfx_x = mode_btn_x + 4; gfx_y = mode_btn_y + 2;
   gfx_drawstr("FOLLOW");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", 11);
-  gfx_drawstr("  (live from DrumBanger)");
 ) : (
+  gfx_r = COL_CYAN_R * 0.3; gfx_g = COL_CYAN_G * 0.3; gfx_b = COL_CYAN_B * 0.3;
+  gfx_rect(mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h);
   gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
-  gfx_x = 180; gfx_y = 11;
+  gfx_x = mode_btn_x + 4; gfx_y = mode_btn_y + 2;
   gfx_drawstr("LOCK ");
   gfx_drawnumber(gfx_lock_slot + 1, 0);
-  LOCK_HAS_DATA[gfx_lock_slot] ? (
-    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-    gfx_setfont(1, "Arial", 11);
-    gfx_drawstr("  (captured — editable)");
-  ) : (
-    gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.3;
-    gfx_setfont(1, "Arial", 11);
-    gfx_drawstr("  (empty — switch to Follow, then back to capture)");
-  );
 );
 
-gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+// Click mode button to cycle
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= mode_btn_x && mouse_x < mode_btn_x + mode_btn_w &&
+  mouse_y >= mode_btn_y && mouse_y < mode_btn_y + mode_btn_h ? (
+  slider20 = slider20 + 1;
+  slider20 > 8 ? slider20 = 0;
+);
+
+// Trigger Source selector (click to cycle: All → Pad 1-16)
+trig_btn_x = mode_btn_x; trig_btn_y = 28; trig_btn_w = 100; trig_btn_h = 16;
+
 gfx_setfont(1, "Arial", 11);
-gfx_x = 14; gfx_y = 32;
-gfx_drawstr("FET Comp  //  Tape Delay  //  Flanger  //  DrumBanger Sidechain");
+slider1 == 0 ? (
+  gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
+  gfx_rect(trig_btn_x, trig_btn_y, trig_btn_w, trig_btn_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_x = trig_btn_x + 4; gfx_y = trig_btn_y + 2;
+  gfx_drawstr("SRC: All Pads");
+) : (
+  gfx_r = COL_ACCENT_R * 0.25; gfx_g = COL_ACCENT_G * 0.25; gfx_b = COL_ACCENT_B * 0.25;
+  gfx_rect(trig_btn_x, trig_btn_y, trig_btn_w, trig_btn_h);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = trig_btn_x + 4; gfx_y = trig_btn_y + 2;
+  gfx_drawstr("SRC: Pad ");
+  gfx_drawnumber(slider1, 0);
+);
+
+// Left-click cycles forward, right-click cycles backward
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= trig_btn_x && mouse_x < trig_btn_x + trig_btn_w &&
+  mouse_y >= trig_btn_y && mouse_y < trig_btn_y + trig_btn_h ? (
+  slider1 = slider1 + 1;
+  slider1 > 16 ? slider1 = 0;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= trig_btn_x && mouse_x < trig_btn_x + trig_btn_w &&
+  mouse_y >= trig_btn_y && mouse_y < trig_btn_y + trig_btn_h ? (
+  slider1 = slider1 - 1;
+  slider1 < 0 ? slider1 = 16;
+);
 
 // Connection indicator
 db_connected ? (
@@ -763,10 +900,20 @@ gfx_is_locked ? (
     mouse_x >= recap_btn_x && mouse_x < recap_btn_x + recap_btn_w &&
     mouse_y >= recap_btn_y && mouse_y < recap_btn_y + recap_btn_h ? (
     src_pat = gmem[13];
-    snap_i = 0;
-    loop(NUM_STEPS * NUM_PADS,
-      LOCAL_PAT[gfx_lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-      snap_i += 1;
+    memset(LOCAL_PAT + gfx_lock_slot * 256, 0, 256);
+    slider1 == 0 ? (
+      snap_i = 0;
+      loop(NUM_STEPS * NUM_PADS,
+        LOCAL_PAT[gfx_lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+        snap_i += 1;
+      );
+    ) : (
+      snap_pad = slider1 - 1;
+      snap_s = 0;
+      loop(NUM_STEPS,
+        LOCAL_PAT[gfx_lock_slot * 256 + snap_s * 16 + snap_pad] = gmem[1000 + src_pat * 1024 + snap_s * 16 + snap_pad];
+        snap_s += 1;
+      );
     );
     LOCK_HAS_DATA[gfx_lock_slot] = 1;
   );
@@ -807,40 +954,51 @@ pat_h = 96;
 cell_w = floor((gfx_w - 20) / 16);
 cell_h = floor(pat_h / 16);
 
+// In Follow mode with specific pad, determine which pad row to show
+gfx_filter_pad = (gfx_is_follow && slider1 > 0) ? (slider1 - 1) : -1;
+
 // Grid
 p = 0;
 loop(16,
+  // Hide non-selected pad rows in Follow mode when a specific pad is chosen
+  pad_visible = (gfx_filter_pad < 0 || p == gfx_filter_pad) ? 1 : 0;
+
   s = 0;
   loop(16,
     cx = 10 + s * cell_w;
     cy = pat_y + p * cell_h;
 
-    // Get velocity from active source (follow=gmem, lock=local)
-    pv = get_active_step(s, p);
+    pad_visible ? (
+      // Get velocity from active source (follow=gmem, lock=local)
+      pv = get_active_step(s, p);
 
-    s < db_steps ? (
-      pv > 0 ? (
-        br = pv / 127;
-        gfx_is_locked ? (
-          // Cyan tint in lock mode
-          gfx_r = COL_CYAN_R * br;
-          gfx_g = COL_CYAN_G * br;
-          gfx_b = COL_CYAN_B * br;
+      s < db_steps ? (
+        pv > 0 ? (
+          br = pv / 127;
+          gfx_is_locked ? (
+            // Cyan tint in lock mode
+            gfx_r = COL_CYAN_R * br;
+            gfx_g = COL_CYAN_G * br;
+            gfx_b = COL_CYAN_B * br;
+          ) : (
+            gfx_r = COL_ACCENT_R * br;
+            gfx_g = COL_ACCENT_G * br;
+            gfx_b = COL_ACCENT_B * br;
+          );
         ) : (
-          gfx_r = COL_ACCENT_R * br;
-          gfx_g = COL_ACCENT_G * br;
-          gfx_b = COL_ACCENT_B * br;
+          gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
         );
       ) : (
-        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+        gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.04;
       );
     ) : (
+      // Hidden row: dark/invisible
       gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.04;
     );
     gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
 
-    // Current step column highlight
-    s == db_step && db_playing ? (
+    // Current step column highlight (only on visible rows)
+    pad_visible && s == db_step && db_playing ? (
       gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.12;
       gfx_rect(cx, cy, cell_w - 1, cell_h - 1);
       gfx_a = 1;
@@ -884,7 +1042,7 @@ pad = 8;
 // ---- FET COMPRESSOR ----
 comp_pw = floor((gfx_w - margin * 2 - gap * 2) / 3);
 comp_px = margin;
-comp_ph = 168;
+comp_ph = 188;
 draw_panel(comp_px, row_y, comp_pw, comp_ph, "FET COMPRESSOR");
 
 cy = row_y + 28;
@@ -892,7 +1050,10 @@ inner_w = comp_pw - pad * 2;
 
 slider2 = draw_toggle(comp_px + pad, cy, slider2, "COMP ON");
 comp_on = slider2;
-cy += 22;
+cy += 20;
+slider21 = draw_mod_selector(comp_px + pad, cy, inner_w, 16, slider21, 3, "None", "Duck", "Thresh", "Ratio");
+comp_mod_target = slider21;
+cy += 20;
 
 slider3 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, "THRESH", 1);
 cy += bar_sp;
@@ -931,7 +1092,10 @@ inner_w = delay_pw - pad * 2;
 
 slider8 = draw_toggle(delay_px + pad, cy, slider8, "DELAY ON");
 delay_on = slider8;
-cy += 22;
+cy += 20;
+slider22 = draw_mod_selector(delay_px + pad, cy, inner_w, 16, slider22, 3, "None", "Mix", "Feedback", "Wow/Flt");
+delay_mod_target = slider22;
+cy += 20;
 
 slider9 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, "TIME ms", 1);
 cy += bar_sp;
@@ -954,7 +1118,10 @@ inner_w = fl_pw - pad * 2;
 
 slider14 = draw_toggle(fl_px + pad, cy, slider14, "FLANGE ON");
 flange_on = slider14;
-cy += 22;
+cy += 20;
+slider23 = draw_mod_selector(fl_px + pad, cy, inner_w, 16, slider23, 3, "None", "Depth", "Rate", "Mix");
+flanger_mod_target = slider23;
+cy += 20;
 
 slider15 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, "RATE Hz", 1);
 cy += bar_sp;
@@ -1051,31 +1218,35 @@ notice_show ? (
   gfx_drawstr("DroneFX — Audio Effects Satellite"); _ny += _nl + 2;
   gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Processes audio based on DrumBanger pad activity. Place AFTER a synth."); _ny += _nl;
-  gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Signal chain: Tape Delay > Flanger > FET Comp/Duck > DC Blocker > Output"); _ny += _nl + 2;
+  gfx_drawstr("Place AFTER a synth. Chain: Delay > Flanger > Comp > DC Blocker > Output"); _ny += _nl + 2;
 
   gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("FOLLOW / LOCK MODE"); _ny += _nl + 2;
+  gfx_drawstr("HEADER CONTROLS (click to cycle, right-click = reverse)"); _ny += _nl + 2;
   gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("FOLLOW: Sidechain reacts to live DrumBanger pad hits in real time."); _ny += _nl;
+  gfx_drawstr("MODE: Follow (live from DrumBanger) / Lock 1-8 (captured pattern)."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("LOCK 1-8: Captures current DrumBanger pattern. Sidechain plays from snapshot."); _ny += _nl;
+  gfx_drawstr("  Lock auto-captures on switch. Click grid to edit. RE-CAPTURE / CLEAR buttons."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  Switch to a Lock slot to auto-capture. Click grid to edit. RE-CAPTURE to refresh."); _ny += _nl;
+  gfx_drawstr("SRC: All Pads or Pad 1-16. Filters which pad drives the sidechain."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  Use Lock for consistent ducking (e.g. four-on-the-floor kick pattern)."); _ny += _nl + 2;
+  gfx_drawstr("  In Follow mode, grid hides non-selected pad rows. Lock captures only selected."); _ny += _nl + 2;
 
+  gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Trigger Source: All Pads or specific pad (1-16) for sidechain input."); _ny += _nl;
+  gfx_drawstr("MOD SELECTOR (per effect, click to cycle)"); _ny += _nl + 2;
+  gfx_r = 0.6; gfx_g = 0.6; gfx_b = 0.65;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("FET Comp: Threshold, Ratio, Attack, Release, Duck Depth."); _ny += _nl;
+  gfx_drawstr("MOD: None = normal insert effect. Other options = pattern step modulator."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Tape Delay: Time, Feedback, Mix, Tape Age, Wow/Flutter."); _ny += _nl;
+  gfx_drawstr("  Slider sets the max value. Pattern velocity scales from 0 up to that max."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("Flanger: Rate, Depth, Feedback, Mix. Output: -24 to +24 dB."); _ny += _nl;
+  gfx_drawstr("  Comp: None (normal comp) / Duck / Thresh / Ratio"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Delay: None / Mix / Feedback / Wow/Flutter"); _ny += _nl;
+  gfx_x = _nx; gfx_y = _ny;
+  gfx_drawstr("  Flanger: None / Depth / Rate / Mix"); _ny += _nl;
 
   gfx_setfont(1, "Arial", 12);
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
