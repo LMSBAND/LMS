@@ -134,6 +134,7 @@ local function apply_track(track, track_data)
   for _, fx_data in ipairs(track_data.fx or {}) do
     local fi = reaper.TrackFX_AddByName(track, fx_data.name, false, -1)
     if fi >= 0 then
+      reaper.TrackFX_Show(track, fi, 2)  -- 2 = hide floating window
       for pi, val in ipairs(fx_data.params or {}) do
         reaper.TrackFX_SetParam(track, fi, pi - 1, val)
       end
