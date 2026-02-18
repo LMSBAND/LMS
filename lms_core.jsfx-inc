@@ -1,0 +1,496 @@
+// ============================================================================
+//  LMS Core DSP Library v1.0
+//  Shared DSP building blocks for the LMS plugin suite
+//
+//  Usage: import lms_core.jsfx-inc
+//
+//  IMPORTANT: All functions must be inside @init so they are available
+//  across all sections (@slider, @block, @sample, @gfx) in importing files.
+//  JSFX rule: "functions defined in @init can be used from other sections,
+//  whereas functions defined in other sections are local to those sections."
+//
+//  All functions use lms_ prefix. Stateful functions use this.* pattern —
+//  call as instance.lms_xxx() to get independent state per instance.
+//
+//  Sections:
+//    1. Math Utilities        (stateless)
+//    2. Biquad Filter         (stereo, this.* state)
+//    3. Saturation Suite      (stateless)
+//    4. Compressor            (stereo, this.* state)
+//    5. DC Blocker            (stereo, this.* state)
+//    6. Tone Filter           (stereo, this.* state)
+//    7. Cubic Interpolation   (stateless)
+//    8. Spring Reverb Allpass (stateless, buffer-based)
+// ============================================================================
+
+@init
+
+// ============================================================================
+//  SECTION 1: Math Utilities (stateless)
+// ============================================================================
+
+// Bounded exp-based tanh approximation (JSFX has no built-in tanh)
+function lms_tanh(x)
+  local(e2x)
+(
+  x > 10 ? 1 : x < -10 ? -1 : (
+    e2x = exp(2 * x);
+    (e2x - 1) / (e2x + 1);
+  );
+);
+
+// dB to linear gain
+function lms_db2lin(db)
+(
+  10 ^ (db / 20);
+);
+
+// Linear gain to dB (safe — returns -140 for silence)
+function lms_lin2db(lin)
+(
+  lin > 0.0000001 ? 20 * log10(lin) : -140;
+);
+
+
+// ============================================================================
+//  SECTION 2: Biquad Filter (stereo, this.* state)
+//
+//  One instance = one stereo band.
+//  Coefficients shared, L/R state separate.
+//
+//  Usage:
+//    @init:   hp.lms_bq_init();
+//    @slider: hp.lms_bq_set_hp(freq, 0.707);
+//    @block:  hp.lms_bq_set_hp(freq, 0.707);
+//    @sample: l = hp.lms_bq_proc_l(l);
+//             r = hp.lms_bq_proc_r(r);
+// ============================================================================
+
+// Initialize biquad — zero state and set to passthrough
+function lms_bq_init()
+(
+  // Coefficients (passthrough)
+  this.b0 = 1; this.b1 = 0; this.b2 = 0;
+  this.a1 = 0; this.a2 = 0;
+  // Left channel state
+  this.lx1 = 0; this.lx2 = 0;
+  this.ly1 = 0; this.ly2 = 0;
+  // Right channel state
+  this.rx1 = 0; this.rx2 = 0;
+  this.ry1 = 0; this.ry2 = 0;
+);
+
+// Highpass (2nd order Butterworth when q = 0.707)
+function lms_bq_set_hp(freq, q)
+  local(w0, cs, sn, alpha, a0_inv)
+(
+  w0 = 2 * $pi * freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * q);
+  a0_inv = 1 / (1 + alpha);
+  this.b0 = (1 + cs) / 2 * a0_inv;
+  this.b1 = -(1 + cs) * a0_inv;
+  this.b2 = (1 + cs) / 2 * a0_inv;
+  this.a1 = -2 * cs * a0_inv;
+  this.a2 = (1 - alpha) * a0_inv;
+);
+
+// Lowpass
+function lms_bq_set_lp(freq, q)
+  local(w0, cs, sn, alpha, a0_inv)
+(
+  w0 = 2 * $pi * freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * q);
+  a0_inv = 1 / (1 + alpha);
+  this.b0 = (1 - cs) / 2 * a0_inv;
+  this.b1 = (1 - cs) * a0_inv;
+  this.b2 = (1 - cs) / 2 * a0_inv;
+  this.a1 = -2 * cs * a0_inv;
+  this.a2 = (1 - alpha) * a0_inv;
+);
+
+// Bandpass (constant skirt gain)
+function lms_bq_set_bp(freq, q)
+  local(w0, cs, sn, alpha, a0_inv)
+(
+  w0 = 2 * $pi * freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * q);
+  a0_inv = 1 / (1 + alpha);
+  this.b0 = (sn / 2) * a0_inv;
+  this.b1 = 0;
+  this.b2 = -(sn / 2) * a0_inv;
+  this.a1 = -2 * cs * a0_inv;
+  this.a2 = (1 - alpha) * a0_inv;
+);
+
+// Parametric peaking EQ
+function lms_bq_set_peak(freq, gain_db, q)
+  local(a, w0, alpha, a0_inv)
+(
+  a = 10 ^ (gain_db / 20);
+  w0 = 2 * $pi * freq / srate;
+  alpha = sin(w0) / (2 * q);
+  a0_inv = 1 / (1 + alpha / a);
+  this.b0 = (1 + alpha * a) * a0_inv;
+  this.b1 = (-2 * cos(w0)) * a0_inv;
+  this.b2 = (1 - alpha * a) * a0_inv;
+  this.a1 = this.b1;
+  this.a2 = (1 - alpha / a) * a0_inv;
+);
+
+// Low shelf
+function lms_bq_set_loshelf(freq, gain_db, q)
+  local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv)
+(
+  a = 10 ^ (gain_db / 40);
+  w0 = 2 * $pi * freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * q);
+  ap1 = a + 1; am1 = a - 1;
+  beta = 2 * sqrt(a) * alpha;
+  a0_inv = 1 / (ap1 + am1 * cs + beta);
+  this.b0 = a * (ap1 - am1 * cs + beta) * a0_inv;
+  this.b1 = 2 * a * (am1 - ap1 * cs) * a0_inv;
+  this.b2 = a * (ap1 - am1 * cs - beta) * a0_inv;
+  this.a1 = -2 * (am1 + ap1 * cs) * a0_inv;
+  this.a2 = (ap1 + am1 * cs - beta) * a0_inv;
+);
+
+// High shelf
+function lms_bq_set_hishelf(freq, gain_db, q)
+  local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv)
+(
+  a = 10 ^ (gain_db / 40);
+  w0 = 2 * $pi * freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * q);
+  ap1 = a + 1; am1 = a - 1;
+  beta = 2 * sqrt(a) * alpha;
+  a0_inv = 1 / (ap1 - am1 * cs + beta);
+  this.b0 = a * (ap1 + am1 * cs + beta) * a0_inv;
+  this.b1 = -2 * a * (am1 + ap1 * cs) * a0_inv;
+  this.b2 = a * (ap1 + am1 * cs - beta) * a0_inv;
+  this.a1 = 2 * (am1 - ap1 * cs) * a0_inv;
+  this.a2 = (ap1 - am1 * cs - beta) * a0_inv;
+);
+
+// Process left channel sample through biquad
+function lms_bq_proc_l(x)
+  local(o)
+(
+  o = this.b0 * x + this.b1 * this.lx1 + this.b2 * this.lx2
+                   - this.a1 * this.ly1 - this.a2 * this.ly2;
+  this.lx2 = this.lx1; this.lx1 = x;
+  this.ly2 = this.ly1; this.ly1 = o;
+  o;
+);
+
+// Process right channel sample through biquad
+function lms_bq_proc_r(x)
+  local(o)
+(
+  o = this.b0 * x + this.b1 * this.rx1 + this.b2 * this.rx2
+                   - this.a1 * this.ry1 - this.a2 * this.ry2;
+  this.rx2 = this.rx1; this.rx1 = x;
+  this.ry2 = this.ry1; this.ry1 = o;
+  o;
+);
+
+
+// ============================================================================
+//  SECTION 3: Saturation Suite (stateless)
+//
+//  All functions take (x, drive, bias) where drive and bias are 0..1 range.
+//  Uses lms_tanh() internally.
+//
+//  Usage:
+//    l = lms_sat_warm(l, drive, bias);
+// ============================================================================
+
+// Asymmetric tube — even harmonics, warm character
+function lms_sat_warm(x, drive, bias)
+  local(b)
+(
+  b = x + bias * 0.1;
+  b = b * (1 + drive);
+  // Asymmetric soft clipping - tubes clip differently on positive vs negative
+  b > 0 ? (
+    b = lms_tanh(b);
+  ) : (
+    b = lms_tanh(b * 0.8) * 1.25;
+  );
+  b;
+);
+
+// Aggressive tube — harder clipping with more asymmetry
+function lms_sat_hot(x, drive, bias)
+  local(b)
+(
+  b = x + bias * 0.15;
+  b = b * (1 + drive * 2);
+  b > 0 ? (
+    b = 1 - exp(-abs(b));
+  ) : (
+    b = -(1 - exp(-abs(b * 0.7))) * 1.1;
+  );
+  b;
+);
+
+// Tape saturation — symmetric arctan
+function lms_sat_tape(x, drive, bias)
+  local(b)
+(
+  b = x + bias * 0.05;
+  b = b * (1 + drive * 1.5);
+  b = (2 / $pi) * atan(b * $pi * 0.5);
+  b;
+);
+
+// Half-wave rectifier distortion
+function lms_sat_rect(x, drive, bias)
+  local(b)
+(
+  b = x + bias * 0.2;
+  b = b * (1 + drive * 3);
+  // Folds negative into positive partially
+  b < 0 ? b = b * (0.2 + drive * 0.1);
+  b = lms_tanh(b);
+  b;
+);
+
+// Gated fuzz — hard clipping with crossover distortion
+function lms_sat_fuzz(x, drive, bias)
+  local(b)
+(
+  b = x + bias * 0.1;
+  b = b * (1 + drive * 4);
+  abs(b) < 0.1 * (1 - drive * 0.5) ? (
+    b = b * (0.3 + drive * 0.7);
+  ) : (
+    b = sign(b) * (1 - exp(-abs(b)));
+  );
+  b;
+);
+
+// Harmonic blend — even (2nd/4th) + odd (3rd/5th)
+function lms_sat_harmonics(x, even_mix, odd_mix)
+  local(x2, x3, result)
+(
+  // Even harmonics (2nd, 4th) - warm, musical
+  x2 = x * x * sign(x);
+  // Odd harmonics (3rd, 5th) - gritty, aggressive
+  x3 = x * x * x;
+
+  result = x + even_mix * x2 * 0.3 + odd_mix * x3 * 0.2;
+  result;
+);
+
+
+// ============================================================================
+//  SECTION 4: Compressor — FET-style (stereo, this.* state)
+//
+//  Stereo-linked peak detection with envelope follower.
+//
+//  Usage:
+//    @init:   comp.lms_comp_init();
+//    @slider: comp.lms_comp_set(thresh_db, ratio, att_ms, rel_ms);
+//    @block:  comp.lms_comp_set(thresh_db, ratio, att_ms, rel_ms);
+//    @sample: comp.lms_comp_proc(l, r);
+//             l *= comp.gr;
+//             r *= comp.gr;
+//             // comp.gr_db has dB of gain reduction
+// ============================================================================
+
+// Initialize compressor state
+function lms_comp_init()
+(
+  this.env = 0;
+  this.gr = 1;
+  this.gr_db = 0;
+  this.thresh = 0;
+  this.ratio = 4;
+  this.att = 0;
+  this.rel = 0;
+);
+
+// Set compressor parameters
+function lms_comp_set(thresh_db, ratio, att_ms, rel_ms)
+(
+  this.thresh = thresh_db;
+  this.ratio = ratio;
+  this.att = exp(-1 / (att_ms * 0.001 * srate));
+  this.rel = exp(-1 / (rel_ms * 0.001 * srate));
+);
+
+// Process stereo pair — updates this.gr (linear) and this.gr_db
+function lms_comp_proc(l, r)
+  local(det, det_db, over, target_gr)
+(
+  det = max(abs(l), abs(r));
+  det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+  over = det_db - this.thresh;
+  over > 0 ? (
+    target_gr = over - over / this.ratio;
+  ) : (
+    target_gr = 0;
+  );
+  target_gr > this.env ? (
+    this.env = this.att * this.env + (1 - this.att) * target_gr;
+  ) : (
+    this.env = this.rel * this.env + (1 - this.rel) * target_gr;
+  );
+  this.gr = 10 ^ (-this.env / 20);
+  this.gr_db = this.env;
+);
+
+
+// ============================================================================
+//  SECTION 5: DC Blocker (stereo, this.* state)
+//
+//  1-pole highpass to remove DC offset from asymmetric clipping.
+//
+//  Usage:
+//    @init:   dc.lms_dc_init();          // 20 Hz default
+//             dc.lms_dc_init_freq(220);  // or custom cutoff
+//    @sample: l = dc.lms_dc_proc_l(l);
+//             r = dc.lms_dc_proc_r(r);
+// ============================================================================
+
+// Initialize DC blocker with default 20 Hz cutoff
+function lms_dc_init()
+(
+  this.xl = 0; this.xr = 0;
+  this.yl = 0; this.yr = 0;
+  this.r = 1 - (20 / srate);
+);
+
+// Initialize DC blocker with custom cutoff frequency
+function lms_dc_init_freq(freq)
+(
+  this.xl = 0; this.xr = 0;
+  this.yl = 0; this.yr = 0;
+  this.r = 1 - (freq / srate);
+);
+
+// Process left channel
+function lms_dc_proc_l(x)
+(
+  this.yl = x - this.xl + this.r * this.yl;
+  this.xl = x;
+  this.yl;
+);
+
+// Process right channel
+function lms_dc_proc_r(x)
+(
+  this.yr = x - this.xr + this.r * this.yr;
+  this.xr = x;
+  this.yr;
+);
+
+
+// ============================================================================
+//  SECTION 6: Tone Filter — 1-pole Lowpass (stereo, this.* state)
+//
+//  Simple 1-pole lowpass for tone control.
+//
+//  Usage:
+//    @init:   tone.lms_tone_init();
+//    @slider: tone.lms_tone_set(freq);
+//    @block:  tone.lms_tone_set(freq);
+//    @sample: l = tone.lms_tone_proc_l(l);
+//             r = tone.lms_tone_proc_r(r);
+// ============================================================================
+
+// Initialize tone filter state
+function lms_tone_init()
+(
+  this.yl = 0;
+  this.yr = 0;
+  this.coeff = 0;
+  this.freq = 20000;
+);
+
+// Set tone filter cutoff frequency
+function lms_tone_set(freq)
+(
+  this.freq = freq;
+  this.coeff = exp(-2 * $pi * freq / srate);
+);
+
+// Process left channel (bypasses if freq >= 19999)
+function lms_tone_proc_l(x)
+(
+  this.freq < 19999 ? (
+    this.yl = this.yl * this.coeff + x * (1 - this.coeff);
+    this.yl;
+  ) : (
+    x;
+  );
+);
+
+// Process right channel (bypasses if freq >= 19999)
+function lms_tone_proc_r(x)
+(
+  this.freq < 19999 ? (
+    this.yr = this.yr * this.coeff + x * (1 - this.coeff);
+    this.yr;
+  ) : (
+    x;
+  );
+);
+
+
+// ============================================================================
+//  SECTION 7: Cubic Interpolation (stateless)
+//
+//  Hermite cubic interpolation for reading from circular delay buffers.
+//
+//  Usage:
+//    out = lms_interp_cubic(buf, pos, bmax);
+// ============================================================================
+
+function lms_interp_cubic(buf, pos, bmax)
+  local(p0, p1, p2, p3, x0, x1, x2, x3, a, b, c, d, frac, idx)
+(
+  idx = floor(pos);
+  frac = pos - idx;
+
+  p0 = idx - 1; p0 < 0 ? p0 += bmax;
+  p1 = idx;     p1 >= bmax ? p1 -= bmax;
+  p2 = idx + 1; p2 >= bmax ? p2 -= bmax;
+  p3 = idx + 2; p3 >= bmax ? p3 -= bmax;
+
+  x0 = buf[p0]; x1 = buf[p1]; x2 = buf[p2]; x3 = buf[p3];
+
+  // Cubic Hermite interpolation
+  a = -0.5*x0 + 1.5*x1 - 1.5*x2 + 0.5*x3;
+  b = x0 - 2.5*x1 + 2*x2 - 0.5*x3;
+  c = -0.5*x0 + 0.5*x2;
+  d = x1;
+
+  ((a * frac + b) * frac + c) * frac + d;
+);
+
+
+// ============================================================================
+//  SECTION 8: Spring Reverb Allpass (stateless, buffer-based)
+//
+//  Single allpass unit for spring reverb / diffusion networks.
+//  Caller manages buffer position advancement.
+//
+//  Usage:
+//    out = lms_spring_ap(buf, pos, len, input, coeff);
+//    pos += 1; pos >= len ? pos = 0;
+// ============================================================================
+
+function lms_spring_ap(buf, pos, len, input, coeff)
+  local(delayed, output)
+(
+  delayed = buf[pos];
+  output = -input * coeff + delayed;
+  buf[pos] = input + delayed * coeff;
+  output;
+);

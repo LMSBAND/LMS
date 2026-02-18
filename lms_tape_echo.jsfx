@@ -2,6 +2,8 @@ desc:HENGE DELAY
 //tags: delay echo tape analog
 //author: LMS + Claude
 
+import lms_core.jsfx-inc
+
 options:gmem=DrumBanger
 
 slider1:0<0,6,1{Head 1,Head 2,Head 3,Heads 1+2,Heads 1+3,Heads 2+3,All Heads}>-Mode
@@ -59,57 +61,16 @@ slider10:50<0,100,1>-Dry/Wet (%)
   // Spring damping
   sp_damp_coeff = exp(-2 * $pi * 4000 / srate);
 
-  // tanh approximation
-  function tanh(x) local(e2x) (
-    x > 10 ? 1 : x < -10 ? -1 : (
-      e2x = exp(2 * x);
-      (e2x - 1) / (e2x + 1);
-    );
-  );
-
-  // Cubic interpolation read from delay buffer
-  function buf_read_cubic(buf, pos, bmax)
-    local(p0, p1, p2, p3, x0, x1, x2, x3, a, b, c, d, frac, idx)
-  (
-    idx = floor(pos);
-    frac = pos - idx;
-
-    p0 = idx - 1; p0 < 0 ? p0 += bmax;
-    p1 = idx;     p1 >= bmax ? p1 -= bmax;
-    p2 = idx + 1; p2 >= bmax ? p2 -= bmax;
-    p3 = idx + 2; p3 >= bmax ? p3 -= bmax;
-
-    x0 = buf[p0]; x1 = buf[p1]; x2 = buf[p2]; x3 = buf[p3];
-
-    // Cubic Hermite interpolation
-    a = -0.5*x0 + 1.5*x1 - 1.5*x2 + 0.5*x3;
-    b = x0 - 2.5*x1 + 2*x2 - 0.5*x3;
-    c = -0.5*x0 + 0.5*x2;
-    d = x1;
-
-    ((a * frac + b) * frac + c) * frac + d;
-  );
-
-  // Spring allpass filter
-  function spring_ap(buf, pos, len, input, coeff)
-    local(delayed, output)
-  (
-    delayed = buf[pos];
-    output = -input * coeff + delayed;
-    buf[pos] = input + delayed * coeff;
-    output;
-  );
-
-  // Tape saturation (asymmetric, like real tape)
+  // Tape saturation (asymmetric, like real tape) — UNIQUE to this plugin
   function tape_sat(x, age)
     local(drive, b)
   (
     drive = 1 + age * 3;
     b = x * drive;
     b > 0 ? (
-      b = this.tanh(b);
+      b = lms_tanh(b);
     ) : (
-      b = this.tanh(b * 0.85) * 1.18;
+      b = lms_tanh(b * 0.85) * 1.18;
     );
     b / drive * (1 + age * 0.5); // compensate gain, slight warmth boost
   );
@@ -406,24 +367,24 @@ loop(BC_MAX_INST,
     rd = wpos - head1_delay - total_mod;
     rd < 0 ? rd += buf_max;
     rd >= buf_max ? rd -= buf_max;
-    wet_l += buf_read_cubic(buf_l, rd, buf_max);
-    wet_r += buf_read_cubic(buf_r, rd, buf_max);
+    wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+    wet_r += lms_interp_cubic(buf_r, rd, buf_max);
   );
 
   h2_on ? (
     rd = wpos - head2_delay - total_mod;
     rd < 0 ? rd += buf_max;
     rd >= buf_max ? rd -= buf_max;
-    wet_l += buf_read_cubic(buf_l, rd, buf_max);
-    wet_r += buf_read_cubic(buf_r, rd, buf_max);
+    wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+    wet_r += lms_interp_cubic(buf_r, rd, buf_max);
   );
 
   h3_on ? (
     rd = wpos - head3_delay - total_mod;
     rd < 0 ? rd += buf_max;
     rd >= buf_max ? rd -= buf_max;
-    wet_l += buf_read_cubic(buf_l, rd, buf_max);
-    wet_r += buf_read_cubic(buf_r, rd, buf_max);
+    wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+    wet_r += lms_interp_cubic(buf_r, rd, buf_max);
   );
 
   // Scale by number of active heads to prevent volume jumps
@@ -453,17 +414,17 @@ loop(BC_MAX_INST,
     sp_in = (wet_l + wet_r) * 0.5;
 
     // Allpass diffusion chain (creates spring-like dispersion)
-    sp_in = spring_ap(sp_ap1_buf, sp_ap1_pos, sp_ap1_len, sp_in, 0.6);
+    sp_in = lms_spring_ap(sp_ap1_buf, sp_ap1_pos, sp_ap1_len, sp_in, 0.6);
     sp_ap1_pos += 1; sp_ap1_pos >= sp_ap1_len ? sp_ap1_pos = 0;
-    sp_in = spring_ap(sp_ap2_buf, sp_ap2_pos, sp_ap2_len, sp_in, 0.6);
+    sp_in = lms_spring_ap(sp_ap2_buf, sp_ap2_pos, sp_ap2_len, sp_in, 0.6);
     sp_ap2_pos += 1; sp_ap2_pos >= sp_ap2_len ? sp_ap2_pos = 0;
-    sp_in = spring_ap(sp_ap3_buf, sp_ap3_pos, sp_ap3_len, sp_in, 0.55);
+    sp_in = lms_spring_ap(sp_ap3_buf, sp_ap3_pos, sp_ap3_len, sp_in, 0.55);
     sp_ap3_pos += 1; sp_ap3_pos >= sp_ap3_len ? sp_ap3_pos = 0;
-    sp_in = spring_ap(sp_ap4_buf, sp_ap4_pos, sp_ap4_len, sp_in, 0.55);
+    sp_in = lms_spring_ap(sp_ap4_buf, sp_ap4_pos, sp_ap4_len, sp_in, 0.55);
     sp_ap4_pos += 1; sp_ap4_pos >= sp_ap4_len ? sp_ap4_pos = 0;
-    sp_in = spring_ap(sp_ap5_buf, sp_ap5_pos, sp_ap5_len, sp_in, 0.5);
+    sp_in = lms_spring_ap(sp_ap5_buf, sp_ap5_pos, sp_ap5_len, sp_in, 0.5);
     sp_ap5_pos += 1; sp_ap5_pos >= sp_ap5_len ? sp_ap5_pos = 0;
-    sp_in = spring_ap(sp_ap6_buf, sp_ap6_pos, sp_ap6_len, sp_in, 0.5);
+    sp_in = lms_spring_ap(sp_ap6_buf, sp_ap6_pos, sp_ap6_len, sp_in, 0.5);
     sp_ap6_pos += 1; sp_ap6_pos >= sp_ap6_len ? sp_ap6_pos = 0;
 
     // Comb delays for spring bounce character (with feedback + damping)

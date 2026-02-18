@@ -2,6 +2,7 @@ desc:LMS Tape Machine
 //tags: delay echo tape saturation distortion analog
 //author: LMS + Claude
 
+import lms_core.jsfx-inc
 options:gmem=DrumBanger
 
 // --- SATURATION SECTION ---
@@ -69,168 +70,52 @@ slider20:50<0,100,1>-Dry/Wet (%)
   sp_lp_l = 0; sp_lp_r = 0;
   sp_damp_coeff = exp(-2 * $pi * 4000 / srate);
 
-  // === DC blocker state (for saturation) ===
-  dc_xl = 0; dc_xr = 0;
-  dc_yl = 0; dc_yr = 0;
-  dc_r = 1 - (220 / srate);
+  // === Shared DSP instances ===
+  dc.lms_dc_init_freq(220);
+  tone.lms_tone_init();
 
-  // === Tone filter state (saturation tone control) ===
-  tone_yl = 0; tone_yr = 0;
-
-  // === tanh approximation ===
-  function tanh(x) local(e2x) (
-    x > 10 ? 1 : x < -10 ? -1 : (
-      e2x = exp(2 * x);
-      (e2x - 1) / (e2x + 1);
-    );
-  );
-
-  // === Cubic interpolation read from delay buffer ===
-  function buf_read_cubic(buf, pos, bmax)
-    local(p0, p1, p2, p3, x0, x1, x2, x3, a, b, c, d, frac, idx)
-  (
-    idx = floor(pos);
-    frac = pos - idx;
-
-    p0 = idx - 1; p0 < 0 ? p0 += bmax;
-    p1 = idx;     p1 >= bmax ? p1 -= bmax;
-    p2 = idx + 1; p2 >= bmax ? p2 -= bmax;
-    p3 = idx + 2; p3 >= bmax ? p3 -= bmax;
-
-    x0 = buf[p0]; x1 = buf[p1]; x2 = buf[p2]; x3 = buf[p3];
-
-    a = -0.5*x0 + 1.5*x1 - 1.5*x2 + 0.5*x3;
-    b = x0 - 2.5*x1 + 2*x2 - 0.5*x3;
-    c = -0.5*x0 + 0.5*x2;
-    d = x1;
-
-    ((a * frac + b) * frac + c) * frac + d;
-  );
-
-  // === Spring allpass filter ===
-  function spring_ap(buf, pos, len, input, coeff)
-    local(delayed, output)
-  (
-    delayed = buf[pos];
-    output = -input * coeff + delayed;
-    buf[pos] = input + delayed * coeff;
-    output;
-  );
-
-  // === Tape saturation (feedback loop character) ===
+  // === Tape saturation (feedback loop character) — unique to tape machine ===
   function tape_char(x, age)
     local(drive, b)
   (
     drive = 1 + age * 3;
     b = x * drive;
     b > 0 ? (
-      b = this.tanh(b);
+      b = lms_tanh(b);
     ) : (
-      b = this.tanh(b * 0.85) * 1.18;
+      b = lms_tanh(b * 0.85) * 1.18;
     );
     b / drive * (1 + age * 0.5);
-  );
-
-  // === Saturation functions (from tube sat) ===
-  function warm_tube(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.1;
-    b = b * (1 + drive);
-    b > 0 ? (
-      b = this.tanh(b);
-    ) : (
-      b = this.tanh(b * 0.8) * 1.25;
-    );
-    b;
-  );
-
-  function hot_tube(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.15;
-    b = b * (1 + drive * 2);
-    b > 0 ? (
-      b = 1 - exp(-abs(b));
-    ) : (
-      b = -(1 - exp(-abs(b * 0.7))) * 1.1;
-    );
-    b;
-  );
-
-  function tape_sat(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.05;
-    b = b * (1 + drive * 1.5);
-    b = (2 / $pi) * atan(b * $pi * 0.5);
-    b;
-  );
-
-  function rectifier(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.2;
-    b = b * (1 + drive * 3);
-    b < 0 ? b = b * (0.2 + drive * 0.1);
-    b = this.tanh(b);
-    b;
-  );
-
-  function fuzz(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.1;
-    b = b * (1 + drive * 4);
-    abs(b) < 0.1 * (1 - drive * 0.5) ? (
-      b = b * (0.3 + drive * 0.7);
-    ) : (
-      b = sign(b) * (1 - exp(-abs(b)));
-    );
-    b;
-  );
-
-  function apply_harmonics(x, even_mix, odd_mix)
-    local(x2, x3, result)
-  (
-    x2 = x * x * sign(x);
-    x3 = x * x * x;
-    result = x + even_mix * x2 * 0.3 + odd_mix * x3 * 0.2;
-    result;
   );
 
   // === Apply saturation to a stereo pair ===
   function apply_sat(l, r) (
     sat_mode == 0 ? (
-      sat_out_l = warm_tube(l, sat_drive, sat_bias);
-      sat_out_r = warm_tube(r, sat_drive, sat_bias);
+      sat_out_l = lms_sat_warm(l, sat_drive, sat_bias);
+      sat_out_r = lms_sat_warm(r, sat_drive, sat_bias);
     ) : sat_mode == 1 ? (
-      sat_out_l = hot_tube(l, sat_drive, sat_bias);
-      sat_out_r = hot_tube(r, sat_drive, sat_bias);
+      sat_out_l = lms_sat_hot(l, sat_drive, sat_bias);
+      sat_out_r = lms_sat_hot(r, sat_drive, sat_bias);
     ) : sat_mode == 2 ? (
-      sat_out_l = tape_sat(l, sat_drive, sat_bias);
-      sat_out_r = tape_sat(r, sat_drive, sat_bias);
+      sat_out_l = lms_sat_tape(l, sat_drive, sat_bias);
+      sat_out_r = lms_sat_tape(r, sat_drive, sat_bias);
     ) : sat_mode == 3 ? (
-      sat_out_l = rectifier(l, sat_drive, sat_bias);
-      sat_out_r = rectifier(r, sat_drive, sat_bias);
+      sat_out_l = lms_sat_rect(l, sat_drive, sat_bias);
+      sat_out_r = lms_sat_rect(r, sat_drive, sat_bias);
     ) : (
-      sat_out_l = fuzz(l, sat_drive, sat_bias);
-      sat_out_r = fuzz(r, sat_drive, sat_bias);
+      sat_out_l = lms_sat_fuzz(l, sat_drive, sat_bias);
+      sat_out_r = lms_sat_fuzz(r, sat_drive, sat_bias);
     );
 
     // Harmonics
     (sat_even > 0 || sat_odd > 0) ? (
-      sat_out_l = apply_harmonics(sat_out_l, sat_even, sat_odd);
-      sat_out_r = apply_harmonics(sat_out_r, sat_even, sat_odd);
+      sat_out_l = lms_sat_harmonics(sat_out_l, sat_even, sat_odd);
+      sat_out_r = lms_sat_harmonics(sat_out_r, sat_even, sat_odd);
     );
 
-    // Tone control (lowpass)
-    sat_tone_freq < 19999 ? (
-      tone_yl = tone_yl * sat_tone_coeff + sat_out_l * (1 - sat_tone_coeff);
-      tone_yr = tone_yr * sat_tone_coeff + sat_out_r * (1 - sat_tone_coeff);
-      sat_out_l = tone_yl;
-      sat_out_r = tone_yr;
-    );
+    // Tone control
+    sat_out_l = tone.lms_tone_proc_l(sat_out_l);
+    sat_out_r = tone.lms_tone_proc_r(sat_out_r);
   );
 
 notice_show = 0;
@@ -309,8 +194,7 @@ notice_show = 0;
   // Tone & mix
   bass = slider15 / 100;
   treble = slider16 / 100;
-  sat_tone_freq = slider17;
-  sat_tone_coeff = exp(-2 * $pi * sat_tone_freq / srate);
+  tone.lms_tone_set(slider17);
   spring_mix = slider18 / 100;
   out_gain = 10 ^ (slider19 / 20);
   dry_wet = slider20 / 100;
@@ -363,8 +247,7 @@ tape_age = slider14 / 100;
 // Tone & mix
 bass = slider15 / 100;
 treble = slider16 / 100;
-sat_tone_freq = slider17;
-sat_tone_coeff = exp(-2 * $pi * sat_tone_freq / srate);
+tone.lms_tone_set(slider17);
 spring_mix = slider18 / 100;
 out_gain = 10 ^ (slider19 / 20);
 dry_wet = slider20 / 100;
@@ -599,24 +482,24 @@ loop(BC_MAX_INST,
       rd = wpos - head1_delay - total_mod;
       rd < 0 ? rd += buf_max;
       rd >= buf_max ? rd -= buf_max;
-      wet_l += buf_read_cubic(buf_l, rd, buf_max);
-      wet_r += buf_read_cubic(buf_r, rd, buf_max);
+      wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+      wet_r += lms_interp_cubic(buf_r, rd, buf_max);
     );
 
     h2_on ? (
       rd = wpos - head2_delay - total_mod;
       rd < 0 ? rd += buf_max;
       rd >= buf_max ? rd -= buf_max;
-      wet_l += buf_read_cubic(buf_l, rd, buf_max);
-      wet_r += buf_read_cubic(buf_r, rd, buf_max);
+      wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+      wet_r += lms_interp_cubic(buf_r, rd, buf_max);
     );
 
     h3_on ? (
       rd = wpos - head3_delay - total_mod;
       rd < 0 ? rd += buf_max;
       rd >= buf_max ? rd -= buf_max;
-      wet_l += buf_read_cubic(buf_l, rd, buf_max);
-      wet_r += buf_read_cubic(buf_r, rd, buf_max);
+      wet_l += lms_interp_cubic(buf_l, rd, buf_max);
+      wet_r += lms_interp_cubic(buf_r, rd, buf_max);
     );
 
     wet_l /= num_heads;
@@ -642,17 +525,17 @@ loop(BC_MAX_INST,
     spring_mix > 0 ? (
       sp_in = (wet_l + wet_r) * 0.5;
 
-      sp_in = spring_ap(sp_ap1_buf, sp_ap1_pos, sp_ap1_len, sp_in, 0.6);
+      sp_in = lms_spring_ap(sp_ap1_buf, sp_ap1_pos, sp_ap1_len, sp_in, 0.6);
       sp_ap1_pos += 1; sp_ap1_pos >= sp_ap1_len ? sp_ap1_pos = 0;
-      sp_in = spring_ap(sp_ap2_buf, sp_ap2_pos, sp_ap2_len, sp_in, 0.6);
+      sp_in = lms_spring_ap(sp_ap2_buf, sp_ap2_pos, sp_ap2_len, sp_in, 0.6);
       sp_ap2_pos += 1; sp_ap2_pos >= sp_ap2_len ? sp_ap2_pos = 0;
-      sp_in = spring_ap(sp_ap3_buf, sp_ap3_pos, sp_ap3_len, sp_in, 0.55);
+      sp_in = lms_spring_ap(sp_ap3_buf, sp_ap3_pos, sp_ap3_len, sp_in, 0.55);
       sp_ap3_pos += 1; sp_ap3_pos >= sp_ap3_len ? sp_ap3_pos = 0;
-      sp_in = spring_ap(sp_ap4_buf, sp_ap4_pos, sp_ap4_len, sp_in, 0.55);
+      sp_in = lms_spring_ap(sp_ap4_buf, sp_ap4_pos, sp_ap4_len, sp_in, 0.55);
       sp_ap4_pos += 1; sp_ap4_pos >= sp_ap4_len ? sp_ap4_pos = 0;
-      sp_in = spring_ap(sp_ap5_buf, sp_ap5_pos, sp_ap5_len, sp_in, 0.5);
+      sp_in = lms_spring_ap(sp_ap5_buf, sp_ap5_pos, sp_ap5_len, sp_in, 0.5);
       sp_ap5_pos += 1; sp_ap5_pos >= sp_ap5_len ? sp_ap5_pos = 0;
-      sp_in = spring_ap(sp_ap6_buf, sp_ap6_pos, sp_ap6_len, sp_in, 0.5);
+      sp_in = lms_spring_ap(sp_ap6_buf, sp_ap6_pos, sp_ap6_len, sp_in, 0.5);
       sp_ap6_pos += 1; sp_ap6_pos >= sp_ap6_len ? sp_ap6_pos = 0;
 
       cm1_out = sp_cm1_buf[sp_cm1_pos];
@@ -705,13 +588,8 @@ loop(BC_MAX_INST,
   out_r *= out_gain;
 
   // === DC blocker ===
-  dc_yl = out_l - dc_xl + dc_r * dc_yl;
-  dc_xl = out_l;
-  out_l = dc_yl;
-
-  dc_yr = out_r - dc_xr + dc_r * dc_yr;
-  dc_xr = out_r;
-  out_r = dc_yr;
+  out_l = dc.lms_dc_proc_l(out_l);
+  out_r = dc.lms_dc_proc_r(out_r);
 
   spl0 = out_l;
   spl1 = out_r;
@@ -1096,11 +974,11 @@ sat_on ? (
   loop(50,
     in = (i / 49) * 2 - 1;
 
-    sat_mode == 0 ? out = warm_tube(in, sat_drive, sat_bias);
-    sat_mode == 1 ? out = hot_tube(in, sat_drive, sat_bias);
-    sat_mode == 2 ? out = tape_sat(in, sat_drive, sat_bias);
-    sat_mode == 3 ? out = rectifier(in, sat_drive, sat_bias);
-    sat_mode == 4 ? out = fuzz(in, sat_drive, sat_bias);
+    sat_mode == 0 ? out = lms_sat_warm(in, sat_drive, sat_bias);
+    sat_mode == 1 ? out = lms_sat_hot(in, sat_drive, sat_bias);
+    sat_mode == 2 ? out = lms_sat_tape(in, sat_drive, sat_bias);
+    sat_mode == 3 ? out = lms_sat_rect(in, sat_drive, sat_bias);
+    sat_mode == 4 ? out = lms_sat_fuzz(in, sat_drive, sat_bias);
 
     out = max(-1, min(1, out));
 
