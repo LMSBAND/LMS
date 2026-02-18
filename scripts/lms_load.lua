@@ -179,33 +179,32 @@ local function main()
     track_map[name] = track
   end
 
-  -- Validate: all .lms tracks must exist in project
-  local missing = {}
-  for _, td in ipairs(session.tracks or {}) do
-    if not track_map[td.name] then
-      missing[#missing + 1] = td.name
-    end
-  end
-  if #missing > 0 then
-    reaper.ShowMessageBox(
-      "These tracks from session.lms don't exist in the current project:\n\n" ..
-      table.concat(missing, "\n") .. "\n\nAdd them or use LMS Steal Session instead.",
-      "LMS Load Session", 0)
-    return
-  end
+  -- Apply: update existing tracks by name, create missing ones
+  local updated = 0
+  local added   = 0
 
-  -- Apply
   reaper.Undo_BeginBlock()
   for _, td in ipairs(session.tracks or {}) do
-    apply_track(track_map[td.name], td)
+    if track_map[td.name] then
+      apply_track(track_map[td.name], td)
+      updated = updated + 1
+    else
+      local idx = reaper.CountTracks(0)
+      reaper.InsertTrackAtIndex(idx, true)
+      local new_track = reaper.GetTrack(0, idx)
+      reaper.GetSetMediaTrackInfo_String(new_track, "P_NAME", td.name, true)
+      apply_track(new_track, td)
+      added = added + 1
+    end
   end
   reaper.Undo_EndBlock("LMS Load Session", -1)
   reaper.UpdateArrange()
   reaper.TrackList_AdjustWindows(false)
 
-  reaper.ShowMessageBox(
-    "Loaded " .. #(session.tracks or {}) .. " tracks from session.lms.",
-    "LMS Load Session", 0)
+  local msg = string.format("Updated %d track%s. Added %d new track%s.",
+    updated, updated == 1 and "" or "s",
+    added,   added   == 1 and "" or "s")
+  reaper.ShowMessageBox(msg, "LMS Load Session", 0)
 end
 
 main()
