@@ -666,216 +666,399 @@ loop(BC_MAX_INST,
   spl0 = out_l;
   spl1 = out_r;
 
-@gfx 550 340
-  // Background - dark green/silver (vintage tape vibe)
-  gfx_r = 0.06; gfx_g = 0.09; gfx_b = 0.06;
-  gfx_rect(0, 0, gfx_w, gfx_h);
+@gfx 580 480
+// ============================================================================
+//  COLOR CONSTANTS
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
 
-  // Top panel stripe
-  gfx_r = 0.15; gfx_g = 0.2; gfx_b = 0.12;
-  gfx_rect(0, 0, gfx_w, 45);
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 44);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, 44, gfx_w, 2);
 
-  // Title
-  gfx_r = 0.85; gfx_g = 0.9; gfx_b = 0.75;
-  gfx_x = 12; gfx_y = 6;
-  gfx_drawstr("LMS TAPE MACHINE");
+// ============================================================================
+//  HELPER: draw_bar
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
 
-  // --- Saturation indicator ---
+// ============================================================================
+//  HELPER: draw_panel
+// ============================================================================
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + 22, pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_drawstr(title);
+);
+
+// ============================================================================
+//  HELPER: draw_toggle
+// ============================================================================
+function draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + 8, ty + 8, 7, 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  );
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + 80 &&
+    mouse_y >= ty && mouse_y <= ty + 16 ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ============================================================================
+//  HELPER: draw_mode_sel — clickable mode selector (display string version)
+// ============================================================================
+function draw_mode_sel_str(mx, my, mw, mh, val, vmax, label, val_str) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = mx + 5; gfx_y = my + floor((mh - 12) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - 72; gfx_y = my + floor((mh - 12) / 2);
+  gfx_drawstr(val_str);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % (vmax + 1);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = vmax;
+  );
+  val;
+);
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = 8;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+col_w = floor((gfx_w - margin * 2 - gap * 2) / 3);
+body_y = 50;
+panel_h = 186;
+vis_y = body_y + panel_h + 8;
+
+// ============================================================================
+//  TITLE
+// ============================================================================
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", 22);
+gfx_x = 12; gfx_y = 10;
+gfx_drawstr("LMS TAPE MACHINE");
+
+// ============================================================================
+//  COLUMN 1: SATURATION
+// ============================================================================
+c1x = margin;
+draw_panel(c1x, body_y, col_w, panel_h, "SATURATION");
+cy = body_y + 26;
+slider1 = draw_toggle(c1x + 8, cy + 2, slider1, "Sat Enable");
+cy += bar_sp;
+slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Drive", 1);
+cy += bar_sp;
+// Sat Mode selector (5 modes: 0-4)
+sat_mode_str = "Warm Tube";
+slider3 == 1 ? sat_mode_str = "Hot Tube";
+slider3 == 2 ? sat_mode_str = "Tape";
+slider3 == 3 ? sat_mode_str = "Rectifier";
+slider3 == 4 ? sat_mode_str = "Fuzz";
+slider3 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider3, 4, "Mode", sat_mode_str);
+cy += bar_sp;
+slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even", 1);
+cy += bar_sp;
+slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd", 1);
+cy += bar_sp;
+slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Bias", 1);
+cy += bar_sp;
+// Sat Routing selector (4 modes: 0-3)
+routing_str = "Pre Delay";
+slider7 == 1 ? routing_str = "Dry Only";
+slider7 == 2 ? routing_str = "Wet Only";
+slider7 == 3 ? routing_str = "Final";
+slider7 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider7, 3, "Route", routing_str);
+
+// ============================================================================
+//  COLUMN 2: DELAY
+// ============================================================================
+c2x = margin + col_w + gap;
+draw_panel(c2x, body_y, col_w, panel_h, "DELAY");
+cy = body_y + 26;
+slider8 = draw_toggle(c2x + 8, cy + 2, slider8, "Delay Enable");
+cy += bar_sp;
+// Head Mode selector (7 modes: 0-6)
+head_str = "Head 1";
+slider9 == 1 ? head_str = "Head 2";
+slider9 == 2 ? head_str = "Head 3";
+slider9 == 3 ? head_str = "Hd 1+2";
+slider9 == 4 ? head_str = "Hd 1+3";
+slider9 == 5 ? head_str = "Hd 2+3";
+slider9 == 6 ? head_str = "All Hd";
+slider9 = draw_mode_sel_str(c2x + 4, cy, col_w - 8, bar_h, slider9, 6, "Head", head_str);
+cy += bar_sp;
+slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, 50, 1000, "Rate ms", 1);
+cy += bar_sp;
+slider11 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider11, 0, 100, "Intens", 1);
+cy += bar_sp;
+slider12 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider12, 0, 100, "Echo Vol", 1);
+cy += bar_sp;
+slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, 0, 100, "W&F", 1);
+cy += bar_sp;
+slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Age", 1);
+
+// ============================================================================
+//  COLUMN 3: TONE / MIX
+// ============================================================================
+c3x = margin + (col_w + gap) * 2;
+draw_panel(c3x, body_y, col_w, panel_h, "TONE / MIX");
+cy = body_y + 26;
+slider15 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider15, 0, 100, "Bass", 1);
+cy += bar_sp;
+slider16 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider16, 0, 100, "Treble", 1);
+cy += bar_sp;
+slider17 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider17, 20, 20000, "Tone Hz", 1);
+cy += bar_sp;
+slider18 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider18, 0, 100, "Spring", 1);
+cy += bar_sp;
+slider19 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider19, -12, 12, "Output", 1);
+cy += bar_sp;
+slider20 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider20, 0, 100, "Dry/Wet", 1);
+
+// ============================================================================
+//  VISUALIZATION AREA (below the three columns)
+// ============================================================================
+vis_h = gfx_h - vis_y - 40;
+
+// --- Tape reels (only when delay is on) ---
+delay_on ? (
+  reel_angle += 0.02 + intensity * 0.03;
+  reel_angle >= 2 * $pi ? reel_angle -= 2 * $pi;
+
+  // Position reels in the visualization area
   sat_on ? (
-    gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.15;
-    gfx_x = 12; gfx_y = 24;
-    sat_mode == 0 ? gfx_drawstr("SAT: Warm Tube");
-    sat_mode == 1 ? gfx_drawstr("SAT: Hot Tube");
-    sat_mode == 2 ? gfx_drawstr("SAT: Tape");
-    sat_mode == 3 ? gfx_drawstr("SAT: Rectifier");
-    sat_mode == 4 ? gfx_drawstr("SAT: Fuzz");
-    gfx_drawstr("  ");
-    sat_routing == 0 ? gfx_drawstr("[PRE DELAY]");
-    sat_routing == 1 ? gfx_drawstr("[DRY ONLY]");
-    sat_routing == 2 ? gfx_drawstr("[WET ONLY]");
-    sat_routing == 3 ? gfx_drawstr("[FINAL]");
+    // When both are on, reels on left half, curve on right half
+    reel_cx1 = margin + col_w * 0.45;
+    reel_cx2 = margin + col_w * 1.15;
   ) : (
-    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.2;
-    gfx_x = 12; gfx_y = 24;
-    gfx_drawstr("SAT: Off");
-  );
-
-  // --- Delay section info ---
-  delay_on ? (
-    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 0.4;
-    gfx_x = gfx_w - 140; gfx_y = 8;
-    head_mode == 0 ? gfx_drawstr("Head 1");
-    head_mode == 1 ? gfx_drawstr("Head 2");
-    head_mode == 2 ? gfx_drawstr("Head 3");
-    head_mode == 3 ? gfx_drawstr("Heads 1+2");
-    head_mode == 4 ? gfx_drawstr("Heads 1+3");
-    head_mode == 5 ? gfx_drawstr("Heads 2+3");
-    head_mode == 6 ? gfx_drawstr("All Heads");
-    gfx_drawstr("  ");
-    gfx_drawnumber(delay_ms, 0);
-    gfx_drawstr("ms");
-  ) : (
-    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.2;
-    gfx_x = gfx_w - 100; gfx_y = 8;
-    gfx_drawstr("DELAY: Off");
-  );
-
-  // --- Tape reels (only when delay is on) ---
-  delay_on ? (
-    reel_angle += 0.02 + intensity * 0.03;
-    reel_angle >= 2 * $pi ? reel_angle -= 2 * $pi;
-
+    // Reels centered across full width
     reel_cx1 = gfx_w * 0.3;
     reel_cx2 = gfx_w * 0.7;
-    reel_cy = gfx_h * 0.52;
-    reel_r = min(gfx_w * 0.1, gfx_h * 0.18);
+  );
+  reel_cy = vis_y + vis_h * 0.55;
+  reel_r = min(vis_h * 0.38, 40);
 
-    // Left reel
-    gfx_r = 0.25; gfx_g = 0.3; gfx_b = 0.2;
-    gfx_circle(reel_cx1, reel_cy, reel_r, 1);
-    gfx_r = 0.1; gfx_g = 0.13; gfx_b = 0.08;
-    gfx_circle(reel_cx1, reel_cy, reel_r * 0.4, 1);
-    gfx_r = 0.35; gfx_g = 0.4; gfx_b = 0.3;
-    i = 0;
-    loop(3,
-      a = reel_angle + i * 2 * $pi / 3;
-      gfx_line(reel_cx1, reel_cy,
-               reel_cx1 + cos(a) * reel_r * 0.85,
-               reel_cy + sin(a) * reel_r * 0.85);
-      i += 1;
-    );
-
-    // Right reel
-    gfx_r = 0.25; gfx_g = 0.3; gfx_b = 0.2;
-    gfx_circle(reel_cx2, reel_cy, reel_r, 1);
-    gfx_r = 0.1; gfx_g = 0.13; gfx_b = 0.08;
-    gfx_circle(reel_cx2, reel_cy, reel_r * 0.4, 1);
-    gfx_r = 0.35; gfx_g = 0.4; gfx_b = 0.3;
-    i = 0;
-    loop(3,
-      a = -reel_angle + i * 2 * $pi / 3;
-      gfx_line(reel_cx2, reel_cy,
-               reel_cx2 + cos(a) * reel_r * 0.85,
-               reel_cy + sin(a) * reel_r * 0.85);
-      i += 1;
-    );
-
-    // Tape path between reels
-    gfx_r = 0.4; gfx_g = 0.35; gfx_b = 0.25;
-    tape_y = reel_cy - reel_r - 5;
-    gfx_line(reel_cx1, tape_y, reel_cx2, tape_y);
-
-    // Head indicators
-    head_y = tape_y - 12;
-    head_spacing = (reel_cx2 - reel_cx1) / 4;
-
-    h1_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-          : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-    hx = reel_cx1 + head_spacing;
-    gfx_rect(hx - 4, head_y - 6, 8, 12);
-    gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-    gfx_x = hx - 2; gfx_y = head_y - 20;
-    gfx_drawstr("1");
-
-    h2_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-          : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-    hx = reel_cx1 + head_spacing * 2;
-    gfx_rect(hx - 4, head_y - 6, 8, 12);
-    gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-    gfx_x = hx - 2; gfx_y = head_y - 20;
-    gfx_drawstr("2");
-
-    h3_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-          : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-    hx = reel_cx1 + head_spacing * 3;
-    gfx_rect(hx - 4, head_y - 6, 8, 12);
-    gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-    gfx_x = hx - 2; gfx_y = head_y - 20;
-    gfx_drawstr("3");
+  // Left reel
+  gfx_r = 0.14; gfx_g = 0.14; gfx_b = 0.18;
+  gfx_circle(reel_cx1, reel_cy, reel_r, 1);
+  gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+  gfx_circle(reel_cx1, reel_cy, reel_r * 0.4, 1);
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  i = 0;
+  loop(3,
+    a = reel_angle + i * 2 * $pi / 3;
+    gfx_line(reel_cx1, reel_cy,
+             reel_cx1 + cos(a) * reel_r * 0.85,
+             reel_cy + sin(a) * reel_r * 0.85);
+    i += 1;
   );
 
-  // --- Transfer curve (when sat is on) ---
-  sat_on ? (
-    tc_x = gfx_w - 95;
-    tc_y = gfx_h * 0.35;
-    tc_w = 80;
-    tc_h = 80;
-
-    // Box background
-    gfx_r = 0.15; gfx_g = 0.1; gfx_b = 0.05;
-    gfx_rect(tc_x, tc_y, tc_w, tc_h);
-
-    // Center lines
-    gfx_r = 0.25; gfx_g = 0.18; gfx_b = 0.1;
-    gfx_line(tc_x, tc_y + tc_h/2, tc_x + tc_w, tc_y + tc_h/2);
-    gfx_line(tc_x + tc_w/2, tc_y, tc_x + tc_w/2, tc_y + tc_h);
-
-    // Diagonal reference
-    gfx_r = 0.25; gfx_g = 0.2; gfx_b = 0.12;
-    gfx_line(tc_x, tc_y + tc_h, tc_x + tc_w, tc_y);
-
-    // Curve
-    gfx_r = 1.0; gfx_g = 0.6; gfx_b = 0.1;
-    i = 0;
-    loop(50,
-      in = (i / 49) * 2 - 1;
-
-      sat_mode == 0 ? out = warm_tube(in, sat_drive, sat_bias);
-      sat_mode == 1 ? out = hot_tube(in, sat_drive, sat_bias);
-      sat_mode == 2 ? out = tape_sat(in, sat_drive, sat_bias);
-      sat_mode == 3 ? out = rectifier(in, sat_drive, sat_bias);
-      sat_mode == 4 ? out = fuzz(in, sat_drive, sat_bias);
-
-      out = max(-1, min(1, out));
-
-      px = tc_x + (in + 1) * 0.5 * tc_w;
-      py = tc_y + tc_h - (out + 1) * 0.5 * tc_h;
-
-      i == 0 ? (
-        gfx_x = px; gfx_y = py;
-      ) : (
-        gfx_lineto(px, py);
-      );
-
-      i += 1;
-    );
-
-    // Drive meter (small, next to curve)
-    gfx_r = 0.3; gfx_g = 0.2; gfx_b = 0.1;
-    gfx_rect(tc_x - 12, tc_y, 8, tc_h);
-    fill_h = sat_drive * tc_h;
-    sat_drive < 0.5 ? (
-      gfx_r = 0.4; gfx_g = 0.8; gfx_b = 0.2;
-    ) : sat_drive < 0.8 ? (
-      gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.1;
-    ) : (
-      gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.1;
-    );
-    gfx_rect(tc_x - 12, tc_y + tc_h - fill_h, 8, fill_h);
+  // Right reel
+  gfx_r = 0.14; gfx_g = 0.14; gfx_b = 0.18;
+  gfx_circle(reel_cx2, reel_cy, reel_r, 1);
+  gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+  gfx_circle(reel_cx2, reel_cy, reel_r * 0.4, 1);
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  i = 0;
+  loop(3,
+    a = -reel_angle + i * 2 * $pi / 3;
+    gfx_line(reel_cx2, reel_cy,
+             reel_cx2 + cos(a) * reel_r * 0.85,
+             reel_cy + sin(a) * reel_r * 0.85);
+    i += 1;
   );
 
-  // --- Bottom status bar ---
-  gfx_r = 0.3; gfx_g = 0.4; gfx_b = 0.25;
-  gfx_x = 10; gfx_y = gfx_h - 18;
+  // Tape path between reels
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  tape_y = reel_cy - reel_r - 5;
+  gfx_line(reel_cx1, tape_y, reel_cx2, tape_y);
+
+  // Head indicators
+  head_y = tape_y - 12;
+  head_spacing = (reel_cx2 - reel_cx1) / 4;
+
+  h1_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+        : ( gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18; );
+  hx = reel_cx1 + head_spacing;
+  gfx_rect(hx - 4, head_y - 6, 8, 12);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = hx - 2; gfx_y = head_y - 18;
+  gfx_setfont(1, "Arial", 10);
+  gfx_drawstr("1");
+
+  h2_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+        : ( gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18; );
+  hx = reel_cx1 + head_spacing * 2;
+  gfx_rect(hx - 4, head_y - 6, 8, 12);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = hx - 2; gfx_y = head_y - 18;
+  gfx_drawstr("2");
+
+  h3_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+        : ( gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18; );
+  hx = reel_cx1 + head_spacing * 3;
+  gfx_rect(hx - 4, head_y - 6, 8, 12);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = hx - 2; gfx_y = head_y - 18;
+  gfx_drawstr("3");
+);
+
+// --- Transfer curve (when sat is on) ---
+sat_on ? (
   delay_on ? (
-    gfx_drawstr("W&F: ");
-    gfx_drawnumber(slider13, 0);
-    gfx_drawstr("%  Age: ");
-    gfx_drawnumber(slider14, 0);
-    gfx_drawstr("%  Spring: ");
-    gfx_drawnumber(slider18, 0);
-    gfx_drawstr("%");
+    // When both on, curve on right half
+    tc_x = c3x + 10;
+    tc_w = col_w - 20;
   ) : (
-    sat_on ? (
-      gfx_drawstr("Drive: ");
-      gfx_drawnumber(slider2, 0);
-      gfx_drawstr("%  Tone: ");
-      gfx_drawnumber(slider17, 0);
-      gfx_drawstr("Hz");
-    ) : (
-      gfx_drawstr("All sections off - clean passthrough");
-    );
+    // Curve centered
+    tc_x = gfx_w / 2 - 50;
+    tc_w = 100;
   );
+  tc_y = vis_y + 4;
+  tc_h = vis_h - 8;
+
+  // Box background
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(tc_x, tc_y, tc_w, tc_h);
+
+  // Center lines
+  gfx_r = COL_BORDER_R * 0.6; gfx_g = COL_BORDER_G * 0.6; gfx_b = COL_BORDER_B * 0.6;
+  gfx_line(tc_x, tc_y + tc_h/2, tc_x + tc_w, tc_y + tc_h/2);
+  gfx_line(tc_x + tc_w/2, tc_y, tc_x + tc_w/2, tc_y + tc_h);
+
+  // Diagonal reference
+  gfx_r = COL_BORDER_R * 0.5; gfx_g = COL_BORDER_G * 0.5; gfx_b = COL_BORDER_B * 0.5;
+  gfx_line(tc_x, tc_y + tc_h, tc_x + tc_w, tc_y);
+
+  // Curve
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  i = 0;
+  loop(50,
+    in = (i / 49) * 2 - 1;
+
+    sat_mode == 0 ? out = warm_tube(in, sat_drive, sat_bias);
+    sat_mode == 1 ? out = hot_tube(in, sat_drive, sat_bias);
+    sat_mode == 2 ? out = tape_sat(in, sat_drive, sat_bias);
+    sat_mode == 3 ? out = rectifier(in, sat_drive, sat_bias);
+    sat_mode == 4 ? out = fuzz(in, sat_drive, sat_bias);
+
+    out = max(-1, min(1, out));
+
+    px = tc_x + (in + 1) * 0.5 * tc_w;
+    py = tc_y + tc_h - (out + 1) * 0.5 * tc_h;
+
+    i == 0 ? (
+      gfx_x = px; gfx_y = py;
+    ) : (
+      gfx_lineto(px, py);
+    );
+
+    i += 1;
+  );
+
+  // Drive meter (small, next to curve)
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(tc_x - 12, tc_y, 8, tc_h);
+  fill_h = sat_drive * tc_h;
+  sat_drive < 0.5 ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  ) : sat_drive < 0.8 ? (
+    gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+  ) : (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.4; gfx_b = 0.1;
+  );
+  gfx_rect(tc_x - 12, tc_y + tc_h - fill_h, 8, fill_h);
+);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================

@@ -459,144 +459,314 @@ loop(BC_MAX_INST,
   wpos += 1;
   wpos >= buf_max ? wpos = 0;
 
-@gfx 500 280
-  // Background - dark green/silver (vintage tape vibe)
-  gfx_r = 0.06; gfx_g = 0.09; gfx_b = 0.06;
-  gfx_rect(0, 0, gfx_w, gfx_h);
+@gfx 520 420
 
-  // Top panel stripe
-  gfx_r = 0.15; gfx_g = 0.2; gfx_b = 0.12;
-  gfx_rect(0, 0, gfx_w, 45);
+// ============================================================================
+//  COLOR PALETTE
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
 
-  // Title
-  gfx_r = 0.85; gfx_g = 0.9; gfx_b = 0.75;
-  gfx_x = 12; gfx_y = 6;
-  gfx_drawstr("HENGE DELAY");
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
 
-  // UFO — top right corner
-  ufo_cx = gfx_w - 55;
-  ufo_cy = 18;
-  // Saucer body (ellipse)
-  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.7; gfx_a = 0.9;
-  gfx_circle(ufo_cx, ufo_cy, 18, 0);
-  gfx_circle(ufo_cx, ufo_cy, 17, 0);
-  gfx_rect(ufo_cx - 18, ufo_cy - 2, 36, 5);
-  // Dome
-  gfx_r = 0.6; gfx_g = 0.8; gfx_b = 1.0; gfx_a = 0.8;
-  gfx_circle(ufo_cx, ufo_cy - 4, 8, 0);
-  gfx_circle(ufo_cx, ufo_cy - 4, 7, 0);
-  // Beam (tractor beam triangle)
-  gfx_r = 0.4; gfx_g = 0.9; gfx_b = 0.5; gfx_a = 0.15;
-  gfx_triangle(ufo_cx - 5, ufo_cy + 3, ufo_cx + 5, ufo_cy + 3, ufo_cx - 12, ufo_cy + 28, ufo_cx + 12, ufo_cy + 28);
-  gfx_a = 1;
+// Top strip — darker header band
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 42);
 
-  // Mode name
-  gfx_r = 0.6; gfx_g = 0.75; gfx_b = 0.5;
-  gfx_x = 12; gfx_y = 24;
-  mode == 0 ? gfx_drawstr("[ Head 1 ]");
-  mode == 1 ? gfx_drawstr("[ Head 2 ]");
-  mode == 2 ? gfx_drawstr("[ Head 3 ]");
-  mode == 3 ? gfx_drawstr("[ Heads 1+2 ]");
-  mode == 4 ? gfx_drawstr("[ Heads 1+3 ]");
-  mode == 5 ? gfx_drawstr("[ Heads 2+3 ]");
-  mode == 6 ? gfx_drawstr("[ All Heads ]");
+// Header accent line (warm gold)
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, 42, gfx_w, 2);
 
-  // Delay time display
-  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-  gfx_x = gfx_w - 100; gfx_y = 8;
-  gfx_drawnumber(delay_ms, 0);
-  gfx_drawstr(" ms");
-  gfx_x = gfx_w - 100; gfx_y = 24;
-  gfx_drawstr("Intensity: ");
-  gfx_drawnumber(intensity * 100, 0);
-  gfx_drawstr("%");
+// ============================================================================
+//  HELPER: draw_bar — slick slider bar with glow fill
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  // Bar background with subtle inset
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
 
-  // --- Tape reels ---
-  reel_angle += 0.02 + intensity * 0.03;
-  reel_angle >= 2 * $pi ? reel_angle -= 2 * $pi;
+  // Fill with gradient feel (brighter at top)
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
 
-  reel_cx1 = gfx_w * 0.3;
-  reel_cx2 = gfx_w * 0.7;
-  reel_cy = gfx_h * 0.52;
-  reel_r = min(gfx_w * 0.12, gfx_h * 0.22);
-
-  // Left reel
-  gfx_r = 0.25; gfx_g = 0.3; gfx_b = 0.2;
-  gfx_circle(reel_cx1, reel_cy, reel_r, 1);
-  gfx_r = 0.1; gfx_g = 0.13; gfx_b = 0.08;
-  gfx_circle(reel_cx1, reel_cy, reel_r * 0.4, 1);
-  // Spokes
-  gfx_r = 0.35; gfx_g = 0.4; gfx_b = 0.3;
-  i = 0;
-  loop(3,
-    a = reel_angle + i * 2 * $pi / 3;
-    gfx_line(reel_cx1, reel_cy,
-             reel_cx1 + cos(a) * reel_r * 0.85,
-             reel_cy + sin(a) * reel_r * 0.85);
-    i += 1;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    // Brighter top half for depth
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    // Bright edge line at top
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
   );
 
-  // Right reel
-  gfx_r = 0.25; gfx_g = 0.3; gfx_b = 0.2;
-  gfx_circle(reel_cx2, reel_cy, reel_r, 1);
-  gfx_r = 0.1; gfx_g = 0.13; gfx_b = 0.08;
-  gfx_circle(reel_cx2, reel_cy, reel_r * 0.4, 1);
-  gfx_r = 0.35; gfx_g = 0.4; gfx_b = 0.3;
-  i = 0;
-  loop(3,
-    a = -reel_angle + i * 2 * $pi / 3;
-    gfx_line(reel_cx2, reel_cy,
-             reel_cx2 + cos(a) * reel_r * 0.85,
-             reel_cy + sin(a) * reel_r * 0.85);
-    i += 1;
+  // Thin border
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1);
+  gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh);
+  gfx_rect(bx + bw - 1, by, 1, bh);
+
+  // Label (left)
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
+  gfx_drawstr(label);
+
+  // Value (right)
+  show_val ? (
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
 
-  // Tape path between reels
-  gfx_r = 0.4; gfx_g = 0.35; gfx_b = 0.25;
-  tape_y = reel_cy - reel_r - 5;
-  gfx_line(reel_cx1, tape_y, reel_cx2, tape_y);
+  // Drag
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
 
-  // --- Head indicators ---
-  head_y = tape_y - 12;
-  head_spacing = (reel_cx2 - reel_cx1) / 4;
+  val;
+);
 
-  // Head 1
-  h1_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-        : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-  hx = reel_cx1 + head_spacing;
-  gfx_rect(hx - 4, head_y - 6, 8, 12);
-  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-  gfx_x = hx - 2; gfx_y = head_y - 20;
-  gfx_drawstr("1");
+// ============================================================================
+//  HELPER: draw_panel — section panel with header bar
+// ============================================================================
+function draw_panel(px, py, pw, ph, title) (
+  // Panel body
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
 
-  // Head 2
-  h2_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-        : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-  hx = reel_cx1 + head_spacing * 2;
-  gfx_rect(hx - 4, head_y - 6, 8, 12);
-  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-  gfx_x = hx - 2; gfx_y = head_y - 20;
-  gfx_drawstr("2");
+  // Header bar
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
 
-  // Head 3
-  h3_on ? ( gfx_r = 0.2; gfx_g = 0.9; gfx_b = 0.3; )
-        : ( gfx_r = 0.2; gfx_g = 0.25; gfx_b = 0.15; );
-  hx = reel_cx1 + head_spacing * 3;
-  gfx_rect(hx - 4, head_y - 6, 8, 12);
-  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.4;
-  gfx_x = hx - 2; gfx_y = head_y - 20;
-  gfx_drawstr("3");
+  // Header bottom accent
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + 22, pw, 1);
 
-  // --- Wow/flutter indicator ---
-  gfx_r = 0.3; gfx_g = 0.4; gfx_b = 0.25;
-  gfx_x = 10; gfx_y = gfx_h - 18;
-  gfx_drawstr("W&F: ");
-  gfx_drawnumber(slider7, 0);
-  gfx_drawstr("%  Age: ");
-  gfx_drawnumber(slider8, 0);
-  gfx_drawstr("%  Spring: ");
-  gfx_drawnumber(slider9, 0);
-  gfx_drawstr("%");
+  // Panel border
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1);
+  gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph);
+  gfx_rect(px, py + ph - 1, pw, 1);
+
+  // Title text
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_drawstr(title);
+);
+
+// ============================================================================
+//  HELPER: draw_mode_sel — clickable mode selector display
+// ============================================================================
+function draw_mode_sel(mx, my, label, value_str) (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = mx; gfx_y = my;
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_drawstr("  ");
+  gfx_drawstr(value_str);
+);
+
+// ============================================================================
+//  TITLE BAR
+// ============================================================================
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", 20);
+gfx_x = 14; gfx_y = 8;
+gfx_drawstr("HENGE DELAY");
+
+// UFO — top right area of header
+ufo_cx = gfx_w - 55;
+ufo_cy = 20;
+// Saucer body (ellipse)
+gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.7; gfx_a = 0.9;
+gfx_circle(ufo_cx, ufo_cy, 18, 0);
+gfx_circle(ufo_cx, ufo_cy, 17, 0);
+gfx_rect(ufo_cx - 18, ufo_cy - 2, 36, 5);
+// Dome
+gfx_r = 0.6; gfx_g = 0.8; gfx_b = 1.0; gfx_a = 0.8;
+gfx_circle(ufo_cx, ufo_cy - 4, 8, 0);
+gfx_circle(ufo_cx, ufo_cy - 4, 7, 0);
+// Beam (tractor beam triangle)
+gfx_r = 0.4; gfx_g = 0.9; gfx_b = 0.5; gfx_a = 0.15;
+gfx_triangle(ufo_cx - 5, ufo_cy + 3, ufo_cx + 5, ufo_cy + 3, ufo_cx - 12, ufo_cy + 28, ufo_cx + 12, ufo_cy + 28);
+gfx_a = 1;
+
+// ============================================================================
+//  TAPE VISUALIZATION AREA (reels, heads, tape path)
+// ============================================================================
+viz_top = 46;
+viz_h = 140;
+
+// Visualization background (slightly lighter panel)
+gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.09;
+gfx_rect(0, viz_top, gfx_w, viz_h);
+
+// --- Tape reels ---
+reel_angle += 0.02 + intensity * 0.03;
+reel_angle >= 2 * $pi ? reel_angle -= 2 * $pi;
+
+reel_cx1 = gfx_w * 0.3;
+reel_cx2 = gfx_w * 0.7;
+reel_cy = viz_top + viz_h * 0.55;
+reel_r = min(gfx_w * 0.10, viz_h * 0.35);
+
+// Left reel
+gfx_r = 0.18; gfx_g = 0.22; gfx_b = 0.18;
+gfx_circle(reel_cx1, reel_cy, reel_r, 1);
+gfx_r = 0.08; gfx_g = 0.10; gfx_b = 0.08;
+gfx_circle(reel_cx1, reel_cy, reel_r * 0.4, 1);
+// Spokes
+gfx_r = 0.30; gfx_g = 0.35; gfx_b = 0.28;
+i = 0;
+loop(3,
+  a = reel_angle + i * 2 * $pi / 3;
+  gfx_line(reel_cx1, reel_cy,
+           reel_cx1 + cos(a) * reel_r * 0.85,
+           reel_cy + sin(a) * reel_r * 0.85);
+  i += 1;
+);
+
+// Right reel
+gfx_r = 0.18; gfx_g = 0.22; gfx_b = 0.18;
+gfx_circle(reel_cx2, reel_cy, reel_r, 1);
+gfx_r = 0.08; gfx_g = 0.10; gfx_b = 0.08;
+gfx_circle(reel_cx2, reel_cy, reel_r * 0.4, 1);
+gfx_r = 0.30; gfx_g = 0.35; gfx_b = 0.28;
+i = 0;
+loop(3,
+  a = -reel_angle + i * 2 * $pi / 3;
+  gfx_line(reel_cx2, reel_cy,
+           reel_cx2 + cos(a) * reel_r * 0.85,
+           reel_cy + sin(a) * reel_r * 0.85);
+  i += 1;
+);
+
+// Tape path between reels
+gfx_r = 0.4; gfx_g = 0.35; gfx_b = 0.25;
+tape_y = reel_cy - reel_r - 5;
+gfx_line(reel_cx1, tape_y, reel_cx2, tape_y);
+
+// --- Head indicators ---
+head_y = tape_y - 12;
+head_spacing = (reel_cx2 - reel_cx1) / 4;
+
+// Head 1
+h1_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+      : ( gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.14; );
+hx = reel_cx1 + head_spacing;
+gfx_rect(hx - 4, head_y - 6, 8, 12);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = hx - 2; gfx_y = head_y - 20;
+gfx_drawstr("1");
+
+// Head 2
+h2_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+      : ( gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.14; );
+hx = reel_cx1 + head_spacing * 2;
+gfx_rect(hx - 4, head_y - 6, 8, 12);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = hx - 2; gfx_y = head_y - 20;
+gfx_drawstr("2");
+
+// Head 3
+h3_on ? ( gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; )
+      : ( gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.14; );
+hx = reel_cx1 + head_spacing * 3;
+gfx_rect(hx - 4, head_y - 6, 8, 12);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = hx - 2; gfx_y = head_y - 20;
+gfx_drawstr("3");
+
+// Visualization bottom border
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(0, viz_top + viz_h, gfx_w, 1);
+
+// ============================================================================
+//  CONTROL PANELS — Two columns below tape visualization
+// ============================================================================
+margin = 8;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+pad = 8;
+ctrl_top = viz_top + viz_h + 6;
+col_w = floor((gfx_w - margin * 2 - gap) / 2);
+left_x = margin;
+right_x = margin + col_w + gap;
+panel_h = 148;
+
+// ---- LEFT PANEL: DELAY ----
+draw_panel(left_x, ctrl_top, col_w, panel_h, "DELAY");
+inner_w = col_w - pad * 2;
+cy = ctrl_top + 26;
+
+// Mode selector (click to cycle through 7 options)
+mode == 0 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 1")
+: mode == 1 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 2")
+: mode == 2 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 3")
+: mode == 3 ? draw_mode_sel(left_x + pad, cy, "MODE:", "1+2")
+: mode == 4 ? draw_mode_sel(left_x + pad, cy, "MODE:", "1+3")
+: mode == 5 ? draw_mode_sel(left_x + pad, cy, "MODE:", "2+3")
+: draw_mode_sel(left_x + pad, cy, "MODE:", "All");
+
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= left_x + pad && mouse_x <= left_x + pad + inner_w &&
+  mouse_y >= cy && mouse_y <= cy + 16 ? (
+    slider1 = (slider1 + 1) % 7;
+);
+cy += bar_sp;
+
+slider2 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider2, 50, 1000, "RATE", 1);
+cy += bar_sp;
+slider3 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider3, 0, 100, "INTENSITY", 1);
+cy += bar_sp;
+slider4 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider4, 0, 100, "ECHO VOL", 1);
+cy += bar_sp;
+slider10 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider10, 0, 100, "DRY/WET", 1);
+
+// ---- RIGHT PANEL: CHARACTER ----
+draw_panel(right_x, ctrl_top, col_w, panel_h, "CHARACTER");
+inner_w = col_w - pad * 2;
+cy = ctrl_top + 26;
+
+slider5 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider5, 0, 100, "BASS", 1);
+cy += bar_sp;
+slider6 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider6, 0, 100, "TREBLE", 1);
+cy += bar_sp;
+slider7 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider7, 0, 100, "WOW&FLUT", 1);
+cy += bar_sp;
+slider8 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider8, 0, 100, "TAPE AGE", 1);
+cy += bar_sp;
+slider9 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider9, 0, 100, "SPRING", 1);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================

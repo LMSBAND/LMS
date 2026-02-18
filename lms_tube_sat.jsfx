@@ -352,94 +352,247 @@ loop(BC_MAX_INST,
   spl0 = dry_l * (1 - dry_wet) + l * dry_wet;
   spl1 = dry_r * (1 - dry_wet) + r * dry_wet;
 
-@gfx 500 310
-  // Background
-  gfx_r = 0.12; gfx_g = 0.08; gfx_b = 0.05;
-  gfx_rect(0, 0, gfx_w, gfx_h);
+@gfx 520 330
+// ============================================================================
+//  COLOR CONSTANTS
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
 
-  // Title
-  gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.3;
-  gfx_x = 10; gfx_y = 8;
-  gfx_drawstr("LMS TUBE SATURATOR");
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 44);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, 44, gfx_w, 2);
 
-  // Mode name
-  gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.2;
-  gfx_x = 10; gfx_y = 28;
-  mode == 0 ? gfx_drawstr("[ Warm Tube ]");
-  mode == 1 ? gfx_drawstr("[ Hot Tube ]");
-  mode == 2 ? gfx_drawstr("[ Tape ]");
-  mode == 3 ? gfx_drawstr("[ Rectifier ]");
-  mode == 4 ? gfx_drawstr("[ Fuzz ]");
-
-  // Draw transfer curve
-  center_x = gfx_w * 0.5;
-  center_y = gfx_h * 0.55;
-  box_w = gfx_w * 0.6;
-  box_h = gfx_h * 0.6;
-
-  // Box outline
-  gfx_r = 0.3; gfx_g = 0.2; gfx_b = 0.1;
-  gfx_rect(center_x - box_w/2, center_y - box_h/2, box_w, box_h);
-
-  // Center lines
-  gfx_r = 0.25; gfx_g = 0.18; gfx_b = 0.1;
-  gfx_line(center_x - box_w/2, center_y, center_x + box_w/2, center_y);
-  gfx_line(center_x, center_y - box_h/2, center_x, center_y + box_h/2);
-
-  // Linear reference (diagonal)
-  gfx_r = 0.3; gfx_g = 0.25; gfx_b = 0.15;
-  gfx_line(center_x - box_w/2, center_y + box_h/2,
-           center_x + box_w/2, center_y - box_h/2);
-
-  // Draw the actual transfer curve
-  gfx_r = 1.0; gfx_g = 0.6; gfx_b = 0.1;
-  i = 0;
-  loop(100,
-    // Input from -1 to 1
-    in = (i / 99) * 2 - 1;
-
-    // Apply current saturation
-    mode == 0 ? out = warm_tube(in, drive, bias);
-    mode == 1 ? out = hot_tube(in, drive, bias);
-    mode == 2 ? out = tape_sat(in, drive, bias);
-    mode == 3 ? out = rectifier(in, drive, bias);
-    mode == 4 ? out = fuzz(in, drive, bias);
-
-    out = max(-1, min(1, out));
-
-    px = center_x + in * box_w * 0.5;
-    py = center_y - out * box_h * 0.5;
-
-    i == 0 ? (
-      gfx_x = px; gfx_y = py;
-    ) : (
-      gfx_lineto(px, py);
+// ============================================================================
+//  HELPER: draw_bar
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
     );
-
-    i += 1;
   );
+  val;
+);
 
-  // Drive meter
-  gfx_r = 0.5; gfx_g = 0.3; gfx_b = 0.1;
-  meter_x = gfx_w - 40;
-  meter_h = gfx_h - 60;
-  gfx_rect(meter_x, 50, 20, meter_h);
+// ============================================================================
+//  HELPER: draw_panel
+// ============================================================================
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + 22, pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_drawstr(title);
+);
 
-  // Drive fill
-  fill_h = drive * meter_h;
-  drive < 0.5 ? (
-    gfx_r = 0.4; gfx_g = 0.8; gfx_b = 0.2;
-  ) : drive < 0.8 ? (
-    gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.1;
+// ============================================================================
+//  HELPER: draw_toggle (not currently used but available)
+// ============================================================================
+function draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + 8, ty + 8, 7, 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
   ) : (
-    gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.1;
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
   );
-  gfx_rect(meter_x, 50 + meter_h - fill_h, 20, fill_h);
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + 80 &&
+    mouse_y >= ty && mouse_y <= ty + 16 ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
 
-  // Drive label
-  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-  gfx_x = meter_x - 5; gfx_y = gfx_h - 15;
-  gfx_drawstr("DRIVE");
+// ============================================================================
+//  HELPER: draw_mode_sel — clickable mode selector (5 options)
+// ============================================================================
+function draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = mx + 5; gfx_y = my + floor((mh - 12) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - 82; gfx_y = my + floor((mh - 12) / 2);
+  val == 0 ? gfx_drawstr(v0);
+  val == 1 ? gfx_drawstr(v1);
+  val == 2 ? gfx_drawstr(v2);
+  val == 3 ? gfx_drawstr(v3);
+  val == 4 ? gfx_drawstr(v4);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % (vmax + 1);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = vmax;
+  );
+  val;
+);
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = 8;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+col_w = 220;
+body_y = 50;
+
+// ============================================================================
+//  TITLE
+// ============================================================================
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", 22);
+gfx_x = 12; gfx_y = 10;
+gfx_drawstr("LMS TUBE SATURATOR");
+
+// ============================================================================
+//  LEFT COLUMN: CONTROLS
+// ============================================================================
+c1x = margin;
+draw_panel(c1x, body_y, col_w, 222, "SATURATION");
+cy = body_y + 26;
+slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, 0, 100, "Drive", 1);
+cy += bar_sp;
+slider6 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider6, 4, "Mode", "Warm Tube", "Hot Tube", "Tape", "Rectifier", "Fuzz");
+cy += bar_sp;
+slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even Harm", 1);
+cy += bar_sp;
+slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd Harm", 1);
+cy += bar_sp;
+slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 0, 100, "Bias", 1);
+cy += bar_sp;
+slider7 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider7, 20, 20000, "Tone Hz", 1);
+cy += bar_sp;
+slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, -12, 12, "Output dB", 1);
+cy += bar_sp;
+slider3 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider3, 0, 100, "Dry/Wet", 1);
+
+// ============================================================================
+//  RIGHT PANEL: TRANSFER CURVE
+// ============================================================================
+tc_x = margin + col_w + gap;
+tc_w = gfx_w - tc_x - margin;
+tc_h = 222;
+draw_panel(tc_x, body_y, tc_w, tc_h, "TRANSFER CURVE");
+
+// Transfer curve box area
+center_x = tc_x + tc_w / 2;
+center_y = body_y + 22 + (tc_h - 22) / 2;
+box_w = tc_w - 20;
+box_h = tc_h - 36;
+
+// Box background
+gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+gfx_rect(center_x - box_w/2, center_y - box_h/2, box_w, box_h);
+
+// Center lines
+gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+gfx_line(center_x - box_w/2, center_y, center_x + box_w/2, center_y);
+gfx_line(center_x, center_y - box_h/2, center_x, center_y + box_h/2);
+
+// Linear reference (diagonal)
+gfx_r = 0.20; gfx_g = 0.20; gfx_b = 0.25;
+gfx_line(center_x - box_w/2, center_y + box_h/2,
+         center_x + box_w/2, center_y - box_h/2);
+
+// Draw the actual transfer curve
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+i = 0;
+loop(100,
+  // Input from -1 to 1
+  in = (i / 99) * 2 - 1;
+
+  // Apply current saturation
+  mode == 0 ? out = warm_tube(in, drive, bias);
+  mode == 1 ? out = hot_tube(in, drive, bias);
+  mode == 2 ? out = tape_sat(in, drive, bias);
+  mode == 3 ? out = rectifier(in, drive, bias);
+  mode == 4 ? out = fuzz(in, drive, bias);
+
+  out = max(-1, min(1, out));
+
+  px = center_x + in * box_w * 0.5;
+  py = center_y - out * box_h * 0.5;
+
+  i == 0 ? (
+    gfx_x = px; gfx_y = py;
+  ) : (
+    gfx_lineto(px, py);
+  );
+
+  i += 1;
+);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================
