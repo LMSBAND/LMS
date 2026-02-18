@@ -341,6 +341,56 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+// Saturation params
+sat_on = slider1;
+sat_drive = slider2 / 100;
+sat_mode = slider3;
+sat_even = slider4 / 100;
+sat_odd = slider5 / 100;
+sat_bias = slider6 / 100;
+sat_routing = slider7;
+
+// Delay params
+delay_on = slider8;
+head_mode = slider9;
+delay_ms = slider10;
+intensity = slider11 / 100;
+echo_vol = slider12 / 100;
+wf_amount = slider13 / 100;
+tape_age = slider14 / 100;
+
+// Tone & mix
+bass = slider15 / 100;
+treble = slider16 / 100;
+sat_tone_freq = slider17;
+sat_tone_coeff = exp(-2 * $pi * sat_tone_freq / srate);
+spring_mix = slider18 / 100;
+out_gain = 10 ^ (slider19 / 20);
+dry_wet = slider20 / 100;
+
+// Delay setup
+delay_base = delay_ms / 1000 * srate;
+head1_delay = delay_base;
+head2_delay = delay_base * 1.5;
+head3_delay = delay_base * 2.0;
+
+h1_on = (head_mode == 0 || head_mode == 3 || head_mode == 4 || head_mode == 6) ? 1 : 0;
+h2_on = (head_mode == 1 || head_mode == 3 || head_mode == 5 || head_mode == 6) ? 1 : 0;
+h3_on = (head_mode == 2 || head_mode == 4 || head_mode == 5 || head_mode == 6) ? 1 : 0;
+num_heads = h1_on + h2_on + h3_on;
+num_heads < 1 ? num_heads = 1;
+
+// Feedback lowpass
+fb_lp_freq = 800 + treble * 8000 - tape_age * 3000;
+fb_lp_freq = max(fb_lp_freq, 400);
+fb_lp_freq = min(fb_lp_freq, 12000);
+fb_lp_coeff = exp(-2 * $pi * fb_lp_freq / srate);
+
+// Bass highpass
+bass_hp_freq = 60 + (1 - bass) * 400;
+bass_hp_coeff = exp(-2 * $pi * bass_hp_freq / srate);
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -834,9 +884,11 @@ gfx_drawstr("LMS TAPE MACHINE");
 c1x = margin;
 draw_panel(c1x, body_y, col_w, panel_h, "SATURATION");
 cy = body_y + 26;
-slider1 = draw_toggle(c1x + 8, cy + 2, slider1, "Sat Enable");
+_old = slider1; slider1 = draw_toggle(c1x + 8, cy + 2, slider1, "Sat Enable");
+slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
-slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Drive", 1);
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Drive", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
 // Sat Mode selector (5 modes: 0-4)
 sat_mode_str = "Warm Tube";
@@ -844,20 +896,25 @@ slider3 == 1 ? sat_mode_str = "Hot Tube";
 slider3 == 2 ? sat_mode_str = "Tape";
 slider3 == 3 ? sat_mode_str = "Rectifier";
 slider3 == 4 ? sat_mode_str = "Fuzz";
-slider3 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider3, 4, "Mode", sat_mode_str);
+_old = slider3; slider3 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider3, 4, "Mode", sat_mode_str);
+slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
-slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even", 1);
+_old = slider4; slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd", 1);
+_old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Bias", 1);
+_old = slider6; slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Bias", 1);
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
 // Sat Routing selector (4 modes: 0-3)
 routing_str = "Pre Delay";
 slider7 == 1 ? routing_str = "Dry Only";
 slider7 == 2 ? routing_str = "Wet Only";
 slider7 == 3 ? routing_str = "Final";
-slider7 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider7, 3, "Route", routing_str);
+_old = slider7; slider7 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider7, 3, "Route", routing_str);
+slider7 != _old ? slider_automate(2^6);
 
 // ============================================================================
 //  COLUMN 2: DELAY
@@ -865,7 +922,8 @@ slider7 = draw_mode_sel_str(c1x + 4, cy, col_w - 8, bar_h, slider7, 3, "Route", 
 c2x = margin + col_w + gap;
 draw_panel(c2x, body_y, col_w, panel_h, "DELAY");
 cy = body_y + 26;
-slider8 = draw_toggle(c2x + 8, cy + 2, slider8, "Delay Enable");
+_old = slider8; slider8 = draw_toggle(c2x + 8, cy + 2, slider8, "Delay Enable");
+slider8 != _old ? slider_automate(2^7);
 cy += bar_sp;
 // Head Mode selector (7 modes: 0-6)
 head_str = "Head 1";
@@ -875,17 +933,23 @@ slider9 == 3 ? head_str = "Hd 1+2";
 slider9 == 4 ? head_str = "Hd 1+3";
 slider9 == 5 ? head_str = "Hd 2+3";
 slider9 == 6 ? head_str = "All Hd";
-slider9 = draw_mode_sel_str(c2x + 4, cy, col_w - 8, bar_h, slider9, 6, "Head", head_str);
+_old = slider9; slider9 = draw_mode_sel_str(c2x + 4, cy, col_w - 8, bar_h, slider9, 6, "Head", head_str);
+slider9 != _old ? slider_automate(2^8);
 cy += bar_sp;
-slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, 50, 1000, "Rate ms", 1);
+_old = slider10; slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, 50, 1000, "Rate ms", 1);
+slider10 != _old ? slider_automate(2^9);
 cy += bar_sp;
-slider11 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider11, 0, 100, "Intens", 1);
+_old = slider11; slider11 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider11, 0, 100, "Intens", 1);
+slider11 != _old ? slider_automate(2^10);
 cy += bar_sp;
-slider12 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider12, 0, 100, "Echo Vol", 1);
+_old = slider12; slider12 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider12, 0, 100, "Echo Vol", 1);
+slider12 != _old ? slider_automate(2^11);
 cy += bar_sp;
-slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, 0, 100, "W&F", 1);
+_old = slider13; slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, 0, 100, "W&F", 1);
+slider13 != _old ? slider_automate(2^12);
 cy += bar_sp;
-slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Age", 1);
+_old = slider14; slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Age", 1);
+slider14 != _old ? slider_automate(2^13);
 
 // ============================================================================
 //  COLUMN 3: TONE / MIX
@@ -893,17 +957,23 @@ slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Age", 1);
 c3x = margin + (col_w + gap) * 2;
 draw_panel(c3x, body_y, col_w, panel_h, "TONE / MIX");
 cy = body_y + 26;
-slider15 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider15, 0, 100, "Bass", 1);
+_old = slider15; slider15 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider15, 0, 100, "Bass", 1);
+slider15 != _old ? slider_automate(2^14);
 cy += bar_sp;
-slider16 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider16, 0, 100, "Treble", 1);
+_old = slider16; slider16 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider16, 0, 100, "Treble", 1);
+slider16 != _old ? slider_automate(2^15);
 cy += bar_sp;
-slider17 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider17, 20, 20000, "Tone Hz", 1);
+_old = slider17; slider17 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider17, 20, 20000, "Tone Hz", 1);
+slider17 != _old ? slider_automate(2^16);
 cy += bar_sp;
-slider18 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider18, 0, 100, "Spring", 1);
+_old = slider18; slider18 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider18, 0, 100, "Spring", 1);
+slider18 != _old ? slider_automate(2^17);
 cy += bar_sp;
-slider19 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider19, -12, 12, "Output", 1);
+_old = slider19; slider19 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider19, -12, 12, "Output", 1);
+slider19 != _old ? slider_automate(2^18);
 cy += bar_sp;
-slider20 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider20, 0, 100, "Dry/Wet", 1);
+_old = slider20; slider20 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider20, 0, 100, "Dry/Wet", 1);
+slider20 != _old ? slider_automate(2^19);
 
 // ============================================================================
 //  VISUALIZATION AREA (below the three columns)

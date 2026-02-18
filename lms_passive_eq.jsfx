@@ -210,6 +210,101 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+// === LOW FREQUENCY SELECTION ===
+slider3 == 0 ? low_freq = 20;
+slider3 == 1 ? low_freq = 30;
+slider3 == 2 ? low_freq = 60;
+slider3 == 3 ? low_freq = 100;
+
+// === HIGH FREQUENCY SELECTION ===
+slider7 == 0 ? high_freq = 3000;
+slider7 == 1 ? high_freq = 4000;
+slider7 == 2 ? high_freq = 5000;
+slider7 == 3 ? high_freq = 8000;
+slider7 == 4 ? high_freq = 10000;
+slider7 == 5 ? high_freq = 12000;
+slider7 == 6 ? high_freq = 16000;
+
+low_boost_amt = slider1;
+low_cut_amt = slider2;
+high_boost_amt = slider4;
+high_bw = slider5;
+high_cut_amt = slider6;
+tube_on = slider8;
+out_gain = 10 ^ (slider9 / 20);
+
+// === LOW BOOST (low shelf, broad Q) ===
+low_boost_amt > 0 ? (
+  gain_db = low_boost_amt * 1.8;
+  A = 10 ^ (gain_db / 40);
+  w0 = 2 * $pi * low_freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * 0.4);
+  a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
+  lb_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
+  lb_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
+  lb_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  lb_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
+  lb_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+) : (
+  lb_b0 = 1; lb_b1 = 0; lb_b2 = 0; lb_a1 = 0; lb_a2 = 0;
+);
+
+// === LOW CUT ===
+low_cut_amt > 0 ? (
+  gain_db = -low_cut_amt * 1.8;
+  A = 10 ^ (gain_db / 40);
+  cut_freq = low_freq * 1.5;
+  w0 = 2 * $pi * cut_freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * 0.7);
+  a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
+  lc_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
+  lc_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
+  lc_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  lc_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
+  lc_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+) : (
+  lc_b0 = 1; lc_b1 = 0; lc_b2 = 0; lc_a1 = 0; lc_a2 = 0;
+);
+
+// === HIGH BOOST (peaking EQ with variable bandwidth) ===
+high_boost_amt > 0 ? (
+  gain_db = high_boost_amt * 1.5;
+  A = 10 ^ (gain_db / 40);
+  w0 = 2 * $pi * high_freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  Q = 0.3 + (high_bw - 1) * 0.3;
+  alpha = sn / (2 * Q);
+  a0_inv = 1 / (1 + alpha / A);
+  hb_b0 = (1 + alpha * A) * a0_inv;
+  hb_b1 = -2 * cs * a0_inv;
+  hb_b2 = (1 - alpha * A) * a0_inv;
+  hb_a1 = -2 * cs * a0_inv;
+  hb_a2 = (1 - alpha / A) * a0_inv;
+) : (
+  hb_b0 = 1; hb_b1 = 0; hb_b2 = 0; hb_a1 = 0; hb_a2 = 0;
+);
+
+// === HIGH CUT (low-pass shelf rolloff) ===
+high_cut_amt > 0 ? (
+  gain_db = -high_cut_amt * 1.5;
+  A = 10 ^ (gain_db / 40);
+  hc_freq = 10000;
+  w0 = 2 * $pi * hc_freq / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * 0.5);
+  a0_inv = 1 / ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha);
+  hc_b0 = A * ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
+  hc_b1 = -2 * A * ((A - 1) + (A + 1) * cs) * a0_inv;
+  hc_b2 = A * ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  hc_a1 = 2 * ((A - 1) - (A + 1) * cs) * a0_inv;
+  hc_a2 = ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+) : (
+  hc_b0 = 1; hc_b1 = 0; hc_b2 = 0; hc_a1 = 0; hc_a2 = 0;
+);
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -593,11 +688,14 @@ c1x = margin;
 panel_h = 26 + bar_sp * 4 + 4;
 draw_panel(c1x, body_y, col_w, panel_h, "LOW");
 cy = body_y + 26;
-slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, 0, 10, "Lo Boost", 1);
+_old = slider1; slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, 0, 10, "Lo Boost", 1);
+slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
-slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 10, "Lo Atten", 1);
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 10, "Lo Atten", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-slider3 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, 3, "Lo Freq", "20Hz", "30Hz", "60Hz", "100Hz");
+_old = slider3; slider3 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, 3, "Lo Freq", "20Hz", "30Hz", "60Hz", "100Hz");
+slider3 != _old ? slider_automate(2^2);
 
 // ============================================================================
 //  COLUMN 2: HIGH SECTION (4 controls)
@@ -605,21 +703,27 @@ slider3 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, 3, "Lo Freq", "2
 c2x = margin + col_w + gap;
 draw_panel(c2x, body_y, col_w, panel_h, "HIGH");
 cy = body_y + 26;
-slider4 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider4, 0, 10, "Hi Boost", 1);
+_old = slider4; slider4 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider4, 0, 10, "Hi Boost", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider5 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider5, 1, 10, "Hi BW", 1);
+_old = slider5; slider5 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider5, 1, 10, "Hi BW", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-slider6 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider6, 0, 10, "Hi Atten", 1);
+_old = slider6; slider6 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider6, 0, 10, "Hi Atten", 1);
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-slider7 = draw_freq_sel(c2x + 4, cy, col_w - 8, bar_h, slider7, "Hi Freq");
+_old = slider7; slider7 = draw_freq_sel(c2x + 4, cy, col_w - 8, bar_h, slider7, "Hi Freq");
+slider7 != _old ? slider_automate(2^6);
 
 // ============================================================================
 //  BOTTOM ROW: TUBE TOGGLE + OUTPUT
 // ============================================================================
 bot_y = body_y + panel_h + 6;
 draw_panel(margin, bot_y, gfx_w - margin * 2, 50, "OUTPUT");
-slider8 = draw_toggle(margin + 8, bot_y + 26, slider8, "Tube Saturation");
-slider9 = draw_bar(margin + 160, bot_y + 26, gfx_w - margin * 2 - 164, bar_h, slider9, -12, 12, "Output dB", 1);
+_old = slider8; slider8 = draw_toggle(margin + 8, bot_y + 26, slider8, "Tube Saturation");
+slider8 != _old ? slider_automate(2^7);
+_old = slider9; slider9 = draw_bar(margin + 160, bot_y + 26, gfx_w - margin * 2 - 164, bar_h, slider9, -12, 12, "Output dB", 1);
+slider9 != _old ? slider_automate(2^8);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================

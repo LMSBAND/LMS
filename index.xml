@@ -14,6 +14,10 @@
         <changelog><![CDATA[v2.1 — Renamed to LMS RTW (LMS Reinvents The Wheel).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_distressor.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -26,6 +30,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v2.1 — Renamed to KITTY KATS BIG KRUSH.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+      </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
     </reapack>
@@ -42,6 +50,10 @@
         <changelog><![CDATA[v2.1 — Renamed to PEQ4U.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -52,6 +64,10 @@
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -60,6 +76,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+      </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
     </reapack>
@@ -76,6 +96,10 @@
         <changelog><![CDATA[v2.1 — Renamed to HENGE DELAY with UFO in GUI. An ode to space-themed bands everywhere.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Sound City Drum Room">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -86,6 +110,10 @@
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Restored room visualization (bird's-eye room, drum kit, mic dots, level meters, GR meter). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
+      </version>
     </reapack>
     <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -94,6 +122,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
+      </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>

@@ -244,6 +244,33 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+master_gain = 10 ^ (slider1 / 20);
+dry_wet = slider2 / 100;
+limiter_on = slider3;
+limiter_thresh = 10 ^ (slider4 / 20);
+
+// Post-tweak EQ
+low_gain = slider5;
+mid_gain = slider6;
+high_gain = slider7;
+mid_freq = slider8;
+
+calc_low_shelf(200, low_gain);
+calc_high_shelf(8000, high_gain);
+calc_mid_peak(mid_freq, mid_gain, 0.7);
+
+// 42069 compressor
+comp_on = slider9;
+comp_thresh = slider10;
+slider11 == 0 ? comp_ratio = 4;
+slider11 == 1 ? comp_ratio = 8;
+slider11 == 2 ? comp_ratio = 12;
+slider11 == 3 ? comp_ratio = 20;
+comp_att = exp(-1 / (slider12 * 0.001 * srate));
+comp_rel = exp(-1 / (slider13 * 0.001 * srate));
+comp_mix = slider14 / 100;
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -734,21 +761,29 @@ gfx_drawstr("FIR Convolution - 4096 taps");
 c1x = margin;
 draw_panel(c1x, body_y, col_w, 220, "MATCHERING");
 cy = body_y + 26;
-slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, -20, 20, "In Gain", 1);
+_old = slider1; slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, -20, 20, "In Gain", 1);
+slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
-slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Dry/Wet", 1);
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Dry/Wet", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-slider3 = draw_toggle(c1x + 8, cy + 2, slider3, "Limiter");
+_old = slider3; slider3 = draw_toggle(c1x + 8, cy + 2, slider3, "Limiter");
+slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
-slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, -6, 0, "Lim Thr", 1);
+_old = slider4; slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, -6, 0, "Lim Thr", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, -6, 6, "Lo Tweak", 1);
+_old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, -6, 6, "Lo Tweak", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, -6, 6, "Mid Tweak", 1);
+_old = slider6; slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, -6, 6, "Mid Tweak", 1);
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-slider7 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider7, -6, 6, "Hi Tweak", 1);
+_old = slider7; slider7 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider7, -6, 6, "Hi Tweak", 1);
+slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
-slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 100, 2000, "Mid Freq", 1);
+_old = slider8; slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 100, 2000, "Mid Freq", 1);
+slider8 != _old ? slider_automate(2^7);
 
 // ============================================================================
 //  COLUMN 2: 42069 COMP
@@ -756,17 +791,23 @@ slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 100, 2000, "Mid Freq"
 c2x = margin + col_w + gap;
 draw_panel(c2x, body_y, col_w, 220, "42069 COMP");
 cy = body_y + 26;
-slider9 = draw_toggle(c2x + 8, cy + 2, slider9, "42069 On");
+_old = slider9; slider9 = draw_toggle(c2x + 8, cy + 2, slider9, "42069 On");
+slider9 != _old ? slider_automate(2^8);
 cy += bar_sp;
-slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, -40, 0, "Thresh", 1);
+_old = slider10; slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, -40, 0, "Thresh", 1);
+slider10 != _old ? slider_automate(2^9);
 cy += bar_sp;
-slider11 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider11, 3, "Ratio", "4:1", "8:1", "12:1", "20:1");
+_old = slider11; slider11 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider11, 3, "Ratio", "4:1", "8:1", "12:1", "20:1");
+slider11 != _old ? slider_automate(2^10);
 cy += bar_sp;
-slider12 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider12, 0.02, 0.8, "Attack", 1);
+_old = slider12; slider12 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider12, 0.02, 0.8, "Attack", 1);
+slider12 != _old ? slider_automate(2^11);
 cy += bar_sp;
-slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, 50, 1100, "Release", 1);
+_old = slider13; slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, 50, 1100, "Release", 1);
+slider13 != _old ? slider_automate(2^12);
 cy += bar_sp;
-slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Mix", 1);
+_old = slider14; slider14 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider14, 0, 100, "Mix", 1);
+slider14 != _old ? slider_automate(2^13);
 cy += bar_sp;
 
 // GR meter

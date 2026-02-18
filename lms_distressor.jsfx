@@ -117,6 +117,41 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+input_gain = 10 ^ (slider1 / 20);
+comp_thresh = slider2;
+
+// Ratio mapping
+slider3 == 0 ? comp_ratio = 1;
+slider3 == 1 ? comp_ratio = 2;
+slider3 == 2 ? comp_ratio = 3;
+slider3 == 3 ? comp_ratio = 4;
+slider3 == 4 ? comp_ratio = 6;
+slider3 == 5 ? comp_ratio = 10;
+slider3 == 6 ? comp_ratio = 20;
+slider3 == 7 ? comp_ratio = 100;
+
+comp_att = exp(-1 / (slider4 * 0.001 * srate));
+comp_rel = exp(-1 / (slider5 * 0.001 * srate));
+
+dist_mode = slider6;
+sc_hp_on = slider7;
+output_gain = 10 ^ (slider9 / 20);
+mix = slider10 / 100;
+
+// HP sidechain filter coefficients
+sc_hp_on ? (
+  w0 = 2 * $pi * slider8 / srate;
+  cs = cos(w0); sn = sin(w0);
+  alpha = sn / (2 * 0.707);
+  a0_inv = 1 / (1 + alpha);
+  sc_b0 = (1 + cs) / 2 * a0_inv;
+  sc_b1 = -(1 + cs) * a0_inv;
+  sc_b2 = (1 + cs) / 2 * a0_inv;
+  sc_a1 = -2 * cs * a0_inv;
+  sc_a2 = (1 - alpha) * a0_inv;
+);
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -549,15 +584,20 @@ gfx_drawstr("KITTY KATS BIG KRUSH");
 c1x = margin;
 draw_panel(c1x, body_y, col_w, 178, "INPUT / COMPRESSION");
 cy = body_y + 26;
-slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, -12, 24, "Input dB", 1);
+_old = slider1; slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, -12, 24, "Input dB", 1);
+slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
-slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, -40, 0, "Thresh dB", 1);
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, -40, 0, "Thresh dB", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-slider3 = draw_ratio_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, "Ratio");
+_old = slider3; slider3 = draw_ratio_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, "Ratio");
+slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
-slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0.05, 20, "Atk ms", 1);
+_old = slider4; slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0.05, 20, "Atk ms", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 50, 2500, "Rel ms", 1);
+_old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 50, 2500, "Rel ms", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
 
 // GR meter text
@@ -585,15 +625,20 @@ gr_w > 0 ? (
 c2x = margin + col_w + gap;
 draw_panel(c2x, body_y, col_w, 178, "CHARACTER");
 cy = body_y + 26;
-slider6 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider6, 2, "Dist", "Off", "Tape", "Tube", "");
+_old = slider6; slider6 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider6, 2, "Dist", "Off", "Tape", "Tube", "");
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-slider7 = draw_toggle(c2x + 8, cy + 2, slider7, "HP Sidechain");
+_old = slider7; slider7 = draw_toggle(c2x + 8, cy + 2, slider7, "HP Sidechain");
+slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
-slider8 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider8, 60, 400, "SC Hz", 1);
+_old = slider8; slider8 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider8, 60, 400, "SC Hz", 1);
+slider8 != _old ? slider_automate(2^7);
 cy += bar_sp;
-slider9 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider9, -12, 12, "Out dB", 1);
+_old = slider9; slider9 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider9, -12, 12, "Out dB", 1);
+slider9 != _old ? slider_automate(2^8);
 cy += bar_sp;
-slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, 0, 100, "Mix %", 1);
+_old = slider10; slider10 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider10, 0, 100, "Mix %", 1);
+slider10 != _old ? slider_automate(2^9);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================
