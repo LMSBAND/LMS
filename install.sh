@@ -34,6 +34,10 @@ for f in "$SCRIPT_DIR"/lms_drumbanger.jsfx \
     fi
 done
 
+# Copy shared DSP kernel (required by all LMS plugins)
+cp "$SCRIPT_DIR/lms_core.jsfx-inc" "$HOME/.config/REAPER/Effects/lms_core.jsfx-inc"
+echo "  Copied lms_core.jsfx-inc → Effects/"
+
 # Copy all other JSFX plugins (channel strip, distressor, etc.)
 for f in "$SCRIPT_DIR"/lms_*.jsfx "$SCRIPT_DIR"/matchering_*.jsfx; do
     [ -f "$f" ] || continue
