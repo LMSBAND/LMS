@@ -1,4 +1,4 @@
-desc:LMS Channel Strip (Analog Style)
+desc:LMS RTW (LMS Reinvents The Wheel)
 //tags: channel strip preamp EQ compressor analog
 //author: LMS + Claude
 
@@ -480,7 +480,7 @@ loop(BC_MAX_INST,
 
   gfx_r = 0.8; gfx_g = 0.7; gfx_b = 0.5;
   gfx_x = 10; gfx_y = 8;
-  gfx_drawstr("LMS CHANNEL STRIP");
+  gfx_drawstr("LMS RTW");
 
   gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
   gfx_x = 10; gfx_y = 28;

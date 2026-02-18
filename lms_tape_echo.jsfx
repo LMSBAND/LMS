@@ -1,4 +1,4 @@
-desc:LMS Tape Echo
+desc:HENGE DELAY
 //tags: delay echo tape analog
 //author: LMS + Claude
 
@@ -120,7 +120,7 @@ notice_show = 0;
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
   BC_BASE = 100000;
-  BC_MY_TYPE = 8;           // Tape Echo
+  BC_MY_TYPE = 8;           // Henge Delay
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 8;
   BC_PARAM_COUNT = 10;
@@ -471,7 +471,24 @@ loop(BC_MAX_INST,
   // Title
   gfx_r = 0.85; gfx_g = 0.9; gfx_b = 0.75;
   gfx_x = 12; gfx_y = 6;
-  gfx_drawstr("GALAXY TAPE ECHO");
+  gfx_drawstr("HENGE DELAY");
+
+  // UFO — top right corner
+  ufo_cx = gfx_w - 55;
+  ufo_cy = 18;
+  // Saucer body (ellipse)
+  gfx_r = 0.5; gfx_g = 0.6; gfx_b = 0.7; gfx_a = 0.9;
+  gfx_circle(ufo_cx, ufo_cy, 18, 0);
+  gfx_circle(ufo_cx, ufo_cy, 17, 0);
+  gfx_rect(ufo_cx - 18, ufo_cy - 2, 36, 5);
+  // Dome
+  gfx_r = 0.6; gfx_g = 0.8; gfx_b = 1.0; gfx_a = 0.8;
+  gfx_circle(ufo_cx, ufo_cy - 4, 8, 0);
+  gfx_circle(ufo_cx, ufo_cy - 4, 7, 0);
+  // Beam (tractor beam triangle)
+  gfx_r = 0.4; gfx_g = 0.9; gfx_b = 0.5; gfx_a = 0.15;
+  gfx_triangle(ufo_cx - 5, ufo_cy + 3, ufo_cx + 5, ufo_cy + 3, ufo_cx - 12, ufo_cy + 28, ufo_cx + 12, ufo_cy + 28);
+  gfx_a = 1;
 
   // Mode name
   gfx_r = 0.6; gfx_g = 0.75; gfx_b = 0.5;

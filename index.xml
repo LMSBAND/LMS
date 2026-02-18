@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <index version="1" name="LMS Plugins">
   <category name="LMS">
-    <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS Channel Strip (Analog Style)">
+    <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
@@ -10,8 +10,12 @@
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
+        <changelog><![CDATA[v2.1 — Renamed to LMS RTW (LMS Reinvents The Wheel).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+      </version>
     </reapack>
-    <reapack name="lms_distressor.jsfx" type="effect" desc="LMS Distressor (Analog Style)">
+    <reapack name="lms_distressor.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
@@ -20,14 +24,22 @@
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
+        <changelog><![CDATA[v2.1 — Renamed to KITTY KATS BIG KRUSH.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+      </version>
     </reapack>
-    <reapack name="lms_passive_eq.jsfx" type="effect" desc="LMS Passive EQ">
+    <reapack name="lms_passive_eq.jsfx" type="effect" desc="PEQ4U — Passive Equalizer">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
+      </version>
+      <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
+        <changelog><![CDATA[v2.1 — Renamed to PEQ4U.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
     </reapack>
@@ -51,13 +63,17 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_tape_echo.jsfx" type="effect" desc="LMS Tape Echo">
+    <reapack name="lms_tape_echo.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+      </version>
+      <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
+        <changelog><![CDATA[v2.1 — Renamed to HENGE DELAY with UFO in GUI. An ode to space-themed bands everywhere.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
     </reapack>
@@ -81,13 +97,17 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_moog_synth.jsfx" type="effect" desc="LMS Moog Synth — Analog Mono Synth w/ Ladder Filter">
+    <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — Moog-inspired mono synth with PolyBLEP oscillators, 4-pole Moog ladder filter (LP/HP/BP), 2 ADSR envelopes, LFO with 6 shapes, up to 8-voice unison, glide/portamento, tube/tape/fuzz saturation, chorus, ping-pong delay, 11 built-in presets, category-based randomizer, DrumBanger pad trigger integration via gmem. Full GUI with waveform scope.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v1.1 — GUI overhaul with skeuomorphic analog controls, in-plugin NOTICE button with full usage documentation.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-02-17T12:00:00Z">
+        <changelog><![CDATA[v1.2 — Renamed to NUUG 420.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
     </reapack>
