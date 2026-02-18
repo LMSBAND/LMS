@@ -843,20 +843,26 @@ slider20 != _old ? slider_automate(2^19);
             gfx_drawstr("[YOU]");
           ) : (
             iwho = gmem[isb + 3];
+            // Check if anyone is following this instance
+            bc_has_follower = 0;
+            bc_fsc = 0;
+            loop(BC_MAX_INST,
+              fsb2 = BC_MY_REGION + bc_fsc * BC_SLOT_SIZE;
+              gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
+              bc_fsc += 1;
+            );
             iwho > 0 ? (
-              gfx_drawstr("[>I");
-              iw = 0;
-              loop(BC_MAX_INST,
-                iwsb = BC_MY_REGION + iw * BC_SLOT_SIZE;
-                gmem[iwsb + 1] == iwho ? (
-                  gfx_drawnumber(iw + 1, 0);
-                  iw = BC_MAX_INST;
-                );
-                iw += 1;
-              );
-              gfx_drawstr("]");
-            ) : (
+              // This instance is following someone — FOLLOWER
+              gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
+              gfx_drawstr("[FOLLOWER]");
+            ) : bc_has_follower ? (
+              // Someone is following this instance — LEADER
+              gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
               gfx_drawstr("[LEADER]");
+            ) : (
+              // Nobody following, not following anyone — UNASSIGNED
+              gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
+              gfx_drawstr("[UNASSIGNED]");
             );
             gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
             bc_steal_mode ? (
