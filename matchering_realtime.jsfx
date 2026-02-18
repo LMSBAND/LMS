@@ -6,20 +6,20 @@ filename:0,matchering_fir_data.txt
 
 options:gmem=DrumBanger
 
-slider1:-2.70<-20,20,0.1>Input Gain (dB)
-slider2:100<0,100,1>Dry/Wet (%)
-slider3:1<0,1,1{Off,On}>Limiter
-slider4:-0.01<-6,0,0.01>Limiter Threshold (dB)
-slider5:0<-6,6,0.1>Low Tweak (dB)
-slider6:0<-6,6,0.1>Mid Tweak (dB)
-slider7:0<-6,6,0.1>High Tweak (dB)
-slider8:500<100,2000,1>Mid Freq (Hz)
-slider9:0<0,1,1{Off,On}>42069 Compressor
-slider10:-12<-40,0,0.5>42069 Threshold (dB)
-slider11:4<0,3,1{4:1,8:1,12:1,20:1}>42069 Ratio
-slider12:0.2<0.02,0.8,0.01>42069 Attack (ms)
-slider13:250<50,1100,10>42069 Release (ms)
-slider14:100<0,100,1>42069 Mix (%)
+slider1:-2.70<-20,20,0.1>-Input Gain (dB)
+slider2:100<0,100,1>-Dry/Wet (%)
+slider3:1<0,1,1{Off,On}>-Limiter
+slider4:-0.01<-6,0,0.01>-Limiter Threshold (dB)
+slider5:0<-6,6,0.1>-Low Tweak (dB)
+slider6:0<-6,6,0.1>-Mid Tweak (dB)
+slider7:0<-6,6,0.1>-High Tweak (dB)
+slider8:500<100,2000,1>-Mid Freq (Hz)
+slider9:0<0,1,1{Off,On}>-42069 Compressor
+slider10:-12<-40,0,0.5>-42069 Threshold (dB)
+slider11:4<0,3,1{4:1,8:1,12:1,20:1}>-42069 Ratio
+slider12:0.2<0.02,0.8,0.01>-42069 Attack (ms)
+slider13:250<50,1100,10>-42069 Release (ms)
+slider14:100<0,100,1>-42069 Mix (%)
 
 @init
   fir_len = 4096;

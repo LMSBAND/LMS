@@ -4,19 +4,19 @@ desc:LMS Sound City Drum Room
 
 options:gmem=DrumBanger
 
-slider1:50<0,100,0.1>Room Size (%)
-slider2:50<0,100,0.1>Decay (%)
-slider3:40<0,100,0.1>Damping (%)
-slider4:10<0,50,0.1>Pre-delay (ms)
-slider5:0<-60,6,0.1>Near Mic (dB)
-slider6:-3<-60,6,0.1>Mid Mic (dB)
-slider7:-6<-60,6,0.1>Far Mic (dB)
-slider8:0<0,2,1{U87 Condenser,Ribbon,421 Dynamic}>Mic Type
-slider9:-12<-40,0,0.1>Comp Threshold (dB)
-slider10:50<0,100,1>Comp Amount (%)
-slider11:0<-12,12,0.1>Output Gain (dB)
-slider12:50<0,100,1>Dry/Wet (%)
-slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
+slider1:50<0,100,0.1>-Room Size (%)
+slider2:50<0,100,0.1>-Decay (%)
+slider3:40<0,100,0.1>-Damping (%)
+slider4:10<0,50,0.1>-Pre-delay (ms)
+slider5:0<-60,6,0.1>-Near Mic (dB)
+slider6:-3<-60,6,0.1>-Mid Mic (dB)
+slider7:-6<-60,6,0.1>-Far Mic (dB)
+slider8:0<0,2,1{U87 Condenser,Ribbon,421 Dynamic}>-Mic Type
+slider9:-12<-40,0,0.1>-Comp Threshold (dB)
+slider10:50<0,100,1>-Comp Amount (%)
+slider11:0<-12,12,0.1>-Output Gain (dB)
+slider12:50<0,100,1>-Dry/Wet (%)
+slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>-Algorithm
 
 @init
   MAX_BUF = 96000;
