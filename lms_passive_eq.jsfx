@@ -10,15 +10,15 @@ options:gmem=DrumBanger
 // - High cut (gentle rolloff)
 // - Tube saturation stage
 
-slider1:0<0,10,0.1>Low Boost
-slider2:0<0,10,0.1>Low Atten
-slider3:2<0,3,1{20,30,60,100}>Low Freq
-slider4:0<0,10,0.1>High Boost
-slider5:5<1,10,1>High Boost BW (Broad-Sharp)
-slider6:0<0,10,0.1>High Atten (Cut)
-slider7:2<0,4,1{3k,4k,5k,8k,10k,12k,16k}>High Boost Freq
-slider8:0<0,1,1{Off,On}>Tube Saturation
-slider9:0<-12,12,0.1>Output (dB)
+slider1:0<0,10,0.1>-Low Boost
+slider2:0<0,10,0.1>-Low Atten
+slider3:2<0,3,1{20,30,60,100}>-Low Freq
+slider4:0<0,10,0.1>-High Boost
+slider5:5<1,10,1>-High Boost BW (Broad-Sharp)
+slider6:0<0,10,0.1>-High Atten (Cut)
+slider7:2<0,4,1{3k,4k,5k,8k,10k,12k,16k}>-High Boost Freq
+slider8:0<0,1,1{Off,On}>-Tube Saturation
+slider9:0<-12,12,0.1>-Output (dB)
 
 @init
 // Biquad filter states (L and R for each band)

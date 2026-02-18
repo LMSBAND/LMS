@@ -4,16 +4,16 @@ desc:KITTY KATS BIG KRUSH
 
 options:gmem=DrumBanger
 
-slider1:0<-12,24,0.1>Input (dB)
-slider2:-12<-40,0,0.5>Threshold (dB)
-slider3:3<0,7,1{1:1,2:1,3:1,4:1,6:1,10:1,20:1,Nuke}>Ratio
-slider4:5<0.05,20,0.05>Attack (ms)
-slider5:250<50,2500,10>Release (ms)
-slider6:0<0,2,1{Off,Dist 2 (Tape),Dist 3 (Tube)}>Distortion Mode
-slider7:0<0,1,1{Off,On}>HP Sidechain
-slider8:150<60,400,1>HP SC Freq (Hz)
-slider9:0<-12,12,0.1>Output (dB)
-slider10:100<0,100,1>Mix (%)
+slider1:0<-12,24,0.1>-Input (dB)
+slider2:-12<-40,0,0.5>-Threshold (dB)
+slider3:3<0,7,1{1:1,2:1,3:1,4:1,6:1,10:1,20:1,Nuke}>-Ratio
+slider4:5<0.05,20,0.05>-Attack (ms)
+slider5:250<50,2500,10>-Release (ms)
+slider6:0<0,2,1{Off,Dist 2 (Tape),Dist 3 (Tube)}>-Distortion Mode
+slider7:0<0,1,1{Off,On}>-HP Sidechain
+slider8:150<60,400,1>-HP SC Freq (Hz)
+slider9:0<-12,12,0.1>-Output (dB)
+slider10:100<0,100,1>-Mix (%)
 
 @init
   comp_env = 0;

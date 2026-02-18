@@ -4,26 +4,26 @@ desc:LMS RTW (LMS Reinvents The Wheel)
 
 options:gmem=DrumBanger
 
-slider1:0<-12,36,0.1>Preamp Drive (dB)
-slider2:0<0,2,1{Clean,Warm,Hot}>Saturation Mode
-slider3:0<0,1,1{Off,On}>HPF
-slider4:80<20,500,1>HPF Freq (Hz)
-slider5:0<-18,18,0.5>Low Shelf (dB)
-slider6:200<40,1000,1>Low Freq (Hz)
-slider7:0<-18,18,0.5>Low-Mid (dB)
-slider8:800<200,3000,1>Low-Mid Freq (Hz)
-slider9:1.0<0.3,4.0,0.1>Low-Mid Q
-slider10:0<-18,18,0.5>Hi-Mid (dB)
-slider11:3000<1000,8000,10>Hi-Mid Freq (Hz)
-slider12:1.0<0.3,4.0,0.1>Hi-Mid Q
-slider13:0<-18,18,0.5>High Shelf (dB)
-slider14:8000<2000,16000,100>High Freq (Hz)
-slider15:0<0,1,1{Off,On}>Compressor
-slider16:-18<-40,0,0.5>Comp Threshold (dB)
-slider17:4<0,3,1{2:1,4:1,6:1,10:1}>Comp Ratio
-slider18:5<0.1,30,0.1>Comp Attack (ms)
-slider19:100<10,1000,5>Comp Release (ms)
-slider20:0<-12,12,0.1>Output Gain (dB)
+slider1:0<-12,36,0.1>-Preamp Drive (dB)
+slider2:0<0,2,1{Clean,Warm,Hot}>-Saturation Mode
+slider3:0<0,1,1{Off,On}>-HPF
+slider4:80<20,500,1>-HPF Freq (Hz)
+slider5:0<-18,18,0.5>-Low Shelf (dB)
+slider6:200<40,1000,1>-Low Freq (Hz)
+slider7:0<-18,18,0.5>-Low-Mid (dB)
+slider8:800<200,3000,1>-Low-Mid Freq (Hz)
+slider9:1.0<0.3,4.0,0.1>-Low-Mid Q
+slider10:0<-18,18,0.5>-Hi-Mid (dB)
+slider11:3000<1000,8000,10>-Hi-Mid Freq (Hz)
+slider12:1.0<0.3,4.0,0.1>-Hi-Mid Q
+slider13:0<-18,18,0.5>-High Shelf (dB)
+slider14:8000<2000,16000,100>-High Freq (Hz)
+slider15:0<0,1,1{Off,On}>-Compressor
+slider16:-18<-40,0,0.5>-Comp Threshold (dB)
+slider17:4<0,3,1{2:1,4:1,6:1,10:1}>-Comp Ratio
+slider18:5<0.1,30,0.1>-Comp Attack (ms)
+slider19:100<10,1000,5>-Comp Release (ms)
+slider20:0<-12,12,0.1>-Output Gain (dB)
 
 @init
   // Compressor state

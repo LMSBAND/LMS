@@ -4,16 +4,16 @@ desc:HENGE DELAY
 
 options:gmem=DrumBanger
 
-slider1:0<0,6,1{Head 1,Head 2,Head 3,Heads 1+2,Heads 1+3,Heads 2+3,All Heads}>Mode
-slider2:300<50,1000,1>Repeat Rate (ms)
-slider3:40<0,100,0.1>Intensity (%)
-slider4:80<0,100,0.1>Echo Volume (%)
-slider5:50<0,100,1>Bass (%)
-slider6:50<0,100,1>Treble (%)
-slider7:30<0,100,1>Wow & Flutter (%)
-slider8:30<0,100,1>Tape Age (%)
-slider9:0<0,100,1>Spring Reverb (%)
-slider10:50<0,100,1>Dry/Wet (%)
+slider1:0<0,6,1{Head 1,Head 2,Head 3,Heads 1+2,Heads 1+3,Heads 2+3,All Heads}>-Mode
+slider2:300<50,1000,1>-Repeat Rate (ms)
+slider3:40<0,100,0.1>-Intensity (%)
+slider4:80<0,100,0.1>-Echo Volume (%)
+slider5:50<0,100,1>-Bass (%)
+slider6:50<0,100,1>-Treble (%)
+slider7:30<0,100,1>-Wow & Flutter (%)
+slider8:30<0,100,1>-Tape Age (%)
+slider9:0<0,100,1>-Spring Reverb (%)
+slider10:50<0,100,1>-Dry/Wet (%)
 
 @init
   // Delay buffer - max 2 seconds

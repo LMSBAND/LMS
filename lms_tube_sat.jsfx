@@ -4,14 +4,14 @@ desc:LMS Tube Saturator
 
 options:gmem=DrumBanger
 
-slider1:0<0,100,0.1>Drive (%)
-slider2:0<-12,12,0.1>Output Gain (dB)
-slider3:100<0,100,1>Dry/Wet (%)
-slider4:0<0,100,0.1>Even Harmonics (%)
-slider5:50<0,100,0.1>Odd Harmonics (%)
-slider6:1<0,4,1{Warm Tube,Hot Tube,Tape,Rectifier,Fuzz}>Mode
-slider7:100<20,20000,1>Tone (Hz)
-slider8:0<0,100,0.1>Bias (%)
+slider1:0<0,100,0.1>-Drive (%)
+slider2:0<-12,12,0.1>-Output Gain (dB)
+slider3:100<0,100,1>-Dry/Wet (%)
+slider4:0<0,100,0.1>-Even Harmonics (%)
+slider5:50<0,100,0.1>-Odd Harmonics (%)
+slider6:1<0,4,1{Warm Tube,Hot Tube,Tape,Rectifier,Fuzz}>-Mode
+slider7:100<20,20000,1>-Tone (Hz)
+slider8:0<0,100,0.1>-Bias (%)
 
 @init
   // DC blocker state
