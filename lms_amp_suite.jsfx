@@ -1,4 +1,4 @@
-desc:LMS - AMP SUITE — Four Amp Models
+desc:LMS - CHRIS' BEDROOM — Four Amp Models
 //tags: amp guitar bass distortion reverb
 //author: LMS + Claude
 
@@ -925,7 +925,7 @@ col_w = floor((gfx_w - margin * 2 - gap) / 2);
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", 20);
 gfx_x = 12; gfx_y = 10;
-gfx_drawstr("LMS - AMP SUITE");
+gfx_drawstr("LMS - CHRIS' BEDROOM");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", 11);
 gfx_x = 220; gfx_y = 18;
