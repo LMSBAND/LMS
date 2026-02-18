@@ -209,6 +209,43 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+mode = slider1;
+delay_ms = slider2;
+intensity = slider3 / 100;
+echo_vol = slider4 / 100;
+bass = slider5 / 100;
+treble = slider6 / 100;
+wf_amount = slider7 / 100;
+tape_age = slider8 / 100;
+spring_mix = slider9 / 100;
+dry_wet = slider10 / 100;
+
+// Base delay in samples (Head 1)
+delay_base = delay_ms / 1000 * srate;
+
+// Head positions (classic spacing ratios)
+head1_delay = delay_base;
+head2_delay = delay_base * 1.5;
+head3_delay = delay_base * 2.0;
+
+// Which heads are active
+h1_on = (mode == 0 || mode == 3 || mode == 4 || mode == 6) ? 1 : 0;
+h2_on = (mode == 1 || mode == 3 || mode == 5 || mode == 6) ? 1 : 0;
+h3_on = (mode == 2 || mode == 4 || mode == 5 || mode == 6) ? 1 : 0;
+num_heads = h1_on + h2_on + h3_on;
+num_heads < 1 ? num_heads = 1;
+
+// Feedback lowpass cutoff
+fb_lp_freq = 800 + treble * 8000 - tape_age * 3000;
+fb_lp_freq = max(fb_lp_freq, 400);
+fb_lp_freq = min(fb_lp_freq, 12000);
+fb_lp_coeff = exp(-2 * $pi * fb_lp_freq / srate);
+
+// Bass tone
+bass_hp_freq = 60 + (1 - bass) * 400;
+bass_hp_coeff = exp(-2 * $pi * bass_hp_freq / srate);
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -741,32 +778,42 @@ mode == 0 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 1")
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= left_x + pad && mouse_x <= left_x + pad + inner_w &&
   mouse_y >= cy && mouse_y <= cy + 16 ? (
-    slider1 = (slider1 + 1) % 7;
+    _old = slider1; slider1 = (slider1 + 1) % 7;
+    slider1 != _old ? slider_automate(2^0);
 );
 cy += bar_sp;
 
-slider2 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider2, 50, 1000, "RATE", 1);
+_old = slider2; slider2 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider2, 50, 1000, "RATE", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-slider3 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider3, 0, 100, "INTENSITY", 1);
+_old = slider3; slider3 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider3, 0, 100, "INTENSITY", 1);
+slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
-slider4 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider4, 0, 100, "ECHO VOL", 1);
+_old = slider4; slider4 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider4, 0, 100, "ECHO VOL", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider10 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider10, 0, 100, "DRY/WET", 1);
+_old = slider10; slider10 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider10, 0, 100, "DRY/WET", 1);
+slider10 != _old ? slider_automate(2^9);
 
 // ---- RIGHT PANEL: CHARACTER ----
 draw_panel(right_x, ctrl_top, col_w, panel_h, "CHARACTER");
 inner_w = col_w - pad * 2;
 cy = ctrl_top + 26;
 
-slider5 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider5, 0, 100, "BASS", 1);
+_old = slider5; slider5 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider5, 0, 100, "BASS", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-slider6 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider6, 0, 100, "TREBLE", 1);
+_old = slider6; slider6 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider6, 0, 100, "TREBLE", 1);
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-slider7 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider7, 0, 100, "WOW&FLUT", 1);
+_old = slider7; slider7 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider7, 0, 100, "WOW&FLUT", 1);
+slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
-slider8 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider8, 0, 100, "TAPE AGE", 1);
+_old = slider8; slider8 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider8, 0, 100, "TAPE AGE", 1);
+slider8 != _old ? slider_automate(2^7);
 cy += bar_sp;
-slider9 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider9, 0, 100, "SPRING", 1);
+_old = slider9; slider9 = draw_bar(right_x + pad, cy, inner_w, bar_h, slider9, 0, 100, "SPRING", 1);
+slider9 != _old ? slider_automate(2^8);
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================

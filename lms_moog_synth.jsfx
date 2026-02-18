@@ -348,6 +348,60 @@ last_randomize = 0;
 rand_flash = 0;
 gui_scope_zoom = 1;
 
+notice_show = 0;
+
+  // ============================================================
+  // BROADCAST SYSTEM — Instance Registry
+  // ============================================================
+  BC_BASE = 100000;
+  BC_MY_TYPE = 12;           // Moog Synth
+  BC_SLOT_SIZE = 512;
+  BC_MAX_INST = 8;
+  BC_PARAM_COUNT = 48;       // sliders 1-47 + slider52
+  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
+  BC_STALE_TIMEOUT = 2;
+
+  // Generate unique instance ID (only on first init, preserve across transport stop/start)
+  bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
+  bc_my_slot = -1;
+  // bc_following preserved by @serialize — do NOT zero here
+  bc_follow_slot = -1;
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_panel_expanded = 0;
+  bc_steal_mode = 0;
+  bc_instance_count = 0;
+
+  BC_STALE_HB = 900000;
+  BC_STALE_CT = 900008;
+  i = 0;
+  loop(BC_MAX_INST,
+    BC_STALE_HB[i] = -1;
+    BC_STALE_CT[i] = 0;
+    i += 1;
+  );
+
+  bc_i = 0;
+  loop(BC_MAX_INST,
+    bc_my_slot < 0 ? (
+      sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+      sid = gmem[sb + 1];
+      (sid == 0 || sid == bc_my_id) ? (
+        bc_my_slot = bc_i;
+      );
+    );
+    bc_i += 1;
+  );
+
+  bc_my_slot >= 0 ? (
+    sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+    gmem[sb + 0] = 0;
+    gmem[sb + 1] = bc_my_id;
+    gmem[sb + 2] = BC_MY_TYPE;
+    gmem[sb + 3] = 0;
+    gmem[sb + 4] = BC_PARAM_COUNT;
+  );
+
 // ============================================================================
 //  SATURATION FUNCTIONS (from lms_tube_sat.jsfx)
 // ============================================================================
@@ -724,6 +778,322 @@ last_randomize = slider51;
 // ============================================================================
 
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+osc1_wave = slider1;
+osc1_tune_semi = slider2;
+osc1_fine_cents = slider3;
+osc1_level = slider4 / 100;
+osc1_pw = max(0.05, min(0.95, slider5 / 100));
+
+osc2_wave = slider6;
+osc2_tune_semi = slider7;
+osc2_fine_cents = slider8;
+osc2_level = slider9 / 100;
+
+sub_on = slider10;
+sub_level = slider11 / 100;
+noise_level = slider12 / 100;
+unison_count = max(1, min(8, slider13));
+unison_detune = slider14 / 100;
+
+filt_cutoff = slider15;
+filt_reso = slider16 / 100;
+filt_mode = slider17;
+filt_env_amt = slider18 / 100;
+
+filt_att_ms = max(0.5, slider19);
+filt_dec_ms = max(0.5, slider20);
+filt_sus = slider21 / 100;
+filt_rel_ms = max(0.5, slider22);
+
+filt_att_coeff = 1.0 / (filt_att_ms * 0.001 * srate);
+filt_dec_coeff = exp(-1.0 / (filt_dec_ms * 0.001 * srate));
+filt_rel_coeff = exp(-1.0 / (filt_rel_ms * 0.001 * srate));
+
+amp_att_ms = max(0.5, slider23);
+amp_dec_ms = max(0.5, slider24);
+amp_sus = slider25 / 100;
+amp_rel_ms = max(0.5, slider26);
+
+amp_att_coeff = 1.0 / (amp_att_ms * 0.001 * srate);
+amp_dec_coeff = exp(-1.0 / (amp_dec_ms * 0.001 * srate));
+amp_rel_coeff = exp(-1.0 / (amp_rel_ms * 0.001 * srate));
+
+lfo_shape = slider27;
+lfo_rate = slider28;
+lfo_sync = slider29;
+lfo_to_pitch = slider30 / 100;
+lfo_to_filter = slider31 / 100;
+lfo_to_amp = slider32 / 100;
+lfo_to_pwm = slider33 / 100;
+
+glide_ms = slider34;
+glide_on = slider35;
+vel_to_amp = slider36 / 100;
+vel_to_filter = slider37 / 100;
+
+drive_type = slider38;
+drive_amount = slider39 / 100;
+chorus_on = slider40;
+chorus_depth = slider41 / 100;
+chorus_rate = slider42;
+delay_on = slider43;
+delay_time_ms = slider44;
+delay_feedback = slider45 / 100;
+delay_mix = slider46 / 100;
+
+master_vol = 10 ^ (slider47 / 20);
+fx_mix = slider52 / 100;
+
+glide_ms > 0 && glide_on ? (
+  glide_coeff = exp(-1.0 / (glide_ms * 0.001 * srate));
+) : (
+  glide_coeff = 0;
+);
+
+delay_samples = min(delay_time_ms * 0.001 * srate, DELAY_BUF_SIZE - 1);
+
+// ---- Broadcast: ID collision detection ----
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 1] != bc_my_id ? (
+    bc_my_id = floor(rand() * 1073741824) + 1;
+    bc_my_slot = -1;
+    bc_i = 0;
+    loop(BC_MAX_INST,
+      bc_my_slot < 0 ? (
+        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
+      );
+      bc_i += 1;
+    );
+    bc_my_slot >= 0 ? (
+      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+      gmem[sb + 0] = 0;
+      gmem[sb + 1] = bc_my_id;
+      gmem[sb + 2] = BC_MY_TYPE;
+      gmem[sb + 3] = bc_following;
+      gmem[sb + 4] = BC_PARAM_COUNT;
+    );
+  );
+);
+
+// ---- Follow mode: copy params from leader ----
+bc_my_slot >= 0 && bc_following > 0 ? (
+  bc_found_leader = 0;
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      gmem[lsb + 1] == bc_following ? (
+        bc_found_leader = 1;
+        bc_follow_slot = bc_scan;
+        lbase = lsb + 8;
+        slider1 = gmem[lbase + 0];
+        slider2 = gmem[lbase + 1];
+        slider3 = gmem[lbase + 2];
+        slider4 = gmem[lbase + 3];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
+        slider8 = gmem[lbase + 7];
+        slider9 = gmem[lbase + 8];
+        slider10 = gmem[lbase + 9];
+        slider11 = gmem[lbase + 10];
+        slider12 = gmem[lbase + 11];
+        slider13 = gmem[lbase + 12];
+        slider14 = gmem[lbase + 13];
+        slider15 = gmem[lbase + 14];
+        slider16 = gmem[lbase + 15];
+        slider17 = gmem[lbase + 16];
+        slider18 = gmem[lbase + 17];
+        slider19 = gmem[lbase + 18];
+        slider20 = gmem[lbase + 19];
+        slider21 = gmem[lbase + 20];
+        slider22 = gmem[lbase + 21];
+        slider23 = gmem[lbase + 22];
+        slider24 = gmem[lbase + 23];
+        slider25 = gmem[lbase + 24];
+        slider26 = gmem[lbase + 25];
+        slider27 = gmem[lbase + 26];
+        slider28 = gmem[lbase + 27];
+        slider29 = gmem[lbase + 28];
+        slider30 = gmem[lbase + 29];
+        slider31 = gmem[lbase + 30];
+        slider32 = gmem[lbase + 31];
+        slider33 = gmem[lbase + 32];
+        slider34 = gmem[lbase + 33];
+        slider35 = gmem[lbase + 34];
+        slider36 = gmem[lbase + 35];
+        slider37 = gmem[lbase + 36];
+        slider38 = gmem[lbase + 37];
+        slider39 = gmem[lbase + 38];
+        slider40 = gmem[lbase + 39];
+        slider41 = gmem[lbase + 40];
+        slider42 = gmem[lbase + 41];
+        slider43 = gmem[lbase + 42];
+        slider44 = gmem[lbase + 43];
+        slider45 = gmem[lbase + 44];
+        slider46 = gmem[lbase + 45];
+        slider47 = gmem[lbase + 46];
+        slider52 = gmem[lbase + 47];
+        bc_scan = BC_MAX_INST;
+      );
+    );
+    bc_scan += 1;
+  );
+  !bc_found_leader ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+// ---- Steal: one-shot copy ----
+bc_my_slot >= 0 && bc_steal_pending ? (
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+    gmem[lsb + 1] == bc_steal_target ? (
+      lbase = lsb + 8;
+      slider1 = gmem[lbase + 0];
+      slider2 = gmem[lbase + 1];
+      slider3 = gmem[lbase + 2];
+      slider4 = gmem[lbase + 3];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
+      slider8 = gmem[lbase + 7];
+      slider9 = gmem[lbase + 8];
+      slider10 = gmem[lbase + 9];
+      slider11 = gmem[lbase + 10];
+      slider12 = gmem[lbase + 11];
+      slider13 = gmem[lbase + 12];
+      slider14 = gmem[lbase + 13];
+      slider15 = gmem[lbase + 14];
+      slider16 = gmem[lbase + 15];
+      slider17 = gmem[lbase + 16];
+      slider18 = gmem[lbase + 17];
+      slider19 = gmem[lbase + 18];
+      slider20 = gmem[lbase + 19];
+      slider21 = gmem[lbase + 20];
+      slider22 = gmem[lbase + 21];
+      slider23 = gmem[lbase + 22];
+      slider24 = gmem[lbase + 23];
+      slider25 = gmem[lbase + 24];
+      slider26 = gmem[lbase + 25];
+      slider27 = gmem[lbase + 26];
+      slider28 = gmem[lbase + 27];
+      slider29 = gmem[lbase + 28];
+      slider30 = gmem[lbase + 29];
+      slider31 = gmem[lbase + 30];
+      slider32 = gmem[lbase + 31];
+      slider33 = gmem[lbase + 32];
+      slider34 = gmem[lbase + 33];
+      slider35 = gmem[lbase + 34];
+      slider36 = gmem[lbase + 35];
+      slider37 = gmem[lbase + 36];
+      slider38 = gmem[lbase + 37];
+      slider39 = gmem[lbase + 38];
+      slider40 = gmem[lbase + 39];
+      slider41 = gmem[lbase + 40];
+      slider42 = gmem[lbase + 41];
+      slider43 = gmem[lbase + 42];
+      slider44 = gmem[lbase + 43];
+      slider45 = gmem[lbase + 44];
+      slider46 = gmem[lbase + 45];
+      slider47 = gmem[lbase + 46];
+      slider52 = gmem[lbase + 47];
+      bc_scan = BC_MAX_INST;
+    );
+    bc_scan += 1;
+  );
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_steal_mode = 0;
+);
+
+// ---- Broadcast our params + heartbeat ----
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 3] = bc_following;
+  pbase = sb + 8;
+  gmem[pbase + 0] = slider1;
+  gmem[pbase + 1] = slider2;
+  gmem[pbase + 2] = slider3;
+  gmem[pbase + 3] = slider4;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
+  gmem[pbase + 7] = slider8;
+  gmem[pbase + 8] = slider9;
+  gmem[pbase + 9] = slider10;
+  gmem[pbase + 10] = slider11;
+  gmem[pbase + 11] = slider12;
+  gmem[pbase + 12] = slider13;
+  gmem[pbase + 13] = slider14;
+  gmem[pbase + 14] = slider15;
+  gmem[pbase + 15] = slider16;
+  gmem[pbase + 16] = slider17;
+  gmem[pbase + 17] = slider18;
+  gmem[pbase + 18] = slider19;
+  gmem[pbase + 19] = slider20;
+  gmem[pbase + 20] = slider21;
+  gmem[pbase + 21] = slider22;
+  gmem[pbase + 22] = slider23;
+  gmem[pbase + 23] = slider24;
+  gmem[pbase + 24] = slider25;
+  gmem[pbase + 25] = slider26;
+  gmem[pbase + 26] = slider27;
+  gmem[pbase + 27] = slider28;
+  gmem[pbase + 28] = slider29;
+  gmem[pbase + 29] = slider30;
+  gmem[pbase + 30] = slider31;
+  gmem[pbase + 31] = slider32;
+  gmem[pbase + 32] = slider33;
+  gmem[pbase + 33] = slider34;
+  gmem[pbase + 34] = slider35;
+  gmem[pbase + 35] = slider36;
+  gmem[pbase + 36] = slider37;
+  gmem[pbase + 37] = slider38;
+  gmem[pbase + 38] = slider39;
+  gmem[pbase + 39] = slider40;
+  gmem[pbase + 40] = slider41;
+  gmem[pbase + 41] = slider42;
+  gmem[pbase + 42] = slider43;
+  gmem[pbase + 43] = slider44;
+  gmem[pbase + 44] = slider45;
+  gmem[pbase + 45] = slider46;
+  gmem[pbase + 46] = slider47;
+  gmem[pbase + 47] = slider52;
+);
+
+// ---- Stale detection ----
+bc_instance_count = 0;
+bc_scan = 0;
+loop(BC_MAX_INST,
+  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+  tsid = gmem[tsb + 1];
+  tsid > 0 ? (
+    bc_scan == bc_my_slot ? (
+      bc_instance_count += 1;
+    ) : (
+      tshb = gmem[tsb + 0];
+      tshb == BC_STALE_HB[bc_scan] ? (
+        BC_STALE_CT[bc_scan] += samplesblock / srate;
+        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
+          gmem[tsb + 1] = 0;
+          BC_STALE_CT[bc_scan] = 0;
+        );
+      ) : (
+        BC_STALE_HB[bc_scan] = tshb;
+        BC_STALE_CT[bc_scan] = 0;
+        bc_instance_count += 1;
+      );
+    );
+  );
+  bc_scan += 1;
+);
 
 // ---- DrumBanger gmem integration ----
 slider48 > 0 ? (
@@ -1883,5 +2253,210 @@ slider48 == 0 ? gfx_drawstr("MIDI")
   slider48 < 0 ? slider48 = 8;
 );
 
+// ============================================================
+// INSTANCE MANAGER PANEL
+// ============================================================
+bc_panel_h = bc_panel_expanded ? 90 : 30;
+bc_panel_y = gfx_h - bc_panel_h;
+
+// Panel background
+gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
+gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+gfx_rect(0, bc_panel_y, gfx_w, 1);
+
+// Instance count
+gfx_setfont(1, "Arial", 11);
+gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+gfx_x = 8; gfx_y = bc_panel_y + 8;
+bc_my_slot >= 0 ? (
+  gfx_drawstr("I");
+  gfx_drawnumber(bc_my_slot + 1, 0);
+  gfx_drawstr("/");
+  gfx_drawnumber(bc_instance_count, 0);
+) : (
+  gfx_drawstr("--");
+);
+
+// Follow status
+bc_following > 0 ? (
+  gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+  gfx_drawstr("  Following: I");
+  bc_fs = 0;
+  loop(BC_MAX_INST,
+    fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
+    gmem[fsb + 1] == bc_following ? (
+      gfx_drawnumber(bc_fs + 1, 0);
+      bc_fs = BC_MAX_INST;
+    );
+    bc_fs += 1;
+  );
+) : (
+  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+  gfx_drawstr("  Following: --");
+);
+
+// EXPAND/COLLAPSE button
+exp_x = gfx_w - 200;
+exp_y = bc_panel_y + 4;
+exp_w = 65;
+exp_h = 20;
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+gfx_rect(exp_x, exp_y, exp_w, exp_h);
+gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+gfx_x = exp_x + 5; gfx_y = exp_y + 4;
+bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
+  mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
+  bc_panel_expanded = !bc_panel_expanded;
+  bc_steal_mode = 0;
+);
+
+// STEAL button
+stl_x = gfx_w - 125;
+stl_y = bc_panel_y + 4;
+stl_w = 50;
+stl_h = 20;
+bc_steal_mode ? (
+  gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
+) : (
+  gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
+);
+gfx_rect(stl_x, stl_y, stl_w, stl_h);
+gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
+gfx_x = stl_x + 6; gfx_y = stl_y + 4;
+gfx_drawstr("STEAL");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
+  mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
+  bc_steal_mode = !bc_steal_mode;
+  !bc_panel_expanded ? bc_panel_expanded = 1;
+);
+
+// UNFOLLOW button (only when following)
+bc_following > 0 ? (
+  unf_x = gfx_w - 65;
+  unf_y = bc_panel_y + 4;
+  unf_w = 55;
+  unf_h = 20;
+  gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
+  gfx_rect(unf_x, unf_y, unf_w, unf_h);
+  gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
+  gfx_x = unf_x + 4; gfx_y = unf_y + 4;
+  gfx_drawstr("UNFLW");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
+    mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+// Expanded: instance list
+bc_panel_expanded ? (
+  row_y = bc_panel_y + 30;
+  row_h = 14;
+
+  bc_s = 0;
+  loop(BC_MAX_INST,
+    isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
+    isid = gmem[isb + 1];
+
+    isid > 0 ? (
+      // Highlight row on hover
+      mouse_y >= row_y && mouse_y < row_y + row_h &&
+        mouse_x >= 8 && mouse_x < gfx_w - 8 &&
+        bc_s != bc_my_slot ? (
+        gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+        gfx_rect(4, row_y, gfx_w - 8, row_h);
+      );
+
+      gfx_setfont(1, "Arial", 10);
+      bc_s == bc_my_slot ? (
+        gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+      ) : (
+        gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      );
+      gfx_x = 12; gfx_y = row_y + 1;
+      gfx_drawstr("I");
+      gfx_drawnumber(bc_s + 1, 0);
+      gfx_drawstr("  ");
+
+      bc_s == bc_my_slot ? (
+        gfx_drawstr("[YOU]");
+      ) : (
+        iwho = gmem[isb + 3];
+        iwho > 0 ? (
+          gfx_drawstr("[>I");
+          iw = 0;
+          loop(BC_MAX_INST,
+            iwsb = BC_MY_REGION + iw * BC_SLOT_SIZE;
+            gmem[iwsb + 1] == iwho ? (
+              gfx_drawnumber(iw + 1, 0);
+              iw = BC_MAX_INST;
+            );
+            iw += 1;
+          );
+          gfx_drawstr("]");
+        ) : (
+          gfx_drawstr("[LEADER]");
+        );
+        gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+        bc_steal_mode ? (
+          gfx_drawstr("  click: steal");
+        ) : (
+          gfx_drawstr("  click: follow");
+        );
+
+        // Click handler
+        (mouse_cap & 1) && !(last_cap & 1) &&
+          mouse_y >= row_y && mouse_y < row_y + row_h &&
+          mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
+          bc_steal_mode ? (
+            bc_steal_target = isid;
+            bc_steal_pending = 1;
+            bc_steal_mode = 0;
+          ) : (
+            // Follow — check for cycles first
+            bc_can_follow = 1;
+            bc_cursor = isid;
+            bc_hops = 0;
+            while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+              bc_cursor == bc_my_id ? (
+                bc_can_follow = 0;
+                bc_cursor = 0;
+              ) : (
+                bc_next = 0;
+                bc_cs = 0;
+                loop(BC_MAX_INST,
+                  csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                  gmem[csb + 1] == bc_cursor ? (
+                    bc_next = gmem[csb + 3];
+                    bc_cs = BC_MAX_INST;
+                  );
+                  bc_cs += 1;
+                );
+                bc_cursor = bc_next;
+              );
+              bc_hops += 1;
+            );
+            bc_can_follow ? (
+              bc_following = isid;
+            );
+          );
+        );
+      );
+
+      row_y += row_h;
+    );
+    bc_s += 1;
+  );
+);
+
 // Store mouse state
 last_cap = mouse_cap;
+
+@serialize
+file_var(0, bc_following);
+file_var(0, bc_my_id);

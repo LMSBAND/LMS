@@ -179,6 +179,19 @@ notice_show = 0;
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
 // ============================================================
 @block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+drive = slider1 / 100;
+out_gain = 10 ^ (slider2 / 20);
+dry_wet = slider3 / 100;
+even_harm = slider4 / 100;
+odd_harm = slider5 / 100;
+mode = slider6;
+bias = slider8 / 100;
+
+// Tone: simple lowpass
+tone_freq = slider7;
+tone_coeff = exp(-2 * $pi * tone_freq / srate);
+
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -522,21 +535,29 @@ gfx_drawstr("LMS TUBE SATURATOR");
 c1x = margin;
 draw_panel(c1x, body_y, col_w, 222, "SATURATION");
 cy = body_y + 26;
-slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, 0, 100, "Drive", 1);
+_old = slider1; slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, 0, 100, "Drive", 1);
+slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
-slider6 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider6, 4, "Mode", "Warm Tube", "Hot Tube", "Tape", "Rectifier", "Fuzz");
+_old = slider6; slider6 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider6, 4, "Mode", "Warm Tube", "Hot Tube", "Tape", "Rectifier", "Fuzz");
+slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even Harm", 1);
+_old = slider4; slider4 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Even Harm", 1);
+slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd Harm", 1);
+_old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Odd Harm", 1);
+slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 0, 100, "Bias", 1);
+_old = slider8; slider8 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider8, 0, 100, "Bias", 1);
+slider8 != _old ? slider_automate(2^7);
 cy += bar_sp;
-slider7 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider7, 20, 20000, "Tone Hz", 1);
+_old = slider7; slider7 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider7, 20, 20000, "Tone Hz", 1);
+slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
-slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, -12, 12, "Output dB", 1);
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, -12, 12, "Output dB", 1);
+slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-slider3 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider3, 0, 100, "Dry/Wet", 1);
+_old = slider3; slider3 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider3, 0, 100, "Dry/Wet", 1);
+slider3 != _old ? slider_automate(2^2);
 
 // ============================================================================
 //  RIGHT PANEL: TRANSFER CURVE
