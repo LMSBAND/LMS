@@ -169,7 +169,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_chris_bedroom.jsfx" type="effect" desc="CHRIS' BEDROOM — Amp Sim + Room Reverb">
+    <reapack name="lms_chris_bedroom.jsfx" type="effect" desc="LMS - CHRIS' BEDROOM — Amp Sim + Room Reverb">
       <version name="1.0" author="LMS" time="2026-02-18T12:00:00Z">
         <changelog><![CDATA[Initial release — Guitar amp sim with room reverb. Preamp stage (Clean/Crunch/Lead/Fuzz), passive tone stack (bass/mid/treble/presence), cabinet simulation (100Hz HP + 5.5kHz LP), Schroeder room reverb (6 comb + 4 allpass), three room types (Bedroom/Garage/Basement), bird's-eye room visualizer with animated sound waves. Full broadcast system (follow/steal/leader).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_chris_bedroom.jsfx</source>

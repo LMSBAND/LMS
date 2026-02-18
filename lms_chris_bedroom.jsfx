@@ -1,4 +1,4 @@
-desc:CHRIS' BEDROOM — Amp Sim + Room
+desc:LMS - CHRIS' BEDROOM — Amp Sim + Room
 //tags: amp guitar distortion reverb room
 //author: LMS + Claude
 
@@ -11,13 +11,13 @@ slider3:50<0,100,0.1>-Bass
 slider4:50<0,100,0.1>-Mid
 slider5:50<0,100,0.1>-Treble
 slider6:30<0,100,0.1>-Presence
-slider7:50<0,100,0.1>-Master Vol
+slider7:75<0,100,0.1>-Master Vol
 slider8:0<0,100,0.1>-Room Size (%)
 slider9:50<0,100,0.1>-Room Decay (%)
 slider10:60<0,100,0.1>-Room Damp (%)
 slider11:50<0,100,0.1>-Room Mix (%)
 slider12:0<0,2,1{Bedroom,Garage,Basement}>-Room Type
-slider13:0<0,100,0.1>-Dry/Wet (%)
+slider13:100<0,100,0.1>-Dry/Wet (%)
 
 @init
 
@@ -712,10 +712,10 @@ col_w = floor((gfx_w - margin * 2 - gap) / 2);
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", 20);
 gfx_x = 12; gfx_y = 10;
-gfx_drawstr("CHRIS' BEDROOM");
+gfx_drawstr("LMS - CHRIS' BEDROOM");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", 11);
-gfx_x = 208; gfx_y = 18;
+gfx_x = 270; gfx_y = 18;
 gfx_drawstr("Amp Sim + Room");
 
 // ============================================================================
