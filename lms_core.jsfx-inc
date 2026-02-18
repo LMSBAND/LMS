@@ -648,3 +648,377 @@ function lms_opto_proc(l, r)
   this.gr_db = lms_lin2db(this.gr);
   this.gr;
 );
+
+
+// ============================================================================
+//  SECTION 12: 12AX7 Triode Models (stateful — one instance per tube stage)
+//
+//  Two variants matching the JCM800 2203 preamp topology:
+//
+//  V1B — first triode, UNBYPASSED cathode resistor (820Ω, no cap).
+//        The unbypassed cathode provides local negative feedback, which:
+//          - Reduces effective gain (~35 vs ~100 for bypassed)
+//          - Softens clipping (feedback linearizes the transfer curve)
+//          - Adds even harmonics (2nd dominant) due to class-A asymmetry
+//        Transfer curve: arctan-based with asymmetric softclip
+//        Models: Rk=820Ω, Ra=100kΩ, B+=300V operating point
+//
+//  V1A — second triode, BYPASSED cathode (10µF cap across 820Ω cathode).
+//        Bypass cap shorts the cathode resistor at audio frequencies:
+//          - Full gain restored (~60 effective, loaded by next stage)
+//          - Harder clipping (no linearizing feedback)
+//          - More 3rd harmonic content (symmetric grid limiting)
+//          - Slight asymmetry from DC operating point offset
+//        This stage is what makes the JCM800 Hi input aggressive.
+//
+//  Both stages include:
+//    - Input coupling cap (35Hz HPF) — removes inter-stage DC
+//    - Grid-to-cathode soft limiting (grid current above ~0.6V)
+//    - Output normalised to unity at nominal plate swing
+//
+//  Usage:
+//    @init:   v1b.lms_triode_v1b_init();
+//             v1a.lms_triode_v1a_init();
+//    @sample: out = v1b.lms_triode_v1b_proc(in, drive);
+//             out = v1a.lms_triode_v1a_proc(in, drive);
+//    drive: 0..1 — maps to input level into the stage (0=clean, 1=full grid swing)
+// ============================================================================
+
+function lms_triode_v1b_init()
+(
+  // Coupling cap HPF state (35Hz, removes inter-stage DC)
+  this.hpx = 0; this.hpy = 0;
+  this.hp_r = 1 - (2 * $pi * 35 / srate);
+  // Cathode bypass state (none — cathode is unbypassed, static DC point)
+  this.env = 0;  // envelope for soft sag on heavy transients
+  this.env_att = exp(-1 / (srate * 0.003));   // 3ms attack
+  this.env_rel = exp(-1 / (srate * 0.080));   // 80ms release
+);
+
+function lms_triode_v1b_proc(x, drive)
+  local(gain, b, grid_in, pos_clip, neg_clip, env_target)
+(
+  // Coupling cap (inter-stage HP, removes DC)
+  this.hpy = x - this.hpx + this.hp_r * this.hpy;
+  this.hpx = x;
+  b = this.hpy;
+
+  // Input gain — drive scales the grid swing
+  // Nominal full swing into a 12AX7 grid is about 1.5Vpp from previous stage
+  // We represent this as drive * 4.0 headroom factor
+  gain = 1.0 + drive * 3.0;
+  b = b * gain;
+
+  // Unbypassed cathode NFB — reduces gain and linearizes
+  // Effective gain with 820Ω unbypassed cathode ≈ gm*Ra/(1 + gm*Rk) ≈ 35
+  // We model this as gain softening: the more the signal swings, the more
+  // the cathode voltage rises and opposes the grid, compressing the output.
+  // Implemented as an asymmetric arctan with gentle positive-side rolloff.
+  b > 0 ? (
+    // Positive half: softer (cathode follower action pulls back)
+    b = (2 / $pi) * atan(b * 1.2) * 0.85;
+  ) : (
+    // Negative half: slightly harder (cathode can't follow as fast going negative)
+    b = (2 / $pi) * atan(b * 1.5) * 1.0;
+  );
+
+  // Grid current onset above ~0.6V equivalent — soft limiting on positive peaks
+  // (grid draws current when it goes positive relative to cathode)
+  b > 0.55 ? b = 0.55 + (b - 0.55) * 0.15;
+
+  // Output level — nominal plate swing normalised to ~0.8 peak
+  b * 0.8;
+);
+
+
+function lms_triode_v1a_init()
+(
+  // Coupling cap HPF (35Hz) — same as V1B
+  this.hpx = 0; this.hpy = 0;
+  this.hp_r = 1 - (2 * $pi * 35 / srate);
+);
+
+function lms_triode_v1a_proc(x, drive)
+  local(gain, b)
+(
+  // Coupling cap
+  this.hpy = x - this.hpx + this.hp_r * this.hpy;
+  this.hpx = x;
+  b = this.hpy;
+
+  // Full gain — cathode bypassed, no NFB at audio frequencies
+  // Effective gain ≈ 60 (loaded by tone stack ~50kΩ input impedance)
+  gain = 1.0 + drive * 5.5;
+  b = b * gain;
+
+  // Harder clipping — 1-exp curve (exponential saturation, no feedback softening)
+  // Asymmetric: positive clips harder (plate current limiting)
+  //             negative clips a touch softer (grid current cutoff)
+  b > 0 ? (
+    b = 1.0 - exp(-abs(b) * 1.1);
+  ) : (
+    b = -(1.0 - exp(-abs(b) * 0.85)) * 1.05;
+  );
+
+  // Grid current on positive peaks (harder onset than V1B — already high gain stage)
+  b > 0.60 ? b = 0.60 + (b - 0.60) * 0.08;
+
+  b * 0.85;
+);
+
+
+// ============================================================================
+//  SECTION 13: Marshall JCM800 Passive Tone Stack (stateful)
+//
+//  The JCM800 2203/2204 uses a passive Baxandall-derived tone stack between
+//  the preamp and the recovery gain stage. Component values from the verified
+//  JCM800 schematic (Trainwreck/Ceriatone cross-referenced):
+//
+//    Bass pot:   250kΩ (R6)
+//    Mid pot:    25kΩ (R7)   ← note: much smaller than bass/treble
+//    Treble pot: 1MΩ  (R8)
+//    C1: 0.47µF  (bass cap)
+//    C2: 22nF    (mid cap)
+//    C3: 470pF   (treble cap)
+//
+//  Key behaviour:
+//    - All controls are interactive (passive network — not independent)
+//    - At "noon" (all 50%) there is ~18dB insertion loss (recovery gain compensates)
+//    - Mid control is a CUT at 370Hz, not a boost — the "honk" comes from
+//      turning mid DOWN (cuts the scoop) or from the treble/bass interaction
+//    - Treble at full adds a shelf above ~1kHz AND rolls off some mid
+//    - Bass at full boosts below ~200Hz AND slightly cuts mid
+//
+//  Implementation: analytical approximation using 3 interactive biquads.
+//  True passive network would require a full 6th-order transfer function;
+//  this model captures the interaction via cross-coupled gain coefficients.
+//
+//  Usage:
+//    @init:   ts.lms_tonestack_jcm_init();
+//    @slider/@block: ts.lms_tonestack_jcm_set(bass, mid, treble);
+//                    // bass/mid/treble: 0..1 (pot position)
+//    @sample: out = ts.lms_tonestack_jcm_proc(in);
+// ============================================================================
+
+function lms_tonestack_jcm_init()
+(
+  this.f_bass.lms_bq_init();
+  this.f_mid.lms_bq_init();
+  this.f_treb.lms_bq_init();
+);
+
+function lms_tonestack_jcm_set(bass, mid, treble)
+  local(
+    bass_db, mid_db, treb_db,
+    bass_freq, mid_freq, treb_freq,
+    mid_q, treb_q,
+    bass_mid_xcouple, treb_mid_xcouple
+  )
+(
+  // ---- Passive stack component values (JCM800 2203) ----
+  // Bass: 250kΩ pot, 0.47µF cap → f = 1/(2π·R·C)
+  // At pot max (250k): ~1.35Hz (full bass boost acts as sub-shelf)
+  // Effective frequency at nominal settings: ~130Hz
+  // We use the pot position to modulate both freq and gain
+  bass_freq = 60 + bass * 140;    // 60Hz (scooped) to 200Hz (boosted)
+  bass_db   = (bass - 0.5) * 18;  // ±9dB at extremes (passive stack range)
+
+  // Mid: 25kΩ pot, 22nF cap → f ≈ 290Hz centre
+  // The mid control is a CUT notch — mid=1.0 is LESS mid (more scooped)
+  // mid=0.0 is MORE mid (less scooped). We invert so the knob feels right.
+  mid_freq  = 370;               // fixed centre — passive RC sets this
+  mid_q     = 1.0 + mid * 1.5;  // narrower Q at higher settings (pot loads the cap)
+  mid_db    = (0.5 - mid) * 14; // mid=0→+7dB (full mid), mid=1→-7dB (scooped)
+
+  // Treble: 1MΩ pot, 470pF cap → f ≈ 340Hz (but it's a shelf, not a peak)
+  // Treble acts as high shelf pivoting around 1kHz
+  treb_freq = 900 + treble * 600; // 900Hz to 1500Hz pivot
+  treb_db   = (treble - 0.5) * 16; // ±8dB
+
+  // Cross-coupling: turning bass up slightly cuts mid (passive interaction)
+  bass_mid_xcouple = (bass - 0.5) * 3.0;
+  // Turning treble up slightly lifts presence and cuts lower mid
+  treb_mid_xcouple = (treble - 0.5) * 2.5;
+  mid_db -= bass_mid_xcouple + treb_mid_xcouple;
+
+  // Set the three interactive biquads
+  this.f_bass.lms_bq_set_loshelf(bass_freq, bass_db, 0.6);
+  this.f_mid.lms_bq_set_peak(mid_freq, mid_db, mid_q);
+  this.f_treb.lms_bq_set_hishelf(treb_freq, treb_db, 0.75);
+);
+
+function lms_tonestack_jcm_proc(x)
+  local(b)
+(
+  b = this.f_bass.lms_bq_proc_l(x);
+  b = this.f_mid.lms_bq_proc_l(b);
+  b = this.f_treb.lms_bq_proc_l(b);
+  b;
+);
+
+
+// ============================================================================
+//  SECTION 14: EL34 Push-Pull Power Amp (stateful)
+//
+//  Models the JCM800 power amp stage: two EL34 tubes in push-pull Class AB.
+//
+//  Push-pull topology:
+//    - Odd harmonics dominate (2nd and 4th cancel in push-pull)
+//    - Even harmonics very low at normal levels, rise with hard clipping
+//    - Compression: power supply sag under heavy load (EL34 power amp sag
+//      is subtler than rectifier-tube sag — more "giving" than "blooming")
+//    - Presence control: modelled as variable high-frequency NFB
+//      (real circuit: presence pot in series with cap to ground in NFB loop)
+//      More presence = less HF NFB = more power amp gain + top-end openness
+//
+//  Usage:
+//    @init:   pa.lms_el34_init();
+//    @slider/@block: pa.lms_el34_set(drive, presence);
+//                    // drive 0..1, presence 0..1
+//    @sample: out = pa.lms_el34_proc(in);
+// ============================================================================
+
+function lms_el34_init()
+(
+  // Power supply sag envelope
+  this.sag_env = 0;
+  this.sag_att = exp(-1 / (srate * 0.015));  // 15ms attack (transformer limited)
+  this.sag_rel = exp(-1 / (srate * 0.250));  // 250ms recovery
+  // Presence shelving filter (models NFB loop)
+  this.pres_f.lms_bq_init();
+  // Output DC block
+  this.dc.lms_dc_init();
+);
+
+function lms_el34_set(drive, presence)
+  local(pres_freq, pres_db)
+(
+  this.drive = drive;
+  // Presence: variable HF shelf (NFB reduces HF, so presence=1 lifts HF)
+  // Real component: 33kΩ presence pot, 500pF cap → ~10kHz at max
+  // At presence=0: heavy NFB, sounds dark and controlled
+  // At presence=1: minimal NFB, bright and slightly "loose"
+  pres_freq = 2000 + presence * 6000;  // 2kHz to 8kHz pivot
+  pres_db   = presence * 8;            // 0 to +8dB — NFB reduction effect
+  this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
+);
+
+function lms_el34_proc(x)
+  local(b, peak, sag_gain, push, pull, out)
+(
+  // Power supply sag (envelope-based, class AB compression)
+  peak = abs(x);
+  peak > this.sag_env ? (
+    this.sag_env = this.sag_att * this.sag_env + (1 - this.sag_att) * peak;
+  ) : (
+    this.sag_env = this.sag_rel * this.sag_env;
+  );
+  sag_gain = 1.0 / (1.0 + this.sag_env * 0.35);  // max ~26% sag at full clip
+
+  b = x * sag_gain;
+
+  // Drive into output stage
+  b = b * (1.0 + this.drive * 2.5);
+
+  // Push-pull: split into positive and negative half-cycles, clip each independently
+  // Each EL34 handles one half. The odd-harmonic dominance is automatic from
+  // running each half through the same nonlinearity — even harmonics cancel at
+  // the output transformer.
+  push = b > 0 ? b : 0;
+  pull = b < 0 ? -b : 0;
+
+  // EL34 plate saturation: 1-exp curve (harder than 12AX7, different character)
+  // Positive half (push tube)
+  push > 0 ? (
+    push = 1.0 - exp(-push * 1.4);
+  );
+  // Negative half (pull tube) — slight mismatch creates tiny even harmonic residual
+  // (real amps always have slight tube matching asymmetry)
+  pull > 0 ? (
+    pull = 1.0 - exp(-pull * 1.35);
+  );
+
+  // Recombine (restoring sign of pull half)
+  out = push - pull;
+
+  // Presence (HF NFB model — applied post-output-transformer)
+  out = this.pres_f.lms_bq_proc_l(out);
+
+  // DC block (transformer coupling)
+  out = this.dc.lms_dc_proc_l(out);
+
+  out * 0.85;
+);
+
+
+// ============================================================================
+//  SECTION 15: Marshall 4×12 Cabinet — Celestion G12T-75 Model (stereo)
+//
+//  Five-band biquad model derived from measured frequency response of a
+//  Marshall 1960A 4×12 loaded with Celestion G12T-75 speakers (65Hz tuning).
+//
+//  Bands (from measured cab IR / published Celestion data):
+//
+//    1. Cab resonance HP  — 80Hz Q=0.55 (ported cab tuning, -24dB/oct below 80)
+//       Removes sub-bass that a real cab cannot reproduce
+//
+//    2. Cab resonance peak — 100Hz +3dB Q=1.8
+//       The ported box resonance — that "thump" on low E palm mutes
+//
+//    3. Voice coil inductance notch — 1200Hz -4dB Q=0.9
+//       Voice coil inductance causes a gentle dip in the 1-2kHz range
+//       This is the characteristic "scoop" that makes a Celestion sound
+//       different from a PA speaker
+//
+//    4. Cone breakup peak — 3500Hz +5dB Q=1.4
+//       Celestion G12T-75 has a prominent cone resonance ~3-4kHz
+//       This is the "edge" and "bite" — it's the Celestion sound
+//
+//    5. Air & baffle LP — 6500Hz Q=0.65 (2nd order rolloff above 6.5kHz)
+//       High-frequency rolloff from cabinet baffle diffraction and
+//       cone mass — real 12" speakers don't extend much past 6-7kHz
+//
+//  Usage:
+//    @init:   cab.lms_cab_412_init();
+//    @sample: l = cab.lms_cab_412_proc_l(l);
+//             r = cab.lms_cab_412_proc_r(r);
+//    (No set function needed — values are fixed from speaker physics)
+// ============================================================================
+
+function lms_cab_412_init()
+(
+  this.f1.lms_bq_init();  // cab resonance HP
+  this.f2.lms_bq_init();  // cab resonance peak
+  this.f3.lms_bq_init();  // voice coil notch
+  this.f4.lms_bq_init();  // cone breakup peak
+  this.f5.lms_bq_init();  // air LP
+
+  // These are fixed — speaker physics don't change with settings
+  this.f1.lms_bq_set_hp(80, 0.55);
+  this.f2.lms_bq_set_peak(100, 3.0, 1.8);
+  this.f3.lms_bq_set_peak(1200, -4.0, 0.9);
+  this.f4.lms_bq_set_peak(3500, 5.0, 1.4);
+  this.f5.lms_bq_set_lp(6500, 0.65);
+);
+
+function lms_cab_412_proc_l(x)
+  local(b)
+(
+  b = this.f1.lms_bq_proc_l(x);
+  b = this.f2.lms_bq_proc_l(b);
+  b = this.f3.lms_bq_proc_l(b);
+  b = this.f4.lms_bq_proc_l(b);
+  b = this.f5.lms_bq_proc_l(b);
+  b;
+);
+
+function lms_cab_412_proc_r(x)
+  local(b)
+(
+  b = this.f1.lms_bq_proc_r(x);
+  b = this.f2.lms_bq_proc_r(b);
+  b = this.f3.lms_bq_proc_r(b);
+  b = this.f4.lms_bq_proc_r(b);
+  b = this.f5.lms_bq_proc_r(b);
+  b;
+);

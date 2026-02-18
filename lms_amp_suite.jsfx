@@ -65,9 +65,26 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   fridge_uhi.lms_bq_init();
   fridge_notch.lms_bq_init();
 
-  // Cabinet simulation
+  // Cabinet simulation — generic (SOB/Fridge/Frenchie)
   cab_lo.lms_bq_init();
   cab_hi.lms_bq_init();
+
+  // JCM800 preamp triode stages
+  jcm_v1b.lms_triode_v1b_init();   // V1B: unbypassed cathode, soft
+  jcm_v1a.lms_triode_v1a_init();   // V1A: bypassed cathode, hard (Hi input only)
+
+  // JCM800 input coupling cap (100Hz HP — before V1B)
+  jcm_input_hp.lms_bq_init();
+  jcm_input_hp.lms_bq_set_hp(100, 0.7);
+
+  // JCM800 passive tone stack
+  jcm_ts.lms_tonestack_jcm_init();
+
+  // JCM800 EL34 power amp
+  jcm_pa.lms_el34_init();
+
+  // JCM800 4×12 cabinet (Celestion G12T-75)
+  jcm_cab.lms_cab_412_init();
 
   // DC blocker — essential after asymmetric clipping
   dc.lms_dc_init();
@@ -213,8 +230,9 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     // SOB: tighten low end before clipping (88Hz shelf, subtle cut)
     pre_eq.lms_bq_set_loshelf(88, -3, 0.6);
   ) : amp_model == 1 ? (
-    // Punk Idol: gentle input LP (removes harsh HF before V1 triode)
-    pre_eq.lms_bq_set_lp(8000, 0.7);
+    // JCM800: input coupling cap — 68k input resistor, 0.68µF cap → ~100Hz HP
+    // This is a real component in the signal path, not a tone control
+    pre_eq.lms_bq_set_hp(100, 0.7);
   ) : amp_model == 2 ? (
     // Fridge: pass-through pre-EQ (SVT has no input voicing)
     pre_eq.lms_bq_set_lp(20000, 0.7);
@@ -235,15 +253,15 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     treb_eq.lms_bq_set_hishelf(936, treb_amt * 10, 0.707);
     pres_eq.lms_bq_set_hishelf(2400, pres_amt * 8, 2.0);
   ) : amp_model == 1 ? (
-    // Punk Idol: JCM800 — mid-forward British character
-    // Bass: 120Hz (slightly higher than generic, JCM800 is punchy not boomy)
-    // Mid: peak at 650Hz Q=0.9 (the iconic JCM800 honk)
-    // Treble: shelf at 10kHz (bright, extended)
-    // Presence: 4500Hz Q=1.8 (feedback-based presence feel)
-    bass_eq.lms_bq_set_loshelf(120, bass_amt * 10, 0.6);
-    mid_eq.lms_bq_set_peak(650, mid_amt * 10, 0.9);
-    treb_eq.lms_bq_set_hishelf(10000, treb_amt * 10, 0.707);
-    pres_eq.lms_bq_set_hishelf(4500, pres_amt * 8, 1.8);
+    // Punk Idol: JCM800 — passive tone stack + EL34 power amp
+    // bass_amt/mid_amt/treb_amt are 0..1 pot positions (not ±, unlike other models)
+    jcm_ts.lms_tonestack_jcm_set(
+      slider6 / 100,    // bass pot 0..1
+      slider7 / 100,    // mid pot 0..1
+      slider8 / 100     // treble pot 0..1
+    );
+    // Power amp: presence from slider9, drive from amp_gain
+    jcm_pa.lms_el34_set(amp_gain, pres_amt);
   ) : amp_model == 2 ? (
     // Fridge: Ampeg SVT — bass-optimized, mid selector
     // Bass: 80Hz shelf (SVT goes LOW)
@@ -337,7 +355,7 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   amp_model == 0 ? (
     pre_eq.lms_bq_set_loshelf(88, -3, 0.6);
   ) : amp_model == 1 ? (
-    pre_eq.lms_bq_set_lp(8000, 0.7);
+    pre_eq.lms_bq_set_hp(100, 0.7);
   ) : amp_model == 2 ? (
     pre_eq.lms_bq_set_lp(20000, 0.7);
   ) : (
@@ -350,10 +368,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     treb_eq.lms_bq_set_hishelf(936, treb_amt * 10, 0.707);
     pres_eq.lms_bq_set_hishelf(2400, pres_amt * 8, 2.0);
   ) : amp_model == 1 ? (
-    bass_eq.lms_bq_set_loshelf(120, bass_amt * 10, 0.6);
-    mid_eq.lms_bq_set_peak(650, mid_amt * 10, 0.9);
-    treb_eq.lms_bq_set_hishelf(10000, treb_amt * 10, 0.707);
-    pres_eq.lms_bq_set_hishelf(4500, pres_amt * 8, 1.8);
+    jcm_ts.lms_tonestack_jcm_set(slider6 / 100, slider7 / 100, slider8 / 100);
+    jcm_pa.lms_el34_set(amp_gain, pres_amt);
   ) : amp_model == 2 ? (
     fridge_mf == 0 ? mid_freq = 220;
     fridge_mf == 1 ? mid_freq = 450;
@@ -609,24 +625,46 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     amp_r = amp_l;
 
   ) : amp_model == 1 ? (
-    // PUNK IDOL — Marshall JCM800 2203
-    // Channel: 0=Clean, 1=Crunch (unused, maps to Lo Hi input crunch), 2=Lead (Hi input full drive)
+    // PUNK IDOL — Marshall JCM800 2203 full circuit model
+    //
+    // Channel routing:
+    //   Clean  (0): Lo input → V1B only (single triode, unbypassed cathode)
+    //   Crunch (1): Lo input → V1B pushed harder (still single stage, breakup territory)
+    //   Lead   (2): Hi input → V1B → V1A cascade (dual triode, bypassed cathode on V1A)
+    //
+    // Input coupling cap (100Hz HP) already applied in jcm_input_hp filter.
+    // Drive into V1B scaled by amp_gain — this is the preamp Gain knob.
+
     amp_channel == 0 ? (
-      // Clean — single stage, plenty of headroom
-      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.25), drive_amt * 0.1, 0.08);
+      // CLEAN — Lo input, V1B at low drive (single unbypassed triode stage)
+      // Produces very little saturation — just the warm asymmetric character of
+      // a 12AX7 running well within its linear region
+      amp_l = jcm_v1b.lms_triode_v1b_proc(mono, amp_gain * 0.25);
+
     ) : amp_channel == 1 ? (
-      // Crunch — Lo input pushed (single stage, breakup)
-      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.45, 0.08);
+      // CRUNCH — Lo input, V1B driven into breakup
+      // Single stage but pushed: the unbypassed cathode compression starts to
+      // become audible, positive peaks clip sooner than negative
+      amp_l = jcm_v1b.lms_triode_v1b_proc(mono, amp_gain * 0.75);
+
     ) : (
-      // Lead — Hi input: dual-stage cold clipper cascade (V1B→V1A)
-      punk_input == 0 ? (
-        amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.4, 0.08);
-      ) : (
-        amp_l = lms_sat_cascade(mono * (1 + drive_amt), drive_amt * 0.6, 0.08, drive_amt * 0.8, 0.10);
-      );
+      // LEAD — Hi input, V1B → V1A cascade
+      // V1B: first triode, unbypassed cathode — soft entry saturation, even harmonics
+      amp_l = jcm_v1b.lms_triode_v1b_proc(mono, amp_gain * 0.85);
+      // V1A: second triode, bypassed cathode — harder clip, more 3rd harmonic
+      // This is what makes the JCM800 Hi input mean — two stages of different character
+      amp_l = jcm_v1a.lms_triode_v1a_proc(amp_l, amp_gain * 0.70);
     );
-    // British asymmetric 2nd harmonic (V1A cold bias character)
-    amp_l = lms_sat_harmonics(amp_l, 0.2, 0.05);
+
+    // Passive tone stack (interactive Bass/Mid/Treble — replaces old biquad tone)
+    // Applied here in the signal path (before power amp, as in real circuit)
+    // Recovery gain compensates for ~18dB passive stack insertion loss
+    amp_l = jcm_ts.lms_tonestack_jcm_proc(amp_l);
+    amp_l *= 8.0;   // ~18dB recovery gain (real amp uses a recovery triode stage here)
+
+    // EL34 push-pull power amp (odd harmonics, sag, presence NFB)
+    amp_l = jcm_pa.lms_el34_proc(amp_l);
+
     amp_r = amp_l;
 
   ) : amp_model == 2 ? (
@@ -664,25 +702,34 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   amp_r = dc.lms_dc_proc_r(amp_r);
 
   // ============================================================
-  // TONE STACK
+  // TONE STACK — generic (not JCM800; JCM800 runs its passive stack inline)
   // ============================================================
-  amp_l = bass_eq.lms_bq_proc_l(amp_l);
-  amp_r = bass_eq.lms_bq_proc_r(amp_r);
-  amp_l = mid_eq.lms_bq_proc_l(amp_l);
-  amp_r = mid_eq.lms_bq_proc_r(amp_r);
-  amp_l = treb_eq.lms_bq_proc_l(amp_l);
-  amp_r = treb_eq.lms_bq_proc_r(amp_r);
-  amp_l = pres_eq.lms_bq_proc_l(amp_l);
-  amp_r = pres_eq.lms_bq_proc_r(amp_r);
+  amp_model != 1 ? (
+    amp_l = bass_eq.lms_bq_proc_l(amp_l);
+    amp_r = bass_eq.lms_bq_proc_r(amp_r);
+    amp_l = mid_eq.lms_bq_proc_l(amp_l);
+    amp_r = mid_eq.lms_bq_proc_r(amp_r);
+    amp_l = treb_eq.lms_bq_proc_l(amp_l);
+    amp_r = treb_eq.lms_bq_proc_r(amp_r);
+    amp_l = pres_eq.lms_bq_proc_l(amp_l);
+    amp_r = pres_eq.lms_bq_proc_r(amp_r);
+  );
 
   // ============================================================
   // CABINET SIMULATION
   // ============================================================
   cab_on == 1 ? (
-    amp_l = cab_lo.lms_bq_proc_l(amp_l);
-    amp_r = cab_lo.lms_bq_proc_r(amp_r);
-    amp_l = cab_hi.lms_bq_proc_l(amp_l);
-    amp_r = cab_hi.lms_bq_proc_r(amp_r);
+    amp_model == 1 ? (
+      // JCM800: 5-band Celestion G12T-75 model
+      amp_l = jcm_cab.lms_cab_412_proc_l(amp_l);
+      amp_r = jcm_cab.lms_cab_412_proc_r(amp_r);
+    ) : (
+      // All other amps: generic 2-biquad cab
+      amp_l = cab_lo.lms_bq_proc_l(amp_l);
+      amp_r = cab_lo.lms_bq_proc_r(amp_r);
+      amp_l = cab_hi.lms_bq_proc_l(amp_l);
+      amp_r = cab_hi.lms_bq_proc_r(amp_r);
+    );
   );
 
   // Master volume
