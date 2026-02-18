@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,592 +9,588 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Space+Grotesk:wght@300;400;500;700&family=Outfit:wght@200;300;400;700;900&display=swap');
 
-html {
-background: #0a0a0c !important;
-color-scheme: dark;
-}
-
-:root {
-–bg: #0a0a0c;
-–bg2: #0e0e12;
-–bg3: #141418;
-–evil-red: #ff2244;
-–evil-glow: #ff224433;
-–evil-dark: #1a0508;
-–good-green: #4de88a;
-–good-glow: #4de88a33;
-–good-dark: #051a0c;
-–orange: #f07a2e;
-–orange-glow: #f07a2e33;
-–blue: #4a8aff;
-–dim: #444450;
-–dimmer: #2a2a32;
-–text: #d8d8dd;
-–text-dim: #888890;
-–money: #44dd66;
-}
-
-- { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-background: #0a0a0c !important;
-color: #d8d8dd;
-font-family: ‘Outfit’, sans-serif;
-overflow-x: hidden;
-}
-
-/* ============================================ */
-/* HERO */
-/* ============================================ */
-.hero {
-min-height: 100vh;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-text-align: center;
-position: relative;
-padding: 2rem;
-}
-
-.hero::before {
-content: ‘’;
-position: absolute;
-top: 0; left: 0; right: 0; bottom: 0;
-background:
-radial-gradient(ellipse at 30% 40%, var(–evil-glow) 0%, transparent 50%),
-radial-gradient(ellipse at 70% 60%, var(–good-glow) 0%, transparent 50%);
-pointer-events: none;
-}
-
-.hero h1 {
-font-family: ‘JetBrains Mono’, monospace;
-font-weight: 800;
-font-size: clamp(2rem, 5vw, 4.5rem);
-letter-spacing: -0.03em;
-line-height: 1.1;
-margin-bottom: 1.5rem;
-}
-
-.hero h1 .their { color: var(–evil-red); }
-.hero h1 .vs { color: var(–dim); font-weight: 300; font-size: 0.5em; display: block; margin: 0.5rem 0; }
-.hero h1 .ours { color: var(–good-green); }
-
-.hero .subtitle {
-font-size: clamp(0.9rem, 2vw, 1.3rem);
-color: var(–text-dim);
-font-weight: 300;
-max-width: 600px;
-line-height: 1.6;
-}
-
-.scroll-hint {
-position: absolute;
-bottom: 2rem;
-color: var(–dim);
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.75rem;
-animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-0%, 100% { opacity: 0.3; transform: translateY(0); }
-50% { opacity: 1; transform: translateY(5px); }
-}
-
-/* ============================================ */
-/* COMPARISON SECTIONS */
-/* ============================================ */
-.comparison {
-display: grid;
-grid-template-columns: 1fr 1fr;
-min-height: 100vh;
-position: relative;
-}
-
-@media (max-width: 900px) {
-.comparison { grid-template-columns: 1fr; }
-}
-
-.side {
-padding: clamp(2rem, 4vw, 4rem);
-position: relative;
-display: flex;
-flex-direction: column;
-justify-content: center;
-}
-
-.side.evil {
-background: linear-gradient(135deg, var(–evil-dark) 0%, var(–bg) 100%);
-border-right: 1px solid #1f0810;
-}
-
-.side.good {
-background: linear-gradient(135deg, var(–bg) 0%, var(–good-dark) 100%);
-}
-
-.side-label {
-font-family: ‘JetBrains Mono’, monospace;
-font-weight: 800;
-font-size: 0.7rem;
-letter-spacing: 0.2em;
-text-transform: uppercase;
-margin-bottom: 2rem;
-display: flex;
-align-items: center;
-gap: 0.75rem;
-}
-
-.side.evil .side-label { color: var(–evil-red); }
-.side.good .side-label { color: var(–good-green); }
-
-.side-label .dot {
-width: 8px; height: 8px;
-border-radius: 50%;
-display: inline-block;
-}
-
-.side.evil .dot { background: var(–evil-red); box-shadow: 0 0 10px var(–evil-red); }
-.side.good .dot { background: var(–good-green); box-shadow: 0 0 10px var(–good-green); }
-
-.section-title {
-font-family: ‘Outfit’, sans-serif;
-font-weight: 900;
-font-size: clamp(1.5rem, 3vw, 2.5rem);
-margin-bottom: 0.5rem;
-line-height: 1.1;
-}
-
-.section-subtitle {
-color: var(–text-dim);
-font-weight: 300;
-font-size: 0.95rem;
-margin-bottom: 2rem;
-line-height: 1.5;
-}
-
-/* ============================================ */
-/* FLOW DIAGRAMS */
-/* ============================================ */
-.flow {
-display: flex;
-flex-direction: column;
-gap: 0;
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.75rem;
-}
-
-.flow-node {
-padding: 0.75rem 1rem;
-border-radius: 6px;
-position: relative;
-border: 1px solid;
-transition: all 0.3s ease;
-}
-
-.flow-node:hover {
-transform: translateX(4px);
-}
-
-.flow-node .node-name {
-font-weight: 700;
-font-size: 0.85rem;
-margin-bottom: 0.25rem;
-}
-
-.flow-node .node-detail {
-font-weight: 300;
-font-size: 0.65rem;
-opacity: 0.7;
-}
-
-.side.evil .flow-node {
-border-color: #2a1015;
-background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
-color: #cc8888;
-}
-
-.side.evil .flow-node .node-name { color: var(–evil-red); }
-
-.side.good .flow-node {
-border-color: #0a2a15;
-background: linear-gradient(135deg, #081508 0%, #060d08 100%);
-color: #88cc99;
-}
-
-.side.good .flow-node .node-name { color: var(–good-green); }
-
-.flow-arrow {
-display: flex;
-align-items: center;
-justify-content: center;
-height: 28px;
-position: relative;
-}
-
-.flow-arrow::before {
-content: ‘’;
-position: absolute;
-width: 2px;
-height: 100%;
-left: 50%;
-transform: translateX(-50%);
-}
-
-.side.evil .flow-arrow::before { background: #2a1015; }
-.side.good .flow-arrow::before { background: #0a2a15; }
-
-.flow-arrow span {
-font-size: 0.6rem;
-padding: 0 0.5rem;
-position: relative;
-z-index: 1;
-}
-
-.side.evil .flow-arrow span { color: #661122; background: var(–bg); }
-.side.good .flow-arrow span { color: #116633; background: var(–bg); }
-
-/* Money/toll nodes */
-.flow-node.toll {
-border-color: #4a3000;
-background: linear-gradient(135deg, #1a1200 0%, #0d0a00 100%);
-}
-
-.flow-node.toll .node-name { color: #ffaa00; }
-.flow-node.toll .node-detail { color: #aa8833; }
-
-.flow-node.toll::after {
-content: ‘$’;
-position: absolute;
-right: 10px;
-top: 50%;
-transform: translateY(-50%);
-font-size: 1.2rem;
-color: #ffaa0044;
-font-weight: 800;
-}
-
-/* gmem highlight */
-.flow-node.gmem {
-border-color: var(–orange);
-border-style: dashed;
-background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
-}
-
-.flow-node.gmem .node-name { color: var(–orange); }
-.flow-node.gmem .node-detail { color: #cc8844; }
-
-/* ============================================ */
-/* DIVIDER */
-/* ============================================ */
-.divider {
-position: absolute;
-left: 50%;
-top: 0;
-bottom: 0;
-width: 1px;
-background: linear-gradient(to bottom, transparent, var(–dim), transparent);
-z-index: 10;
-}
-
-.divider-label {
-position: absolute;
-left: 50%;
-top: 50%;
-transform: translate(-50%, -50%);
-background: var(–bg);
-padding: 0.5rem 1rem;
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.65rem;
-color: var(–dim);
-letter-spacing: 0.15em;
-z-index: 11;
-white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-.divider, .divider-label { display: none; }
-}
-
-/* ============================================ */
-/* STATS SECTION */
-/* ============================================ */
-.stats {
-display: grid;
-grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-gap: 1px;
-background: #1a1a1f;
-margin: 0;
-}
-
-.stat {
-padding: 2.5rem 2rem;
-text-align: center;
-background: #0a0a0c;
-}
-
-.stat .number {
-font-family: ‘JetBrains Mono’, monospace;
-font-weight: 800;
-font-size: clamp(2rem, 4vw, 3.5rem);
-line-height: 1;
-margin-bottom: 0.5rem;
-}
-
-.stat .number.evil { color: #ff2244; text-shadow: 0 0 20px #ff224444; }
-.stat .number.good { color: #4de88a; text-shadow: 0 0 20px #4de88a44; }
-.stat .number.orange { color: #f07a2e; text-shadow: 0 0 20px #f07a2e44; }
-
-.stat .label {
-font-size: 0.8rem;
-color: var(–text-dim);
-font-weight: 300;
-}
-
-/* ============================================ */
-/* BUS COMPARISON */
-/* ============================================ */
-.bus-section {
-padding: clamp(3rem, 5vw, 6rem) clamp(2rem, 4vw, 4rem);
-max-width: 1200px;
-margin: 0 auto;
-}
-
-.bus-section h2 {
-font-family: ‘JetBrains Mono’, monospace;
-font-weight: 800;
-font-size: clamp(1.5rem, 3vw, 2.5rem);
-text-align: center;
-margin-bottom: 1rem;
-}
-
-.bus-section .bus-subtitle {
-text-align: center;
-color: var(–text-dim);
-font-weight: 300;
-margin-bottom: 3rem;
-max-width: 700px;
-margin-left: auto;
-margin-right: auto;
-line-height: 1.6;
-}
-
-/* Traditional bus diagram */
-.bus-diagram {
-background: var(–bg2);
-border: 1px solid var(–dimmer);
-border-radius: 8px;
-padding: 2rem;
-margin-bottom: 3rem;
-position: relative;
-overflow: hidden;
-}
-
-.bus-diagram h3 {
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.8rem;
-letter-spacing: 0.15em;
-margin-bottom: 1.5rem;
-}
-
-.bus-diagram.evil h3 { color: var(–evil-red); }
-.bus-diagram.good h3 { color: var(–good-green); }
-
-.bus-tracks {
-display: flex;
-gap: 1rem;
-flex-wrap: wrap;
-justify-content: center;
-}
-
-.bus-track {
-width: 80px;
-display: flex;
-flex-direction: column;
-align-items: center;
-gap: 0.25rem;
-}
-
-.bus-track-box {
-width: 70px;
-height: 50px;
-border-radius: 4px;
-display: flex;
-align-items: center;
-justify-content: center;
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.55rem;
-font-weight: 700;
-text-align: center;
-line-height: 1.2;
-}
-
-.bus-track-label {
-font-size: 0.6rem;
-color: var(–text-dim);
-font-family: ‘JetBrains Mono’, monospace;
-}
-
-/* Evil track colors */
-.bus-diagram.evil .bus-track-box {
-border: 1px solid #2a1015;
-background: #150810;
-color: #cc8888;
-}
-
-.bus-diagram.evil .bus-track-box.send {
-border-color: #4a3000;
-background: #1a1200;
-color: #ddaa44;
-}
-
-.bus-diagram.evil .bus-track-box.master {
-border-color: #661122;
-background: #2a0810;
-color: var(–evil-red);
-}
-
-/* Good track colors */
-.bus-diagram.good .bus-track-box {
-border: 1px solid #0a2a15;
-background: #081508;
-color: #88cc99;
-}
-
-.bus-diagram.good .bus-track-box.gmem-node {
-border: 1px dashed var(–orange);
-background: #1a0f05;
-color: var(–orange);
-}
-
-.bus-diagram.good .bus-track-box.master {
-border-color: #116633;
-background: #082a10;
-color: var(–good-green);
-}
-
-/* Connection lines */
-.bus-connections {
-margin-top: 1rem;
-padding-top: 1rem;
-border-top: 1px solid var(–dimmer);
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.6rem;
-color: var(–text-dim);
-text-align: center;
-line-height: 2;
-}
-
-.bus-connections .route {
-display: inline-block;
-padding: 0.2rem 0.6rem;
-margin: 0.15rem;
-border-radius: 3px;
-font-size: 0.55rem;
-}
-
-.bus-diagram.evil .route {
-background: #1a0810;
-border: 1px solid #2a1015;
-color: #aa6666;
-}
-
-.bus-diagram.good .route {
-background: #0a1508;
-border: 1px solid #0a2a15;
-color: #66aa77;
-}
-
-.bus-diagram.good .route.gmem-route {
-border-color: var(–orange);
-border-style: dashed;
-color: var(–orange);
-}
-
-/* ============================================ */
-/* FINAL BANNER */
-/* ============================================ */
-.finale {
-padding: clamp(4rem, 8vw, 8rem) 2rem;
-text-align: center;
-position: relative;
-overflow: hidden;
-}
-
-.finale::before {
-content: ‘’;
-position: absolute;
-top: 0; left: 0; right: 0; bottom: 0;
-background: radial-gradient(ellipse at center, var(–good-glow) 0%, transparent 60%);
-pointer-events: none;
-}
-
-.finale h2 {
-font-family: ‘JetBrains Mono’, monospace;
-font-weight: 800;
-font-size: clamp(2rem, 5vw, 4rem);
-color: var(–good-green);
-margin-bottom: 1.5rem;
-}
-
-.finale .manifesto {
-max-width: 650px;
-margin: 0 auto 2rem;
-font-size: 1.1rem;
-font-weight: 300;
-line-height: 1.8;
-color: var(–text-dim);
-}
-
-.finale .url {
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.85rem;
-color: var(–orange);
-padding: 1rem 2rem;
-border: 1px dashed var(–orange);
-border-radius: 6px;
-display: inline-block;
-background: #1a0f0522;
-letter-spacing: 0.02em;
-word-break: break-all;
-}
-
-.finale .install-label {
-font-family: ‘JetBrains Mono’, monospace;
-font-size: 0.65rem;
-color: var(–dim);
-letter-spacing: 0.2em;
-text-transform: uppercase;
-margin-bottom: 0.5rem;
-}
-
-/* ============================================ */
-/* ANIMATIONS */
-/* ============================================ */
-.fade-in {
-opacity: 0;
-transform: translateY(20px);
-animation: fadeIn 0.8s ease forwards;
-}
-
-@keyframes fadeIn {
-to { opacity: 1; transform: translateY(0); }
-}
-
-.comparison:nth-child(2) .fade-in { animation-delay: 0.1s; }
-.comparison:nth-child(3) .fade-in { animation-delay: 0.15s; }
-.comparison:nth-child(4) .fade-in { animation-delay: 0.2s; }
+  html {
+    background: #0a0a0c !important;
+    color-scheme: dark;
+  }
+
+  :root {
+    --bg: #0a0a0c;
+    --bg2: #0e0e12;
+    --bg3: #141418;
+    --evil-red: #ff2244;
+    --evil-glow: #ff224433;
+    --evil-dark: #1a0508;
+    --good-green: #4de88a;
+    --good-glow: #4de88a33;
+    --good-dark: #051a0c;
+    --orange: #f07a2e;
+    --orange-glow: #f07a2e33;
+    --blue: #4a8aff;
+    --dim: #444450;
+    --dimmer: #2a2a32;
+    --text: #d8d8dd;
+    --text-dim: #888890;
+    --money: #44dd66;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0c !important;
+    color: #d8d8dd;
+    font-family: 'Outfit', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ============================================ */
+  /* HERO */
+  /* ============================================ */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    padding: 2rem;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      radial-gradient(ellipse at 30% 40%, var(--evil-glow) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 60%, var(--good-glow) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .hero h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(2rem, 5vw, 4.5rem);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 .their { color: var(--evil-red); }
+  .hero h1 .vs { color: var(--dim); font-weight: 300; font-size: 0.5em; display: block; margin: 0.5rem 0; }
+  .hero h1 .ours { color: var(--good-green); }
+
+  .hero .subtitle {
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
+    color: var(--text-dim);
+    font-weight: 300;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(5px); }
+  }
+
+  /* ============================================ */
+  /* COMPARISON SECTIONS */
+  /* ============================================ */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  @media (max-width: 900px) {
+    .comparison { grid-template-columns: 1fr; }
+  }
+
+  .side {
+    padding: clamp(2rem, 4vw, 4rem);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .side.evil {
+    background: linear-gradient(135deg, var(--evil-dark) 0%, var(--bg) 100%);
+    border-right: 1px solid #1f0810;
+  }
+
+  .side.good {
+    background: linear-gradient(135deg, var(--bg) 0%, var(--good-dark) 100%);
+  }
+
+  .side-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .side.evil .side-label { color: var(--evil-red); }
+  .side.good .side-label { color: var(--good-green); }
+
+  .side-label .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .side.evil .dot { background: var(--evil-red); box-shadow: 0 0 10px var(--evil-red); }
+  .side.good .dot { background: var(--good-green); box-shadow: 0 0 10px var(--good-green); }
+
+  .section-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    margin-bottom: 0.5rem;
+    line-height: 1.1;
+  }
+
+  .section-subtitle {
+    color: var(--text-dim);
+    font-weight: 300;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  /* ============================================ */
+  /* FLOW DIAGRAMS */
+  /* ============================================ */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+
+  .flow-node {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    position: relative;
+    border: 1px solid;
+    transition: all 0.3s ease;
+  }
+
+  .flow-node:hover {
+    transform: translateX(4px);
+  }
+
+  .flow-node .node-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .flow-node .node-detail {
+    font-weight: 300;
+    font-size: 0.65rem;
+    opacity: 0.7;
+  }
+
+  .side.evil .flow-node {
+    border-color: #2a1015;
+    background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
+    color: #cc8888;
+  }
+
+  .side.evil .flow-node .node-name { color: var(--evil-red); }
+
+  .side.good .flow-node {
+    border-color: #0a2a15;
+    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+    color: #88cc99;
+  }
+
+  .side.good .flow-node .node-name { color: var(--good-green); }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    position: relative;
+  }
+
+  .flow-arrow::before {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .side.evil .flow-arrow::before { background: #2a1015; }
+  .side.good .flow-arrow::before { background: #0a2a15; }
+
+  .flow-arrow span {
+    font-size: 0.6rem;
+    padding: 0 0.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .side.evil .flow-arrow span { color: #661122; background: var(--bg); }
+  .side.good .flow-arrow span { color: #116633; background: var(--bg); }
+
+  /* Money/toll nodes */
+  .flow-node.toll {
+    border-color: #4a3000;
+    background: linear-gradient(135deg, #1a1200 0%, #0d0a00 100%);
+  }
+
+  .flow-node.toll .node-name { color: #ffaa00; }
+  .flow-node.toll .node-detail { color: #aa8833; }
+
+  .flow-node.toll::after {
+    content: '$';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: #ffaa0044;
+    font-weight: 800;
+  }
+
+  /* gmem highlight */
+  .flow-node.gmem {
+    border-color: var(--orange);
+    border-style: dashed;
+    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+  }
+
+  .flow-node.gmem .node-name { color: var(--orange); }
+  .flow-node.gmem .node-detail { color: #cc8844; }
+
+  /* ============================================ */
+  /* DIVIDER */
+  /* ============================================ */
+  .divider {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--dim), transparent);
+    z-index: 10;
+  }
+
+  .divider-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg);
+    padding: 0.5rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    z-index: 11;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 900px) {
+    .divider, .divider-label { display: none; }
+  }
+
+  /* ============================================ */
+  /* STATS SECTION */
+  /* ============================================ */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1px;
+    background: #1a1a1f;
+    margin: 0;
+  }
+
+  .stat {
+    padding: 2.5rem 2rem;
+    text-align: center;
+    background: #0a0a0c;
+  }
+
+  .stat .number {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat .number.evil { color: #ff2244; text-shadow: 0 0 20px #ff224444; }
+  .stat .number.good { color: #4de88a; text-shadow: 0 0 20px #4de88a44; }
+  .stat .number.orange { color: #f07a2e; text-shadow: 0 0 20px #f07a2e44; }
+
+  .stat .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  /* ============================================ */
+  /* BUS COMPARISON */
+  /* ============================================ */
+  .bus-section {
+    padding: clamp(3rem, 5vw, 6rem) clamp(2rem, 4vw, 4rem);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .bus-section h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .bus-section .bus-subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-weight: 300;
+    margin-bottom: 3rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+
+  /* Traditional bus diagram */
+  .bus-diagram {
+    background: var(--bg2);
+    border: 1px solid var(--dimmer);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bus-diagram h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 1.5rem;
+  }
+
+  .bus-diagram.evil h3 { color: var(--evil-red); }
+  .bus-diagram.good h3 { color: var(--good-green); }
+
+  .bus-tracks {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .bus-track {
+    width: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .bus-track-box {
+    width: 70px;
+    height: 50px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .bus-track-label {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Evil track colors */
+  .bus-diagram.evil .bus-track-box {
+    border: 1px solid #2a1015;
+    background: #150810;
+    color: #cc8888;
+  }
+
+  .bus-diagram.evil .bus-track-box.send {
+    border-color: #4a3000;
+    background: #1a1200;
+    color: #ddaa44;
+  }
+
+  .bus-diagram.evil .bus-track-box.master {
+    border-color: #661122;
+    background: #2a0810;
+    color: var(--evil-red);
+  }
+
+  /* Good track colors */
+  .bus-diagram.good .bus-track-box {
+    border: 1px solid #0a2a15;
+    background: #081508;
+    color: #88cc99;
+  }
+
+  .bus-diagram.good .bus-track-box.gmem-node {
+    border: 1px dashed var(--orange);
+    background: #1a0f05;
+    color: var(--orange);
+  }
+
+  .bus-diagram.good .bus-track-box.master {
+    border-color: #116633;
+    background: #082a10;
+    color: var(--good-green);
+  }
+
+  /* Connection lines */
+  .bus-connections {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--dimmer);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 2;
+  }
+
+  .bus-connections .route {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    margin: 0.15rem;
+    border-radius: 3px;
+    font-size: 0.55rem;
+  }
+
+  .bus-diagram.evil .route {
+    background: #1a0810;
+    border: 1px solid #2a1015;
+    color: #aa6666;
+  }
+
+  .bus-diagram.good .route {
+    background: #0a1508;
+    border: 1px solid #0a2a15;
+    color: #66aa77;
+  }
+
+  .bus-diagram.good .route.gmem-route {
+    border-color: var(--orange);
+    border-style: dashed;
+    color: var(--orange);
+  }
+
+  /* ============================================ */
+  /* FINAL BANNER */
+  /* ============================================ */
+  .finale {
+    padding: clamp(4rem, 8vw, 8rem) 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .finale::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, var(--good-glow) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .finale h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(2rem, 5vw, 4rem);
+    color: var(--good-green);
+    margin-bottom: 1.5rem;
+  }
+
+  .finale .manifesto {
+    max-width: 650px;
+    margin: 0 auto 2rem;
+    font-size: 1.1rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  .finale .url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--orange);
+    padding: 1rem 2rem;
+    border: 1px dashed var(--orange);
+    border-radius: 6px;
+    display: inline-block;
+    background: #1a0f0522;
+    letter-spacing: 0.02em;
+    word-break: break-all;
+  }
+
+  .finale .install-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ============================================ */
+  /* ANIMATIONS */
+  /* ============================================ */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.8s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .comparison:nth-child(2) .fade-in { animation-delay: 0.1s; }
+  .comparison:nth-child(3) .fade-in { animation-delay: 0.15s; }
+  .comparison:nth-child(4) .fade-in { animation-delay: 0.2s; }
 </style>
-
 </head>
 <body>
 
 <!-- ============================================ -->
-
 <!-- HERO -->
-
 <!-- ============================================ -->
-
 <section class="hero">
   <h1 class="fade-in">
     <span class="their">THEIR ARCHITECTURE</span>
@@ -611,11 +606,8 @@ to { opacity: 1; transform: translateY(0); }
 </section>
 
 <!-- ============================================ -->
-
 <!-- SECTION 1: PLUGIN LOADING -->
-
 <!-- ============================================ -->
-
 <div class="comparison">
   <div class="divider"></div>
   <div class="divider-label">PLUGIN ARCHITECTURE</div>
@@ -681,11 +673,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- SECTION 2: INTER-PLUGIN COMMUNICATION -->
-
 <!-- ============================================ -->
-
 <div class="comparison">
   <div class="divider"></div>
   <div class="divider-label">PLUGIN COMMUNICATION</div>
@@ -756,11 +745,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- SECTION 3: SHARING SETTINGS -->
-
 <!-- ============================================ -->
-
 <div class="comparison">
   <div class="divider"></div>
   <div class="divider-label">SETTINGS & STATE</div>
@@ -816,11 +802,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- SECTION 4: SESSION MANAGEMENT -->
-
 <!-- ============================================ -->
-
 <div class="comparison">
   <div class="divider"></div>
   <div class="divider-label">SESSION MANAGEMENT</div>
@@ -876,11 +859,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- STATS -->
-
 <!-- ============================================ -->
-
 <div class="stats">
   <div class="stat">
     <div class="number evil">$750</div>
@@ -917,11 +897,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- BUS ARCHITECTURE COMPARISON -->
-
 <!-- ============================================ -->
-
 <section class="bus-section">
   <h2 class="fade-in">Signal <span style="color:var(--evil-red)">Routing</span> vs Signal <span style="color:var(--good-green)">Sharing</span></h2>
   <p class="bus-subtitle fade-in">
@@ -931,7 +908,6 @@ to { opacity: 1; transform: translateY(0); }
   </p>
 
   <!-- Traditional routing -->
-
   <div class="bus-diagram evil">
     <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
     <div class="bus-tracks">
@@ -987,7 +963,6 @@ to { opacity: 1; transform: translateY(0); }
   </div>
 
   <!-- LMS routing -->
-
   <div class="bus-diagram good">
     <h3>LMS: 6 TRACKS, SIDECHAIN + FX — ZERO ROUTING</h3>
     <div class="bus-tracks">
@@ -1033,11 +1008,8 @@ to { opacity: 1; transform: translateY(0); }
 </section>
 
 <!-- ============================================ -->
-
 <!-- MEMORY / RESOURCE USAGE -->
-
 <!-- ============================================ -->
-
 <div class="comparison">
   <div class="divider"></div>
   <div class="divider-label">MEMORY USAGE</div>
@@ -1118,7 +1090,6 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- Memory stats row -->
-
 <div class="stats">
   <div class="stat">
     <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">1.5 GB</div>
@@ -1139,11 +1110,8 @@ to { opacity: 1; transform: translateY(0); }
 </div>
 
 <!-- ============================================ -->
-
 <!-- LINUX + REAPER TIME TRAVEL -->
-
 <!-- ============================================ -->
-
 <section class="time-travel">
   <div class="time-travel-inner">
     <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
@@ -1159,41 +1127,38 @@ to { opacity: 1; transform: translateY(0); }
       They just piled software on top of it until it couldn't breathe.
     </p>
 
-```
-<div class="tt-timeline">
-  <div class="tt-era evil-era">
-    <div class="tt-year">YOUR MAC TODAY</div>
-    <div class="tt-items">
-      <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
-      <div class="tt-item bad">16 background processes you didn't ask for</div>
-      <div class="tt-item bad">4GB RAM used before you open anything</div>
-      <div class="tt-item bad">"Your system has run out of application memory"</div>
-      <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
-      <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
-      <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
+    <div class="tt-timeline">
+      <div class="tt-era evil-era">
+        <div class="tt-year">YOUR MAC TODAY</div>
+        <div class="tt-items">
+          <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
+          <div class="tt-item bad">16 background processes you didn't ask for</div>
+          <div class="tt-item bad">4GB RAM used before you open anything</div>
+          <div class="tt-item bad">"Your system has run out of application memory"</div>
+          <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
+          <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
+          <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
+        </div>
+      </div>
+      <div class="tt-arrow">→ install Linux →</div>
+      <div class="tt-era good-era">
+        <div class="tt-year">SAME MACHINE + LINUX</div>
+        <div class="tt-items">
+          <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
+          <div class="tt-item good-item">300MB RAM used at idle</div>
+          <div class="tt-item good-item">Reaper opens in under 1 second</div>
+          <div class="tt-item good-item">Full LMS session: ~100MB total</div>
+          <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
+          <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
+          <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="tt-arrow">→ install Linux →</div>
-  <div class="tt-era good-era">
-    <div class="tt-year">SAME MACHINE + LINUX</div>
-    <div class="tt-items">
-      <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
-      <div class="tt-item good-item">300MB RAM used at idle</div>
-      <div class="tt-item good-item">Reaper opens in under 1 second</div>
-      <div class="tt-item good-item">Full LMS session: ~100MB total</div>
-      <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
-      <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
-      <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
+
+    <div class="tt-punchline">
+      Your 2017 machine isn't slow. It's been robbed.<br>
+      <span class="tt-small">Take it back.</span>
     </div>
-  </div>
-</div>
-
-<div class="tt-punchline">
-  Your 2017 machine isn't slow. It's been robbed.<br>
-  <span class="tt-small">Take it back.</span>
-</div>
-```
-
   </div>
 </section>
 
@@ -1350,11 +1315,417 @@ to { opacity: 1; transform: translateY(0); }
 </style>
 
 <!-- ============================================ -->
+<!-- SHARED DSP CORE -->
+<!-- ============================================ -->
+<section class="core-section">
+  <div class="core-inner">
+    <div class="tt-badge" style="border-color:#f07a2e;color:#f07a2e;">SHARED DSP KERNEL</div>
+    <h2 class="core-title">One Core. <span style="color:#f07a2e;">Every Plugin.</span></h2>
+    <p class="core-subtitle">
+      Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
+      LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
+    </p>
 
-<!-- FINALE -->
+    <!-- OLD WAY -->
+    <div class="core-diagram">
+      <div class="core-diagram-label evil-label">THE OLD WAY — EVERY PLUGIN SHIPS ITS OWN COPY</div>
+      <div class="core-grid old-grid">
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">CHANNEL STRIP</div>
+          <div class="core-alg">FET comp <span class="version-bad">v2.1</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.2</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines of DSP</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">DRUMBANGER</div>
+          <div class="core-alg">FET comp <span class="version-bad">v1.9 ✕</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">DRONE FX</div>
+          <div class="core-alg">FET comp <span class="version-bad">v2.0 ✕</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-bad">v1.5 ✕</span></div>
+          <div class="core-alg">Delay <span class="version-ok">v1.1</span></div>
+          <div class="core-alg">Flanger <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">TAPE ECHO</div>
+          <div class="core-alg">Biquad EQ <span class="version-bad">v1.6 ✕</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.1 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-bad">v0.9 ✕</span></div>
+          <div class="core-alg">Delay <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+      </div>
+      <div class="core-verdict bad-verdict">✕ 6 different versions of the same math drifting out of sync across the suite</div>
+    </div>
+
+    <!-- NEW WAY -->
+    <div class="core-diagram" style="margin-top:2rem;">
+      <div class="core-diagram-label good-label">THE LMS WAY — ONE SHARED CORE, EVERY PLUGIN IMPORTS IT</div>
+      
+      <!-- The core box -->
+      <div class="the-core">
+        <div class="the-core-name">lms_core.jsfx-inc</div>
+        <div class="the-core-subtitle">ONE FILE — THE SOURCE OF TRUTH</div>
+        <div class="core-alg-grid">
+          <span class="core-chip">FET comp</span>
+          <span class="core-chip">LA2A opto</span>
+          <span class="core-chip">Biquad EQ</span>
+          <span class="core-chip">Tape sat</span>
+          <span class="core-chip">Delay</span>
+          <span class="core-chip">Flanger</span>
+          <span class="core-chip">DC block</span>
+          <span class="core-chip">Pan law</span>
+        </div>
+        <div class="the-core-community">
+          Open source. Community-improved.<br>
+          One PR makes every plugin in the suite better.
+        </div>
+      </div>
+
+      <!-- Connection lines (pure CSS) -->
+      <div class="core-connections">
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+      </div>
+
+      <!-- Thin plugin boxes -->
+      <div class="core-grid new-grid">
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">CHANNEL STRIP</div>
+          <div class="core-thin-desc">UI + routing logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">DRUMBANGER</div>
+          <div class="core-thin-desc">UI + sequencer logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">DRONE FX</div>
+          <div class="core-thin-desc">UI + gmem[] logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">TAPE ECHO</div>
+          <div class="core-thin-desc">UI + tape logic only</div>
+        </div>
+      </div>
+
+      <div class="core-verdict good-verdict">ONE PR TO lms_core → EVERY PLUGIN IN THE SUITE GETS BETTER</div>
+    </div>
+  </div>
+</section>
 
 <!-- ============================================ -->
+<!-- PERFORMANCE PROOF -->
+<!-- ============================================ -->
+<section class="perf-section">
+  <div class="perf-inner">
+    <div class="tt-badge" style="border-color:#4de88a;color:#4de88a;">REAL WORLD PROOF</div>
+    <h2 class="core-title">Don't Take Our Word For It. <span style="color:#4de88a;">Look at the Numbers.</span></h2>
+    
+    <div class="perf-cards">
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">62</div>
+        <div class="perf-label">Live FX plugins</div>
+        <div class="perf-detail">Fully active channel strips, delays, compressors. Not bypassed. Not frozen.</div>
+      </div>
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">5%</div>
+        <div class="perf-label">Total FX CPU</div>
+        <div class="perf-detail">The computer is barely awake.</div>
+      </div>
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">755 MB</div>
+        <div class="perf-label">Total RAM usage</div>
+        <div class="perf-detail">Full session including the operating system. One Kontakt patch uses more.</div>
+      </div>
+      <div class="perf-card stress-card">
+        <div class="perf-number" style="color:#f07a2e;">256</div>
+        <div class="perf-label">Stress test: plugins running</div>
+        <div class="perf-detail">60 tracks. It took 256 live effects to crack 20% CPU. On a 2017 Mac.</div>
+      </div>
+    </div>
 
+    <div class="perf-punchline">
+      Each LMS plugin costs approximately <span style="color:#4de88a;">0.08% CPU</span>.<br>
+      <span style="color:#888890;">One instance of Serum uses 5–15%. You do the math.</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ============================================ */
+  /* SHARED CORE SECTION */
+  /* ============================================ */
+  .core-section {
+    padding: clamp(3rem, 5vw, 6rem) clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .core-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .core-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    color: #d8d8dd;
+    margin-bottom: 1rem;
+  }
+
+  .core-subtitle {
+    color: #888890;
+    font-weight: 300;
+    font-size: 1rem;
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    line-height: 1.6;
+  }
+
+  .core-diagram {
+    background: #0e0e12;
+    border: 1px solid #2a2a32;
+    border-radius: 8px;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    text-align: center;
+  }
+
+  .core-diagram-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    margin-bottom: 1.5rem;
+  }
+
+  .evil-label { color: #ff2244; }
+  .good-label { color: #4de88a; }
+
+  .core-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .core-plugin-box {
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .old-box {
+    background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
+    border: 1px solid #2a1015;
+  }
+
+  .new-box {
+    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+    border: 1px solid #0a2a15;
+  }
+
+  .core-plugin-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .old-box .core-plugin-name { color: #ff2244; }
+  .new-name { color: #4de88a !important; }
+
+  .core-alg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #aa6666;
+    padding: 0.25rem 0.5rem;
+    margin: 0.2rem 0;
+    background: #1a0810;
+    border: 1px solid #331020;
+    border-radius: 3px;
+  }
+
+  .version-bad { color: #ff6644; }
+  .version-ok { color: #888866; }
+
+  .core-footprint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: #664444;
+    margin-top: 0.75rem;
+  }
+
+  .core-verdict {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .bad-verdict {
+    color: #ff6644;
+    background: #1a0a00;
+    border: 1px solid #ff224444;
+  }
+
+  .good-verdict {
+    color: #4de88a;
+    background: #051a0c;
+    border: 1px solid #4de88a44;
+  }
+
+  .core-thin-desc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #448844;
+  }
+
+  /* The Core Box */
+  .the-core {
+    border: 2px dashed #f07a2e;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0d1508 0%, #0a0d06 100%);
+    padding: 1.5rem;
+    margin-bottom: 0;
+  }
+
+  .the-core-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    font-weight: 800;
+    color: #f07a2e;
+    margin-bottom: 0.25rem;
+  }
+
+  .the-core-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #886a40;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+
+  .core-alg-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .core-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ccaa55;
+    padding: 0.35rem 0.75rem;
+    background: #1a1505;
+    border: 1px solid #4a3a15;
+    border-radius: 3px;
+  }
+
+  .the-core-community {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #888866;
+    line-height: 1.6;
+  }
+
+  /* Connection lines */
+  .core-connections {
+    display: flex;
+    justify-content: space-around;
+    padding: 0 10%;
+    height: 30px;
+    margin: 0;
+  }
+
+  .core-line {
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(to bottom, #4de88a88, #4de88a22);
+  }
+
+  /* ============================================ */
+  /* PERFORMANCE PROOF */
+  /* ============================================ */
+  .perf-section {
+    padding: clamp(3rem, 5vw, 6rem) clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .perf-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .perf-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 2.5rem 0;
+  }
+
+  .perf-card {
+    background: #0e0e12;
+    border: 1px solid #0a2a15;
+    border-radius: 8px;
+    padding: 1.5rem 1rem;
+  }
+
+  .stress-card {
+    border-color: #4a3000;
+  }
+
+  .perf-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 5vw, 3.5rem);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 30px currentColor;
+  }
+
+  .perf-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #d8d8dd;
+    margin-bottom: 0.5rem;
+  }
+
+  .perf-detail {
+    font-size: 0.75rem;
+    color: #888890;
+    font-weight: 300;
+    line-height: 1.4;
+  }
+
+  .perf-punchline {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    color: #d8d8dd;
+    line-height: 1.8;
+    margin-top: 1rem;
+  }
+</style>
+
+<!-- ============================================ -->
+<!-- FINALE -->
+<!-- ============================================ -->
 <section class="finale">
   <h2 class="fade-in">THEY ARE TRYING TO<br>STEAL YOUR COMPUTER</h2>
   <p class="manifesto fade-in">
