@@ -105,6 +105,12 @@ local function main()
     return
   end
 
+  -- Prompt for session name
+  local retval, sname = reaper.GetUserInputs("LMS Save Session", 1, "Session name:,extrawidth=200", "session")
+  if not retval then return end
+  sname = sname:gsub("[^%w%-%_]", "_")  -- sanitize: only alphanumeric, dash, underscore
+  if sname == "" then sname = "session" end
+
   -- Build session data
   local session = {
     lms_version = "1.0",
@@ -150,7 +156,7 @@ local function main()
   end
 
   -- Write file
-  local out_path = proj_path .. "/session.lms"
+  local out_path = proj_path .. "/" .. sname .. ".lms"
   local f = io.open(out_path, "w")
   if not f then
     reaper.ShowMessageBox("Could not write to:\n" .. out_path, "LMS Save Session", 0)

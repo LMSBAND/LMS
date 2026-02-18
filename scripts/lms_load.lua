@@ -157,10 +157,12 @@ local function main()
     return
   end
 
-  local lms_path = proj_path .. "/session.lms"
+  local retval, lms_path = reaper.GetUserFileNameForRead(proj_path, "Load LMS Session", "*.lms")
+  if not retval or lms_path == "" then return end
+
   local f = io.open(lms_path, "r")
   if not f then
-    reaper.ShowMessageBox("No session.lms found in:\n" .. proj_path .. "\n\nSave one first with LMS Save Session.", "LMS Load Session", 0)
+    reaper.ShowMessageBox("Could not open:\n" .. lms_path, "LMS Load Session", 0)
     return
   end
   local content = f:read("*a")

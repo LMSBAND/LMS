@@ -126,7 +126,7 @@ notice_show = 0;
   BC_BASE = 100000;
   BC_MY_TYPE = 9;           // Tape Machine
   BC_SLOT_SIZE = 512;
-  BC_MAX_INST = 8;
+  BC_MAX_INST = 32;
   BC_PARAM_COUNT = 20;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
   BC_STALE_TIMEOUT = 2;
@@ -139,11 +139,12 @@ notice_show = 0;
   bc_steal_pending = 0;
   bc_steal_target = 0;
   bc_panel_expanded = 0;
+  bc_page = 0;
   bc_steal_mode = 0;
   bc_instance_count = 0;
 
   BC_STALE_HB = 500000;
-  BC_STALE_CT = 500008;
+  BC_STALE_CT = 500032;
   i = 0;
   loop(BC_MAX_INST,
     BC_STALE_HB[i] = -1;
@@ -1010,7 +1011,8 @@ sat_on ? (
   // ============================================================
   // INSTANCE MANAGER PANEL
   // ============================================================
-  bc_panel_h = bc_panel_expanded ? 90 : 30;
+  bc_rows_per_page = 5;
+  bc_panel_h = bc_panel_expanded ? (30 + bc_rows_per_page * 14 + 18) : 30;
   bc_panel_y = gfx_h - bc_panel_h;
 
   gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
@@ -1104,89 +1106,164 @@ sat_on ? (
   bc_panel_expanded ? (
     row_y = bc_panel_y + 30;
     row_h = 14;
+
+    // Page nav — auto-scroll to show YOU on expand
+    bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
+    bc_page < 0 ? bc_page = 0;
+
+    // Count active slots for page count
+    bc_active_slots = 0;
+    bc_si = 0;
+    loop(BC_MAX_INST,
+      gmem[BC_MY_REGION + bc_si * BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
+      bc_si += 1;
+    );
+    bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
+    bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
+
+    // Prev page button
+    pg_btn_w = 18; pg_btn_h = 14;
+    pg_prev_x = 8; pg_prev_y = bc_panel_y + 30 + bc_rows_per_page * row_h + 2;
+    bc_total_pages > 1 ? (
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + 4; gfx_y = pg_prev_y + 2;
+      gfx_drawstr("<");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page > 0 ? bc_page -= 1;
+      );
+
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + pg_btn_w + 6; gfx_y = pg_prev_y + 2;
+      gfx_drawstr(">");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page < bc_total_pages - 1 ? bc_page += 1;
+      );
+
+      // Page indicator
+      gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+      gfx_x = pg_prev_x + pg_btn_w * 2 + 8; gfx_y = pg_prev_y + 2;
+      gfx_drawnumber(bc_page + 1, 0);
+      gfx_drawstr("/");
+      gfx_drawnumber(bc_total_pages, 0);
+
+      // YOU button — jump to your page
+      bc_page != bc_my_page ? (
+        you_x = pg_prev_x + pg_btn_w * 2 + 40;
+        gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+        gfx_rect(you_x, pg_prev_y, 30, pg_btn_h);
+        gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+        gfx_x = you_x + 3; gfx_y = pg_prev_y + 2;
+        gfx_drawstr("YOU");
+        (mouse_cap & 1) && !(last_cap & 1) &&
+          mouse_x >= you_x && mouse_x < you_x + 30 &&
+          mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+          bc_page = bc_my_page;
+        );
+      );
+    );
+
+    // Draw rows for current page
+    bc_page_start = bc_page * bc_rows_per_page;
+    bc_page_end = bc_page_start + bc_rows_per_page - 1;
+    bc_visible = 0;
     bc_s = 0;
     loop(BC_MAX_INST,
       isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
       isid = gmem[isb + 1];
+
       isid > 0 ? (
-        mouse_y >= row_y && mouse_y < row_y + row_h &&
-          mouse_x >= 8 && mouse_x < gfx_w - 8 &&
-          bc_s != bc_my_slot ? (
-          gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
-          gfx_rect(4, row_y, gfx_w - 8, row_h);
-        );
-        gfx_setfont(1, "Arial", 10);
-        bc_s == bc_my_slot ? (
-          gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-        ) : (
-          gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-        );
-        gfx_x = 12; gfx_y = row_y + 1;
-        gfx_drawstr("I");
-        gfx_drawnumber(bc_s + 1, 0);
-        gfx_drawstr("  ");
-        bc_s == bc_my_slot ? (
-          gfx_drawstr("[YOU]");
-        ) : (
-          iwho = gmem[isb + 3];
-          iwho > 0 ? (
-            gfx_drawstr("[>I");
-            iw = 0;
-            loop(BC_MAX_INST,
-              iwsb = BC_MY_REGION + iw * BC_SLOT_SIZE;
-              gmem[iwsb + 1] == iwho ? (
-                gfx_drawnumber(iw + 1, 0);
-                iw = BC_MAX_INST;
-              );
-              iw += 1;
-            );
-            gfx_drawstr("]");
-          ) : (
-            gfx_drawstr("[LEADER]");
+        bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
+          draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
+
+          mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+            mouse_x >= 8 && mouse_x < gfx_w - 8 &&
+            bc_s != bc_my_slot ? (
+            gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+            gfx_rect(4, draw_row_y, gfx_w - 8, row_h);
           );
-          gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
-          bc_steal_mode ? (
-            gfx_drawstr("  click: steal");
+
+          gfx_setfont(1, "Arial", 10);
+          bc_s == bc_my_slot ? (
+            gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
           ) : (
-            gfx_drawstr("  click: follow");
+            gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
           );
-          (mouse_cap & 1) && !(last_cap & 1) &&
-            mouse_y >= row_y && mouse_y < row_y + row_h &&
-            mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
-            bc_steal_mode ? (
-              bc_steal_target = isid;
-              bc_steal_pending = 1;
-              bc_steal_mode = 0;
-            ) : (
-              bc_can_follow = 1;
-              bc_cursor = isid;
-              bc_hops = 0;
-              while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
-                bc_cursor == bc_my_id ? (
-                  bc_can_follow = 0;
-                  bc_cursor = 0;
-                ) : (
-                  bc_next = 0;
-                  bc_cs = 0;
-                  loop(BC_MAX_INST,
-                    csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
-                    gmem[csb + 1] == bc_cursor ? (
-                      bc_next = gmem[csb + 3];
-                      bc_cs = BC_MAX_INST;
-                    );
-                    bc_cs += 1;
-                  );
-                  bc_cursor = bc_next;
+          gfx_x = 12; gfx_y = draw_row_y + 1;
+          gfx_drawstr("I");
+          gfx_drawnumber(bc_s + 1, 0);
+          gfx_drawstr("  ");
+
+          bc_s == bc_my_slot ? (
+            gfx_drawstr("[YOU]");
+          ) : (
+            iwho = gmem[isb + 3];
+            iwho > 0 ? (
+              gfx_drawstr("[>I");
+              iw = 0;
+              loop(BC_MAX_INST,
+                iwsb = BC_MY_REGION + iw * BC_SLOT_SIZE;
+                gmem[iwsb + 1] == iwho ? (
+                  gfx_drawnumber(iw + 1, 0);
+                  iw = BC_MAX_INST;
                 );
-                bc_hops += 1;
+                iw += 1;
               );
-              bc_can_follow ? (
-                bc_following = isid;
+              gfx_drawstr("]");
+            ) : (
+              gfx_drawstr("[LEADER]");
+            );
+            gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+            bc_steal_mode ? (
+              gfx_drawstr("  click: steal");
+            ) : (
+              gfx_drawstr("  click: follow");
+            );
+            (mouse_cap & 1) && !(last_cap & 1) &&
+              mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+              mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
+              bc_steal_mode ? (
+                bc_steal_target = isid;
+                bc_steal_pending = 1;
+                bc_steal_mode = 0;
+              ) : (
+                bc_can_follow = 1;
+                bc_cursor = isid;
+                bc_hops = 0;
+                while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+                  bc_cursor == bc_my_id ? (
+                    bc_can_follow = 0;
+                    bc_cursor = 0;
+                  ) : (
+                    bc_next = 0;
+                    bc_cs = 0;
+                    loop(BC_MAX_INST,
+                      csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                      gmem[csb + 1] == bc_cursor ? (
+                        bc_next = gmem[csb + 3];
+                        bc_cs = BC_MAX_INST;
+                      );
+                      bc_cs += 1;
+                    );
+                    bc_cursor = bc_next;
+                  );
+                  bc_hops += 1;
+                );
+                bc_can_follow ? (
+                  bc_following = isid;
+                );
               );
             );
           );
         );
-        row_y += row_h;
+        bc_visible += 1;
       );
       bc_s += 1;
     );
