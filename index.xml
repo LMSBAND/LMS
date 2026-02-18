@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <index version="1" name="LMS Plugins">
   <category name="LMS">
+    <reapack name="lms_core.jsfx-inc" type="effect" desc="LMS Core DSP Kernel — Shared library (required by all LMS plugins)">
+      <version name="1.0" author="LMS" time="2026-02-17T00:00:00Z">
+        <changelog><![CDATA[Initial release — shared DSP kernel. All LMS plugins import this. Contains: tanh/dB math, stereo biquad filters (HP/LP/BP/peak/shelf), saturation suite (warm/hot/tape/rect/fuzz/harmonics), FET compressor, DC blocker, tone filter, cubic interpolation, spring reverb allpass.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
+    </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
@@ -16,6 +22,10 @@
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+      </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel (import lms_core.jsfx-inc): one file contains all biquad filters, saturation, compressor, DC blocker — fix once, every plugin gets better. Broadcast system: BC_MAX_INST 8→32 so sessions with 30+ tracks work correctly. Instance panel paging: 5 rows/page with < > navigation, defaults to your page, YOU button to jump back. Status labels: LEADER (gold, someone following you) / FOLLOWER (blue, you are following) / UNASSIGNED (gray, free agent) — replaces the always-on [LEADER] label.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
     </reapack>
@@ -36,6 +46,10 @@
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_passive_eq.jsfx" type="effect" desc="PEQ4U — Passive Equalizer">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -54,6 +68,10 @@
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -68,6 +86,10 @@
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -80,6 +102,10 @@
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+      </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
     </reapack>
@@ -100,6 +126,10 @@
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Sound City Drum Room">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -115,15 +145,25 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
     </reapack>
-    <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime">
+    <reapack name="lms_matchering.jsfx" type="effect" desc="LMS Matchering Realtime">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
+        <changelog><![CDATA[v2.0 — Full GUI overhaul, broadcast system.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
+        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time. Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
+      </version>
+      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime (legacy name)">
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
@@ -140,6 +180,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v1.2 — Renamed to NUUG 420.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[v1.3 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
     </reapack>
@@ -334,8 +378,28 @@
       </version>
     </reapack>
   </category>
+  <category name="LMS/Scripts">
+    <reapack name="lms_save.lua" type="script" desc="LMS: Save Session">
+      <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[Initial release — snapshot all track names, fader state (vol/pan/mute/solo), and full FX chains to a named .lms file next to the project. All tracks must be named.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_save.lua</source>
+      </version>
+    </reapack>
+    <reapack name="lms_load.lua" type="script" desc="LMS: Load Session">
+      <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[Initial release — restore a .lms session file into the current project. Matches tracks by name, creates missing tracks. File picker opens in project folder.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_load.lua</source>
+      </version>
+    </reapack>
+    <reapack name="lms_steal.lua" type="script" desc="LMS: Steal Session">
+      <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
+        <changelog><![CDATA[Initial release — pull the mix from any .lms file into the current project. Existing tracks get their FX chain updated; tracks not in the current project are added at the end.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
+      </version>
+    </reapack>
+  </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>
