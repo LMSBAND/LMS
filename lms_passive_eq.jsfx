@@ -62,9 +62,10 @@ notice_show = 0;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
   BC_STALE_TIMEOUT = 2;
 
-  bc_my_id = floor(rand() * 1073741824) + 1;
+  // Generate unique instance ID (only on first init, preserve across transport stop/start)
+  bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
   bc_my_slot = -1;
-  bc_following = 0;
+  // bc_following preserved by @serialize — do NOT zero here
   bc_follow_slot = -1;
   bc_steal_pending = 0;
   bc_steal_target = 0;
