@@ -15,6 +15,8 @@ slider4:0<0,3,1{Triple Rectified SOB,Punk Idol,The Fridge,The Frenchie}>-Amp Mod
 
 // === GAIN ===
 slider5:40<0,100,0.1>-Input Gain (%)
+slider22:60<0,100,0.1>-Gain (%)
+slider23:0<0,2,1{Clean,Crunch,Lead}>-Channel (SOB/Punk)
 
 // === TONE STACK ===
 slider6:50<0,100,0.1>-Bass
@@ -37,7 +39,7 @@ slider16:1<0,1,1{Direct,Mic'd}>-Cabinet
 slider17:0<0,100,0.1>-Room Mix (%)
 slider18:50<0,100,0.1>-Room Decay (%)
 slider19:60<0,100,0.1>-Room Damp (%)
-slider20:0<0,3,1{Studio,Stage,Hall,Church}>-Room Type
+slider20:0<0,5,1{Bedroom,Garage,Basement,Studio,Stage,Hall}>-Room Type
 slider21:100<0,100,0.1>-Dry/Wet (%)
 
 @init
@@ -133,7 +135,7 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   BC_MY_TYPE = 10;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 21;
+  BC_PARAM_COUNT = 23;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -197,6 +199,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   room_damp   = slider19 / 100;
   room_type   = slider20;
   dry_wet     = slider21 / 100;
+  amp_gain    = slider22 / 100;
+  amp_channel = slider23;
 
   // Input compressor
   in_comp.lms_comp_set(comp_thresh, comp_ratio, 5, 80);
@@ -325,6 +329,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   room_damp   = slider19 / 100;
   room_type   = slider20;
   dry_wet     = slider21 / 100;
+  amp_gain    = slider22 / 100;
+  amp_channel = slider23;
 
   in_comp.lms_comp_set(comp_thresh, comp_ratio, 5, 80);
 
@@ -394,11 +400,13 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
 
   room_tone.lms_tone_set(400 + (1 - room_damp) * 4000);
 
-  // Room delay lengths
-  room_type == 0 ? room_scale = 0.35;  // Studio: tight
-  room_type == 1 ? room_scale = 0.7;   // Stage: medium
-  room_type == 2 ? room_scale = 1.1;   // Hall: large
-  room_type == 3 ? room_scale = 1.6;   // Church: huge
+  // Room delay lengths — 6 types
+  room_type == 0 ? room_scale = 0.18;  // Bedroom: boxy, tight
+  room_type == 1 ? room_scale = 0.32;  // Garage: small room, slapback
+  room_type == 2 ? room_scale = 0.50;  // Basement: mid-size, dense
+  room_type == 3 ? room_scale = 0.70;  // Studio: controlled, tight
+  room_type == 4 ? room_scale = 1.0;   // Stage: medium
+  room_type == 5 ? room_scale = 1.5;   // Hall: large
 
   size_scale = 0.2 + room_mix * 0.8;
   cb_len0 = max(4, floor(room_base0 * room_scale * size_scale));
@@ -413,7 +421,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   ap_len2 = max(4, floor(ap_base2 * room_scale));
   ap_len3 = max(4, floor(ap_base3 * room_scale));
 
-  room_type >= 2 ? decay_boost = 0.08 + (room_type - 2) * 0.06 : decay_boost = 0.0;
+  // Larger rooms get extra decay boost
+  room_type >= 4 ? decay_boost = 0.06 + (room_type - 4) * 0.06 : decay_boost = 0.0;
   comb_fb = min(0.96, room_dec * 0.85 + decay_boost);
   damp_coeff = 1 - room_damp * 0.8;
   ap_coeff = 0.6;
@@ -464,7 +473,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
           slider15 = gmem[lbase + 14]; slider16 = gmem[lbase + 15];
           slider17 = gmem[lbase + 16]; slider18 = gmem[lbase + 17];
           slider19 = gmem[lbase + 18]; slider20 = gmem[lbase + 19];
-          slider21 = gmem[lbase + 20];
+          slider21 = gmem[lbase + 20]; slider22 = gmem[lbase + 21];
+          slider23 = gmem[lbase + 22];
           bc_scan = BC_MAX_INST;
         );
       );
@@ -492,7 +502,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
         slider15 = gmem[lbase + 14]; slider16 = gmem[lbase + 15];
         slider17 = gmem[lbase + 16]; slider18 = gmem[lbase + 17];
         slider19 = gmem[lbase + 18]; slider20 = gmem[lbase + 19];
-        slider21 = gmem[lbase + 20];
+        slider21 = gmem[lbase + 20]; slider22 = gmem[lbase + 21];
+        slider23 = gmem[lbase + 22];
         bc_scan = BC_MAX_INST;
       );
       bc_scan += 1;
@@ -517,7 +528,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     gmem[pbase + 14] = slider15; gmem[pbase + 15] = slider16;
     gmem[pbase + 16] = slider17; gmem[pbase + 17] = slider18;
     gmem[pbase + 18] = slider19; gmem[pbase + 19] = slider20;
-    gmem[pbase + 20] = slider21;
+    gmem[pbase + 20] = slider21; gmem[pbase + 21] = slider22;
+    gmem[pbase + 22] = slider23;
   );
 
   bc_instance_count = 0;
@@ -567,8 +579,10 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   r = pre_eq.lms_bq_proc_r(r);
 
   // Mono sum for amp (guitar amps are mono)
-  mono = (l + r) * 0.5;
-  drive_amt = in_gain * 2.5;
+  // in_gain scales the signal level hitting the input stage (like a pad/boost)
+  mono = (l + r) * 0.5 * (0.5 + in_gain * 1.5);
+  // amp_gain = dedicated Gain knob — controls saturation/distortion depth
+  drive_amt = amp_gain * 2.5;
 
   // ============================================================
   // AMP SATURATION — per model
@@ -580,38 +594,43 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
       sag_gain = sag.lms_sag_proc(mono);
       mono *= sag_gain;
     );
-    // Channel: 0=Raw (warm), 1=Vintage (hot), 2=Modern (hot+rect stacked)
-    // We map drive amount to channel character via in_gain
-    drive_amt < 0.8 ? (
-      // Raw/warm at low gain
-      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.4, 0.0);
-    ) : drive_amt < 1.6 ? (
-      // Vintage — aggressive tube
+    // Channel: 0=Clean, 1=Crunch (Vintage), 2=Lead (Modern)
+    amp_channel == 0 ? (
+      // Clean — Class A warm, low drive
+      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.3), drive_amt * 0.15, 0.0);
+    ) : amp_channel == 1 ? (
+      // Crunch — Vintage hot tube
       amp_l = lms_sat_hot(mono * (1 + drive_amt * 1.2), drive_amt * 0.7, 0.05);
     ) : (
-      // Modern — hot stacked with rectifier (the chug)
+      // Lead — Modern: hot stacked with rectifier (the chug wall)
       pre = lms_sat_hot(mono * (1 + drive_amt * 1.5), drive_amt * 0.9, 0.05);
       amp_l = lms_sat_rect(pre, drive_amt * 0.4, 0.02);
     );
-    // Modern always-on mid scoop compensation: +2dB @ 700Hz character bump
-    // (handled in tone stack, mid_eq forced +2dB when mid_amt is center)
     amp_r = amp_l;
 
   ) : amp_model == 1 ? (
     // PUNK IDOL — Marshall JCM800 2203
-    punk_input == 0 ? (
-      // Lo input: single stage, more headroom
-      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.4, 0.08);
+    // Channel: 0=Clean, 1=Crunch (unused, maps to Lo Hi input crunch), 2=Lead (Hi input full drive)
+    amp_channel == 0 ? (
+      // Clean — single stage, plenty of headroom
+      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.25), drive_amt * 0.1, 0.08);
+    ) : amp_channel == 1 ? (
+      // Crunch — Lo input pushed (single stage, breakup)
+      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.45, 0.08);
     ) : (
-      // Hi input: dual-stage cold clipper (V1B → V1A)
-      amp_l = lms_sat_cascade(mono * (1 + drive_amt), drive_amt * 0.6, 0.08, drive_amt * 0.8, 0.10);
+      // Lead — Hi input: dual-stage cold clipper cascade (V1B→V1A)
+      punk_input == 0 ? (
+        amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.8), drive_amt * 0.4, 0.08);
+      ) : (
+        amp_l = lms_sat_cascade(mono * (1 + drive_amt), drive_amt * 0.6, 0.08, drive_amt * 0.8, 0.10);
+      );
     );
     // British asymmetric 2nd harmonic (V1A cold bias character)
     amp_l = lms_sat_harmonics(amp_l, 0.2, 0.05);
     amp_r = amp_l;
 
   ) : amp_model == 2 ? (
-    // THE FRIDGE — Ampeg SVT-CL
+    // THE FRIDGE — Ampeg SVT-CL (no channel switch, drive_amt from amp_gain)
     // 12AX7 preamp: even harmonics, warm tube
     amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.7), drive_amt * 0.5, 0.06);
     // 6550 push-pull power amp: odd harmonics (even cancel in push-pull)
@@ -626,7 +645,7 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     amp_r = fridge_uhi.lms_bq_proc_r(amp_r);
 
   ) : (
-    // THE FRENCHIE — Fender Champ 5F1
+    // THE FRENCHIE — Fender Champ 5F1 (no channel switch, single-ended)
     // Opto comp first (natural low-wattage compression)
     frenchie_opto.lms_opto_proc(mono, mono);
     mono *= frenchie_opto.gr;
@@ -919,8 +938,8 @@ amp_model == 3 ? gfx_drawstr("The Frenchie");
 //  LEFT COLUMN
 // ============================================================================
 c1x = margin;
-// Input comp (3 sliders) + amp select + gain + tone (4) = 9 rows
-left_h = 26 + bar_sp * 9 + 4;
+// Input comp (3 sliders) + amp select + gain + Gain + Channel + tone (4) = 11 rows
+left_h = 26 + bar_sp * 11 + 4;
 draw_panel(c1x, body_y, col_w, left_h, "INPUT / AMP");
 cy = body_y + 26;
 
@@ -940,6 +959,27 @@ slider4 != _old ? slider_automate(2^3); cy += bar_sp + 4;
 
 _old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Input Gain", 1);
 slider5 != _old ? slider_automate(2^4); cy += bar_sp;
+
+_old = slider22; slider22 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider22, 0, 100, "Gain", 1);
+slider22 != _old ? slider_automate(2^21); cy += bar_sp;
+
+// Channel selector — only meaningful for SOB and Punk Idol
+amp_model <= 1 ? (
+  _old = slider23;
+  amp_model == 0 ? (
+    slider23 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
+  ) : (
+    slider23 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
+  );
+  slider23 != _old ? slider_automate(2^22);
+) : (
+  // Fridge and Frenchie: show grayed label
+  gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
+  gfx_setfont(1, "Arial", 10);
+  gfx_x = c1x + 8; gfx_y = cy + 3;
+  amp_model == 2 ? gfx_drawstr("Channel: N/A (it's a bass amp)") : gfx_drawstr("Channel: N/A (it's a Champ)");
+);
+cy += bar_sp;
 
 // Tone stack
 _old = slider6; slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Bass", 1);
@@ -1020,7 +1060,37 @@ slider18 != _old ? slider_automate(2^17);
 _old = slider19; slider19 = draw_bar(margin + 4 + rpw3 + gap, rcy, rpw3 - 4, bar_h, slider19, 0, 100, "Damp", 1);
 slider19 != _old ? slider_automate(2^18);
 
-_old = slider20; slider20 = draw_mode_sel(margin + 4 + (rpw3 + gap) * 2, rcy, rpw3 - 4, bar_h, slider20, 3, "Type", "Studio", "Stage", "Hall", "Church");
+// Room type — 6 options, draw inline (draw_mode_sel only shows 4 labels)
+_old = slider20;
+rtx = margin + 4 + (rpw3 + gap) * 2; rty = rcy; rtw = rpw3 - 4; rth = bar_h;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(rtx, rty, rtw, rth);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(rtx, rty, rtw, 1); gfx_rect(rtx, rty + rth - 1, rtw, 1);
+gfx_rect(rtx, rty, 1, rth); gfx_rect(rtx + rtw - 1, rty, 1, rth);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_setfont(1, "Arial", 12);
+gfx_x = rtx + 5; gfx_y = rty + floor((rth - 12) / 2);
+gfx_drawstr("Type");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = rtx + rtw - 78; gfx_y = rty + floor((rth - 12) / 2);
+slider20 == 0 ? gfx_drawstr("Bedroom");
+slider20 == 1 ? gfx_drawstr("Garage");
+slider20 == 2 ? gfx_drawstr("Basement");
+slider20 == 3 ? gfx_drawstr("Studio");
+slider20 == 4 ? gfx_drawstr("Stage");
+slider20 == 5 ? gfx_drawstr("Hall");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= rtx && mouse_x <= rtx + rtw &&
+  mouse_y >= rty && mouse_y <= rty + rth ? (
+    slider20 = (slider20 + 1) % 6;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= rtx && mouse_x <= rtx + rtw &&
+  mouse_y >= rty && mouse_y <= rty + rth ? (
+    slider20 = slider20 - 1; slider20 < 0 ? slider20 = 5;
+);
+slider20 != _old ? slider_automate(2^19);
 slider20 != _old ? slider_automate(2^19);
 
 rcy += bar_sp;
@@ -1137,8 +1207,8 @@ amp_model == 1 ? gfx_drawstr("JCM800");
 amp_model == 2 ? gfx_drawstr("SVT");
 amp_model == 3 ? gfx_drawstr("CHAMP");
 
-// Mic
-mic_x = amp_vis_x + floor(room_bw * 0.15) + floor(room_mix * room_bw * 0.35);
+// Mic — fixed close position (Room Mix controls reverb send, not mic distance)
+mic_x = amp_vis_x + floor(room_bw * 0.15);
 mic_x = min(room_bx + room_bw - 20, mic_x);
 mic_y = amp_vis_y;
 gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.30;
@@ -1169,10 +1239,12 @@ loop(wave_n,
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", 9);
 gfx_x = room_bx + 6; gfx_y = room_by + 4;
-room_type == 0 ? gfx_drawstr("STUDIO");
-room_type == 1 ? gfx_drawstr("STAGE");
-room_type == 2 ? gfx_drawstr("HALL");
-room_type == 3 ? gfx_drawstr("CHURCH");
+room_type == 0 ? gfx_drawstr("BEDROOM");
+room_type == 1 ? gfx_drawstr("GARAGE");
+room_type == 2 ? gfx_drawstr("BASEMENT");
+room_type == 3 ? gfx_drawstr("STUDIO");
+room_type == 4 ? gfx_drawstr("STAGE");
+room_type == 5 ? gfx_drawstr("HALL");
 
 // ============================================================================
 //  BROADCAST PANEL
