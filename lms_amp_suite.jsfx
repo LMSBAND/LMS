@@ -985,8 +985,8 @@ amp_model == 3 ? gfx_drawstr("The Frenchie");
 //  LEFT COLUMN
 // ============================================================================
 c1x = margin;
-// Input comp (3 sliders) + amp select + gain + Gain + Channel + tone (4) = 11 rows
-left_h = 26 + bar_sp * 11 + 4;
+// 3 comp + amp select (+4px tall) + input gain + gain + channel + 4 tone = 11 rows + 4px
+left_h = 26 + bar_sp * 11 + 4 + 4;
 draw_panel(c1x, body_y, col_w, left_h, "INPUT / AMP");
 cy = body_y + 26;
 
@@ -1051,7 +1051,7 @@ c2x = margin + col_w + gap;
 
 // Amp-specific controls (vary by model)
 amp_model == 0 ? specific_rows = 1;  // Rectifier toggle
-amp_model == 1 ? specific_rows = 1;  // Input toggle
+amp_model == 1 ? specific_rows = 0;  // Channel handled in left column
 amp_model == 2 ? specific_rows = 3;  // Mid Freq + Ultra Lo + Ultra Hi
 amp_model == 3 ? specific_rows = 0;  // Frenchie has no specific controls
 
@@ -1064,8 +1064,7 @@ amp_model == 0 ? (
   _old = slider10; slider10 = draw_toggle(c2x + 4, cy, col_w - 8, bar_h, slider10, "Tube Rectifier (Sag)");
   slider10 != _old ? slider_automate(2^9); cy += bar_sp;
 ) : amp_model == 1 ? (
-  _old = slider11; slider11 = draw_toggle(c2x + 4, cy, col_w - 8, bar_h, slider11, "Hi Input (Cold Clip)");
-  slider11 != _old ? slider_automate(2^10); cy += bar_sp;
+  // No extra controls — channel (Clean/Crunch/Lead) is in left column
 ) : amp_model == 2 ? (
   _old = slider12; slider12 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider12, 4, "Mid Hz", "220", "450", "800", "1.6k");
   slider12 != _old ? slider_automate(2^11); cy += bar_sp;
