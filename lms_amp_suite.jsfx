@@ -1148,7 +1148,7 @@ slider21 != _old ? slider_automate(2^20);
 // ============================================================================
 vis_y = below_y + room_panel_h + gap;
 vis_h = gfx_h - vis_y - 38;
-vis_h = max(50, vis_h);
+vis_h = max(80, min(200, vis_h));  // clamp: never tiny, never balloon
 
 draw_panel(margin, vis_y, gfx_w - margin * 2, vis_h, "THE ROOM");
 
@@ -1183,87 +1183,141 @@ gfx_rect(room_bx, room_by + room_bh - 3, room_bw, 3);
 gfx_rect(room_bx, room_by, 3, room_bh);
 gfx_rect(room_bx + room_bw - 3, room_by, 3, room_bh);
 
-// Amp body
-amp_vis_x = room_bx + floor(room_bw * 0.12);
-amp_vis_y = room_by + floor(room_bh * 0.55);
+// Amp body — all dimensions scale with room_bh so they fill the graphic
+// sc = scale unit: 1/8 of room height, so amps are always room-filling
+sc = max(4, floor(room_bh / 8));
+
+amp_vis_x = room_bx + floor(room_bw * 0.14);
+amp_vis_y = room_by + floor(room_bh * 0.62);
 
 amp_model == 0 ? (
-  // SOB: tall 4×12 stack — head on top of cab
-  amp_w = 24; amp_h = 32;
-  gfx_r = 0.08; gfx_g = 0.03; gfx_b = 0.03;
-  gfx_rect(amp_vis_x - amp_w/2, amp_vis_y - amp_h/2, amp_w, amp_h);
-  gfx_r = 0.45; gfx_g = 0.08; gfx_b = 0.06;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 2, amp_w - 4, 10);
+  // SOB: Mesa 4×12 stack — cab body + head on top
+  // Cab: 4sc wide, 4sc tall
+  cab_w = sc * 4; cab_h = sc * 4;
+  head_w = floor(cab_w * 0.8); head_h = floor(sc * 1.2);
+  cab_x = amp_vis_x - cab_w/2; cab_y = amp_vis_y - cab_h;
+
+  // Cab body
   gfx_r = 0.20; gfx_g = 0.05; gfx_b = 0.04;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 14, amp_w - 4, amp_h - 16);
-  // Speaker dots on cab
-  gfx_r = 0.06; gfx_g = 0.02; gfx_b = 0.02;
-  gfx_circle(amp_vis_x - 4, amp_vis_y + 4, 3, 1);
-  gfx_circle(amp_vis_x + 4, amp_vis_y + 4, 3, 1);
-  gfx_circle(amp_vis_x - 4, amp_vis_y + 10, 3, 1);
-  gfx_circle(amp_vis_x + 4, amp_vis_y + 10, 3, 1);
+  gfx_rect(cab_x, cab_y, cab_w, cab_h);
+  // Cab grille cloth
+  gfx_r = 0.10; gfx_g = 0.03; gfx_b = 0.03;
+  gfx_rect(cab_x + 2, cab_y + 2, cab_w - 4, cab_h - 4);
+  // 4×12 speaker dots (2×2 grid)
+  gfx_r = 0.35; gfx_g = 0.06; gfx_b = 0.04;
+  sp_r = max(2, floor(sc * 0.5));
+  gfx_circle(cab_x + floor(cab_w*0.3), cab_y + floor(cab_h*0.3), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.7), cab_y + floor(cab_h*0.3), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.3), cab_y + floor(cab_h*0.7), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.7), cab_y + floor(cab_h*0.7), sp_r, 1);
+  // Head on top
+  head_x = amp_vis_x - head_w/2;
+  head_y = cab_y - head_h - 2;
+  gfx_r = 0.08; gfx_g = 0.03; gfx_b = 0.03;
+  gfx_rect(head_x, head_y, head_w, head_h);
+  gfx_r = 0.45; gfx_g = 0.08; gfx_b = 0.06;
+  gfx_rect(head_x + 2, head_y + 2, head_w - 4, floor(head_h * 0.5));
+  amp_label_y = cab_y + cab_h + 4;
+
 ) : amp_model == 1 ? (
-  // Punk Idol: Marshall head + angled 4×12
-  amp_w = 22; amp_h = 28;
+  // Punk Idol: Marshall JCM800 — head + straight 4×12
+  cab_w = sc * 4; cab_h = sc * 4;
+  head_w = floor(cab_w * 0.85); head_h = floor(sc * 1.1);
+  cab_x = amp_vis_x - cab_w/2; cab_y = amp_vis_y - cab_h;
+
+  // Cab body (black)
+  gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.08;
+  gfx_rect(cab_x, cab_y, cab_w, cab_h);
+  // Grille cloth (dark grey)
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.12;
+  gfx_rect(cab_x + 2, cab_y + 2, cab_w - 4, cab_h - 4);
+  // 4×12 speaker dots
   gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.06;
-  gfx_rect(amp_vis_x - amp_w/2, amp_vis_y - amp_h/2, amp_w, amp_h);
+  sp_r = max(2, floor(sc * 0.5));
+  gfx_circle(cab_x + floor(cab_w*0.3), cab_y + floor(cab_h*0.3), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.7), cab_y + floor(cab_h*0.3), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.3), cab_y + floor(cab_h*0.7), sp_r, 1);
+  gfx_circle(cab_x + floor(cab_w*0.7), cab_y + floor(cab_h*0.7), sp_r, 1);
+  // Head (gold panel stripe)
+  head_x = amp_vis_x - head_w/2;
+  head_y = cab_y - head_h - 2;
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.06;
+  gfx_rect(head_x, head_y, head_w, head_h);
   gfx_r = 0.40; gfx_g = 0.35; gfx_b = 0.05;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 2, amp_w - 4, 8);
-  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.15;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 12, amp_w - 4, amp_h - 14);
-  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.06;
-  gfx_circle(amp_vis_x - 3, amp_vis_y + 3, 3, 1);
-  gfx_circle(amp_vis_x + 4, amp_vis_y + 3, 3, 1);
-  gfx_circle(amp_vis_x - 3, amp_vis_y + 9, 3, 1);
-  gfx_circle(amp_vis_x + 4, amp_vis_y + 9, 3, 1);
+  gfx_rect(head_x + 2, head_y + 2, head_w - 4, floor(head_h * 0.45));
+  amp_label_y = cab_y + cab_h + 4;
+
 ) : amp_model == 2 ? (
-  // The Fridge: enormous SVT head (genuinely the size of a fridge)
-  amp_w = 30; amp_h = 40;
-  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.12;
-  gfx_rect(amp_vis_x - amp_w/2, amp_vis_y - amp_h/2, amp_w, amp_h);
-  gfx_r = 0.20; gfx_g = 0.20; gfx_b = 0.55;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 2, amp_w - 4, 10);
-  gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.25;
-  gfx_rect(amp_vis_x - amp_w/2 + 2, amp_vis_y - amp_h/2 + 14, amp_w - 4, amp_h - 16);
-  // 8×10 speakers
+  // The Fridge: Ampeg SVT — enormous head + 8×10 cab
+  cab_w = floor(sc * 5); cab_h = floor(sc * 5.5);
+  head_w = floor(cab_w * 0.9); head_h = floor(sc * 1.3);
+  cab_x = amp_vis_x - cab_w/2; cab_y = amp_vis_y - cab_h;
+
+  // Cab body (navy)
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.15;
+  gfx_rect(cab_x, cab_y, cab_w, cab_h);
+  gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.12;
+  gfx_rect(cab_x + 2, cab_y + 2, cab_w - 4, cab_h - 4);
+  // 8×10: 4 rows × 2 cols
   gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.10;
+  sp_r = max(2, floor(sc * 0.42));
   si = 0;
   loop(4,
-    gfx_circle(amp_vis_x - 5, amp_vis_y + (si - 1) * 7 + 4, 3, 1);
-    gfx_circle(amp_vis_x + 5, amp_vis_y + (si - 1) * 7 + 4, 3, 1);
+    gfx_circle(cab_x + floor(cab_w*0.3), cab_y + floor(cab_h * (si*0.22 + 0.12)), sp_r, 1);
+    gfx_circle(cab_x + floor(cab_w*0.7), cab_y + floor(cab_h * (si*0.22 + 0.12)), sp_r, 1);
     si += 1;
   );
+  // SVT head (blue panel)
+  head_x = amp_vis_x - head_w/2;
+  head_y = cab_y - head_h - 2;
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.18;
+  gfx_rect(head_x, head_y, head_w, head_h);
+  gfx_r = 0.20; gfx_g = 0.20; gfx_b = 0.55;
+  gfx_rect(head_x + 2, head_y + 2, head_w - 4, floor(head_h * 0.5));
+  amp_label_y = cab_y + cab_h + 4;
+
 ) : (
-  // Frenchie: tiny tweed combo — charmingly small
-  amp_w = 14; amp_h = 16;
-  gfx_r = 0.35; gfx_g = 0.25; gfx_b = 0.12;
-  gfx_rect(amp_vis_x - amp_w/2, amp_vis_y - amp_h/2, amp_w, amp_h);
+  // Frenchie: Fender Champ 5F1 — tiny tweed combo
+  cab_w = floor(sc * 2.2); cab_h = floor(sc * 2.4);
+  cab_x = amp_vis_x - cab_w/2; cab_y = amp_vis_y - cab_h;
+
+  // Tweed body
+  gfx_r = 0.42; gfx_g = 0.32; gfx_b = 0.15;
+  gfx_rect(cab_x, cab_y, cab_w, cab_h);
+  // Grille cloth
   gfx_r = 0.55; gfx_g = 0.42; gfx_b = 0.20;
-  gfx_rect(amp_vis_x - amp_w/2 + 1, amp_vis_y - amp_h/2 + 1, amp_w - 2, amp_h - 5);
+  gfx_rect(cab_x + 2, cab_y + 2, cab_w - 4, floor(cab_h * 0.65));
+  // Single 8" speaker
   gfx_r = 0.15; gfx_g = 0.10; gfx_b = 0.05;
-  gfx_circle(amp_vis_x, amp_vis_y, 4, 1);
+  sp_r = max(3, floor(sc * 0.55));
+  gfx_circle(amp_vis_x, cab_y + floor(cab_h * 0.35), sp_r, 1);
+  // Control panel stripe at bottom
+  gfx_r = 0.25; gfx_g = 0.18; gfx_b = 0.08;
+  gfx_rect(cab_x, cab_y + floor(cab_h * 0.72), cab_w, floor(cab_h * 0.28));
+  amp_label_y = cab_y + cab_h + 4;
 );
 
 // Amp label
 gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
 gfx_setfont(1, "Arial", 9);
-gfx_x = amp_vis_x - 8; gfx_y = amp_vis_y + 20;
+gfx_x = amp_vis_x - 12; gfx_y = amp_label_y;
 amp_model == 0 ? gfx_drawstr("SOB");
 amp_model == 1 ? gfx_drawstr("JCM800");
 amp_model == 2 ? gfx_drawstr("SVT");
 amp_model == 3 ? gfx_drawstr("CHAMP");
 
-// Mic — fixed close position (Room Mix controls reverb send, not mic distance)
-mic_x = amp_vis_x + floor(room_bw * 0.15);
+// Mic — positioned at speaker cone height, close to cab
+mic_x = amp_vis_x + floor(cab_w / 2) + floor(room_bw * 0.08);
 mic_x = min(room_bx + room_bw - 20, mic_x);
-mic_y = amp_vis_y;
+mic_y = cab_y + floor(cab_h * 0.4);  // speaker centre height
+mic_stand = floor(sc * 1.2);
 gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.30;
-gfx_line(mic_x, mic_y + 10, mic_x, mic_y - 10);
+gfx_line(mic_x, mic_y + mic_stand, mic_x, mic_y - mic_stand);
 gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
-gfx_circle(mic_x, mic_y - 10, 4, 1);
+gfx_circle(mic_x, mic_y - mic_stand, max(3, floor(sc * 0.4)), 1);
 gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
 gfx_setfont(1, "Arial", 9);
-gfx_x = mic_x - 6; gfx_y = mic_y + 14;
+gfx_x = mic_x - 6; gfx_y = mic_y + mic_stand + 3;
 gfx_drawstr("MIC");
 
 // Animated sound waves
@@ -1273,11 +1327,13 @@ gfx_r = COL_ACCENT_R * 0.35 * (0.4 + in_gain * 0.6);
 gfx_g = COL_ACCENT_G * 0.2;
 gfx_b = 0.0;
 wave_n = 4;
+wave_origin_x = amp_vis_x + floor(cab_w / 2);
+wave_origin_y = mic_y;
 wi = 0;
 loop(wave_n,
-  wx = amp_vis_x + 14 + floor((mic_x - amp_vis_x - 14) * (wi + 1) / (wave_n + 1));
-  wy_off = floor(sin(wave_phase + wi * 1.1) * 5 * in_gain);
-  gfx_circle(wx, amp_vis_y + wy_off, 2, 1);
+  wx = wave_origin_x + floor((mic_x - wave_origin_x) * (wi + 1) / (wave_n + 1));
+  wy_off = floor(sin(wave_phase + wi * 1.1) * max(3, sc * 0.4) * in_gain);
+  gfx_circle(wx, wave_origin_y + wy_off, 2, 1);
   wi += 1;
 );
 
