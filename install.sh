@@ -43,12 +43,21 @@ for f in "$SCRIPT_DIR"/lms_*.jsfx "$SCRIPT_DIR"/matchering_*.jsfx; do
     echo "  Copied $base → Effects/"
 done
 
-# Copy service/rescan scripts
+# Copy service/rescan scripts (all scripts → DRUMBANGER/scripts/)
 for f in "$SCRIPT_DIR"/scripts/*; do
     if [ -f "$f" ]; then
         cp "$f" "$DEST/scripts/"
         echo "  Copied scripts/$(basename "$f")"
     fi
+done
+
+# Copy LMS ReaScripts to REAPER Scripts directory (shows up in Action list)
+LMS_SCRIPTS_DEST="$HOME/.config/REAPER/Scripts/LMS"
+mkdir -p "$LMS_SCRIPTS_DEST"
+for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
+    [ -f "$f" ] || continue
+    cp "$f" "$LMS_SCRIPTS_DEST/"
+    echo "  Copied $(basename "$f") → Scripts/LMS/"
 done
 
 # Copy kits (only if they exist and have content)
@@ -63,3 +72,9 @@ echo ""
 echo "IMPORTANT: You must run drumbanger_service.lua as a background ReaScript"
 echo "for the sample pool browser to work:"
 echo "  Actions → Run ReaScript → $DEST/scripts/drumbanger_service.lua"
+echo ""
+echo "LMS Session scripts installed to: $LMS_SCRIPTS_DEST"
+echo "  In REAPER: Actions → Show action list → search 'LMS' to find:"
+echo "    lms_save.lua   — snapshot current session to session.lms"
+echo "    lms_load.lua   — restore session.lms into current project"
+echo "    lms_steal.lua  — merge another session.lms into current project"
