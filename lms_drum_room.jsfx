@@ -2,6 +2,8 @@ desc:LMS Sound City Drum Room
 //tags: reverb room drums compressor
 //author: LMS + Claude
 
+options:gmem=DrumBanger
+
 slider1:50<0,100,0.1>Room Size (%)
 slider2:50<0,100,0.1>Decay (%)
 slider3:40<0,100,0.1>Damping (%)
@@ -244,6 +246,57 @@ slider13:0<0,2,1{Schroeder,FDN,Plate (Dattorro)}>Algorithm
 
 notice_show = 0;
 
+  // ============================================================
+  // BROADCAST SYSTEM — Instance Registry
+  // ============================================================
+  BC_BASE = 100000;
+  BC_MY_TYPE = 10;           // Drum Room
+  BC_SLOT_SIZE = 512;
+  BC_MAX_INST = 8;
+  BC_PARAM_COUNT = 13;
+  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
+  BC_STALE_TIMEOUT = 2;
+
+  bc_my_id = floor(rand() * 1073741824) + 1;
+  bc_my_slot = -1;
+  bc_following = 0;
+  bc_follow_slot = -1;
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_panel_expanded = 0;
+  bc_steal_mode = 0;
+  bc_instance_count = 0;
+
+  BC_STALE_HB = 900000;
+  BC_STALE_CT = 900008;
+  i = 0;
+  loop(BC_MAX_INST,
+    BC_STALE_HB[i] = -1;
+    BC_STALE_CT[i] = 0;
+    i += 1;
+  );
+
+  bc_i = 0;
+  loop(BC_MAX_INST,
+    bc_my_slot < 0 ? (
+      sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+      sid = gmem[sb + 1];
+      (sid == 0 || sid == bc_my_id) ? (
+        bc_my_slot = bc_i;
+      );
+    );
+    bc_i += 1;
+  );
+
+  bc_my_slot >= 0 ? (
+    sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+    gmem[sb + 0] = 0;
+    gmem[sb + 1] = bc_my_id;
+    gmem[sb + 2] = BC_MY_TYPE;
+    gmem[sb + 3] = 0;
+    gmem[sb + 4] = BC_PARAM_COUNT;
+  );
+
 @slider
   room_size = slider1 / 100;
   decay = slider2 / 100;
@@ -374,6 +427,142 @@ notice_show = 0;
     this.calc_peaking(mic_eq_b1, 400, -3.0, 1.0);
     this.calc_peaking(mic_eq_b2, 4000, 2.0, 1.0);
   );
+
+// ============================================================
+// @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
+// ============================================================
+@block
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 1] != bc_my_id ? (
+    bc_my_id = floor(rand() * 1073741824) + 1;
+    bc_my_slot = -1;
+    bc_i = 0;
+    loop(BC_MAX_INST,
+      bc_my_slot < 0 ? (
+        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
+      );
+      bc_i += 1;
+    );
+    bc_my_slot >= 0 ? (
+      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+      gmem[sb + 0] = 0;
+      gmem[sb + 1] = bc_my_id;
+      gmem[sb + 2] = BC_MY_TYPE;
+      gmem[sb + 3] = bc_following;
+      gmem[sb + 4] = BC_PARAM_COUNT;
+    );
+  );
+);
+
+bc_my_slot >= 0 && bc_following > 0 ? (
+  bc_found_leader = 0;
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      gmem[lsb + 1] == bc_following ? (
+        bc_found_leader = 1;
+        bc_follow_slot = bc_scan;
+        lbase = lsb + 8;
+        slider1 = gmem[lbase + 0];
+        slider2 = gmem[lbase + 1];
+        slider3 = gmem[lbase + 2];
+        slider4 = gmem[lbase + 3];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
+        slider8 = gmem[lbase + 7];
+        slider9 = gmem[lbase + 8];
+        slider10 = gmem[lbase + 9];
+        slider11 = gmem[lbase + 10];
+        slider12 = gmem[lbase + 11];
+        slider13 = gmem[lbase + 12];
+        bc_scan = BC_MAX_INST;
+      );
+    );
+    bc_scan += 1;
+  );
+  !bc_found_leader ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+bc_my_slot >= 0 && bc_steal_pending ? (
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+    gmem[lsb + 1] == bc_steal_target ? (
+      lbase = lsb + 8;
+      slider1 = gmem[lbase + 0];
+      slider2 = gmem[lbase + 1];
+      slider3 = gmem[lbase + 2];
+      slider4 = gmem[lbase + 3];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
+      slider8 = gmem[lbase + 7];
+      slider9 = gmem[lbase + 8];
+      slider10 = gmem[lbase + 9];
+      slider11 = gmem[lbase + 10];
+      slider12 = gmem[lbase + 11];
+      slider13 = gmem[lbase + 12];
+      bc_scan = BC_MAX_INST;
+    );
+    bc_scan += 1;
+  );
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_steal_mode = 0;
+);
+
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 3] = bc_following;
+  pbase = sb + 8;
+  gmem[pbase + 0] = slider1;
+  gmem[pbase + 1] = slider2;
+  gmem[pbase + 2] = slider3;
+  gmem[pbase + 3] = slider4;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
+  gmem[pbase + 7] = slider8;
+  gmem[pbase + 8] = slider9;
+  gmem[pbase + 9] = slider10;
+  gmem[pbase + 10] = slider11;
+  gmem[pbase + 11] = slider12;
+  gmem[pbase + 12] = slider13;
+);
+
+bc_instance_count = 0;
+bc_scan = 0;
+loop(BC_MAX_INST,
+  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+  tsid = gmem[tsb + 1];
+  tsid > 0 ? (
+    bc_scan == bc_my_slot ? (
+      bc_instance_count += 1;
+    ) : (
+      tshb = gmem[tsb + 0];
+      tshb == BC_STALE_HB[bc_scan] ? (
+        BC_STALE_CT[bc_scan] += samplesblock / srate;
+        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
+          gmem[tsb + 1] = 0;
+          BC_STALE_CT[bc_scan] = 0;
+        );
+      ) : (
+        BC_STALE_HB[bc_scan] = tshb;
+        BC_STALE_CT[bc_scan] = 0;
+        bc_instance_count += 1;
+      );
+    );
+  );
+  bc_scan += 1;
+);
 
 @sample
   dry_l = spl0;
@@ -794,7 +983,7 @@ notice_show = 0;
   spl0 = dry_l * (1 - dry_wet) + rev_l * dry_wet;
   spl1 = dry_r * (1 - dry_wet) + rev_r * dry_wet;
 
-@gfx 550 300
+@gfx 550 340
   // Background
   gfx_r = 0.08; gfx_g = 0.07; gfx_b = 0.06;
   gfx_rect(0, 0, gfx_w, gfx_h);
@@ -932,9 +1121,196 @@ notice_show = 0;
   gfx_x = room_cx - 25; gfx_y = room_cy + room_h/2 + 25;
   sprintf(#decay_str, "Decay: %d%%", slider2|0);
   gfx_drawstr(#decay_str);
+  // ============================================================
+  // INSTANCE MANAGER PANEL
+  // ============================================================
+  bc_panel_h = bc_panel_expanded ? 90 : 30;
+  bc_panel_y = gfx_h - bc_panel_h;
+
+  gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+  gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(0, bc_panel_y, gfx_w, 1);
+
+  gfx_setfont(1, "Arial", 11);
+  gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+  gfx_x = 8; gfx_y = bc_panel_y + 8;
+  bc_my_slot >= 0 ? (
+    gfx_drawstr("I");
+    gfx_drawnumber(bc_my_slot + 1, 0);
+    gfx_drawstr("/");
+    gfx_drawnumber(bc_instance_count, 0);
+  ) : (
+    gfx_drawstr("--");
+  );
+
+  bc_following > 0 ? (
+    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+    gfx_drawstr("  Following: I");
+    bc_fs = 0;
+    loop(BC_MAX_INST,
+      fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
+      gmem[fsb + 1] == bc_following ? (
+        gfx_drawnumber(bc_fs + 1, 0);
+        bc_fs = BC_MAX_INST;
+      );
+      bc_fs += 1;
+    );
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("  Following: --");
+  );
+
+  exp_x = gfx_w - 200;
+  exp_y = bc_panel_y + 4;
+  exp_w = 65;
+  exp_h = 20;
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+  gfx_rect(exp_x, exp_y, exp_w, exp_h);
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_x = exp_x + 5; gfx_y = exp_y + 4;
+  bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
+    mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
+    bc_panel_expanded = !bc_panel_expanded;
+    bc_steal_mode = 0;
+  );
+
+  stl_x = gfx_w - 125;
+  stl_y = bc_panel_y + 4;
+  stl_w = 50;
+  stl_h = 20;
+  bc_steal_mode ? (
+    gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
+  ) : (
+    gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
+  );
+  gfx_rect(stl_x, stl_y, stl_w, stl_h);
+  gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_x = stl_x + 6; gfx_y = stl_y + 4;
+  gfx_drawstr("STEAL");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
+    mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
+    bc_steal_mode = !bc_steal_mode;
+    !bc_panel_expanded ? bc_panel_expanded = 1;
+  );
+
+  bc_following > 0 ? (
+    unf_x = gfx_w - 65;
+    unf_y = bc_panel_y + 4;
+    unf_w = 55;
+    unf_h = 20;
+    gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
+    gfx_rect(unf_x, unf_y, unf_w, unf_h);
+    gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
+    gfx_x = unf_x + 4; gfx_y = unf_y + 4;
+    gfx_drawstr("UNFLW");
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
+      mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
+      bc_following = 0;
+      bc_follow_slot = -1;
+    );
+  );
+
+  bc_panel_expanded ? (
+    row_y = bc_panel_y + 30;
+    row_h = 14;
+    bc_s = 0;
+    loop(BC_MAX_INST,
+      isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
+      isid = gmem[isb + 1];
+      isid > 0 ? (
+        mouse_y >= row_y && mouse_y < row_y + row_h &&
+          mouse_x >= 8 && mouse_x < gfx_w - 8 &&
+          bc_s != bc_my_slot ? (
+          gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+          gfx_rect(4, row_y, gfx_w - 8, row_h);
+        );
+        gfx_setfont(1, "Arial", 10);
+        bc_s == bc_my_slot ? (
+          gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+        ) : (
+          gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+        );
+        gfx_x = 12; gfx_y = row_y + 1;
+        gfx_drawstr("I");
+        gfx_drawnumber(bc_s + 1, 0);
+        gfx_drawstr("  ");
+        bc_s == bc_my_slot ? (
+          gfx_drawstr("[YOU]");
+        ) : (
+          iwho = gmem[isb + 3];
+          iwho > 0 ? (
+            gfx_drawstr("[>I");
+            iw = 0;
+            loop(BC_MAX_INST,
+              iwsb = BC_MY_REGION + iw * BC_SLOT_SIZE;
+              gmem[iwsb + 1] == iwho ? (
+                gfx_drawnumber(iw + 1, 0);
+                iw = BC_MAX_INST;
+              );
+              iw += 1;
+            );
+            gfx_drawstr("]");
+          ) : (
+            gfx_drawstr("[LEADER]");
+          );
+          gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+          bc_steal_mode ? (
+            gfx_drawstr("  click: steal");
+          ) : (
+            gfx_drawstr("  click: follow");
+          );
+          (mouse_cap & 1) && !(last_cap & 1) &&
+            mouse_y >= row_y && mouse_y < row_y + row_h &&
+            mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
+            bc_steal_mode ? (
+              bc_steal_target = isid;
+              bc_steal_pending = 1;
+              bc_steal_mode = 0;
+            ) : (
+              bc_can_follow = 1;
+              bc_cursor = isid;
+              bc_hops = 0;
+              while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+                bc_cursor == bc_my_id ? (
+                  bc_can_follow = 0;
+                  bc_cursor = 0;
+                ) : (
+                  bc_next = 0;
+                  bc_cs = 0;
+                  loop(BC_MAX_INST,
+                    csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                    gmem[csb + 1] == bc_cursor ? (
+                      bc_next = gmem[csb + 3];
+                      bc_cs = BC_MAX_INST;
+                    );
+                    bc_cs += 1;
+                  );
+                  bc_cursor = bc_next;
+                );
+                bc_hops += 1;
+              );
+              bc_can_follow ? (
+                bc_following = isid;
+              );
+            );
+          );
+        );
+        row_y += row_h;
+      );
+      bc_s += 1;
+    );
+  );
+
+  last_cap = mouse_cap;
+
   // --- NOTICE BUTTON ---
   notice_btn_x = gfx_w - 60;
-  notice_btn_y = gfx_h - 18;
+  notice_btn_y = bc_panel_y - 18;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
   gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
@@ -974,3 +1350,10 @@ notice_show = 0;
     gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
     gfx_drawstr("NOTICE");
   );
+
+// ============================================================
+// @SERIALIZE — Persist follow state
+// ============================================================
+@serialize
+file_var(0, bc_following);
+file_var(0, bc_my_id);
