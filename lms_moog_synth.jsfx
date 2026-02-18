@@ -360,7 +360,7 @@ notice_show = 0;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
   BC_PARAM_COUNT = 48;       // sliders 1-47 + slider52
-  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
+  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
   // Generate unique instance ID (only on first init, preserve across transport stop/start)
