@@ -13,14 +13,17 @@
 //  call as instance.lms_xxx() to get independent state per instance.
 //
 //  Sections:
-//    1. Math Utilities        (stateless)
-//    2. Biquad Filter         (stereo, this.* state)
-//    3. Saturation Suite      (stateless)
-//    4. Compressor            (stereo, this.* state)
-//    5. DC Blocker            (stereo, this.* state)
-//    6. Tone Filter           (stereo, this.* state)
-//    7. Cubic Interpolation   (stateless)
-//    8. Spring Reverb Allpass (stateless, buffer-based)
+//    1. Math Utilities           (stateless)
+//    2. Biquad Filter            (stereo, this.* state)
+//    3. Saturation Suite         (stateless)
+//    4. Compressor               (stereo, this.* state)
+//    5. DC Blocker               (stereo, this.* state)
+//    6. Tone Filter              (stereo, this.* state)
+//    7. Cubic Interpolation      (stateless)
+//    8. Spring Reverb Allpass    (stateless, buffer-based)
+//    9. Sag Simulator            (this.* state) — tube rectifier droop
+//   10. Cascaded Saturation      (stateless) — Marshall cold-clipper model
+//   11. Opto Compressor          (this.* state) — LA-2A T4B photocell model
 // ============================================================================
 
 @init
@@ -493,4 +496,155 @@ function lms_spring_ap(buf, pos, len, input, coeff)
   output = -input * coeff + delayed;
   buf[pos] = input + delayed * coeff;
   output;
+);
+
+
+// ============================================================================
+//  SECTION 9: Sag Simulator (tube rectifier voltage droop)
+//
+//  Models the voltage sag of a tube rectifier under heavy load.
+//  On loud transients the rectifier can't supply full voltage → the signal
+//  "blooms" in: slow attack, slower release. Creates the elastic, organic
+//  feel of vintage amps vs. silicon diode tightness.
+//
+//  Usage:
+//    sag.lms_sag_init();
+//    sag.lms_sag_set(20);          // attack in ms (15-30ms typical)
+//    // in @sample:
+//    gain = sag.lms_sag_proc(input_sample);
+//    output = input * gain;
+//
+//  After proc: this.gr is the linear gain reduction (0.7 to 1.0)
+// ============================================================================
+
+function lms_sag_init()
+(
+  this.env = 0;
+  this.att = 0;
+  this.rel = 0;
+  this.gr = 1;
+  this.depth = 0.3;   // max sag depth (0 = none, 1 = 100% reduction)
+);
+
+function lms_sag_set(att_ms)
+(
+  // Attack: how fast the sag builds (slow = more bloom)
+  this.att = exp(-1 / (srate * att_ms * 0.001));
+  // Release: sag recovers much slower than it builds (3x attack time)
+  this.rel = exp(-1 / (srate * att_ms * 0.003));
+);
+
+function lms_sag_proc(x)
+  local(level)
+(
+  level = abs(x);
+  level > this.env ? (
+    this.env = this.att * this.env + (1 - this.att) * level;
+  ) : (
+    this.env = this.rel * this.env + (1 - this.rel) * level;
+  );
+  // Sag: high signal level → lower gain (simulates voltage droop)
+  // env near 0 → gr near 1.0 (no sag), env near 1 → gr near (1 - depth)
+  this.gr = 1 - this.depth * min(1, this.env);
+  this.gr;
+);
+
+
+// ============================================================================
+//  SECTION 10: Two-Stage Cascaded Saturation (Marshall cold-clipper model)
+//
+//  Models the V1B → V1A dual-triode chain in the JCM800 preamp.
+//  V1A runs cold-biased (high bias resistor), generating asymmetric
+//  2nd harmonic clipping early in the signal path — the source of the
+//  JCM800's characteristic "crunch" even at moderate gain settings.
+//
+//  Usage:
+//    out = lms_sat_cascade(x, drive1, bias1, drive2, bias2);
+//    // drive/bias same ranges as lms_sat_warm
+// ============================================================================
+
+function lms_sat_cascade(x, drive1, bias1, drive2, bias2)
+  local(stage1)
+(
+  stage1 = lms_sat_warm(x, drive1, bias1);
+  lms_sat_warm(stage1, drive2, bias2);
+);
+
+
+// ============================================================================
+//  SECTION 11: Opto Compressor (LA-2A T4B photocell model)
+//
+//  Program-dependent release: fast initial release from the photocell
+//  discharging quickly, then slow final release as the electroluminescent
+//  panel dims. Creates the "breathing" characteristic of optical compressors
+//  — musical and forgiving, unlike FET or VCA compressors.
+//
+//  Attack is inherently fast (optical cell responds quickly to light).
+//  Release is dual-stage: fast release (~50ms) then slow tail (~500ms).
+//
+//  Usage:
+//    opto.lms_opto_init();
+//    opto.lms_opto_set(-18, 4, 10);   // thresh_db, ratio, att_ms
+//    // in @sample:
+//    opto.lms_opto_proc(spl0, spl1);
+//    spl0 *= opto.gr;
+//    spl1 *= opto.gr;
+//
+//  After proc: this.gr (linear gain), this.gr_db (gain reduction in dB)
+// ============================================================================
+
+function lms_opto_init()
+(
+  this.env_fast = 0;
+  this.env_slow = 0;
+  this.gr = 1;
+  this.gr_db = 0;
+  this.thresh = lms_db2lin(-18);
+  this.ratio = 4;
+  this.att = 0;
+  this.rel_fast = 0;
+  this.rel_slow = 0;
+);
+
+function lms_opto_set(thresh_db, ratio, att_ms)
+(
+  this.thresh = lms_db2lin(thresh_db);
+  this.ratio = ratio;
+  // Attack: fast optical response (~10ms default)
+  this.att = exp(-1 / (srate * att_ms * 0.001));
+  // Release: T4B dual-stage — fast cell discharge then slow panel dim
+  this.rel_fast = exp(-1 / (srate * 0.060));  // 60ms fast release
+  this.rel_slow = exp(-1 / (srate * 0.500));  // 500ms slow tail
+);
+
+function lms_opto_proc(l, r)
+  local(peak, over, target_gr, env)
+(
+  // Stereo peak detection
+  peak = max(abs(l), abs(r));
+
+  // Fast attack envelope
+  peak > this.env_fast ? (
+    this.env_fast = this.att * this.env_fast + (1 - this.att) * peak;
+  ) : (
+    // Dual-stage release: blend fast+slow envelopes (T4B photocell model)
+    this.env_fast = this.rel_fast * this.env_fast;
+    this.env_slow = this.rel_slow * this.env_slow + (1 - this.rel_slow) * this.env_fast;
+    this.env_fast = max(this.env_fast, this.env_slow * 0.5);
+  );
+
+  env = this.env_fast;
+
+  // Gain computation: soft knee around threshold
+  env > this.thresh ? (
+    over = env / this.thresh;
+    // Soft-knee reduction: gentle slope, not brickwall
+    target_gr = pow(over, -(1 - 1/this.ratio));
+    this.gr = target_gr;
+  ) : (
+    this.gr = 1;
+  );
+
+  this.gr_db = lms_lin2db(this.gr);
+  this.gr;
 );

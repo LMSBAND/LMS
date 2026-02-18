@@ -35,7 +35,7 @@ BC_MY_TYPE = X;       // pick a unique number — see table below
 BC_SLOT_SIZE = 512;
 BC_MAX_INST = 32;
 BC_PARAM_COUNT = N;   // number of sliders you have
-BC_MY_REGION = BC_BASE + BC_MY_TYPE * 4096;
+BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
 BC_STALE_TIMEOUT = 2;
 
 BC_STALE_HB = Y;      // local memory address — see table below
@@ -57,7 +57,8 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_matchering | 7 | 70000 | 70032 |
 | lms_moog_synth | 8 | 900000 | 900032 |
 | lms_chris_bedroom | 9 | 600000 | 600032 |
-| **your new plugin** | **10+** | **pick unused** | **HB + 32** |
+| lms_amp_suite | 10 | 640000 | 640032 |
+| **your new plugin** | **11+** | **pick unused** | **HB + 32** |
 
 For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `600000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
@@ -225,6 +226,43 @@ pos += 1; pos >= len ? pos = 0;  // caller advances the pointer
 ```
 
 Chain several of these together at different lengths for a Schroeder diffuser or spring reverb tail. See `lms_drum_room.jsfx` for a full reverb implementation using these.
+
+### Section 9: Sag Simulator
+
+Models tube rectifier voltage droop on loud transients. Creates the elastic "bloom" feel of vintage amps vs. silicon diode tightness.
+
+```jsfx
+sag.lms_sag_init();
+sag.lms_sag_set(22);       // attack in ms (15-30ms typical for Mesa)
+// in @sample:
+gain = sag.lms_sag_proc(mono_input);
+signal *= gain;
+// sag.gr = current gain (0.7–1.0)
+```
+
+### Section 10: Cascaded Saturation
+
+Two-stage warm tube saturation chain — models the JCM800's V1B→V1A cold-clipper preamp:
+
+```jsfx
+out = lms_sat_cascade(x, drive1, bias1, drive2, bias2);
+// stage1 = lms_sat_warm(x, drive1, bias1)
+// stage2 = lms_sat_warm(stage1, drive2, bias2)
+```
+
+### Section 11: Opto Compressor
+
+LA-2A T4B photocell model. Program-dependent release: fast initial discharge (~60ms) followed by slow tail (~500ms). Musical and forgiving.
+
+```jsfx
+opto.lms_opto_init();
+opto.lms_opto_set(-18, 4, 10);   // thresh_db, ratio, att_ms
+// in @sample:
+opto.lms_opto_proc(spl0, spl1);
+spl0 *= opto.gr;
+spl1 *= opto.gr;
+// opto.gr = linear gain, opto.gr_db = dB reduction
+```
 
 ---
 
