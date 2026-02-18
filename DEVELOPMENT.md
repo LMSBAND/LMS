@@ -56,7 +56,8 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_passive_eq | 6 | 400000 | 400032 |
 | lms_matchering | 7 | 70000 | 70032 |
 | lms_moog_synth | 8 | 900000 | 900032 |
-| **your new plugin** | **9+** | **pick unused** | **HB + 32** |
+| lms_chris_bedroom | 9 | 600000 | 600032 |
+| **your new plugin** | **10+** | **pick unused** | **HB + 32** |
 
 For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `600000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
