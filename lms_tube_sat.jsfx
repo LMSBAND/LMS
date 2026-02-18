@@ -2,6 +2,7 @@ desc:LMS Tube Saturator
 //tags: saturation distortion tube analog
 //author: LMS + Claude
 
+import lms_core.jsfx-inc
 options:gmem=DrumBanger
 
 slider1:0<0,100,0.1>-Drive (%)
@@ -14,99 +15,9 @@ slider7:100<20,20000,1>-Tone (Hz)
 slider8:0<0,100,0.1>-Bias (%)
 
 @init
-  // DC blocker state
-  dc_xl = 0; dc_xr = 0;
-  dc_yl = 0; dc_yr = 0;
-  dc_r = 1 - (220 / srate);
-
-  // Tone filter state
-  tone_yl = 0; tone_yr = 0;
-
-  // tanh approximation (JSFX doesn't have built-in tanh)
-  function tanh(x)
-    local(e2x)
-  (
-    x > 10 ? 1 : x < -10 ? -1 : (
-      e2x = exp(2 * x);
-      (e2x - 1) / (e2x + 1);
-    );
-  );
-
-  // Saturation functions
-  function warm_tube(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.1;
-    b = b * (1 + drive);
-    // Asymmetric soft clipping - tubes clip differently on positive vs negative
-    b > 0 ? (
-      b = this.tanh(b);
-    ) : (
-      b = this.tanh(b * 0.8) * 1.25;
-    );
-    b;
-  );
-
-  function hot_tube(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.15;
-    b = b * (1 + drive * 2);
-    // Harder clipping with more asymmetry
-    b > 0 ? (
-      b = 1 - exp(-abs(b));
-    ) : (
-      b = -(1 - exp(-abs(b * 0.7))) * 1.1;
-    );
-    b;
-  );
-
-  function tape_sat(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.05;
-    b = b * (1 + drive * 1.5);
-    // Tape: symmetric soft saturation with hysteresis feel
-    b = (2 / $pi) * atan(b * $pi * 0.5);
-    b;
-  );
-
-  function rectifier(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.2;
-    b = b * (1 + drive * 3);
-    // Full wave rectifier style - folds negative into positive partially
-    b < 0 ? b = b * (0.2 + drive * 0.1);
-    b = this.tanh(b);
-    b;
-  );
-
-  function fuzz(x, drive, bias)
-    local(b)
-  (
-    b = x + bias * 0.1;
-    b = b * (1 + drive * 4);
-    // Hard clipping with crossover distortion
-    abs(b) < 0.1 * (1 - drive * 0.5) ? (
-      b = b * (0.3 + drive * 0.7);
-    ) : (
-      b = sign(b) * (1 - exp(-abs(b)));
-    );
-    b;
-  );
-
-  function apply_harmonics(x, even_mix, odd_mix)
-    local(x2, x3, result)
-  (
-    // Even harmonics (2nd, 4th) - warm, musical
-    x2 = x * x * sign(x);
-    // Odd harmonics (3rd, 5th) - gritty, aggressive
-    x3 = x * x * x;
-
-    result = x + even_mix * x2 * 0.3 + odd_mix * x3 * 0.2;
-    result;
-  );
+  // Initialize shared DSP instances
+  dc.lms_dc_init_freq(220);
+  tone.lms_tone_init();
 
 notice_show = 0;
 
@@ -171,9 +82,8 @@ notice_show = 0;
   mode = slider6;
   bias = slider8 / 100;
 
-  // Tone: simple lowpass
-  tone_freq = slider7;
-  tone_coeff = exp(-2 * $pi * tone_freq / srate);
+  // Tone filter
+  tone.lms_tone_set(slider7);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -188,9 +98,8 @@ odd_harm = slider5 / 100;
 mode = slider6;
 bias = slider8 / 100;
 
-// Tone: simple lowpass
-tone_freq = slider7;
-tone_coeff = exp(-2 * $pi * tone_freq / srate);
+// Tone filter
+tone.lms_tone_set(slider7);
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -318,48 +227,39 @@ loop(BC_MAX_INST,
 
   // Apply saturation based on mode
   mode == 0 ? (
-    l = warm_tube(l, drive, bias);
-    r = warm_tube(r, drive, bias);
+    l = lms_sat_warm(l, drive, bias);
+    r = lms_sat_warm(r, drive, bias);
   ) : mode == 1 ? (
-    l = hot_tube(l, drive, bias);
-    r = hot_tube(r, drive, bias);
+    l = lms_sat_hot(l, drive, bias);
+    r = lms_sat_hot(r, drive, bias);
   ) : mode == 2 ? (
-    l = tape_sat(l, drive, bias);
-    r = tape_sat(r, drive, bias);
+    l = lms_sat_tape(l, drive, bias);
+    r = lms_sat_tape(r, drive, bias);
   ) : mode == 3 ? (
-    l = rectifier(l, drive, bias);
-    r = rectifier(r, drive, bias);
+    l = lms_sat_rect(l, drive, bias);
+    r = lms_sat_rect(r, drive, bias);
   ) : (
-    l = fuzz(l, drive, bias);
-    r = fuzz(r, drive, bias);
+    l = lms_sat_fuzz(l, drive, bias);
+    r = lms_sat_fuzz(r, drive, bias);
   );
 
   // Add harmonics
   (even_harm > 0 || odd_harm > 0) ? (
-    l = apply_harmonics(l, even_harm, odd_harm);
-    r = apply_harmonics(r, even_harm, odd_harm);
+    l = lms_sat_harmonics(l, even_harm, odd_harm);
+    r = lms_sat_harmonics(r, even_harm, odd_harm);
   );
 
-  // Tone control (lowpass filter)
-  tone_freq < 19999 ? (
-    tone_yl = tone_yl * tone_coeff + l * (1 - tone_coeff);
-    tone_yr = tone_yr * tone_coeff + r * (1 - tone_coeff);
-    l = tone_yl;
-    r = tone_yr;
-  );
+  // Tone control
+  l = tone.lms_tone_proc_l(l);
+  r = tone.lms_tone_proc_r(r);
 
   // Output gain
   l *= out_gain;
   r *= out_gain;
 
-  // DC blocker (removes DC offset from asymmetric clipping)
-  dc_yl = l - dc_xl + dc_r * dc_yl;
-  dc_xl = l;
-  l = dc_yl;
-
-  dc_yr = r - dc_xr + dc_r * dc_yr;
-  dc_xr = r;
-  r = dc_yr;
+  // DC blocker
+  l = dc.lms_dc_proc_l(l);
+  r = dc.lms_dc_proc_r(r);
 
   // Dry/wet mix
   spl0 = dry_l * (1 - dry_wet) + l * dry_wet;
@@ -595,11 +495,11 @@ loop(100,
   in = (i / 99) * 2 - 1;
 
   // Apply current saturation
-  mode == 0 ? out = warm_tube(in, drive, bias);
-  mode == 1 ? out = hot_tube(in, drive, bias);
-  mode == 2 ? out = tape_sat(in, drive, bias);
-  mode == 3 ? out = rectifier(in, drive, bias);
-  mode == 4 ? out = fuzz(in, drive, bias);
+  mode == 0 ? out = lms_sat_warm(in, drive, bias);
+  mode == 1 ? out = lms_sat_hot(in, drive, bias);
+  mode == 2 ? out = lms_sat_tape(in, drive, bias);
+  mode == 3 ? out = lms_sat_rect(in, drive, bias);
+  mode == 4 ? out = lms_sat_fuzz(in, drive, bias);
 
   out = max(-1, min(1, out));
 

@@ -2,6 +2,8 @@ desc:NUUG 420
 //tags: synthesizer instrument mono moog
 //author: LMS
 
+import lms_core.jsfx-inc
+
 options:gmem=DrumBanger
 options:maxmem=33554432
 
@@ -403,77 +405,9 @@ notice_show = 0;
   );
 
 // ============================================================================
-//  SATURATION FUNCTIONS (from lms_tube_sat.jsfx)
+//  SATURATION & INTERPOLATION — now provided by lms_core.jsfx-inc
+//    lms_tanh(x), lms_sat_warm/hot/tape/fuzz, lms_interp_cubic
 // ============================================================================
-
-function fast_tanh(x)
-  local(e2x)
-(
-  x > 10 ? 1 : x < -10 ? -1 : (
-    e2x = exp(2 * x);
-    (e2x - 1) / (e2x + 1);
-  );
-);
-
-function warm_tube(x, drive, bias)
-  local(b)
-(
-  b = x + bias * 0.1;
-  b = b * (1 + drive);
-  b > 0 ? (
-    b = fast_tanh(b);
-  ) : (
-    b = fast_tanh(b * 0.8) * 1.25;
-  );
-  b;
-);
-
-function tape_sat(x, drive, bias)
-  local(b)
-(
-  b = x + bias * 0.05;
-  b = b * (1 + drive * 1.5);
-  b = (2 / $pi) * atan(b * $pi * 0.5);
-  b;
-);
-
-function fuzz(x, drive, bias)
-  local(b)
-(
-  b = x + bias * 0.1;
-  b = b * (1 + drive * 4);
-  abs(b) < 0.1 * (1 - drive * 0.5) ? (
-    b = b * (0.3 + drive * 0.7);
-  ) : (
-    b = sign(b) * (1 - exp(-abs(b)));
-  );
-  b;
-);
-
-// ============================================================================
-//  CUBIC HERMITE INTERPOLATION (from lms_tape_echo.jsfx)
-// ============================================================================
-
-function buf_read_cubic(buf, pos, bmax)
-  local(p0, p1, p2, p3, x0, x1, x2, x3, a, b, c, d, frac, idx)
-(
-  idx = floor(pos);
-  frac = pos - idx;
-
-  p0 = idx - 1; p0 < 0 ? p0 += bmax;
-  p1 = idx;     p1 >= bmax ? p1 -= bmax;
-  p2 = idx + 1; p2 >= bmax ? p2 -= bmax;
-  p3 = idx + 2; p3 >= bmax ? p3 -= bmax;
-
-  x0 = buf[p0]; x1 = buf[p1]; x2 = buf[p2]; x3 = buf[p3];
-
-  a = -0.5*x0 + 1.5*x1 - 1.5*x2 + 0.5*x3;
-  b = x0 - 2.5*x1 + 2*x2 - 0.5*x3;
-  c = -0.5*x0 + 0.5*x2;
-  d = x1;
-
-  ((a * frac + b) * frac + c) * frac + d;
-);
 
 // ============================================================================
 //  POLYBLEP ANTIALIASING
@@ -1419,7 +1353,7 @@ fb = filt_reso * (1.0 - 0.15 * f * f);
 // Process left channel (mono synth, but we'll make stereo from effects)
 input_l = mix_out;
 input_l -= fb * 4.0 * MEM_LADDER_L[3];
-input_l = fast_tanh(input_l);
+input_l = lms_tanh(input_l);
 
 MEM_LADDER_L[0] += f * (input_l    - MEM_LADDER_L[0]);
 MEM_LADDER_L[1] += f * (MEM_LADDER_L[0] - MEM_LADDER_L[1]);
@@ -1438,9 +1372,9 @@ synth_out = filt_out * amp_env_level * vel_amp * lfo_amp_mod;
 // ---- Drive / Saturation ----
 drive_type > 0 && drive_amount > 0 ? (
   drv = drive_amount;
-  drive_type == 1 ? ( synth_out = warm_tube(synth_out, drv * 3, 0); )
-  : drive_type == 2 ? ( synth_out = tape_sat(synth_out, drv * 3, 0); )
-  : drive_type == 3 ? ( synth_out = fuzz(synth_out, drv, 0); );
+  drive_type == 1 ? ( synth_out = lms_sat_warm(synth_out, drv * 3, 0); )
+  : drive_type == 2 ? ( synth_out = lms_sat_tape(synth_out, drv * 3, 0); )
+  : drive_type == 3 ? ( synth_out = lms_sat_fuzz(synth_out, drv, 0); );
 );
 
 // Mono → stereo
@@ -1471,8 +1405,8 @@ chorus_on ? (
   rd_l < 0 ? rd_l += CHORUS_BUF_SIZE;
   rd_r < 0 ? rd_r += CHORUS_BUF_SIZE;
 
-  chorus_l = buf_read_cubic(CHORUS_BUF_L, rd_l, CHORUS_BUF_SIZE);
-  chorus_r = buf_read_cubic(CHORUS_BUF_R, rd_r, CHORUS_BUF_SIZE);
+  chorus_l = lms_interp_cubic(CHORUS_BUF_L, rd_l, CHORUS_BUF_SIZE);
+  chorus_r = lms_interp_cubic(CHORUS_BUF_R, rd_r, CHORUS_BUF_SIZE);
 
   out_l = out_l * 0.7 + chorus_l * 0.7;
   out_r = out_r * 0.7 + chorus_r * 0.7;
@@ -1487,8 +1421,8 @@ delay_on ? (
   rd_pos = delay_wpos - delay_samples;
   rd_pos < 0 ? rd_pos += DELAY_BUF_SIZE;
 
-  delay_tap_l = buf_read_cubic(DELAY_BUF_L, rd_pos, DELAY_BUF_SIZE);
-  delay_tap_r = buf_read_cubic(DELAY_BUF_R, rd_pos, DELAY_BUF_SIZE);
+  delay_tap_l = lms_interp_cubic(DELAY_BUF_L, rd_pos, DELAY_BUF_SIZE);
+  delay_tap_r = lms_interp_cubic(DELAY_BUF_R, rd_pos, DELAY_BUF_SIZE);
 
   // Lowpass in feedback path (tame the highs)
   delay_filt_l = delay_filt_l * 0.7 + delay_tap_l * 0.3;

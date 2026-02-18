@@ -2,6 +2,8 @@ desc:PEQ4U
 //tags: equalizer passive analog tube
 //author: LMS + Claude
 
+import lms_core.jsfx-inc
+
 options:gmem=DrumBanger
 
 // Classic Passive EQ emulation
@@ -21,33 +23,13 @@ slider8:0<0,1,1{Off,On}>-Tube Saturation
 slider9:0<-12,12,0.1>-Output (dB)
 
 @init
-// Biquad filter states (L and R for each band)
-// Low boost: 0-3 = L state, 4-7 = R state
-// Low cut: 8-15
-// High boost: 16-23
-// High cut: 24-31
-
-// Low boost filter state
-lb_xl1 = 0; lb_xl2 = 0; lb_yl1 = 0; lb_yl2 = 0;
-lb_xr1 = 0; lb_xr2 = 0; lb_yr1 = 0; lb_yr2 = 0;
-
-// Low cut filter state
-lc_xl1 = 0; lc_xl2 = 0; lc_yl1 = 0; lc_yl2 = 0;
-lc_xr1 = 0; lc_xr2 = 0; lc_yr1 = 0; lc_yr2 = 0;
-
-// High boost filter state
-hb_xl1 = 0; hb_xl2 = 0; hb_yl1 = 0; hb_yl2 = 0;
-hb_xr1 = 0; hb_xr2 = 0; hb_yr1 = 0; hb_yr2 = 0;
-
-// High cut filter state
-hc_xl1 = 0; hc_xl2 = 0; hc_yl1 = 0; hc_yl2 = 0;
-hc_xr1 = 0; hc_xr2 = 0; hc_yr1 = 0; hc_yr2 = 0;
-
-// Filter coefficients
-lb_b0 = 1; lb_b1 = 0; lb_b2 = 0; lb_a1 = 0; lb_a2 = 0;
-lc_b0 = 1; lc_b1 = 0; lc_b2 = 0; lc_a1 = 0; lc_a2 = 0;
-hb_b0 = 1; hb_b1 = 0; hb_b2 = 0; hb_a1 = 0; hb_a2 = 0;
-hc_b0 = 1; hc_b1 = 0; hc_b2 = 0; hc_a1 = 0; hc_a2 = 0;
+// Biquad filter instances (via lms_core.jsfx-inc)
+// lb = low boost (low shelf), lc = low cut (low shelf, negative gain)
+// hb = high boost (peaking EQ), hc = high cut (high shelf, negative gain)
+lb.lms_bq_init();
+lc.lms_bq_init();
+hb.lms_bq_init();
+hc.lms_bq_init();
 
 notice_show = 0;
 
@@ -130,80 +112,36 @@ notice_show = 0;
   // === LOW BOOST (low shelf, broad Q) ===
   // passive EQ boost is broad and gentle
   low_boost_amt > 0 ? (
-    gain_db = low_boost_amt * 1.8;  // up to ~18dB
-    A = 10 ^ (gain_db / 40);
-    w0 = 2 * $pi * low_freq / srate;
-    cs = cos(w0); sn = sin(w0);
-    // Broad Q for boost (passive-style)
-    alpha = sn / (2 * 0.4);
-    a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
-    lb_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-    lb_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
-    lb_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-    lb_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
-    lb_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+    lb.lms_bq_set_loshelf(low_freq, low_boost_amt * 1.8, 0.4);
   ) : (
-    lb_b0 = 1; lb_b1 = 0; lb_b2 = 0; lb_a1 = 0; lb_a2 = 0;
+    lb.lms_bq_init();
   );
 
   // === LOW CUT (low shelf cut, slightly higher freq + narrower Q) ===
   // The magic: cut frequency is offset ~1.5x higher than boost
   // This creates the classic passive EQ "dip then bump" curve
   low_cut_amt > 0 ? (
-    gain_db = -low_cut_amt * 1.8;
-    A = 10 ^ (gain_db / 40);
-    cut_freq = low_freq * 1.5;  // offset higher
-    w0 = 2 * $pi * cut_freq / srate;
-    cs = cos(w0); sn = sin(w0);
-    // Narrower Q for cut
-    alpha = sn / (2 * 0.7);
-    a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
-    lc_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-    lc_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
-    lc_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-    lc_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
-    lc_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+    lc.lms_bq_set_loshelf(low_freq * 1.5, -low_cut_amt * 1.8, 0.7);
   ) : (
-    lc_b0 = 1; lc_b1 = 0; lc_b2 = 0; lc_a1 = 0; lc_a2 = 0;
+    lc.lms_bq_init();
   );
 
   // === HIGH BOOST (peaking EQ with variable bandwidth) ===
+  // BW slider: 1=broad (low Q), 10=sharp (high Q)
+  // Note: gain_db halved because lms_bq_set_peak uses A=10^(dB/20)
+  // while original used A=10^(dB/40)
   high_boost_amt > 0 ? (
-    gain_db = high_boost_amt * 1.5;  // up to ~15dB
-    A = 10 ^ (gain_db / 40);
-    w0 = 2 * $pi * high_freq / srate;
-    cs = cos(w0); sn = sin(w0);
-    // BW slider: 1=broad (low Q), 10=sharp (high Q)
     Q = 0.3 + (high_bw - 1) * 0.3;  // Q from 0.3 to 3.0
-    alpha = sn / (2 * Q);
-    a0_inv = 1 / (1 + alpha / A);
-    hb_b0 = (1 + alpha * A) * a0_inv;
-    hb_b1 = -2 * cs * a0_inv;
-    hb_b2 = (1 - alpha * A) * a0_inv;
-    hb_a1 = -2 * cs * a0_inv;
-    hb_a2 = (1 - alpha / A) * a0_inv;
+    hb.lms_bq_set_peak(high_freq, high_boost_amt * 0.75, Q);
   ) : (
-    hb_b0 = 1; hb_b1 = 0; hb_b2 = 0; hb_a1 = 0; hb_a2 = 0;
+    hb.lms_bq_init();
   );
 
-  // === HIGH CUT (low-pass shelf rolloff) ===
+  // === HIGH CUT (high shelf rolloff) ===
   high_cut_amt > 0 ? (
-    gain_db = -high_cut_amt * 1.5;
-    A = 10 ^ (gain_db / 40);
-    // Cut at 10k-20k range, gentle rolloff
-    hc_freq = 10000;
-    w0 = 2 * $pi * hc_freq / srate;
-    cs = cos(w0); sn = sin(w0);
-    alpha = sn / (2 * 0.5);
-    // High shelf (cutting)
-    a0_inv = 1 / ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha);
-    hc_b0 = A * ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-    hc_b1 = -2 * A * ((A - 1) + (A + 1) * cs) * a0_inv;
-    hc_b2 = A * ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-    hc_a1 = 2 * ((A - 1) - (A + 1) * cs) * a0_inv;
-    hc_a2 = ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+    hc.lms_bq_set_hishelf(10000, -high_cut_amt * 1.5, 0.5);
   ) : (
-    hc_b0 = 1; hc_b1 = 0; hc_b2 = 0; hc_a1 = 0; hc_a2 = 0;
+    hc.lms_bq_init();
   );
 
 // ============================================================
@@ -236,73 +174,31 @@ out_gain = 10 ^ (slider9 / 20);
 
 // === LOW BOOST (low shelf, broad Q) ===
 low_boost_amt > 0 ? (
-  gain_db = low_boost_amt * 1.8;
-  A = 10 ^ (gain_db / 40);
-  w0 = 2 * $pi * low_freq / srate;
-  cs = cos(w0); sn = sin(w0);
-  alpha = sn / (2 * 0.4);
-  a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
-  lb_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-  lb_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
-  lb_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-  lb_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
-  lb_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  lb.lms_bq_set_loshelf(low_freq, low_boost_amt * 1.8, 0.4);
 ) : (
-  lb_b0 = 1; lb_b1 = 0; lb_b2 = 0; lb_a1 = 0; lb_a2 = 0;
+  lb.lms_bq_init();
 );
 
 // === LOW CUT ===
 low_cut_amt > 0 ? (
-  gain_db = -low_cut_amt * 1.8;
-  A = 10 ^ (gain_db / 40);
-  cut_freq = low_freq * 1.5;
-  w0 = 2 * $pi * cut_freq / srate;
-  cs = cos(w0); sn = sin(w0);
-  alpha = sn / (2 * 0.7);
-  a0_inv = 1 / ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha);
-  lc_b0 = A * ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-  lc_b1 = 2 * A * ((A - 1) - (A + 1) * cs) * a0_inv;
-  lc_b2 = A * ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-  lc_a1 = -2 * ((A - 1) + (A + 1) * cs) * a0_inv;
-  lc_a2 = ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  lc.lms_bq_set_loshelf(low_freq * 1.5, -low_cut_amt * 1.8, 0.7);
 ) : (
-  lc_b0 = 1; lc_b1 = 0; lc_b2 = 0; lc_a1 = 0; lc_a2 = 0;
+  lc.lms_bq_init();
 );
 
 // === HIGH BOOST (peaking EQ with variable bandwidth) ===
 high_boost_amt > 0 ? (
-  gain_db = high_boost_amt * 1.5;
-  A = 10 ^ (gain_db / 40);
-  w0 = 2 * $pi * high_freq / srate;
-  cs = cos(w0); sn = sin(w0);
   Q = 0.3 + (high_bw - 1) * 0.3;
-  alpha = sn / (2 * Q);
-  a0_inv = 1 / (1 + alpha / A);
-  hb_b0 = (1 + alpha * A) * a0_inv;
-  hb_b1 = -2 * cs * a0_inv;
-  hb_b2 = (1 - alpha * A) * a0_inv;
-  hb_a1 = -2 * cs * a0_inv;
-  hb_a2 = (1 - alpha / A) * a0_inv;
+  hb.lms_bq_set_peak(high_freq, high_boost_amt * 0.75, Q);
 ) : (
-  hb_b0 = 1; hb_b1 = 0; hb_b2 = 0; hb_a1 = 0; hb_a2 = 0;
+  hb.lms_bq_init();
 );
 
-// === HIGH CUT (low-pass shelf rolloff) ===
+// === HIGH CUT (high shelf rolloff) ===
 high_cut_amt > 0 ? (
-  gain_db = -high_cut_amt * 1.5;
-  A = 10 ^ (gain_db / 40);
-  hc_freq = 10000;
-  w0 = 2 * $pi * hc_freq / srate;
-  cs = cos(w0); sn = sin(w0);
-  alpha = sn / (2 * 0.5);
-  a0_inv = 1 / ((A + 1) - (A - 1) * cs + 2 * sqrt(A) * alpha);
-  hc_b0 = A * ((A + 1) + (A - 1) * cs + 2 * sqrt(A) * alpha) * a0_inv;
-  hc_b1 = -2 * A * ((A - 1) + (A + 1) * cs) * a0_inv;
-  hc_b2 = A * ((A + 1) + (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
-  hc_a1 = 2 * ((A - 1) - (A + 1) * cs) * a0_inv;
-  hc_a2 = ((A + 1) - (A - 1) * cs - 2 * sqrt(A) * alpha) * a0_inv;
+  hc.lms_bq_set_hishelf(10000, -high_cut_amt * 1.5, 0.5);
 ) : (
-  hc_b0 = 1; hc_b1 = 0; hc_b2 = 0; hc_a1 = 0; hc_a2 = 0;
+  hc.lms_bq_init();
 );
 
 bc_my_slot >= 0 ? (
@@ -431,34 +327,26 @@ loop(BC_MAX_INST,
 
   // === LOW BOOST ===
   low_boost_amt > 0 ? (
-    ol = lb_b0 * l + lb_b1 * lb_xl1 + lb_b2 * lb_xl2 - lb_a1 * lb_yl1 - lb_a2 * lb_yl2;
-    lb_xl2 = lb_xl1; lb_xl1 = l; lb_yl2 = lb_yl1; lb_yl1 = ol; l = ol;
-    ol = lb_b0 * r + lb_b1 * lb_xr1 + lb_b2 * lb_xr2 - lb_a1 * lb_yr1 - lb_a2 * lb_yr2;
-    lb_xr2 = lb_xr1; lb_xr1 = r; lb_yr2 = lb_yr1; lb_yr1 = ol; r = ol;
+    l = lb.lms_bq_proc_l(l);
+    r = lb.lms_bq_proc_r(r);
   );
 
   // === LOW CUT ===
   low_cut_amt > 0 ? (
-    ol = lc_b0 * l + lc_b1 * lc_xl1 + lc_b2 * lc_xl2 - lc_a1 * lc_yl1 - lc_a2 * lc_yl2;
-    lc_xl2 = lc_xl1; lc_xl1 = l; lc_yl2 = lc_yl1; lc_yl1 = ol; l = ol;
-    ol = lc_b0 * r + lc_b1 * lc_xr1 + lc_b2 * lc_xr2 - lc_a1 * lc_yr1 - lc_a2 * lc_yr2;
-    lc_xr2 = lc_xr1; lc_xr1 = r; lc_yr2 = lc_yr1; lc_yr1 = ol; r = ol;
+    l = lc.lms_bq_proc_l(l);
+    r = lc.lms_bq_proc_r(r);
   );
 
   // === HIGH BOOST ===
   high_boost_amt > 0 ? (
-    ol = hb_b0 * l + hb_b1 * hb_xl1 + hb_b2 * hb_xl2 - hb_a1 * hb_yl1 - hb_a2 * hb_yl2;
-    hb_xl2 = hb_xl1; hb_xl1 = l; hb_yl2 = hb_yl1; hb_yl1 = ol; l = ol;
-    ol = hb_b0 * r + hb_b1 * hb_xr1 + hb_b2 * hb_xr2 - hb_a1 * hb_yr1 - hb_a2 * hb_yr2;
-    hb_xr2 = hb_xr1; hb_xr1 = r; hb_yr2 = hb_yr1; hb_yr1 = ol; r = ol;
+    l = hb.lms_bq_proc_l(l);
+    r = hb.lms_bq_proc_r(r);
   );
 
   // === HIGH CUT ===
   high_cut_amt > 0 ? (
-    ol = hc_b0 * l + hc_b1 * hc_xl1 + hc_b2 * hc_xl2 - hc_a1 * hc_yl1 - hc_a2 * hc_yl2;
-    hc_xl2 = hc_xl1; hc_xl1 = l; hc_yl2 = hc_yl1; hc_yl1 = ol; l = ol;
-    ol = hc_b0 * r + hc_b1 * hc_xr1 + hc_b2 * hc_xr2 - hc_a1 * hc_yr1 - hc_a2 * hc_yr2;
-    hc_xr2 = hc_xr1; hc_xr1 = r; hc_yr2 = hc_yr1; hc_yr1 = ol; r = ol;
+    l = hc.lms_bq_proc_l(l);
+    r = hc.lms_bq_proc_r(r);
   );
 
   // === TUBE SATURATION ===
