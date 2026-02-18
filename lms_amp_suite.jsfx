@@ -985,8 +985,8 @@ amp_model == 3 ? gfx_drawstr("The Frenchie");
 //  LEFT COLUMN
 // ============================================================================
 c1x = margin;
-// 3 comp + amp select (+4px tall) + input gain + gain + channel + 4 tone = 11 rows + 4px
-left_h = 26 + bar_sp * 11 + 4 + 4;
+// 3 comp + amp select (+4px tall) + input gain + 4 tone = 9 rows + 4px
+left_h = 26 + bar_sp * 9 + 4 + 4;
 draw_panel(c1x, body_y, col_w, left_h, "INPUT / AMP");
 cy = body_y + 26;
 
@@ -1006,27 +1006,6 @@ slider4 != _old ? slider_automate(2^3); cy += bar_sp + 4;
 
 _old = slider5; slider5 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Input Gain", 1);
 slider5 != _old ? slider_automate(2^4); cy += bar_sp;
-
-_old = slider22; slider22 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider22, 0, 100, "Gain", 1);
-slider22 != _old ? slider_automate(2^21); cy += bar_sp;
-
-// Channel selector — only meaningful for SOB and Punk Idol
-amp_model <= 1 ? (
-  _old = slider23;
-  amp_model == 0 ? (
-    slider23 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
-  ) : (
-    slider23 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
-  );
-  slider23 != _old ? slider_automate(2^22);
-) : (
-  // Fridge and Frenchie: show grayed label
-  gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = c1x + 8; gfx_y = cy + 3;
-  amp_model == 2 ? gfx_drawstr("Channel: N/A (it's a bass amp)") : gfx_drawstr("Channel: N/A (it's a Champ)");
-);
-cy += bar_sp;
 
 // Tone stack
 _old = slider6; slider6 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Bass", 1);
@@ -1050,8 +1029,8 @@ slider9 != _old ? slider_automate(2^8);
 c2x = margin + col_w + gap;
 
 // Amp-specific controls (vary by model)
-amp_model == 0 ? specific_rows = 1;  // Rectifier toggle
-amp_model == 1 ? specific_rows = 0;  // Channel handled in left column
+amp_model == 0 ? specific_rows = 3;  // Gain + Channel + Rectifier toggle
+amp_model == 1 ? specific_rows = 2;  // Gain + Channel
 amp_model == 2 ? specific_rows = 3;  // Mid Freq + Ultra Lo + Ultra Hi
 amp_model == 3 ? specific_rows = 0;  // Frenchie has no specific controls
 
@@ -1061,10 +1040,17 @@ cy = body_y + 26;
 
 // Amp-specific controls
 amp_model == 0 ? (
+  _old = slider22; slider22 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider22, 0, 100, "Gain", 1);
+  slider22 != _old ? slider_automate(2^21); cy += bar_sp;
+  _old = slider23; slider23 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
+  slider23 != _old ? slider_automate(2^22); cy += bar_sp;
   _old = slider10; slider10 = draw_toggle(c2x + 4, cy, col_w - 8, bar_h, slider10, "Tube Rectifier (Sag)");
   slider10 != _old ? slider_automate(2^9); cy += bar_sp;
 ) : amp_model == 1 ? (
-  // No extra controls — channel (Clean/Crunch/Lead) is in left column
+  _old = slider22; slider22 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider22, 0, 100, "Gain", 1);
+  slider22 != _old ? slider_automate(2^21); cy += bar_sp;
+  _old = slider23; slider23 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider23, 2, "Channel", "Clean", "Crunch", "Lead", "");
+  slider23 != _old ? slider_automate(2^22); cy += bar_sp;
 ) : amp_model == 2 ? (
   _old = slider12; slider12 = draw_mode_sel(c2x + 4, cy, col_w - 8, bar_h, slider12, 4, "Mid Hz", "220", "450", "800", "1.6k");
   slider12 != _old ? slider_automate(2^11); cy += bar_sp;
