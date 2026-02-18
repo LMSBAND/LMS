@@ -1,4 +1,4 @@
-desc:LMS Distressor (Analog Style)
+desc:KITTY KATS BIG KRUSH
 //tags: compressor distortion analog distressor
 //author: LMS + Claude
 
@@ -347,7 +347,7 @@ loop(BC_MAX_INST,
   // Title
   gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.3;
   gfx_x = 10; gfx_y = 8;
-  gfx_drawstr("LMS DISTRESSOR");
+  gfx_drawstr("KITTY KATS BIG KRUSH");
 
   // Ratio display
   gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.5;
