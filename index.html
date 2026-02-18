@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0c">
+<title>The Architecture of Freedom — LMS vs The Industry</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Space+Grotesk:wght@300;400;500;700&family=Outfit:wght@200;300;400;700;900&display=swap');
+
+html {
+background: #0a0a0c !important;
+color-scheme: dark;
+}
+
+:root {
+–bg: #0a0a0c;
+–bg2: #0e0e12;
+–bg3: #141418;
+–evil-red: #ff2244;
+–evil-glow: #ff224433;
+–evil-dark: #1a0508;
+–good-green: #4de88a;
+–good-glow: #4de88a33;
+–good-dark: #051a0c;
+–orange: #f07a2e;
+–orange-glow: #f07a2e33;
+–blue: #4a8aff;
+–dim: #444450;
+–dimmer: #2a2a32;
+–text: #d8d8dd;
+–text-dim: #888890;
+–money: #44dd66;
+}
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: #0a0a0c !important;
+color: #d8d8dd;
+font-family: ‘Outfit’, sans-serif;
+overflow-x: hidden;
+}
+
+/* ============================================ */
+/* HERO */
+/* ============================================ */
+.hero {
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+text-align: center;
+position: relative;
+padding: 2rem;
+}
+
+.hero::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0; right: 0; bottom: 0;
+background:
+radial-gradient(ellipse at 30% 40%, var(–evil-glow) 0%, transparent 50%),
+radial-gradient(ellipse at 70% 60%, var(–good-glow) 0%, transparent 50%);
+pointer-events: none;
+}
+
+.hero h1 {
+font-family: ‘JetBrains Mono’, monospace;
+font-weight: 800;
+font-size: clamp(2rem, 5vw, 4.5rem);
+letter-spacing: -0.03em;
+line-height: 1.1;
+margin-bottom: 1.5rem;
+}
+
+.hero h1 .their { color: var(–evil-red); }
+.hero h1 .vs { color: var(–dim); font-weight: 300; font-size: 0.5em; display: block; margin: 0.5rem 0; }
+.hero h1 .ours { color: var(–good-green); }
+
+.hero .subtitle {
+font-size: clamp(0.9rem, 2vw, 1.3rem);
+color: var(–text-dim);
+font-weight: 300;
+max-width: 600px;
+line-height: 1.6;
+}
+
+.scroll-hint {
+position: absolute;
+bottom: 2rem;
+color: var(–dim);
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.75rem;
+animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 0.3; transform: translateY(0); }
+50% { opacity: 1; transform: translateY(5px); }
+}
+
+/* ============================================ */
+/* COMPARISON SECTIONS */
+/* ============================================ */
+.comparison {
+display: grid;
+grid-template-columns: 1fr 1fr;
+min-height: 100vh;
+position: relative;
+}
+
+@media (max-width: 900px) {
+.comparison { grid-template-columns: 1fr; }
+}
+
+.side {
+padding: clamp(2rem, 4vw, 4rem);
+position: relative;
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+
+.side.evil {
+background: linear-gradient(135deg, var(–evil-dark) 0%, var(–bg) 100%);
+border-right: 1px solid #1f0810;
+}
+
+.side.good {
+background: linear-gradient(135deg, var(–bg) 0%, var(–good-dark) 100%);
+}
+
+.side-label {
+font-family: ‘JetBrains Mono’, monospace;
+font-weight: 800;
+font-size: 0.7rem;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+margin-bottom: 2rem;
+display: flex;
+align-items: center;
+gap: 0.75rem;
+}
+
+.side.evil .side-label { color: var(–evil-red); }
+.side.good .side-label { color: var(–good-green); }
+
+.side-label .dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+display: inline-block;
+}
+
+.side.evil .dot { background: var(–evil-red); box-shadow: 0 0 10px var(–evil-red); }
+.side.good .dot { background: var(–good-green); box-shadow: 0 0 10px var(–good-green); }
+
+.section-title {
+font-family: ‘Outfit’, sans-serif;
+font-weight: 900;
+font-size: clamp(1.5rem, 3vw, 2.5rem);
+margin-bottom: 0.5rem;
+line-height: 1.1;
+}
+
+.section-subtitle {
+color: var(–text-dim);
+font-weight: 300;
+font-size: 0.95rem;
+margin-bottom: 2rem;
+line-height: 1.5;
+}
+
+/* ============================================ */
+/* FLOW DIAGRAMS */
+/* ============================================ */
+.flow {
+display: flex;
+flex-direction: column;
+gap: 0;
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.75rem;
+}
+
+.flow-node {
+padding: 0.75rem 1rem;
+border-radius: 6px;
+position: relative;
+border: 1px solid;
+transition: all 0.3s ease;
+}
+
+.flow-node:hover {
+transform: translateX(4px);
+}
+
+.flow-node .node-name {
+font-weight: 700;
+font-size: 0.85rem;
+margin-bottom: 0.25rem;
+}
+
+.flow-node .node-detail {
+font-weight: 300;
+font-size: 0.65rem;
+opacity: 0.7;
+}
+
+.side.evil .flow-node {
+border-color: #2a1015;
+background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
+color: #cc8888;
+}
+
+.side.evil .flow-node .node-name { color: var(–evil-red); }
+
+.side.good .flow-node {
+border-color: #0a2a15;
+background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+color: #88cc99;
+}
+
+.side.good .flow-node .node-name { color: var(–good-green); }
+
+.flow-arrow {
+display: flex;
+align-items: center;
+justify-content: center;
+height: 28px;
+position: relative;
+}
+
+.flow-arrow::before {
+content: ‘’;
+position: absolute;
+width: 2px;
+height: 100%;
+left: 50%;
+transform: translateX(-50%);
+}
+
+.side.evil .flow-arrow::before { background: #2a1015; }
+.side.good .flow-arrow::before { background: #0a2a15; }
+
+.flow-arrow span {
+font-size: 0.6rem;
+padding: 0 0.5rem;
+position: relative;
+z-index: 1;
+}
+
+.side.evil .flow-arrow span { color: #661122; background: var(–bg); }
+.side.good .flow-arrow span { color: #116633; background: var(–bg); }
+
+/* Money/toll nodes */
+.flow-node.toll {
+border-color: #4a3000;
+background: linear-gradient(135deg, #1a1200 0%, #0d0a00 100%);
+}
+
+.flow-node.toll .node-name { color: #ffaa00; }
+.flow-node.toll .node-detail { color: #aa8833; }
+
+.flow-node.toll::after {
+content: ‘$’;
+position: absolute;
+right: 10px;
+top: 50%;
+transform: translateY(-50%);
+font-size: 1.2rem;
+color: #ffaa0044;
+font-weight: 800;
+}
+
+/* gmem highlight */
+.flow-node.gmem {
+border-color: var(–orange);
+border-style: dashed;
+background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+}
+
+.flow-node.gmem .node-name { color: var(–orange); }
+.flow-node.gmem .node-detail { color: #cc8844; }
+
+/* ============================================ */
+/* DIVIDER */
+/* ============================================ */
+.divider {
+position: absolute;
+left: 50%;
+top: 0;
+bottom: 0;
+width: 1px;
+background: linear-gradient(to bottom, transparent, var(–dim), transparent);
+z-index: 10;
+}
+
+.divider-label {
+position: absolute;
+left: 50%;
+top: 50%;
+transform: translate(-50%, -50%);
+background: var(–bg);
+padding: 0.5rem 1rem;
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.65rem;
+color: var(–dim);
+letter-spacing: 0.15em;
+z-index: 11;
+white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+.divider, .divider-label { display: none; }
+}
+
+/* ============================================ */
+/* STATS SECTION */
+/* ============================================ */
+.stats {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 1px;
+background: #1a1a1f;
+margin: 0;
+}
+
+.stat {
+padding: 2.5rem 2rem;
+text-align: center;
+background: #0a0a0c;
+}
+
+.stat .number {
+font-family: ‘JetBrains Mono’, monospace;
+font-weight: 800;
+font-size: clamp(2rem, 4vw, 3.5rem);
+line-height: 1;
+margin-bottom: 0.5rem;
+}
+
+.stat .number.evil { color: #ff2244; text-shadow: 0 0 20px #ff224444; }
+.stat .number.good { color: #4de88a; text-shadow: 0 0 20px #4de88a44; }
+.stat .number.orange { color: #f07a2e; text-shadow: 0 0 20px #f07a2e44; }
+
+.stat .label {
+font-size: 0.8rem;
+color: var(–text-dim);
+font-weight: 300;
+}
+
+/* ============================================ */
+/* BUS COMPARISON */
+/* ============================================ */
+.bus-section {
+padding: clamp(3rem, 5vw, 6rem) clamp(2rem, 4vw, 4rem);
+max-width: 1200px;
+margin: 0 auto;
+}
+
+.bus-section h2 {
+font-family: ‘JetBrains Mono’, monospace;
+font-weight: 800;
+font-size: clamp(1.5rem, 3vw, 2.5rem);
+text-align: center;
+margin-bottom: 1rem;
+}
+
+.bus-section .bus-subtitle {
+text-align: center;
+color: var(–text-dim);
+font-weight: 300;
+margin-bottom: 3rem;
+max-width: 700px;
+margin-left: auto;
+margin-right: auto;
+line-height: 1.6;
+}
+
+/* Traditional bus diagram */
+.bus-diagram {
+background: var(–bg2);
+border: 1px solid var(–dimmer);
+border-radius: 8px;
+padding: 2rem;
+margin-bottom: 3rem;
+position: relative;
+overflow: hidden;
+}
+
+.bus-diagram h3 {
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.8rem;
+letter-spacing: 0.15em;
+margin-bottom: 1.5rem;
+}
+
+.bus-diagram.evil h3 { color: var(–evil-red); }
+.bus-diagram.good h3 { color: var(–good-green); }
+
+.bus-tracks {
+display: flex;
+gap: 1rem;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+.bus-track {
+width: 80px;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 0.25rem;
+}
+
+.bus-track-box {
+width: 70px;
+height: 50px;
+border-radius: 4px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.55rem;
+font-weight: 700;
+text-align: center;
+line-height: 1.2;
+}
+
+.bus-track-label {
+font-size: 0.6rem;
+color: var(–text-dim);
+font-family: ‘JetBrains Mono’, monospace;
+}
+
+/* Evil track colors */
+.bus-diagram.evil .bus-track-box {
+border: 1px solid #2a1015;
+background: #150810;
+color: #cc8888;
+}
+
+.bus-diagram.evil .bus-track-box.send {
+border-color: #4a3000;
+background: #1a1200;
+color: #ddaa44;
+}
+
+.bus-diagram.evil .bus-track-box.master {
+border-color: #661122;
+background: #2a0810;
+color: var(–evil-red);
+}
+
+/* Good track colors */
+.bus-diagram.good .bus-track-box {
+border: 1px solid #0a2a15;
+background: #081508;
+color: #88cc99;
+}
+
+.bus-diagram.good .bus-track-box.gmem-node {
+border: 1px dashed var(–orange);
+background: #1a0f05;
+color: var(–orange);
+}
+
+.bus-diagram.good .bus-track-box.master {
+border-color: #116633;
+background: #082a10;
+color: var(–good-green);
+}
+
+/* Connection lines */
+.bus-connections {
+margin-top: 1rem;
+padding-top: 1rem;
+border-top: 1px solid var(–dimmer);
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.6rem;
+color: var(–text-dim);
+text-align: center;
+line-height: 2;
+}
+
+.bus-connections .route {
+display: inline-block;
+padding: 0.2rem 0.6rem;
+margin: 0.15rem;
+border-radius: 3px;
+font-size: 0.55rem;
+}
+
+.bus-diagram.evil .route {
+background: #1a0810;
+border: 1px solid #2a1015;
+color: #aa6666;
+}
+
+.bus-diagram.good .route {
+background: #0a1508;
+border: 1px solid #0a2a15;
+color: #66aa77;
+}
+
+.bus-diagram.good .route.gmem-route {
+border-color: var(–orange);
+border-style: dashed;
+color: var(–orange);
+}
+
+/* ============================================ */
+/* FINAL BANNER */
+/* ============================================ */
+.finale {
+padding: clamp(4rem, 8vw, 8rem) 2rem;
+text-align: center;
+position: relative;
+overflow: hidden;
+}
+
+.finale::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0; right: 0; bottom: 0;
+background: radial-gradient(ellipse at center, var(–good-glow) 0%, transparent 60%);
+pointer-events: none;
+}
+
+.finale h2 {
+font-family: ‘JetBrains Mono’, monospace;
+font-weight: 800;
+font-size: clamp(2rem, 5vw, 4rem);
+color: var(–good-green);
+margin-bottom: 1.5rem;
+}
+
+.finale .manifesto {
+max-width: 650px;
+margin: 0 auto 2rem;
+font-size: 1.1rem;
+font-weight: 300;
+line-height: 1.8;
+color: var(–text-dim);
+}
+
+.finale .url {
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.85rem;
+color: var(–orange);
+padding: 1rem 2rem;
+border: 1px dashed var(–orange);
+border-radius: 6px;
+display: inline-block;
+background: #1a0f0522;
+letter-spacing: 0.02em;
+word-break: break-all;
+}
+
+.finale .install-label {
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.65rem;
+color: var(–dim);
+letter-spacing: 0.2em;
+text-transform: uppercase;
+margin-bottom: 0.5rem;
+}
+
+/* ============================================ */
+/* ANIMATIONS */
+/* ============================================ */
+.fade-in {
+opacity: 0;
+transform: translateY(20px);
+animation: fadeIn 0.8s ease forwards;
+}
+
+@keyframes fadeIn {
+to { opacity: 1; transform: translateY(0); }
+}
+
+.comparison:nth-child(2) .fade-in { animation-delay: 0.1s; }
+.comparison:nth-child(3) .fade-in { animation-delay: 0.15s; }
+.comparison:nth-child(4) .fade-in { animation-delay: 0.2s; }
+</style>
+
+</head>
+<body>
+
+<!-- ============================================ -->
+
+<!-- HERO -->
+
+<!-- ============================================ -->
+
+<section class="hero">
+  <h1 class="fade-in">
+    <span class="their">THEIR ARCHITECTURE</span>
+    <span class="vs">vs</span>
+    <span class="ours">OURS</span>
+  </h1>
+  <p class="subtitle fade-in">
+    How the plugin industry turned simple DSP math into a 
+    subscription-gated, driver-locked, platform-dependent prison.
+    And how JSFX + gmem[] sets you free.
+  </p>
+  <div class="scroll-hint">▼ scroll ▼</div>
+</section>
+
+<!-- ============================================ -->
+
+<!-- SECTION 1: PLUGIN LOADING -->
+
+<!-- ============================================ -->
+
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">PLUGIN ARCHITECTURE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Loading a Plugin</div>
+    <div class="section-subtitle fade-in">What happens when you open an effect in Logic, Ableton, Pro Tools</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">DAW Host Process</div>
+        <div class="node-detail">Scans VST/AU folders on launch (30-120 seconds)</div>
+      </div>
+      <div class="flow-arrow"><span>▼ loads binary</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Binary (.dll / .vst3 / .component)</div>
+        <div class="node-detail">Compiled C++, platform-specific, architecture-locked</div>
+      </div>
+      <div class="flow-arrow"><span>▼ calls home</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">License Server</div>
+        <div class="node-detail">iLok / NI / Waves / Arturia cloud auth check</div>
+      </div>
+      <div class="flow-arrow"><span>▼ if approved</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Subscription Check</div>
+        <div class="node-detail">Is your payment current? Did the company get acquired?</div>
+      </div>
+      <div class="flow-arrow"><span>▼ sandboxed</span></div>
+      <div class="flow-node">
+        <div class="node-name">Isolated Plugin Instance</div>
+        <div class="node-detail">Own memory space. Cannot see other plugins. Black box.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ audio buffer copy</span></div>
+      <div class="flow-node">
+        <div class="node-name">DAW Audio Engine</div>
+        <div class="node-detail">Copies buffers in and out. Adds latency per plugin.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Loading a Plugin</div>
+    <div class="section-subtitle fade-in">What happens when you open an LMS effect in Reaper</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Reaper</div>
+        <div class="node-detail">Reads a text file. That's it.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ interprets</span></div>
+      <div class="flow-node">
+        <div class="node-name">JSFX Source Code (.jsfx)</div>
+        <div class="node-detail">Human-readable text. Runs on any CPU, any OS.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ instant</span></div>
+      <div class="flow-node">
+        <div class="node-name">Live in the Audio Thread</div>
+        <div class="node-detail">No sandbox. No buffer copy. Zero latency. Just math.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- SECTION 2: INTER-PLUGIN COMMUNICATION -->
+
+<!-- ============================================ -->
+
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">PLUGIN COMMUNICATION</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Making Plugins Talk</div>
+    <div class="section-subtitle fade-in">Getting one plugin to react to another</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Plugin A (Track 1)</div>
+        <div class="node-detail">Compressor wants to duck on kick</div>
+      </div>
+      <div class="flow-arrow"><span>▼ audio send</span></div>
+      <div class="flow-node">
+        <div class="node-name">Create Aux Bus</div>
+        <div class="node-detail">Route audio from kick track to sidechain input</div>
+      </div>
+      <div class="flow-arrow"><span>▼ routing matrix</span></div>
+      <div class="flow-node">
+        <div class="node-name">DAW I/O Router</div>
+        <div class="node-detail">Configure inputs, outputs, bus assignments</div>
+      </div>
+      <div class="flow-arrow"><span>▼ buffer copy</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin B Sidechain Input</div>
+        <div class="node-detail">Receives audio copy (1 block latency minimum)</div>
+      </div>
+      <div class="flow-arrow"><span>▼ one direction only</span></div>
+      <div class="flow-node">
+        <div class="node-name">Result</div>
+        <div class="node-detail">One plugin reacts to one other plugin. Repeat for each pair.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Making Plugins Talk</div>
+    <div class="section-subtitle fade-in">Every LMS plugin can see every other LMS plugin</div>
+    <div class="flow fade-in">
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] — Shared Memory</div>
+        <div class="node-detail">One namespace. All LMS plugins read and write. Same audio block.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ instant read/write</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drumbanger (Track 1)</div>
+        <div class="node-detail">Writes: pad triggers, step position, pattern data, BPM</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone MIDI (Track 3)</div>
+        <div class="node-detail">Reads pad 13, outputs scale-locked MIDI to synth</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone FX (Track 5)</div>
+        <div class="node-detail">Reads pad 1, sidechains bass. No routing. No bus.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Result</div>
+        <div class="node-detail">Every plugin knows everything. Zero latency. Zero config.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- SECTION 3: SHARING SETTINGS -->
+
+<!-- ============================================ -->
+
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">SETTINGS & STATE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Copying Settings</div>
+    <div class="section-subtitle fade-in">Using the same effect configuration on two tracks</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance A</div>
+        <div class="node-detail">You dialed in a great sound</div>
+      </div>
+      <div class="flow-arrow"><span>▼ save preset</span></div>
+      <div class="flow-node">
+        <div class="node-name">Preset File (.fxp / .vstpreset)</div>
+        <div class="node-detail">Binary blob. Vendor-specific format. Sometimes XML.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ navigate folder</span></div>
+      <div class="flow-node">
+        <div class="node-name">File Browser</div>
+        <div class="node-detail">Find the preset. Different location per OS. Per plugin.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ load into new instance</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance B</div>
+        <div class="node-detail">Loaded. But now they're independent again. Change A ≠ change B.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Copying Settings</div>
+    <div class="section-subtitle fade-in">Every instance can see every other instance's state in real-time</div>
+    <div class="flow fade-in">
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] Registry</div>
+        <div class="node-detail">Every LMS plugin publishes its slider values to shared memory</div>
+      </div>
+      <div class="flow-arrow"><span>▼ browse</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance B — "Steal Settings"</div>
+        <div class="node-detail">Sees all running LMS instances. Click one. Done.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ or link</span></div>
+      <div class="flow-node">
+        <div class="node-name">Linked Mode</div>
+        <div class="node-detail">Change A = change B. Live. Both directions. No files.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- SECTION 4: SESSION MANAGEMENT -->
+
+<!-- ============================================ -->
+
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">SESSION MANAGEMENT</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Sharing a Session</div>
+    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Your DAW Project File</div>
+        <div class="node-detail">Contains references to every plugin by vendor ID</div>
+      </div>
+      <div class="flow-arrow"><span>▼ send to friend</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Missing Plugins</div>
+        <div class="node-detail">"Plugin X not found" — do they own it? Right version?</div>
+      </div>
+      <div class="flow-arrow"><span>▼ buy or pirate</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Install + License</div>
+        <div class="node-detail">Download 2GB. Activate iLok. Create account. Verify email.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ maybe works</span></div>
+      <div class="flow-node">
+        <div class="node-name">Platform Check</div>
+        <div class="node-detail">Wrong OS? Wrong architecture? Wrong DAW? Sorry.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Sharing a Session</div>
+    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">trap_starter.lms</div>
+        <div class="node-detail">A text file. Human readable. 2KB.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ send to friend</span></div>
+      <div class="flow-node">
+        <div class="node-name">Friend Has Reaper + LMS Suite</div>
+        <div class="node-detail">One ReaPack URL. Free. Any OS. Any CPU.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ run loader</span></div>
+      <div class="flow-node">
+        <div class="node-name">Entire Session Rebuilds</div>
+        <div class="node-detail">Tracks, plugins, patterns, FX chains, mix. Instant.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- STATS -->
+
+<!-- ============================================ -->
+
+<div class="stats">
+  <div class="stat">
+    <div class="number evil">$750</div>
+    <div class="label">Ableton Live Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$599</div>
+    <div class="label">Waves Mercury Bundle</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$9.99/mo</div>
+    <div class="label">Pro Tools Subscription</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$49/yr</div>
+    <div class="label">iLok Cloud License</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$60</div>
+    <div class="label">Reaper (forever)</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">LMS Plugin Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">Linux</div>
+  </div>
+  <div class="stat">
+    <div class="number orange">∞</div>
+    <div class="label">Yours forever</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- BUS ARCHITECTURE COMPARISON -->
+
+<!-- ============================================ -->
+
+<section class="bus-section">
+  <h2 class="fade-in">Signal <span style="color:var(--evil-red)">Routing</span> vs Signal <span style="color:var(--good-green)">Sharing</span></h2>
+  <p class="bus-subtitle fade-in">
+    Traditional DAWs route audio between tracks through buses — each connection is a separate 
+    audio path you have to build manually. LMS shares state through memory — every 
+    plugin already knows what every other plugin is doing.
+  </p>
+
+  <!-- Traditional routing -->
+
+  <div class="bus-diagram evil">
+    <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
+    <div class="bus-tracks">
+      <div class="bus-track">
+        <div class="bus-track-box">KICK</div>
+        <div class="bus-track-label">Track 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">SNARE</div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span></div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">SYNTH</div>
+        <div class="bus-track-label">Track 4</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">VERB<br>BUS</div>
+        <div class="bus-track-label">Aux 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">DELAY<br>BUS</div>
+        <div class="bus-track-label">Aux 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">DRUM<br>BUS</div>
+        <div class="bus-track-label">Bus 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box master">MASTER</div>
+        <div class="bus-track-label">Out</div>
+      </div>
+    </div>
+    <div class="bus-connections">
+      <span class="route">T1 → Bus1 (post)</span>
+      <span class="route">T2 → Bus1 (post)</span>
+      <span class="route">T1 → T3 SC (pre)</span>
+      <span class="route">T1 → Aux1 (send -12dB)</span>
+      <span class="route">T2 → Aux1 (send -6dB)</span>
+      <span class="route">T4 → Aux1 (send -18dB)</span>
+      <span class="route">T4 → Aux2 (send -10dB)</span>
+      <span class="route">Bus1 → Master</span>
+      <span class="route">T3 → Master</span>
+      <span class="route">T4 → Master</span>
+      <span class="route">Aux1 → Master</span>
+      <span class="route">Aux2 → Master</span>
+      <br>
+      <span style="color:#664444;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
+    </div>
+  </div>
+
+  <!-- LMS routing -->
+
+  <div class="bus-diagram good">
+    <h3>LMS: 6 TRACKS, SIDECHAIN + FX — ZERO ROUTING</h3>
+    <div class="bus-tracks">
+      <div class="bus-track">
+        <div class="bus-track-box">DRUM-<br>BANGER</div>
+        <div class="bus-track-label">Track 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>MIDI→<br>BASS</div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">SC pad 1</span></div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>MIDI→<br>SYNTH</div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">delay+flg</span></div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">CHAN<br>STRIP</div>
+        <div class="bus-track-label">Track 4</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box master">MATCH-<br>ERING</div>
+        <div class="bus-track-label">Master</div>
+      </div>
+    </div>
+    <div class="bus-connections">
+      <span class="route gmem-route">gmem[] — ALL PLUGINS SHARE STATE</span>
+      <br>
+      <span class="route">Drumbanger writes triggers → Drones read</span>
+      <span class="route">Pattern change → ALL tracks update</span>
+      <span class="route">Sidechain via gmem[] — no audio routing</span>
+      <br>
+      <span style="color:#448844;font-size:0.55rem;">0 manual routing connections. Drop plugin. Select pad. Done.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+
+<!-- MEMORY / RESOURCE USAGE -->
+
+<!-- ============================================ -->
+
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">MEMORY USAGE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">What's Eating Your RAM</div>
+    <div class="section-subtitle fade-in">Typical memory footprint of a "professional" production session</div>
+    <div class="flow fade-in">
+      <div class="flow-node toll">
+        <div class="node-name">DAW Runtime</div>
+        <div class="node-detail">Logic/Ableton: 800MB–1.5GB just sitting there idle</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Kontakt + Sample Libraries</div>
+        <div class="node-detail">2–8GB per instance. Multiple instances = goodbye RAM.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Serum / Omnisphere / Massive</div>
+        <div class="node-detail">200–500MB each. Wavetable synths preload everything.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Plugin GUIs</div>
+        <div class="node-detail">Each photorealistic knob = textures in VRAM. 50–200MB per plugin window.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">License Daemons</div>
+        <div class="node-detail">iLok, NI Service Center, Pace — running in background 24/7</div>
+      </div>
+      <div class="flow-arrow"><span>▼ total</span></div>
+      <div class="flow-node" style="border-color:#661122;background:#2a0810;">
+        <div class="node-name" style="color:var(--evil-red);font-size:1.2rem;">4–16 GB</div>
+        <div class="node-detail">For a medium session. Heavy sessions swap to disk. Fans spin. Beach ball.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">What's Eating Your RAM</div>
+    <div class="section-subtitle fade-in">Memory footprint of an entire LMS production session</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Reaper</div>
+        <div class="node-detail">~80MB base. Lean C++ app. Respects your computer.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drumbanger (16 samples loaded)</div>
+        <div class="node-detail">~15MB. Raw WAV in memory. No bloat. No GUI textures.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone MIDI + Drone FX (x4)</div>
+        <div class="node-detail">~2MB total. They're text files running math. That's it.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Channel Strip + Tape Echo + Spring Verb + Matchering</div>
+        <div class="node-detail">~3MB total. DSP algorithms. No sample libraries. No textures.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] shared state</div>
+        <div class="node-detail">~64KB. Numbers in memory. The entire inter-plugin mesh.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ total</span></div>
+      <div class="flow-node" style="border-color:#116633;background:#082a10;">
+        <div class="node-name" style="color:var(--good-green);font-size:1.2rem;">~100 MB</div>
+        <div class="node-detail">Full session. Drum machine + sequencer + 4 synth tracks + FX + master. On a 2017 Mac.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory stats row -->
+
+<div class="stats">
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">1.5 GB</div>
+    <div class="label">Logic Pro idle</div>
+  </div>
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">4–8 GB</div>
+    <div class="label">One Kontakt instance</div>
+  </div>
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">200 MB</div>
+    <div class="label">One plugin GUI</div>
+  </div>
+  <div class="stat">
+    <div class="number good" style="font-size:clamp(1.5rem,3vw,2.5rem);">~5 KB</div>
+    <div class="label">One JSFX plugin</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+
+<!-- LINUX + REAPER TIME TRAVEL -->
+
+<!-- ============================================ -->
+
+<section class="time-travel">
+  <div class="time-travel-inner">
+    <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
+    <h2>LINUX + REAPER =<br><span class="tt-highlight">YOUR COMPUTER JUST WORKS AGAIN</span></h2>
+    <p class="tt-text">
+      Remember when you turned on your computer and it was just... ready? 
+      Before the updates, the notifications, the license checks, the cloud sync, 
+      the "your startup disk is almost full," the spinning beach ball, 
+      the "please update your payment method"?
+    </p>
+    <p class="tt-text">
+      That computer still exists. It's the same hardware. Nothing broke. 
+      They just piled software on top of it until it couldn't breathe.
+    </p>
+
+```
+<div class="tt-timeline">
+  <div class="tt-era evil-era">
+    <div class="tt-year">YOUR MAC TODAY</div>
+    <div class="tt-items">
+      <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
+      <div class="tt-item bad">16 background processes you didn't ask for</div>
+      <div class="tt-item bad">4GB RAM used before you open anything</div>
+      <div class="tt-item bad">"Your system has run out of application memory"</div>
+      <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
+      <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
+      <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
+    </div>
+  </div>
+  <div class="tt-arrow">→ install Linux →</div>
+  <div class="tt-era good-era">
+    <div class="tt-year">SAME MACHINE + LINUX</div>
+    <div class="tt-items">
+      <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
+      <div class="tt-item good-item">300MB RAM used at idle</div>
+      <div class="tt-item good-item">Reaper opens in under 1 second</div>
+      <div class="tt-item good-item">Full LMS session: ~100MB total</div>
+      <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
+      <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
+      <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
+    </div>
+  </div>
+</div>
+
+<div class="tt-punchline">
+  Your 2017 machine isn't slow. It's been robbed.<br>
+  <span class="tt-small">Take it back.</span>
+</div>
+```
+
+  </div>
+</section>
+
+<style>
+  .time-travel {
+    padding: clamp(4rem, 8vw, 8rem) clamp(1.5rem, 4vw, 4rem);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .time-travel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      radial-gradient(ellipse at 20% 30%, #0a1a3022 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 70%, var(--good-glow) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .time-travel-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative;
+    text-align: center;
+  }
+
+  .tt-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    padding: 0.4rem 1.2rem;
+    border-radius: 100px;
+    margin-bottom: 2rem;
+  }
+
+  .time-travel h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(1.5rem, 4vw, 3rem);
+    line-height: 1.2;
+    margin-bottom: 2rem;
+    color: var(--text);
+  }
+
+  .tt-highlight {
+    color: var(--good-green);
+    text-shadow: 0 0 40px var(--good-glow);
+  }
+
+  .tt-text {
+    max-width: 650px;
+    margin: 0 auto 1.5rem;
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .tt-timeline {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1.5rem;
+    align-items: center;
+    margin: 3rem 0;
+    text-align: left;
+  }
+
+  @media (max-width: 800px) {
+    .tt-timeline { grid-template-columns: 1fr; }
+    .tt-arrow { text-align: center; transform: rotate(90deg); }
+  }
+
+  .tt-year {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    margin-bottom: 1rem;
+  }
+
+  .evil-era .tt-year { color: var(--evil-red); }
+  .good-era .tt-year { color: var(--good-green); }
+
+  .tt-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .tt-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+
+  .tt-item.bad {
+    background: linear-gradient(135deg, #1a0810 0%, #0d0608 100%);
+    border: 1px solid #2a1015;
+    color: #cc8888;
+  }
+
+  .tt-item.bad::before {
+    content: '✕ ';
+    color: var(--evil-red);
+    font-weight: 800;
+  }
+
+  .tt-item.good-item {
+    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+    border: 1px solid #0a2a15;
+    color: #88cc99;
+  }
+
+  .tt-item.good-item::before {
+    content: '✓ ';
+    color: var(--good-green);
+    font-weight: 800;
+  }
+
+  .tt-arrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--orange);
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .tt-punchline {
+    margin-top: 3rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1.3rem, 3vw, 2rem);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .tt-small {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    font-size: 1rem;
+    color: var(--good-green);
+    margin-top: 0.5rem;
+    letter-spacing: 0.1em;
+  }
+</style>
+
+<!-- ============================================ -->
+
+<!-- FINALE -->
+
+<!-- ============================================ -->
+
+<section class="finale">
+  <h2 class="fade-in">THEY ARE TRYING TO<br>STEAL YOUR COMPUTER</h2>
+  <p class="manifesto fade-in">
+    The algorithms in our favorite software are decades old.
+    A mathematical model is a truth about the world, not a copyrightable product.
+    Our digital products are all Turing machines replicating our favorite physical machines, with math.
+    You do not have to stay a slave to subscription software.
+    Install Linux. Build your own tools. Believe in yourself.
+  </p>
+  <div class="install-label fade-in">INSTALL THE LMS SUITE</div>
+  <div class="url fade-in">
+    https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml
+  </div>
+</section>
+
+</body>
+</html>
