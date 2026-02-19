@@ -1305,9 +1305,362 @@
     margin-top: 8px;
     font-family: var(--da-mono);
   }
+
+  /* ============================================ */
+  /* TLDR INSTALL GUIDE */
+  /* ============================================ */
+  .tldr {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  .tldr-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .tldr-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    color: var(--good-green);
+    border: 1px solid var(--good-green);
+    border-radius: 4px;
+    padding: 0.3rem 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .tldr-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    color: #f5f5f5;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  .tldr-title span { color: var(--good-green); }
+
+  .tldr-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-top: 0.5rem;
+  }
+
+  .tldr-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .tldr-step {
+    background: var(--bg2);
+    border: 1px solid var(--dimmer);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .tldr-step:hover {
+    border-color: var(--dim);
+  }
+
+  .tldr-step-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tldr-step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--good-green);
+    background: var(--good-dark);
+    border: 1px solid #224422;
+    border-radius: 6px;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .tldr-step-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #eee;
+    letter-spacing: 0.02em;
+  }
+
+  .tldr-step-body {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    padding-left: 2.75rem;
+  }
+
+  .tldr-step-body a {
+    color: var(--good-green);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--good-green);
+  }
+
+  .tldr-step-body a:hover {
+    color: #fff;
+    border-color: #fff;
+  }
+
+  .tldr-step-body code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: #1a1a22;
+    border: 1px solid #2a2a34;
+    border-radius: 3px;
+    padding: 0.15rem 0.4rem;
+    color: var(--orange);
+    word-break: break-all;
+  }
+
+  .tldr-step-body .substep {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+  }
+
+  .tldr-step-body .substep-arrow {
+    color: var(--dim);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    margin-top: 0.15rem;
+  }
+
+  .tldr-url-box {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    background: #0a1a0a;
+    border: 1px dashed var(--good-green);
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--good-green);
+    word-break: break-all;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: all;
+  }
+
+  .tldr-url-box:hover {
+    background: #0f220f;
+  }
+
+  .tldr-warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.15);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--amber);
+    line-height: 1.5;
+  }
+
+  .tldr-warn-icon {
+    flex-shrink: 0;
+    font-size: 0.9rem;
+  }
+
+  .tldr-time {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+  }
+
+  .tldr-time span {
+    color: var(--good-green);
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
+
+<!-- ============================================ -->
+<!-- TLDR: INSTALL GUIDE -->
+<!-- ============================================ -->
+<div class="tldr">
+  <div class="tldr-header">
+    <div class="tldr-badge">TLDR</div>
+    <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
+    <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
+  </div>
+
+  <div class="tldr-steps">
+
+    <!-- Step 1 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">1</div>
+        <div class="tldr-step-title">DOWNLOAD REAPER</div>
+      </div>
+      <div class="tldr-step-body">
+        Go to <a href="https://www.reaper.fm/download.php" target="_blank">reaper.fm/download.php</a> and grab the installer for your OS (Windows, macOS, or Linux). It's a small download (~15 MB). Reaper has an unlimited free evaluation period &mdash; no credit card, no signup.
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">2</div>
+        <div class="tldr-step-title">INSTALL REAPER</div>
+      </div>
+      <div class="tldr-step-body">
+        Run the installer. Click next. That's it. Open Reaper when it's done.
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div><strong>Linux users:</strong> download the .tar.xz, extract it, run <code>sudo ./install-reaper.sh</code> and follow the prompts. Or just extract it anywhere and run the binary directly.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">3</div>
+        <div class="tldr-step-title">INSTALL REAPACK</div>
+      </div>
+      <div class="tldr-step-body">
+        ReaPack is the package manager that lets you install LMS (and hundreds of other free plugins) with one click.
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>Go to <a href="https://reapack.com" target="_blank">reapack.com</a> and download the file for your OS.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>In Reaper, go to <code>Options &rarr; Show REAPER resource path...</code> &mdash; this opens a folder.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Inside that folder, find (or create) the <code>UserPlugins</code> subfolder.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">d.</div>
+          <div>Drop the ReaPack file you downloaded into <code>UserPlugins</code>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">e.</div>
+          <div><strong>Restart Reaper.</strong> You should now see <code>Extensions &rarr; ReaPack</code> in the menu bar. If you don't, the file isn't in the right folder &mdash; double check.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">4</div>
+        <div class="tldr-step-title">ADD THE LMS REPOSITORY</div>
+      </div>
+      <div class="tldr-step-body">
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>In Reaper: <code>Extensions &rarr; ReaPack &rarr; Import repositories...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>Paste this URL into the box and click OK:</div>
+        </div>
+        <div class="tldr-url-box">https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml</div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">5</div>
+        <div class="tldr-step-title">INSTALL ALL LMS PLUGINS</div>
+      </div>
+      <div class="tldr-step-body">
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>Go to <code>Extensions &rarr; ReaPack &rarr; Browse packages...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>In the filter/search box at the top, type <code>LMS</code> to show only LMS packages.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Press <code>Ctrl+A</code> (or <code>Cmd+A</code> on Mac) to <strong>select all</strong>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">d.</div>
+          <div>Right-click &rarr; <strong>Install/update selected packages</strong>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">e.</div>
+          <div>Click <strong>Apply</strong> in the bottom-right. Let it download everything. Done.</div>
+        </div>
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div>To update later: just repeat this process. <code>Browse packages &rarr; select all LMS &rarr; install/update</code>. Or use <code>Extensions &rarr; ReaPack &rarr; Synchronize packages</code> to update everything at once.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">6</div>
+        <div class="tldr-step-title">SET UP THE LUA SCRIPTS</div>
+      </div>
+      <div class="tldr-step-body">
+        LMS includes Lua scripts for saving/loading plugin states and Drumbanger integration. You need to register them as Reaper Actions so you can use them.
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>In Reaper: <code>Actions &rarr; Show action list...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>Click <strong>New action... &rarr; Load ReaScript...</strong></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Navigate to your Reaper resource path &rarr; <code>Scripts</code> folder. The LMS scripts should already be there from the ReaPack install. Load each one:</div>
+        </div>
+        <div style="padding-left:1.5rem;margin-top:0.3rem">
+          <div style="margin-bottom:0.2rem"><code>lms_save.lua</code> &mdash; saves all LMS plugin states in your project</div>
+          <div style="margin-bottom:0.2rem"><code>lms_load.lua</code> &mdash; restores saved LMS plugin states</div>
+          <div style="margin-bottom:0.2rem"><code>lms_steal.lua</code> &mdash; copy settings between plugin instances</div>
+        </div>
+        <div class="substep" style="margin-top:0.5rem">
+          <div class="substep-arrow">d.</div>
+          <div>You can now run these from <code>Actions &rarr; Show action list</code> by searching "lms". Optionally, assign keyboard shortcuts to them for fast access.</div>
+        </div>
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div><strong>Drumbanger users:</strong> The Drumbanger-related scripts handle pattern save/load and MIDI routing. Load them the same way. They'll appear in your Actions list ready to assign to toolbar buttons or hotkeys.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="tldr-time">TOTAL TIME: <span>~3 MINUTES</span> &mdash; ZERO ACCOUNTS &mdash; ZERO DOLLARS &mdash; WORKS ON EVERY OS</div>
+</div>
 
 <!-- ============================================ -->
 <!-- HERO -->
