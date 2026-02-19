@@ -376,10 +376,10 @@ function sgate_proc(x) local(ax, gate_gain) (
   ) : (
     this.env = this.rel * this.env + (1-this.rel) * ax;
   );
-  this.env > 0.001 ? ( gate_gain = 1.0; )
-  : this.env < 0.0002 ? ( gate_gain = 0.0; )
+  this.env > 0.01 ? ( gate_gain = 1.0; )
+  : this.env < 0.002 ? ( gate_gain = 0.0; )
   : (
-    gate_gain = (this.env - 0.0002) / 0.0008;
+    gate_gain = (this.env - 0.002) / 0.008;
     gate_gain = gate_gain * gate_gain * (3.0 - 2.0 * gate_gain);
   );
   x * gate_gain;
