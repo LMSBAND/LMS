@@ -34,17 +34,20 @@ for f in "$SCRIPT_DIR"/lms_drumbanger.jsfx \
     fi
 done
 
-# Copy shared DSP kernel (required by all LMS plugins)
-cp "$SCRIPT_DIR/lms_core.jsfx-inc" "$HOME/.config/REAPER/Effects/lms_core.jsfx-inc"
-echo "  Copied lms_core.jsfx-inc → Effects/"
+# Symlink shared DSP kernel (required by all LMS plugins)
+# Symlinks mean edits in ~/LMS/ are instantly live in REAPER — no re-install needed
+rm -f "$HOME/.config/REAPER/Effects/lms_core.jsfx-inc"
+ln -s "$SCRIPT_DIR/lms_core.jsfx-inc" "$HOME/.config/REAPER/Effects/lms_core.jsfx-inc"
+echo "  Linked lms_core.jsfx-inc → Effects/"
 
-# Copy all other JSFX plugins (channel strip, distressor, etc.)
+# Symlink all other JSFX plugins (channel strip, distressor, amp suite, etc.)
 for f in "$SCRIPT_DIR"/lms_*.jsfx "$SCRIPT_DIR"/matchering_*.jsfx; do
     [ -f "$f" ] || continue
     base=$(basename "$f")
-    [ "$base" = "lms_drumbanger.jsfx" ] && continue  # already copied above
-    cp "$f" "$HOME/.config/REAPER/Effects/$base"
-    echo "  Copied $base → Effects/"
+    [ "$base" = "lms_drumbanger.jsfx" ] && continue  # already linked above
+    rm -f "$HOME/.config/REAPER/Effects/$base"
+    ln -s "$f" "$HOME/.config/REAPER/Effects/$base"
+    echo "  Linked $base → Effects/"
 done
 
 # Copy service/rescan scripts (all scripts → DRUMBANGER/scripts/)

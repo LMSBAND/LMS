@@ -1,0 +1,1417 @@
+desc:LMS - The TRSOB v2 (Density-Aware Triple Rectifier)
+//tags: amp guitar mesa rectifier density-aware high-gain
+//author: LMS + Claude
+//version: 1.0
+//license: GPL-3.0
+import lms_core.jsfx-inc
+options:gmem=DrumBagger
+
+slider1:0<-24,24,0.1>-Input Level (dB)
+slider2:50<0,100,0.1>-Gain (%)
+slider3:2<0,2,1{Clean,Vintage,Modern}>-Channel
+slider4:50<0,100,1>-Bass (%)
+slider5:50<0,100,1>-Mid (%)
+slider6:50<0,100,1>-Treble (%)
+slider7:50<0,100,1>-Presence (%)
+slider8:50<0,100,1>-Master (%)
+slider9:0<0,1,1{Silicon,Tube}>-Rectifier
+slider10:0<0,1,1{Bold,Spongy}>-Bold/Spongy
+slider11:50<0,100,1>-Input Stage (%)
+slider12:50<0,100,1>-PSU Sag (%)
+slider13:0<-24,24,0.1>-Output Level (dB)
+slider14:0<0,1,1{Off,On}>-FX Bypass
+slider15:0<0,1,1{Off,On}>-Noise Gate
+// --- TAPE ECHO ---
+slider16:0<0,100,1>-Tape Echo Mix (%)
+slider17:50<0,100,1>-Echo Time (%)
+slider18:40<0,100,1>-Echo Feedback (%)
+
+@init
+
+// === CORE MATH ===
+function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
+
+function bq_init() ( this.b0=1; this.b1=0; this.b2=0; this.a1=0; this.a2=0; this.x1=0; this.x2=0; this.y1=0; this.y2=0; );
+function bq_set_lp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1-cs)/2*a0_inv; this.b1=(1-cs)*a0_inv; this.b2=(1-cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+function bq_set_hp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1+cs)/2*a0_inv; this.b1=-(1+cs)*a0_inv; this.b2=(1+cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+function bq_set_peak(freq, gain_db, q) local(a, w0, alpha, a0_inv) ( a=10^(gain_db/20); w0=2*$pi*freq/srate; alpha=sin(w0)/(2*q); a0_inv=1/(1+alpha/a); this.b0=(1+alpha*a)*a0_inv; this.b1=(-2*cos(w0))*a0_inv; this.b2=(1-alpha*a)*a0_inv; this.a1=this.b1; this.a2=(1-alpha/a)*a0_inv; );
+function bq_set_loshelf(freq, gain_db, q) local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv) ( a=10^(gain_db/40); w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); ap1=a+1; am1=a-1; beta=2*sqrt(a)*alpha; a0_inv=1/(ap1+am1*cs+beta); this.b0=a*(ap1-am1*cs+beta)*a0_inv; this.b1=2*a*(am1-ap1*cs)*a0_inv; this.b2=a*(ap1-am1*cs-beta)*a0_inv; this.a1=-2*(am1+ap1*cs)*a0_inv; this.a2=(ap1+am1*cs-beta)*a0_inv; );
+function bq_set_hishelf(freq, gain_db, q) local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv) ( a=10^(gain_db/40); w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); ap1=a+1; am1=a-1; beta=2*sqrt(a)*alpha; a0_inv=1/(ap1-am1*cs+beta); this.b0=a*(ap1+am1*cs+beta)*a0_inv; this.b1=-2*a*(am1+ap1*cs)*a0_inv; this.b2=a*(ap1+am1*cs-beta)*a0_inv; this.a1=2*(am1-ap1*cs)*a0_inv; this.a2=(ap1-am1*cs-beta)*a0_inv; );
+function bq_proc(x) local(o) ( o=this.b0*x + this.b1*this.x1 + this.b2*this.x2 - this.a1*this.y1 - this.a2*this.y2; this.x2=this.x1; this.x1=x; this.y2=this.y1; this.y1=o; o; );
+function dc_init() ( this.xp=0; this.yp=0; this.r=1-(20/srate); );
+function dc_proc(x) ( this.yp=x-this.xp+this.r*this.yp; this.xp=x; this.yp; );
+
+// === INPUT STAGE (grid physics — Mesa-specific) ===
+// Mesa input: 1M grid leak, 68k grid stopper, brighter than SVT/Marshall
+function input_stage_init() (
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1/(srate * 0.0005));
+  this.cap_drain_rate = exp(-1/(srate * 0.030));
+  this.input_lp.bq_init();
+  this.input_lp.bq_set_lp(5000, 0.55);  // brighter than Marshall (higher input Z)
+  this.cathode_shelf.bq_init();
+  this.cathode_shelf.bq_set_hishelf(1500, -1.5, 0.5);  // V1a fully bypassed = subtle shelf
+  this.peak_env = 0;
+  this.peak_att = exp(-1/(srate * 0.0002));
+  this.peak_rel = exp(-1/(srate * 0.050));
+);
+function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
+  loaded = this.input_lp.bq_proc(x);
+  loaded = x + intensity * (loaded - x);
+  loaded > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * loaded * 0.15 * intensity;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  biased = loaded - bias_shift;
+  grid_thresh = 1.0 - intensity * 0.85;
+  biased > grid_thresh ? (
+    conducted = grid_thresh + tanh_approx((biased - grid_thresh) * (1.0 + intensity * 3.0)) * (0.05 + intensity * 0.15);
+  ) : (
+    conducted = biased;
+  );
+  dry = conducted;
+  conducted = this.cathode_shelf.bq_proc(conducted);
+  conducted = dry + intensity * (conducted - dry);
+  abs(x) > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * abs(x);
+  ) : (
+    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * abs(x);
+  );
+  conducted;
+);
+
+// === PSU SAG (Mesa — rectifier type + bold/spongy interaction) ===
+// Silicon: stiff, fast. Tube: saggy, slow. Bold: full B+. Spongy: reduced B+.
+function psu_init() (
+  this.voltage = 1.0;
+  this.droop_amount = 0.0;
+  // defaults — overridden per-sample by rect/bold settings
+  this.att = exp(-1/(srate * 0.0005));
+  this.rel = exp(-1/(srate * 0.040));
+);
+function psu_proc(signal_level, sag_depth, rect_type, bold_spongy)
+  local(draw, max_droop, base_voltage)
+(
+  draw = signal_level * signal_level;
+  // Rectifier type changes sag character
+  rect_type == 1 ? (
+    // TUBE rectifier: slow attack, slow recovery, more sag
+    this.att = exp(-1/(srate * 0.003));
+    this.rel = exp(-1/(srate * 0.180));
+    max_droop = 0.22;
+  ) : (
+    // SILICON rectifier: near-instant, fast recovery, minimal sag
+    this.att = exp(-1/(srate * 0.0005));
+    this.rel = exp(-1/(srate * 0.040));
+    max_droop = 0.08;
+  );
+  draw > this.droop_amount ? (
+    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
+  ) : (
+    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
+  );
+  // Bold = full B+, Spongy = reduced B+ and more sag susceptibility
+  bold_spongy == 0 ? (
+    base_voltage = 1.0;
+  ) : (
+    base_voltage = 0.92;
+    max_droop *= 1.4;
+  );
+  this.voltage = base_voltage - this.droop_amount * max_droop * sag_depth;
+  this.voltage = max(0.65, min(base_voltage, this.voltage));
+  this.voltage;
+);
+
+// === 4-BAND HARMONIC DENSITY TRACKER (guitar-tuned) ===
+function hd_init() (
+  this.f_lo.bq_init(); this.f_lo.bq_set_lp(250, 0.7);
+  this.f_mid_lo.bq_init(); this.f_mid_lo.bq_set_lp(2000, 0.7);
+  this.f_mid_hi.bq_init(); this.f_mid_hi.bq_set_hp(250, 0.7);
+  this.f_hi.bq_init(); this.f_hi.bq_set_hp(2000, 0.7);
+  this.f_air.bq_init(); this.f_air.bq_set_hp(5000, 0.7);
+  this.env_lo=0; this.env_mid=0; this.env_hi=0; this.env_air=0; this.env_total=0;
+  this.att=exp(-1/(srate*0.002)); this.rel=exp(-1/(srate*0.080));
+  this.density=1.0; this.mid_density=0.0; this.hi_density=0.0; this.air_density=0.0;
+  this.smooth=exp(-1/(srate*0.030));
+);
+function hd_proc(x) local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total, raw, raw_mid, raw_hi, raw_air) (
+  lo=this.f_lo.bq_proc(x);
+  mid=this.f_mid_hi.bq_proc(this.f_mid_lo.bq_proc(x));
+  hi=this.f_hi.bq_proc(x);
+  air=this.f_air.bq_proc(x);
+  abs_lo=abs(lo); abs_mid=abs(mid); abs_hi=abs(hi); abs_air=abs(air); abs_total=abs(x);
+  abs_lo > this.env_lo ? ( this.env_lo=this.att*this.env_lo+(1-this.att)*abs_lo; ) : ( this.env_lo=this.rel*this.env_lo+(1-this.rel)*abs_lo; );
+  abs_mid > this.env_mid ? ( this.env_mid=this.att*this.env_mid+(1-this.att)*abs_mid; ) : ( this.env_mid=this.rel*this.env_mid+(1-this.rel)*abs_mid; );
+  abs_hi > this.env_hi ? ( this.env_hi=this.att*this.env_hi+(1-this.att)*abs_hi; ) : ( this.env_hi=this.rel*this.env_hi+(1-this.rel)*abs_hi; );
+  abs_air > this.env_air ? ( this.env_air=this.att*this.env_air+(1-this.att)*abs_air; ) : ( this.env_air=this.rel*this.env_air+(1-this.rel)*abs_air; );
+  abs_total > this.env_total ? ( this.env_total=this.att*this.env_total+(1-this.att)*abs_total; ) : ( this.env_total=this.rel*this.env_total+(1-this.rel)*abs_total; );
+  this.env_lo > 0.0001 ? ( raw=this.env_total/this.env_lo; raw=min(2.5,max(1.0,raw)); ) : ( raw=1.0; );
+  this.env_total > 0.0001 ? (
+    raw_mid=this.env_mid/this.env_total; raw_mid=min(1.0,max(0.0,raw_mid));
+    raw_hi=this.env_hi/this.env_total; raw_hi=min(1.0,max(0.0,raw_hi));
+    raw_air=this.env_air/this.env_total; raw_air=min(1.0,max(0.0,raw_air));
+  ) : ( raw_mid=0.0; raw_hi=0.0; raw_air=0.0; );
+  this.density=this.smooth*this.density+(1-this.smooth)*raw;
+  this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
+  this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
+  this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
+);
+
+// =========================================================================
+// === DENSITY-AWARE TRIODE (v2b — proven architecture) ===
+// =========================================================================
+function triode_init(hp_freq, lp_freq) (
+  this.hp.bq_init();
+  this.hp.bq_set_hp(hp_freq, 0.7);
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1/(srate * 0.0005));
+  this.cap_drain_rate = exp(-1/(srate * 0.030));
+  this.miller.bq_init();
+  this.miller.bq_set_lp(lp_freq, 0.6);
+  this.miller_base_freq = lp_freq;
+  this.last_miller_freq = lp_freq;
+  this.last_miller_q = 0.6;
+  this.air_shelf.bq_init();
+  this.air_shelf.bq_set_hishelf(3500, 0.0, 0.7);
+  this.last_air_cut = 0.0;
+  this.hd.hd_init();
+  this.dc.dc_init();
+  this.peak_env = 0;
+  this.peak_att = exp(-1/(srate * 0.0002));
+  this.peak_rel = exp(-1/(srate * 0.050));
+);
+function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
+  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
+(
+  b = this.hp.bq_proc(x);
+  b > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  b = b - bias_shift;
+  drive_boost = 1.0 + this.hd.mid_density * 0.4;
+  gain = (1.0 + drive * 4.0) * drive_boost;
+  b = b * gain;
+  this.hd.hd_proc(b);
+  p_ceil = pos_ceil * bplus;
+  n_ceil = neg_ceil * bplus;
+  b >= 0 ? (
+    b = tanh_approx(b * pos_hard) * p_ceil;
+  ) : (
+    b = tanh_approx(b * neg_hard) * n_ceil;
+  );
+  ax = abs(b);
+  ax > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
+  ) : (
+    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * ax;
+  );
+  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
+    gc_out = gc_thresh + tanh_approx((b - gc_thresh) * 3.0) * gc_amount;
+    b = gc_out;
+  );
+  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
+  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
+  lp_q = 0.6 + this.hd.hi_density * 0.35;
+  lp_q = max(0.6, min(0.95, lp_q));
+  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
+    this.miller.bq_set_lp(lp_freq, lp_q);
+    this.last_miller_freq = lp_freq;
+    this.last_miller_q = lp_q;
+  );
+  b = this.miller.bq_proc(b);
+  air_cut = -this.hd.air_density * 3.0;
+  air_cut = max(-3.0, min(0.0, air_cut));
+  abs(air_cut - this.last_air_cut) > 0.1 ? (
+    this.air_shelf.bq_set_hishelf(3500, air_cut, 0.7);
+    this.last_air_cut = air_cut;
+  );
+  b = this.air_shelf.bq_proc(b);
+  b = this.dc.dc_proc(b);
+  b;
+);
+
+// === CATHODE FOLLOWER (V3b — unity-gain buffer before tone stack) ===
+// NOT a gain stage. Low output Z, programme-dependent compression.
+// On loud signals: cathode bias rises, reducing gain — natural compressor.
+// Positive: soft clip (cathode current limiting). Negative: harder cutoff.
+function cathode_follower_init() (
+  this.hp.bq_init();
+  this.hp.bq_set_hp(10, 0.7);
+  this.dc.dc_init();
+  this.bias_env = 0;
+  this.bias_att = exp(-1/(srate * 0.002));
+  this.bias_rel = exp(-1/(srate * 0.080));
+  this.cf_lp.bq_init();
+  this.cf_lp.bq_set_lp(15000, 0.5);
+);
+function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
+  b = this.hp.bq_proc(x);
+  ax = abs(b);
+  ax > this.bias_env ? (
+    this.bias_env = this.bias_att * this.bias_env + (1-this.bias_att) * ax;
+  ) : (
+    this.bias_env = this.bias_rel * this.bias_env + (1-this.bias_rel) * ax;
+  );
+  bias_shift = this.bias_env * 0.3;  // up to 30% gain reduction
+  // Positive: soft clip (cathode current limiting)
+  b > 0.7 * bplus ? (
+    b = 0.7 * bplus + tanh_approx((b - 0.7 * bplus) * 2.0) * 0.25 * bplus;
+  );
+  // Negative: harder cutoff (cathode follower limitation)
+  b < -0.85 * bplus ? (
+    b = -0.85 * bplus;
+  );
+  b = b * (1.0 - bias_shift);
+  b = this.cf_lp.bq_proc(b);
+  b = this.dc.dc_proc(b);
+  b * 0.95;
+);
+
+// === MESA TONE STACK (passive, independent controls) ===
+// Higher mid frequency (750Hz vs Marshall 370Hz), less cross-coupling
+function mesa_tonestack_init() (
+  this.f_bass.bq_init();
+  this.f_mid.bq_init();
+  this.f_treb.bq_init();
+);
+function mesa_tonestack_set(bass, mid, treble) local(bass_db, mid_db, treb_db, bass_freq, treb_freq, mid_q) (
+  // Bass: 50-130Hz shelf, ±8dB
+  bass_freq = 50 + bass * 80;
+  bass_db = (bass - 0.5) * 16;
+  this.f_bass.bq_set_loshelf(bass_freq, bass_db, 0.55);
+  // Mid: 750Hz peak, ±8dB (higher than Marshall, more "vocal")
+  mid_q = 0.8 + mid * 1.2;
+  mid_db = (0.5 - mid) * 16;  // same sense as Marshall: mid is a CUT
+  // Less cross-coupling than Marshall (Mesa controls are more independent)
+  mid_db -= (bass - 0.5) * 1.5 + (treble - 0.5) * 1.2;
+  this.f_mid.bq_set_peak(750, mid_db, mid_q);
+  // Treble: 1200-2000Hz shelf, ±7dB
+  treb_freq = 1200 + treble * 800;
+  treb_db = (treble - 0.5) * 14;
+  this.f_treb.bq_set_hishelf(treb_freq, treb_db, 0.65);
+);
+function mesa_tonestack_proc(x) local(b) (
+  b = this.f_bass.bq_proc(x);
+  b = this.f_mid.bq_proc(b);
+  b = this.f_treb.bq_proc(b);
+  b;
+);
+
+// === POWER AMP (6L6 push-pull, Mesa-specific) ===
+// More headroom than EL34, presence as resonant peak in NFB loop,
+// output transformer saturation + winding resonance
+function poweramp_init() (
+  this.hd.hd_init();
+  this.dc.dc_init();
+  this.pres_f.bq_init();
+  this.nfb_lp.bq_init();
+  this.nfb_lp.bq_set_lp(5500, 0.5);
+  this.last_nfb_freq = 5500;
+  this.drive = 0;
+  this.xfmr_lp = 0;
+  // Transformer winding resonance (subtle 4.5kHz peak)
+  this.xfmr_res.bq_init();
+  this.xfmr_res.bq_set_peak(4500, 2.0, 2.5);
+);
+function poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
+  this.drive = drive;
+  // Mesa presence: resonant peak in NFB loop (not a shelf)
+  pres_freq = 3000 + presence * 4000;
+  pres_db = presence * 10;
+  pres_q = 1.5 + presence * 1.5;
+  this.pres_f.bq_set_peak(pres_freq, pres_db, pres_q);
+);
+function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
+  b = x * (1.0 + this.drive * 2.0);
+  this.hd.hd_proc(b);
+  // 6L6 push-pull — more headroom than EL34, brighter character
+  push = b > 0 ? b : 0;
+  push = tanh_approx(push * 1.3) * bplus;
+  pull = b < 0 ? -b : 0;
+  pull = tanh_approx(pull * 1.28) * bplus;  // slight mismatch
+  out = push - pull;
+  // Output transformer saturation — density-driven low-freq core loading
+  // Smaller guitar transformer = more sensitive than SVT, saturates earlier
+  xfmr_sat = this.hd.env_lo;
+  xfmr_sat = min(1.0, xfmr_sat * 2.5);
+  xfmr_sat > 0.05 ? (
+    this.xfmr_lp = this.xfmr_lp * 0.985 + out * 0.015;  // ~100Hz one-pole LP
+    lo_content = this.xfmr_lp;
+    hi_content = out - lo_content;
+    lo_saturated = tanh_approx(lo_content * (1.0 + xfmr_sat * 1.2))
+                   / (1.0 + xfmr_sat * 0.25);
+    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
+    out = lo_final + hi_content;
+  );
+  // Transformer winding resonance
+  out = this.xfmr_res.bq_proc(out);
+  // NFB: Mesa has LESS NFB than Fender/SVT — more power amp character
+  nfb_freq = 5500 - (this.hd.density - 1.0) * 700;
+  nfb_freq = max(3500, min(6500, nfb_freq));
+  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
+    this.nfb_lp.bq_set_lp(nfb_freq, 0.5);
+    this.last_nfb_freq = nfb_freq;
+  );
+  out = this.nfb_lp.bq_proc(out);
+  out = this.pres_f.bq_proc(out);
+  out = this.dc.dc_proc(out);
+  out * 0.88;
+);
+
+// === SOFT GATE ===
+function sgate_init() (
+  this.env = 0;
+  this.att = exp(-1/(srate * 0.0005));
+  this.rel = exp(-1/(srate * 0.150));
+);
+function sgate_proc(x) local(ax, gate_gain) (
+  ax = abs(x);
+  ax > this.env ? (
+    this.env = this.att * this.env + (1-this.att) * ax;
+  ) : (
+    this.env = this.rel * this.env + (1-this.rel) * ax;
+  );
+  this.env > 0.001 ? ( gate_gain = 1.0; )
+  : this.env < 0.0002 ? ( gate_gain = 0.0; )
+  : (
+    gate_gain = (this.env - 0.0002) / 0.0008;
+    gate_gain = gate_gain * gate_gain * (3.0 - 2.0 * gate_gain);
+  );
+  x * gate_gain;
+);
+
+// === TAPE ECHO ===
+function tape_echo_init() (
+  this.buf_base = 200000;
+  this.buf_len = (srate * 1.0)|0;
+  this.buf_len = min(this.buf_len, 48000);
+  this.write_pos = 0;
+  this.fb_lp.bq_init();
+  this.fb_lp.bq_set_lp(3000, 0.5);
+  this.fb_val = 0;
+  this.wow_phase = 0;
+  memset(this.buf_base, 0, 50000);
+);
+function tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos, wow, delayed, wet, frac, idx, s0, s1) (
+  delay_samps = (0.050 + time * 0.550) * srate;
+  delay_samps = min(delay_samps, this.buf_len - 2);
+  this.wow_phase += 0.7 / srate;
+  this.wow_phase >= 1.0 ? this.wow_phase -= 1.0;
+  wow = sin(this.wow_phase * 2.0 * $pi) * 0.002 * srate;
+  read_pos = this.write_pos - delay_samps + wow;
+  read_pos < 0 ? read_pos += this.buf_len;
+  idx = floor(read_pos);
+  frac = read_pos - idx;
+  idx < 0 ? idx += this.buf_len;
+  s0 = (this.buf_base)[idx % this.buf_len];
+  s1 = (this.buf_base)[(idx + 1) % this.buf_len];
+  delayed = s0 + frac * (s1 - s0);
+  this.fb_val = this.fb_lp.bq_proc(delayed);
+  (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
+  this.write_pos += 1;
+  this.write_pos >= this.buf_len ? this.write_pos = 0;
+  x + delayed * mix;
+);
+
+// === INSTANCES ===
+inp.input_stage_init();
+input_hp.bq_init();
+input_hp.bq_set_hp(50, 0.7);  // Mesa input HP — slightly higher than SVT, lower than Marshall
+
+// RF filter — 12kHz LP before everything
+rf_filter.bq_init();
+rf_filter.bq_set_lp(12000, 0.5);
+
+// Bright cap on gain pot — gain-dependent treble boost
+bright_cap.bq_init();
+bright_cap.bq_set_hishelf(2000, 0.0, 0.7);
+
+// V1a: input gain stage — 12AX7, fully bypassed cathode (25uF/1.5k)
+// 0.022uF × 100k grid leak = ~72Hz HP. Harder positive clip, asymmetric.
+v1a.triode_init(68, 8000);
+
+// V2a: second stage — 12AX7, PARTIALLY bypassed cathode (0.68uF/2.7k = 86Hz)
+// Below 86Hz, gain drops ~12dB. THE MESA TIGHTNESS mechanism.
+v2a.triode_init(72, 7500);
+// V2a cathode bypass HP — models the partially bypassed cathode
+v2a_cathode_hp.bq_init();
+v2a_cathode_hp.bq_set_hp(86, 0.5);
+
+// V2b: cold-bias stage — 12AX7, unbypassed (2.7k, no cap)
+// Extreme asymmetry, massive 2nd harmonics, "brown" character
+v2b.triode_init(72, 7000);
+
+// Cathode follower (V3b) — before tone stack
+cf.cathode_follower_init();
+
+// DC block after preamp (V2b asymmetry creates DC offset)
+preamp_dc.dc_init();
+
+// Tone stack
+ts.mesa_tonestack_init();
+ts.mesa_tonestack_set(0.5, 0.5, 0.5);
+
+// V4a: recovery after tone stack — clean-ish, restores level
+v4a.triode_init(16, 8000);
+
+// PSU
+psu.psu_init();
+
+// Power amp
+pa.poweramp_init();
+pa.poweramp_set(0.5, 0.5);
+
+// Noise gate
+gate.sgate_init();
+
+// Tape echo
+echo.tape_echo_init();
+
+// Mesa Recto 4x12 V30 cabinet
+// HP → low resonance → low-mid scoop → V30 dip → upper-mid bark → V30 cone breakup → LP → closed-back resonance
+cab1.bq_init(); cab1.bq_set_hp(85, 0.58);
+cab2.bq_init(); cab2.bq_set_peak(105, 2.5, 2.2);     // cabinet resonance
+cab3.bq_init(); cab3.bq_set_peak(350, -2.0, 0.8);     // low-mid scoop (closed-back)
+cab4.bq_init(); cab4.bq_set_peak(800, -3.0, 0.7);     // V30 voice coil dip
+cab5.bq_init(); cab5.bq_set_peak(2200, 2.0, 1.5);     // upper-mid "bark" (Mesa Recto signature)
+cab6.bq_init(); cab6.bq_set_peak(4000, 6.0, 1.6);     // V30 cone breakup peak (THE V30 sound)
+cab7.bq_init(); cab7.bq_set_lp(7000, 0.68);            // air rolloff
+cab_res.bq_init(); cab_res.bq_set_peak(120, 1.5, 3.0); // closed-back chest punch
+
+gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
+input_intensity = 0.5; sag_depth = 0.5;
+channel = 2; rect_type = 0; bold_spongy = 0;
+gate_on = 0;
+fx_bypass = 0;
+echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
+
+  // ============================================================
+  // BROADCAST SYSTEM — Instance Registry
+  // ============================================================
+  BC_BASE = 100000;
+  BC_MY_TYPE = 15;
+  BC_SLOT_SIZE = 512;
+  BC_MAX_INST = 32;
+  BC_PARAM_COUNT = 18;
+  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
+  BC_STALE_TIMEOUT = 2;
+
+  bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
+  bc_my_slot = -1;
+  bc_follow_slot = -1;
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_panel_expanded = 0;
+  bc_page = 0;
+  bc_steal_mode = 0;
+  bc_instance_count = 0;
+  notice_show = 0;
+
+  BC_STALE_HB = 740000;
+  BC_STALE_CT = 740032;
+  i = 0;
+  loop(BC_MAX_INST,
+    BC_STALE_HB[i] = -1;
+    BC_STALE_CT[i] = 0;
+    i += 1;
+  );
+
+  bc_i = 0;
+  loop(BC_MAX_INST,
+    bc_my_slot < 0 ? (
+      sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+      sid = gmem[sb + 1];
+      (sid == 0 || sid == bc_my_id) ? (
+        bc_my_slot = bc_i;
+      );
+    );
+    bc_i += 1;
+  );
+
+  bc_my_slot >= 0 ? (
+    sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+    gmem[sb + 0] = 0;
+    gmem[sb + 1] = bc_my_id;
+    gmem[sb + 2] = BC_MY_TYPE;
+    gmem[sb + 3] = 0;
+    gmem[sb + 4] = BC_PARAM_COUNT;
+  );
+
+@slider
+in_level = 10 ^ (slider1 / 20);
+gain = slider2 / 100;
+channel = slider3;
+ts.mesa_tonestack_set(slider4/100, slider5/100, slider6/100);
+master = slider8 / 100;
+pa.poweramp_set(master, slider7/100);
+rect_type = slider9;
+bold_spongy = slider10;
+input_intensity = slider11 / 100;
+sag_depth = slider12 / 100;
+out_level = 10 ^ (slider13 / 20);
+fx_bypass = slider14;
+gate_on = slider15;
+echo_mix = slider16 / 100;
+echo_time = slider17 / 100;
+echo_feedback = slider18 / 100;
+
+// ============================================================
+// @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
+// ============================================================
+@block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+in_level = 10 ^ (slider1 / 20);
+gain = slider2 / 100;
+channel = slider3;
+ts.mesa_tonestack_set(slider4/100, slider5/100, slider6/100);
+master = slider8 / 100;
+pa.poweramp_set(master, slider7/100);
+rect_type = slider9;
+bold_spongy = slider10;
+input_intensity = slider11 / 100;
+sag_depth = slider12 / 100;
+out_level = 10 ^ (slider13 / 20);
+fx_bypass = slider14;
+gate_on = slider15;
+echo_mix = slider16 / 100;
+echo_time = slider17 / 100;
+echo_feedback = slider18 / 100;
+
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 1] != bc_my_id ? (
+    bc_my_id = floor(rand() * 1073741824) + 1;
+    bc_my_slot = -1;
+    bc_i = 0;
+    loop(BC_MAX_INST,
+      bc_my_slot < 0 ? (
+        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
+      );
+      bc_i += 1;
+    );
+    bc_my_slot >= 0 ? (
+      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+      gmem[sb + 0] = 0;
+      gmem[sb + 1] = bc_my_id;
+      gmem[sb + 2] = BC_MY_TYPE;
+      gmem[sb + 3] = bc_following;
+      gmem[sb + 4] = BC_PARAM_COUNT;
+    );
+  );
+);
+
+bc_my_slot >= 0 && bc_following > 0 ? (
+  bc_found_leader = 0;
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      gmem[lsb + 1] == bc_following ? (
+        bc_found_leader = 1;
+        bc_follow_slot = bc_scan;
+        lbase = lsb + 8;
+        slider1 = gmem[lbase + 0];
+        slider2 = gmem[lbase + 1];
+        slider3 = gmem[lbase + 2];
+        slider4 = gmem[lbase + 3];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
+        slider8 = gmem[lbase + 7];
+        slider9 = gmem[lbase + 8];
+        slider10 = gmem[lbase + 9];
+        slider11 = gmem[lbase + 10];
+        slider12 = gmem[lbase + 11];
+        slider13 = gmem[lbase + 12];
+        slider14 = gmem[lbase + 13];
+        slider15 = gmem[lbase + 14];
+        slider16 = gmem[lbase + 15];
+        slider17 = gmem[lbase + 16];
+        slider18 = gmem[lbase + 17];
+        bc_scan = BC_MAX_INST;
+      );
+    );
+    bc_scan += 1;
+  );
+  !bc_found_leader ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+bc_my_slot >= 0 && bc_steal_pending ? (
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+    gmem[lsb + 1] == bc_steal_target ? (
+      lbase = lsb + 8;
+      slider1 = gmem[lbase + 0];
+      slider2 = gmem[lbase + 1];
+      slider3 = gmem[lbase + 2];
+      slider4 = gmem[lbase + 3];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
+      slider8 = gmem[lbase + 7];
+      slider9 = gmem[lbase + 8];
+      slider10 = gmem[lbase + 9];
+      slider11 = gmem[lbase + 10];
+      slider12 = gmem[lbase + 11];
+      slider13 = gmem[lbase + 12];
+      slider14 = gmem[lbase + 13];
+      slider15 = gmem[lbase + 14];
+      slider16 = gmem[lbase + 15];
+      slider17 = gmem[lbase + 16];
+      slider18 = gmem[lbase + 17];
+      bc_scan = BC_MAX_INST;
+    );
+    bc_scan += 1;
+  );
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_steal_mode = 0;
+);
+
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 3] = bc_following;
+  pbase = sb + 8;
+  gmem[pbase + 0] = slider1;
+  gmem[pbase + 1] = slider2;
+  gmem[pbase + 2] = slider3;
+  gmem[pbase + 3] = slider4;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
+  gmem[pbase + 7] = slider8;
+  gmem[pbase + 8] = slider9;
+  gmem[pbase + 9] = slider10;
+  gmem[pbase + 10] = slider11;
+  gmem[pbase + 11] = slider12;
+  gmem[pbase + 12] = slider13;
+  gmem[pbase + 13] = slider14;
+  gmem[pbase + 14] = slider15;
+  gmem[pbase + 15] = slider16;
+  gmem[pbase + 16] = slider17;
+  gmem[pbase + 17] = slider18;
+);
+
+bc_instance_count = 0;
+bc_scan = 0;
+loop(BC_MAX_INST,
+  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+  tsid = gmem[tsb + 1];
+  tsid > 0 ? (
+    bc_scan == bc_my_slot ? (
+      bc_instance_count += 1;
+    ) : (
+      tshb = gmem[tsb + 0];
+      tshb == BC_STALE_HB[bc_scan] ? (
+        BC_STALE_CT[bc_scan] += samplesblock / srate;
+        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
+          gmem[tsb + 1] = 0;
+          BC_STALE_CT[bc_scan] = 0;
+        );
+      ) : (
+        BC_STALE_HB[bc_scan] = tshb;
+        BC_STALE_CT[bc_scan] = 0;
+        bc_instance_count += 1;
+      );
+    );
+  );
+  bc_scan += 1;
+);
+
+@sample
+mono = (spl0 + spl1) * 0.5 * in_level;
+
+// 0. RF filter (removes ultrasonic content before gain stages)
+mono = rf_filter.bq_proc(mono);
+
+// 1. Input stage (grid physics)
+input_intensity > 0.0 ? (
+  mono = inp.input_stage_proc(mono, input_intensity);
+);
+
+// 2. Input coupling cap
+mono = input_hp.bq_proc(mono);
+
+// 3. PSU sag (rectifier type + bold/spongy interaction)
+bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth, rect_type, bold_spongy);
+
+// 4. Bright cap — gain-dependent treble boost
+// At low gain: +4dB at 2kHz (picks bypass pot). At high gain: swamped.
+bright_db = (1.0 - gain) * (1.0 - gain) * 4.0;
+bright_cap.bq_set_hishelf(2000, bright_db, 0.7);
+mono = bright_cap.bq_proc(mono);
+
+// === CHANNEL ROUTING ===
+channel == 0 ? (
+  // ========================================
+  // CLEAN CHANNEL — single V1a, Fender-like
+  // ========================================
+  v1a_drive = gain * 0.50;
+  amp_out = v1a.triode_proc(mono, v1a_drive, bplus,
+    1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
+
+) : channel == 1 ? (
+  // ========================================
+  // VINTAGE — V1a → V2a → V2b (creamy lead)
+  // ========================================
+  v1a_drive = gain * 0.80;
+  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+    1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
+
+  // V2a cathode bypass HP: 0.68uF/2.7k = 86Hz. Lows get ~12dB less gain.
+  // Blend: 75% HP'd + 25% original (partial bypass, not full)
+  v2a_input = v2a_cathode_hp.bq_proc(v1a_out);
+  v2a_input = v1a_out * 0.25 + v2a_input * 0.75;
+
+  v2a_drive = gain * 0.70;
+  v2a_out = v2a.triode_proc(v2a_input, v2a_drive, bplus,
+    1.4, 1.1, 0.85, 1.05, 0.35, 0.12);
+
+  v2b_drive = gain * 0.60;
+  amp_out = v2b.triode_proc(v2a_out, v2b_drive, bplus,
+    2.0, 0.7, 0.55, 0.95, 0.25, 0.20);
+
+) : (
+  // ========================================
+  // MODERN — V1a → V2a → V2b (driven HARD)
+  // Wall of brown. Crushing chug. Maximum saturation.
+  // ========================================
+  v1a_drive = gain * 0.95;
+  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+    1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
+
+  v2a_input = v2a_cathode_hp.bq_proc(v1a_out);
+  v2a_input = v1a_out * 0.25 + v2a_input * 0.75;
+
+  v2a_drive = gain * 0.90;
+  v2a_out = v2a.triode_proc(v2a_input, v2a_drive, bplus,
+    1.4, 1.1, 0.85, 1.05, 0.35, 0.12);
+
+  v2b_drive = gain * 0.85;
+  amp_out = v2b.triode_proc(v2a_out, v2b_drive, bplus,
+    2.0, 0.7, 0.55, 0.95, 0.25, 0.20);
+);
+
+// DC block after preamp (V2b extreme asymmetry creates DC offset)
+channel > 0 ? (
+  amp_out = preamp_dc.dc_proc(amp_out);
+);
+
+// Cathode follower (V3b) — programme-dependent compression before tone stack
+channel > 0 ? (
+  amp_out = cf.cathode_follower_proc(amp_out, bplus);
+);
+
+// === TONE STACK ===
+amp_out = ts.mesa_tonestack_proc(amp_out);
+
+// === GAIN RECOVERY (V4a) ===
+// Clean: lighter recovery. Vintage/Modern: full recovery.
+channel == 0 ? (
+  amp_out *= 3.5;
+  v4a_drive = 0.10;
+) : (
+  amp_out *= 5.5;
+  v4a_drive = gain * 0.20;
+);
+amp_out = v4a.triode_proc(amp_out, v4a_drive, bplus,
+  1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
+
+// === POWER AMP (6L6 push-pull) ===
+amp_out *= master;
+amp_out = pa.poweramp_proc(amp_out, bplus);
+
+// === NOISE GATE ===
+gate_on == 1 ? (
+  amp_out = gate.sgate_proc(amp_out);
+);
+
+// === CABINET (Mesa Recto 4x12 V30) ===
+amp_out = cab1.bq_proc(amp_out);
+amp_out = cab2.bq_proc(amp_out);
+amp_out = cab3.bq_proc(amp_out);
+amp_out = cab4.bq_proc(amp_out);
+amp_out = cab5.bq_proc(amp_out);
+amp_out = cab6.bq_proc(amp_out);
+amp_out = cab7.bq_proc(amp_out);
+amp_out = cab_res.bq_proc(amp_out);
+
+// === TAPE ECHO ===
+fx_bypass == 0 ? (
+  echo_mix > 0 ? (
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+  );
+);
+
+amp_out *= out_level;
+spl0 = amp_out;
+spl1 = amp_out;
+
+
+@gfx 600 480
+// ============================================================================
+//  COLOR CONSTANTS
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, 44);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, 44, gfx_w, 2);
+
+// ============================================================================
+//  HELPER: draw_bar
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", 11);
+    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
+
+// ============================================================================
+//  HELPER: draw_panel
+// ============================================================================
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, 22);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + 22, pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_drawstr(title);
+);
+
+// ============================================================================
+//  HELPER: draw_toggle
+// ============================================================================
+function draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + 8, ty + 8, 7, 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + 8, ty + 8, 5, 1);
+  );
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", 11);
+  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + 80 &&
+    mouse_y >= ty && mouse_y <= ty + 16 ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ============================================================================
+//  HELPER: draw_mode_sel — clickable mode selector
+// ============================================================================
+function draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", 12);
+  gfx_x = mx + 5; gfx_y = my + floor((mh - 12) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - 82; gfx_y = my + floor((mh - 12) / 2);
+  val == 0 ? gfx_drawstr(v0);
+  val == 1 ? gfx_drawstr(v1);
+  val == 2 ? gfx_drawstr(v2);
+  val == 3 ? gfx_drawstr(v3);
+  val == 4 ? gfx_drawstr(v4);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % (vmax + 1);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = vmax;
+  );
+  val;
+);
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = 8;
+gap = 6;
+bar_h = 18;
+bar_sp = 21;
+col_w = 190;
+body_y = 50;
+
+// ============================================================================
+//  TITLE
+// ============================================================================
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", 22);
+gfx_x = 12; gfx_y = 10;
+gfx_drawstr("THE TRSOB v2");
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 12);
+gfx_x = 200; gfx_y = 18;
+gfx_drawstr("Density-Aware Triple Rectifier");
+
+// ============================================================================
+//  COL 1: PREAMP
+// ============================================================================
+c1x = margin;
+draw_panel(c1x, body_y, col_w, 26 + 9 * bar_sp, "PREAMP");
+cy = body_y + 26;
+_old = slider1; slider1 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider1, -24, 24, "Input dB", 1);
+slider1 != _old ? slider_automate(2^0);
+cy += bar_sp;
+_old = slider2; slider2 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider2, 0, 100, "Gain", 1);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+_old = slider3; slider3 = draw_mode_sel(c1x + 4, cy, col_w - 8, bar_h, slider3, 2, "Channel", "Clean", "Vintage", "Modern", "", "");
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+_old = slider9; slider9 = draw_toggle(c1x + 4, cy + 2, slider9, "Rectifier");
+slider9 != _old ? slider_automate(2^8);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = c1x + 100; gfx_y = cy + 3;
+slider9 == 0 ? gfx_drawstr("Silicon") : gfx_drawstr("Tube");
+cy += bar_sp;
+_old = slider10; slider10 = draw_toggle(c1x + 4, cy + 2, slider10, "Bold/Spongy");
+slider10 != _old ? slider_automate(2^9);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", 10);
+gfx_x = c1x + 110; gfx_y = cy + 3;
+slider10 == 0 ? gfx_drawstr("Bold") : gfx_drawstr("Spongy");
+cy += bar_sp;
+_old = slider11; slider11 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider11, 0, 100, "Input Stg", 1);
+slider11 != _old ? slider_automate(2^10);
+cy += bar_sp;
+_old = slider12; slider12 = draw_bar(c1x + 4, cy, col_w - 8, bar_h, slider12, 0, 100, "PSU Sag", 1);
+slider12 != _old ? slider_automate(2^11);
+
+// ============================================================================
+//  COL 2: TONE / POWER
+// ============================================================================
+c2x = margin + col_w + gap;
+draw_panel(c2x, body_y, col_w, 26 + 8 * bar_sp, "TONE / POWER");
+cy = body_y + 26;
+_old = slider4; slider4 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider4, 0, 100, "Bass", 1);
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+_old = slider5; slider5 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider5, 0, 100, "Mid", 1);
+slider5 != _old ? slider_automate(2^4);
+cy += bar_sp;
+_old = slider6; slider6 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider6, 0, 100, "Treble", 1);
+slider6 != _old ? slider_automate(2^5);
+cy += bar_sp;
+_old = slider7; slider7 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider7, 0, 100, "Presence", 1);
+slider7 != _old ? slider_automate(2^6);
+cy += bar_sp;
+_old = slider8; slider8 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider8, 0, 100, "Master", 1);
+slider8 != _old ? slider_automate(2^7);
+cy += bar_sp;
+_old = slider13; slider13 = draw_bar(c2x + 4, cy, col_w - 8, bar_h, slider13, -24, 24, "Output dB", 1);
+slider13 != _old ? slider_automate(2^12);
+
+// ============================================================================
+//  COL 3: EFFECTS
+// ============================================================================
+c3x = margin + (col_w + gap) * 2;
+draw_panel(c3x, body_y, col_w, 26 + 7 * bar_sp, "EFFECTS");
+cy = body_y + 26;
+_old = slider14; slider14 = draw_toggle(c3x + 4, cy + 2, slider14, "FX Bypass");
+slider14 != _old ? slider_automate(2^13);
+cy += bar_sp;
+_old = slider15; slider15 = draw_toggle(c3x + 4, cy + 2, slider15, "Noise Gate");
+slider15 != _old ? slider_automate(2^14);
+cy += bar_sp;
+_old = slider16; slider16 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider16, 0, 100, "Echo Mix", 1);
+slider16 != _old ? slider_automate(2^15);
+cy += bar_sp;
+_old = slider17; slider17 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider17, 0, 100, "Echo Time", 1);
+slider17 != _old ? slider_automate(2^16);
+cy += bar_sp;
+_old = slider18; slider18 = draw_bar(c3x + 4, cy, col_w - 8, bar_h, slider18, 0, 100, "Echo FB", 1);
+slider18 != _old ? slider_automate(2^17);
+
+// ============================================================================
+//  INSTANCE MANAGER PANEL
+// ============================================================================
+  bc_rows_per_page = 5;
+  bc_panel_h = bc_panel_expanded ? (30 + bc_rows_per_page * 14 + 18) : 30;
+  bc_panel_y = gfx_h - bc_panel_h;
+
+  gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+  gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(0, bc_panel_y, gfx_w, 1);
+
+  gfx_setfont(1, "Arial", 11);
+  gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+  gfx_x = 8; gfx_y = bc_panel_y + 8;
+  bc_my_slot >= 0 ? (
+    gfx_drawstr("I");
+    gfx_drawnumber(bc_my_slot + 1, 0);
+    gfx_drawstr("/");
+    gfx_drawnumber(bc_instance_count, 0);
+  ) : (
+    gfx_drawstr("--");
+  );
+
+  bc_following > 0 ? (
+    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+    gfx_drawstr("  Following: I");
+    bc_fs = 0;
+    loop(BC_MAX_INST,
+      fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
+      gmem[fsb + 1] == bc_following ? (
+        gfx_drawnumber(bc_fs + 1, 0);
+        bc_fs = BC_MAX_INST;
+      );
+      bc_fs += 1;
+    );
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("  Following: --");
+  );
+
+  exp_x = gfx_w - 200;
+  exp_y = bc_panel_y + 4;
+  exp_w = 65;
+  exp_h = 20;
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+  gfx_rect(exp_x, exp_y, exp_w, exp_h);
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_x = exp_x + 5; gfx_y = exp_y + 4;
+  bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
+    mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
+    bc_panel_expanded = !bc_panel_expanded;
+    bc_steal_mode = 0;
+  );
+
+  stl_x = gfx_w - 125;
+  stl_y = bc_panel_y + 4;
+  stl_w = 50;
+  stl_h = 20;
+  bc_steal_mode ? (
+    gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
+  ) : (
+    gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
+  );
+  gfx_rect(stl_x, stl_y, stl_w, stl_h);
+  gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_x = stl_x + 6; gfx_y = stl_y + 4;
+  gfx_drawstr("STEAL");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
+    mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
+    bc_steal_mode = !bc_steal_mode;
+    !bc_panel_expanded ? bc_panel_expanded = 1;
+  );
+
+  bc_following > 0 ? (
+    unf_x = gfx_w - 65;
+    unf_y = bc_panel_y + 4;
+    unf_w = 55;
+    unf_h = 20;
+    gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
+    gfx_rect(unf_x, unf_y, unf_w, unf_h);
+    gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
+    gfx_x = unf_x + 4; gfx_y = unf_y + 4;
+    gfx_drawstr("UNFLW");
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
+      mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
+      bc_following = 0;
+      bc_follow_slot = -1;
+    );
+  );
+
+  bc_panel_expanded ? (
+    row_y = bc_panel_y + 30;
+    row_h = 14;
+
+    bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
+    bc_page < 0 ? bc_page = 0;
+
+    bc_active_slots = 0;
+    bc_si = 0;
+    loop(BC_MAX_INST,
+      gmem[BC_MY_REGION + bc_si * BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
+      bc_si += 1;
+    );
+    bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
+    bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
+
+    pg_btn_w = 18; pg_btn_h = 14;
+    pg_prev_x = 8; pg_prev_y = bc_panel_y + 30 + bc_rows_per_page * row_h + 2;
+    bc_total_pages > 1 ? (
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + 4; gfx_y = pg_prev_y + 2;
+      gfx_drawstr("<");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page > 0 ? bc_page -= 1;
+      );
+
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + pg_btn_w + 6; gfx_y = pg_prev_y + 2;
+      gfx_drawstr(">");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page < bc_total_pages - 1 ? bc_page += 1;
+      );
+
+      gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+      gfx_x = pg_prev_x + pg_btn_w * 2 + 8; gfx_y = pg_prev_y + 2;
+      gfx_drawnumber(bc_page + 1, 0);
+      gfx_drawstr("/");
+      gfx_drawnumber(bc_total_pages, 0);
+
+      bc_page != bc_my_page ? (
+        you_x = pg_prev_x + pg_btn_w * 2 + 40;
+        gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+        gfx_rect(you_x, pg_prev_y, 30, pg_btn_h);
+        gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+        gfx_x = you_x + 3; gfx_y = pg_prev_y + 2;
+        gfx_drawstr("YOU");
+        (mouse_cap & 1) && !(last_cap & 1) &&
+          mouse_x >= you_x && mouse_x < you_x + 30 &&
+          mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+          bc_page = bc_my_page;
+        );
+      );
+    );
+
+    bc_page_start = bc_page * bc_rows_per_page;
+    bc_page_end = bc_page_start + bc_rows_per_page - 1;
+    bc_visible = 0;
+    bc_s = 0;
+    loop(BC_MAX_INST,
+      isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
+      isid = gmem[isb + 1];
+
+      isid > 0 ? (
+        bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
+          draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
+
+          mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+            mouse_x >= 8 && mouse_x < gfx_w - 8 &&
+            bc_s != bc_my_slot ? (
+            gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+            gfx_rect(4, draw_row_y, gfx_w - 8, row_h);
+          );
+
+          gfx_setfont(1, "Arial", 10);
+          bc_s == bc_my_slot ? (
+            gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+          ) : (
+            gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+          );
+          gfx_x = 12; gfx_y = draw_row_y + 1;
+          gfx_drawstr("I");
+          gfx_drawnumber(bc_s + 1, 0);
+          gfx_drawstr("  ");
+
+          bc_s == bc_my_slot ? (
+            gfx_drawstr("[YOU]");
+          ) : (
+            iwho = gmem[isb + 3];
+            bc_has_follower = 0;
+            bc_fsc = 0;
+            loop(BC_MAX_INST,
+              fsb2 = BC_MY_REGION + bc_fsc * BC_SLOT_SIZE;
+              gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
+              bc_fsc += 1;
+            );
+            iwho > 0 ? (
+              gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
+              gfx_drawstr("[FOLLOWER]");
+            ) : bc_has_follower ? (
+              gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
+              gfx_drawstr("[LEADER]");
+            ) : (
+              gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
+              gfx_drawstr("[UNASSIGNED]");
+            );
+            gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+            bc_steal_mode ? (
+              gfx_drawstr("  click: steal");
+            ) : (
+              gfx_drawstr("  click: follow");
+            );
+            (mouse_cap & 1) && !(last_cap & 1) &&
+              mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+              mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
+              bc_steal_mode ? (
+                bc_steal_target = isid;
+                bc_steal_pending = 1;
+                bc_steal_mode = 0;
+              ) : (
+                bc_can_follow = 1;
+                bc_cursor = isid;
+                bc_hops = 0;
+                while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+                  bc_cursor == bc_my_id ? (
+                    bc_can_follow = 0;
+                    bc_cursor = 0;
+                  ) : (
+                    bc_next = 0;
+                    bc_cs = 0;
+                    loop(BC_MAX_INST,
+                      csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                      gmem[csb + 1] == bc_cursor ? (
+                        bc_next = gmem[csb + 3];
+                        bc_cs = BC_MAX_INST;
+                      );
+                      bc_cs += 1;
+                    );
+                    bc_cursor = bc_next;
+                  );
+                  bc_hops += 1;
+                );
+                bc_can_follow ? (
+                  bc_following = isid;
+                );
+              );
+            );
+          );
+        );
+        bc_visible += 1;
+      );
+      bc_s += 1;
+    );
+  );
+
+  last_cap = mouse_cap;
+
+  // --- NOTICE BUTTON ---
+  notice_btn_x = gfx_w - 60;
+  notice_btn_y = bc_panel_y - 18;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  notice_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h);
+    gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = 15; gfx_y = 10;
+    gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = 15; gfx_y = 30;
+    gfx_drawstr("The algorithms in our favorite software are decades old.");
+    gfx_x = 15; gfx_y = 45;
+    gfx_drawstr("A mathematical model is a truth about the world,");
+    gfx_x = 15; gfx_y = 60;
+    gfx_drawstr("not a copyrightable product. You do not have to stay");
+    gfx_x = 15; gfx_y = 75;
+    gfx_drawstr("a slave to subscription software. Install Linux.");
+    gfx_x = 15; gfx_y = 90;
+    gfx_drawstr("Build your own tools. Believe in yourself.");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = 15; gfx_y = 115;
+    gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_x = 15; gfx_y = 140;
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+    gfx_drawstr("NOTICE");
+  );
+
+// ============================================================
+// @SERIALIZE — Persist follow state
+// ============================================================
+@serialize
+file_var(0, bc_following);
+file_var(0, bc_my_id);

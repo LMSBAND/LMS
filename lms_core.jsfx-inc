@@ -24,6 +24,14 @@
 //    9. Sag Simulator            (this.* state) — tube rectifier droop
 //   10. Cascaded Saturation      (stateless) — Marshall cold-clipper model
 //   11. Opto Compressor          (this.* state) — LA-2A T4B photocell model
+//   12. 12AX7 Triode V1B/V1A    (this.* state) — JCM800 preamp stages
+//   13. Marshall JCM800 Tone Stack (this.* state) — passive Baxandall
+//   14. EL34 Push-Pull Power Amp  (this.* state) — JCM800 power section
+//   15. Marshall 4×12 Cabinet — Celestion G12T-75 (this.* state)
+//   16. Mesa Triple Rectifier V2b Cold-Bias Stage (this.* state)
+//   17. 6L6 Push-Pull Power Amp  (this.* state) — Mesa Triple Rectifier
+//   18. Mesa 4×12 Cabinet — Celestion V30 (this.* state)
+//   19. Mesa Triple Rectifier Tone Stack (this.* state)
 // ============================================================================
 
 @init
@@ -52,6 +60,87 @@ function lms_db2lin(db)
 function lms_lin2db(lin)
 (
   lin > 0.0000001 ? 20 * log10(lin) : -140;
+);
+
+
+// ============================================================================
+//  ADAA — Antiderivative Anti-Aliasing primitives
+//
+//  First-order ADAA eliminates aliasing from static nonlinearities without
+//  upsampling. Instead of computing f(x[n]) directly, we compute:
+//
+//    y[n] = (F(x[n]) - F(x[n-1])) / (x[n] - x[n-1])
+//
+//  where F is the antiderivative (indefinite integral) of f.
+//  When x[n] ≈ x[n-1] (signal nearly static), fall back to f(midpoint)
+//  to avoid divison by zero.
+//
+//  Each clipping function needs:
+//    1. The function itself          f(x)   — for the fallback
+//    2. Its antiderivative           F(x)   — for the main path
+//
+//  These are the primitive F(x) functions. They are called paired with their
+//  f(x) counterparts by the stateful ADAA wrappers below.
+//
+//  Antiderivatives:
+//    tanh(x)           → log(cosh(x))        [numerically: |x| - log2 for large |x|]
+//    (2/π)·atan(x)     → (2/π)·(x·atan(x) - ½·log(1+x²))
+//    1 - exp(-|x|)     → |x| + exp(-|x|)     [for the 1-exp soft clipper]
+//    sign(x)·(1-exp(-|x|)) → sign(x)·(|x|+exp(-|x|)) — same, signed
+// ============================================================================
+
+// Antiderivative of tanh(x): log(cosh(x))
+// Numerically stable: for |x|>10, cosh(x) overflows, so use |x|-log(2) approx
+function lms_F_tanh(x)
+(
+  abs(x) > 10 ? abs(x) - 0.6931471805599453 :  // log(2)
+  log(exp(x) * 0.5 + exp(-x) * 0.5);           // log(cosh(x))
+);
+
+// Antiderivative of (2/π)·atan(x): (2/π)·(x·atan(x) - 0.5·log(1+x²))
+function lms_F_atan(x)
+  local(r)
+(
+  r = (2 / $pi) * (x * atan(x) - 0.5 * log(1 + x * x));
+  r;
+);
+
+// Antiderivative of (1 - exp(-x)) for x ≥ 0: x + exp(-x)
+// For the full signed version sign(x)·(1-exp(-|x|)): sign(x)·(|x|+exp(-|x|))
+function lms_F_1exp_pos(x)
+(
+  x + exp(-x);
+);
+
+function lms_F_1exp_signed(x)
+  local(ax)
+(
+  ax = abs(x);
+  sign(x) * (ax + exp(-ax));
+);
+
+// ADAA core: given x_now, x_prev, F(x_now), F(x_prev), f(midpoint) fallback
+// Returns the alias-suppressed output sample.
+//
+// Uses a crossfade zone instead of a hard epsilon switch. A single threshold
+// creates a "no man's land" where dx is small enough for the division to amplify
+// floating-point noise but not small enough to trigger fallback — this manifests
+// as hiss on note decay tails. The crossfade blends smoothly between ADAA and
+// fallback, eliminating both the hard-switch artifact and the noisy-division zone.
+function lms_adaa_eval(x_now, x_prev, Fx_now, Fx_prev, f_mid)
+  local(dx, adx, adaa_out, blend)
+(
+  dx  = x_now - x_prev;
+  adx = abs(dx);
+  adx < 0.00001 ? (
+    f_mid;
+  ) : adx > 0.0001 ? (
+    (Fx_now - Fx_prev) / dx;
+  ) : (
+    adaa_out = (Fx_now - Fx_prev) / dx;
+    blend = (adx - 0.00001) / (0.00009);  // 0..1 across the transition band
+    f_mid + blend * (adaa_out - f_mid);
+  );
 );
 
 
@@ -203,90 +292,211 @@ function lms_bq_proc_r(x)
 
 
 // ============================================================================
-//  SECTION 3: Saturation Suite (stateless)
+//  SECTION 3: Saturation Suite (stateful, ADAA anti-aliased)
 //
-//  All functions take (x, drive, bias) where drive and bias are 0..1 range.
-//  Uses lms_tanh() internally.
+//  All functions use this.* state to hold x_prev / Fx_prev for ADAA.
+//  Call <instance>.lms_sat_XXX_init() once in @init, then
+//  call <instance>.lms_sat_XXX(x, drive, bias) per sample.
+//
+//  The ADAA path computes the alias-suppressed output via antiderivatives.
+//  Stateless helper lms_tanh() is still available for non-clipping uses.
 //
 //  Usage:
-//    l = lms_sat_warm(l, drive, bias);
+//    @init:   sat.lms_sat_warm_init();
+//    @sample: l = sat.lms_sat_warm(l, drive, bias);
 // ============================================================================
 
-// Asymmetric tube — even harmonics, warm character
+// ---- lms_sat_warm — asymmetric tanh, even harmonics, warm tube character ----
+
+function lms_sat_warm_init()
+(
+  this.xp = 0;   // previous pre-clip input (after gain/bias)
+  this.Fp = 0;   // F(xp) — antiderivative at previous input
+);
+
 function lms_sat_warm(x, drive, bias)
-  local(b)
+  local(b, bp, s, Fb, mid, f_mid)
 (
-  b = x + bias * 0.1;
-  b = b * (1 + drive);
-  // Asymmetric soft clipping - tubes clip differently on positive vs negative
-  b > 0 ? (
-    b = lms_tanh(b);
+  // Apply gain and bias (same as before)
+  b  = (x  + bias * 0.1) * (1 + drive);
+  bp = this.xp;   // previous scaled input
+
+  // Asymmetric antiderivative: positive path uses tanh, negative uses tanh(b*0.8)*1.25
+  // We compute each half's antiderivative separately, choosing based on sign of midpoint
+  mid = (b + bp) * 0.5;
+  mid >= 0 ? (
+    // Positive half — F(tanh(x)) = log(cosh(x))
+    Fb    = lms_F_tanh(b);
+    f_mid = lms_tanh(mid);
   ) : (
-    b = lms_tanh(b * 0.8) * 1.25;
+    // Negative half — f(x) = tanh(x*0.8)*1.25
+    // F: tanh(0.8x)*1.25 antiderivative = 1.25/0.8 * log(cosh(0.8x)) = 1.5625*log(cosh(0.8x))
+    Fb    = lms_F_tanh(b * 0.8) * 1.5625;
+    f_mid = lms_tanh(mid * 0.8) * 1.25;
   );
-  b;
+
+  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
+
+  // Update state (store pre-clip value; Fp matches the half we just used)
+  this.xp = b;
+  this.Fp = Fb;
+  s;
 );
 
-// Aggressive tube — harder clipping with more asymmetry
+
+// ---- lms_sat_hot — 1-exp aggressive tube, harder asymmetric clip ----
+
+function lms_sat_hot_init()
+(
+  this.xp = 0;
+  this.Fp = 0;
+);
+
 function lms_sat_hot(x, drive, bias)
-  local(b)
+  local(b, bp, Fb, mid, f_mid, ab, s)
 (
-  b = x + bias * 0.15;
-  b = b * (1 + drive * 2);
-  b > 0 ? (
-    b = 1 - exp(-abs(b));
+  b  = (x + bias * 0.15) * (1 + drive * 2);
+  bp = this.xp;
+  mid = (b + bp) * 0.5;
+
+  b >= 0 ? (
+    // Positive: f(x) = 1-exp(-x)   F(x) = x+exp(-x)
+    Fb    = lms_F_1exp_pos(b);
+    f_mid = mid >= 0 ? 1 - exp(-mid) : -(1 - exp(-abs(mid * 0.7))) * 1.1;
   ) : (
-    b = -(1 - exp(-abs(b * 0.7))) * 1.1;
+    // Negative: f(x) = -(1-exp(-|x*0.7|))*1.1
+    // F: antiderivative of -(1-exp(-0.7*(-x)))*1.1 for x<0
+    //  = -1.1*(x + exp(0.7*x)/0.7)  [substituting u=0.7*(-x)]
+    ab = abs(b);
+    Fb = -1.1 * (-ab + exp(-ab * 0.7) / (-0.7));
+    // simplified: 1.1*(ab + exp(-0.7*ab)/0.7)... let's keep it explicit
+    Fb = 1.1 * (ab - exp(-0.7 * ab) / 0.7);
+    f_mid = -(1 - exp(-abs(mid * 0.7))) * 1.1;
   );
-  b;
+
+  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
+  this.xp = b;
+  this.Fp = Fb;
+  s;
 );
 
-// Tape saturation — symmetric arctan
+
+// ---- lms_sat_tape — symmetric arctan ----
+
+function lms_sat_tape_init()
+(
+  this.xp = 0;
+  this.Fp = 0;
+);
+
 function lms_sat_tape(x, drive, bias)
-  local(b)
+  local(b, bp, Fb, mid, s, scale)
 (
-  b = x + bias * 0.05;
-  b = b * (1 + drive * 1.5);
-  b = (2 / $pi) * atan(b * $pi * 0.5);
-  b;
+  scale = $pi * 0.5;
+  b  = (x + bias * 0.05) * (1 + drive * 1.5) * scale;
+  bp = this.xp;
+  mid = (b + bp) * 0.5;
+
+  // f(x) = (2/π)·atan(x·π/2)  →  F(x) = lms_F_atan at scaled x
+  Fb = lms_F_atan(b);
+  s  = lms_adaa_eval(b, bp, Fb, this.Fp, (2 / $pi) * atan(mid));
+
+  this.xp = b;
+  this.Fp = Fb;
+  s;
 );
 
-// Half-wave rectifier distortion
+
+// ---- lms_sat_rect — half-wave rectifier, asymmetric tanh ----
+
+function lms_sat_rect_init()
+(
+  this.xp = 0;
+  this.Fp = 0;
+);
+
 function lms_sat_rect(x, drive, bias)
-  local(b)
+  local(b, bp, Fb, mid, s, neg_scale)
 (
-  b = x + bias * 0.2;
-  b = b * (1 + drive * 3);
-  // Folds negative into positive partially
-  b < 0 ? b = b * (0.2 + drive * 0.1);
-  b = lms_tanh(b);
-  b;
+  b  = x + bias * 0.2;
+  b *= (1 + drive * 3);
+  b < 0 ? b = b * (0.2 + drive * 0.1);  // fold negative (same as before)
+  bp = this.xp;
+  mid = (b + bp) * 0.5;
+
+  // tanh path (same antiderivative regardless of sign after fold)
+  Fb = lms_F_tanh(b);
+  s  = lms_adaa_eval(b, bp, Fb, this.Fp, lms_tanh(mid));
+
+  this.xp = b;
+  this.Fp = Fb;
+  s;
 );
 
-// Gated fuzz — hard clipping with crossover distortion
+
+// ---- lms_sat_fuzz — gated fuzz, sign(x)·(1-exp(-|x|)) ----
+
+function lms_sat_fuzz_init()
+(
+  this.xp = 0;
+  this.Fp = 0;
+);
+
 function lms_sat_fuzz(x, drive, bias)
-  local(b)
+  local(b, bp, Fb, mid, f_mid, s, gate)
 (
-  b = x + bias * 0.1;
-  b = b * (1 + drive * 4);
-  abs(b) < 0.1 * (1 - drive * 0.5) ? (
-    b = b * (0.3 + drive * 0.7);
+  b  = (x + bias * 0.1) * (1 + drive * 4);
+  bp = this.xp;
+  gate = 0.1 * (1 - drive * 0.5);
+  mid = (b + bp) * 0.5;
+
+  abs(b) < gate ? (
+    // Linear region — no aliasing here, ADAA not needed
+    Fb    = b * b * (0.3 + drive * 0.7) * 0.5;  // F of linear = x²/2 * gain
+    f_mid = mid * (0.3 + drive * 0.7);
   ) : (
-    b = sign(b) * (1 - exp(-abs(b)));
+    // Saturation region: f(x) = sign(x)*(1-exp(-|x|))  F(x) = sign(x)*(|x|+exp(-|x|))
+    Fb    = lms_F_1exp_signed(b);
+    f_mid = sign(mid) * (1 - exp(-abs(mid)));
   );
-  b;
+
+  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
+  this.xp = b;
+  this.Fp = Fb;
+  s;
 );
 
-// Harmonic blend — even (2nd/4th) + odd (3rd/5th)
-function lms_sat_harmonics(x, even_mix, odd_mix)
-  local(x2, x3, result)
-(
-  // Even harmonics (2nd, 4th) - warm, musical
-  x2 = x * x * sign(x);
-  // Odd harmonics (3rd, 5th) - gritty, aggressive
-  x3 = x * x * x;
 
-  result = x + even_mix * x2 * 0.3 + odd_mix * x3 * 0.2;
+// ---- lms_sat_harmonics — polynomial harmonic blend (no hard clip, minimal aliasing) ----
+// Polynomial distortion aliases less severely than hard clippers, but x³ still aliases.
+// We use ADAA on the x³ term (F(x³) = x⁴/4) and exact for x|x| (F = x²|x|/3).
+// This is kept stateless-style since it's additive blend, not a full clipper.
+
+function lms_sat_harmonics_init()
+(
+  this.xp = 0;
+  this.F2p = 0;
+  this.F3p = 0;
+);
+
+function lms_sat_harmonics(x, even_mix, odd_mix)
+  local(x2_now, x3_now, F2_now, F3_now, x2_aa, x3_aa, result, mid)
+(
+  mid = (x + this.xp) * 0.5;
+
+  // Even: f(x) = x*|x|  (2nd harmonic, signed square)  F(x) = x²|x|/3
+  F2_now = x * x * abs(x) / 3;
+  x2_aa  = lms_adaa_eval(x, this.xp, F2_now, this.F2p, mid * abs(mid));
+
+  // Odd: f(x) = x³   F(x) = x⁴/4
+  F3_now = x * x * x * x / 4;
+  x3_aa  = lms_adaa_eval(x, this.xp, F3_now, this.F3p, mid * mid * mid);
+
+  result = x + even_mix * x2_aa * 0.3 + odd_mix * x3_aa * 0.2;
+
+  this.xp   = x;
+  this.F2p  = F2_now;
+  this.F3p  = F3_now;
   result;
 );
 
@@ -563,12 +773,10 @@ function lms_sag_proc(x)
 //    // drive/bias same ranges as lms_sat_warm
 // ============================================================================
 
-function lms_sat_cascade(x, drive1, bias1, drive2, bias2)
-  local(stage1)
-(
-  stage1 = lms_sat_warm(x, drive1, bias1);
-  lms_sat_warm(stage1, drive2, bias2);
-);
+// DEPRECATED: lms_sat_cascade — lms_sat_warm is now stateful (instance method).
+// Use two explicit instance calls instead:
+//   s1.lms_sat_warm(x, drive1, bias1);
+//   s2.lms_sat_warm(stage1, drive2, bias2);
 
 
 // ============================================================================
@@ -689,44 +897,57 @@ function lms_triode_v1b_init()
   // Coupling cap HPF state (35Hz, removes inter-stage DC)
   this.hpx = 0; this.hpy = 0;
   this.hp_r = 1 - (2 * $pi * 35 / srate);
-  // Cathode bypass state (none — cathode is unbypassed, static DC point)
-  this.env = 0;  // envelope for soft sag on heavy transients
-  this.env_att = exp(-1 / (srate * 0.003));   // 3ms attack
-  this.env_rel = exp(-1 / (srate * 0.080));   // 80ms release
+  // ADAA state for main transfer curve (asymmetric atan)
+  this.xp_pos = 0; this.Fp_pos = 0;  // positive half ADAA state
+  this.xp_neg = 0; this.Fp_neg = 0;  // negative half ADAA state
+  // ADAA state for grid current tanh knee
+  this.xp_gc = 0; this.Fp_gc = 0;
 );
 
 function lms_triode_v1b_proc(x, drive)
-  local(gain, b, grid_in, pos_clip, neg_clip, env_target)
+  local(gain, b, b_in, Fb, mid, f_mid, b_gc, Fb_gc)
 (
   // Coupling cap (inter-stage HP, removes DC)
   this.hpy = x - this.hpx + this.hp_r * this.hpy;
   this.hpx = x;
   b = this.hpy;
 
-  // Input gain — drive scales the grid swing
-  // Nominal full swing into a 12AX7 grid is about 1.5Vpp from previous stage
-  // We represent this as drive * 4.0 headroom factor
   gain = 1.0 + drive * 3.0;
   b = b * gain;
+  b_in = b;  // save for ADAA
 
-  // Unbypassed cathode NFB — reduces gain and linearizes
-  // Effective gain with 820Ω unbypassed cathode ≈ gm*Ra/(1 + gm*Rk) ≈ 35
-  // We model this as gain softening: the more the signal swings, the more
-  // the cathode voltage rises and opposes the grid, compressing the output.
-  // Implemented as an asymmetric arctan with gentle positive-side rolloff.
-  b > 0 ? (
-    // Positive half: softer (cathode follower action pulls back)
-    b = (2 / $pi) * atan(b * 1.2) * 0.85;
+  // Asymmetric atan transfer — ADAA per half
+  // Positive: f(x) = (2/π)·atan(x·1.2)·0.85   F(x) = 0.85·lms_F_atan(x·1.2)/1.2
+  // Negative: f(x) = (2/π)·atan(x·1.5)·1.0    F(x) = lms_F_atan(x·1.5)/1.5
+  b >= 0 ? (
+    mid   = (b + this.xp_pos) * 0.5;
+    Fb    = lms_F_atan(b * 1.2) * 0.85 / 1.2;
+    f_mid = (2 / $pi) * atan(mid * 1.2) * 0.85;
+    b     = lms_adaa_eval(b, this.xp_pos, Fb, this.Fp_pos, f_mid);
+    this.xp_pos = b_in; this.Fp_pos = Fb;
+    // reset negative half state to current value to avoid discontinuity on sign change
+    this.xp_neg = b_in; this.Fp_neg = lms_F_atan(b_in * 1.5) / 1.5;
   ) : (
-    // Negative half: slightly harder (cathode can't follow as fast going negative)
-    b = (2 / $pi) * atan(b * 1.5) * 1.0;
+    mid   = (b + this.xp_neg) * 0.5;
+    Fb    = lms_F_atan(b * 1.5) / 1.5;
+    f_mid = (2 / $pi) * atan(mid * 1.5);
+    b     = lms_adaa_eval(b, this.xp_neg, Fb, this.Fp_neg, f_mid);
+    this.xp_neg = b_in; this.Fp_neg = Fb;
+    this.xp_pos = b_in; this.Fp_pos = lms_F_atan(b_in * 1.2) * 0.85 / 1.2;
   );
 
-  // Grid current onset above ~0.6V equivalent — soft limiting on positive peaks
-  // (grid draws current when it goes positive relative to cathode)
-  b > 0.55 ? b = 0.55 + (b - 0.55) * 0.15;
+  // Grid current soft knee — ADAA tanh
+  // Only active when b > 0.3; below that, signal passes through unchanged
+  b > 0.3 ? (
+    b_gc = b / 0.55;
+    mid  = (b_gc + this.xp_gc) * 0.5;
+    Fb_gc = lms_F_tanh(b_gc) * 0.55;
+    b    = lms_adaa_eval(b_gc, this.xp_gc, Fb_gc, this.Fp_gc, lms_tanh(mid)) * 0.55;
+    this.xp_gc = b_gc; this.Fp_gc = Fb_gc;
+  ) : (
+    this.xp_gc = b / 0.55; this.Fp_gc = lms_F_tanh(b / 0.55) * 0.55;
+  );
 
-  // Output level — nominal plate swing normalised to ~0.8 peak
   b * 0.8;
 );
 
@@ -736,32 +957,55 @@ function lms_triode_v1a_init()
   // Coupling cap HPF (35Hz) — same as V1B
   this.hpx = 0; this.hpy = 0;
   this.hp_r = 1 - (2 * $pi * 35 / srate);
+  // ADAA state: 1-exp clipper (two halves) + grid current tanh
+  this.xp_pos = 0; this.Fp_pos = 0;
+  this.xp_neg = 0; this.Fp_neg = 0;
+  this.xp_gc  = 0; this.Fp_gc  = 0;
 );
 
 function lms_triode_v1a_proc(x, drive)
-  local(gain, b)
+  local(gain, b, b_in, ab, Fb, mid, f_mid, b_gc, Fb_gc)
 (
   // Coupling cap
   this.hpy = x - this.hpx + this.hp_r * this.hpy;
   this.hpx = x;
   b = this.hpy;
 
-  // Full gain — cathode bypassed, no NFB at audio frequencies
-  // Effective gain ≈ 60 (loaded by tone stack ~50kΩ input impedance)
   gain = 1.0 + drive * 5.5;
   b = b * gain;
+  b_in = b;
 
-  // Harder clipping — 1-exp curve (exponential saturation, no feedback softening)
-  // Asymmetric: positive clips harder (plate current limiting)
-  //             negative clips a touch softer (grid current cutoff)
-  b > 0 ? (
-    b = 1.0 - exp(-abs(b) * 1.1);
+  // 1-exp clipper — ADAA per half
+  // Positive: f(x) = 1-exp(-1.1·x)    F(x) = x + exp(-1.1·x)/1.1
+  // Negative: f(x) = -(1-exp(-0.85·|x|))·1.05
+  //           F(x) for x<0: -1.05·(-x + exp(0.85·x)/0.85) = 1.05·(|x|-exp(-0.85·|x|)/0.85)
+  b >= 0 ? (
+    mid   = (b + this.xp_pos) * 0.5;
+    Fb    = b + exp(-1.1 * b) / 1.1;
+    f_mid = mid >= 0 ? 1.0 - exp(-abs(mid) * 1.1) : 0;
+    b     = lms_adaa_eval(b, this.xp_pos, Fb, this.Fp_pos, f_mid);
+    this.xp_pos = b_in; this.Fp_pos = Fb;
+    this.xp_neg = b_in; ab = abs(b_in); this.Fp_neg = 1.05 * (ab - exp(-0.85 * ab) / 0.85);
   ) : (
-    b = -(1.0 - exp(-abs(b) * 0.85)) * 1.05;
+    ab    = abs(b);
+    mid   = (b + this.xp_neg) * 0.5;
+    Fb    = 1.05 * (ab - exp(-0.85 * ab) / 0.85);
+    f_mid = -(1.0 - exp(-abs(mid) * 0.85)) * 1.05;
+    b     = lms_adaa_eval(b, this.xp_neg, Fb, this.Fp_neg, f_mid);
+    this.xp_neg = b_in; this.Fp_neg = Fb;
+    this.xp_pos = b_in; this.Fp_pos = b_in + exp(-1.1 * b_in) / 1.1;
   );
 
-  // Grid current on positive peaks (harder onset than V1B — already high gain stage)
-  b > 0.60 ? b = 0.60 + (b - 0.60) * 0.08;
+  // Grid current tanh knee — ADAA
+  b > 0.35 ? (
+    b_gc  = b / 0.60;
+    mid   = (b_gc + this.xp_gc) * 0.5;
+    Fb_gc = lms_F_tanh(b_gc) * 0.60;
+    b     = lms_adaa_eval(b_gc, this.xp_gc, Fb_gc, this.Fp_gc, lms_tanh(mid)) * 0.60;
+    this.xp_gc = b_gc; this.Fp_gc = Fb_gc;
+  ) : (
+    this.xp_gc = b / 0.60; this.Fp_gc = lms_F_tanh(b / 0.60) * 0.60;
+  );
 
   b * 0.85;
 );
@@ -882,69 +1126,72 @@ function lms_el34_init()
 (
   // Power supply sag envelope
   this.sag_env = 0;
-  this.sag_att = exp(-1 / (srate * 0.015));  // 15ms attack (transformer limited)
-  this.sag_rel = exp(-1 / (srate * 0.250));  // 250ms recovery
-  // Presence shelving filter (models NFB loop)
+  this.sag_att = exp(-1 / (srate * 0.015));
+  this.sag_rel = exp(-1 / (srate * 0.250));
+  this.sag_smooth = 0;
+  this.sag_smooth_c = exp(-1 / (srate * 0.005));
+  // Presence shelving filter
   this.pres_f.lms_bq_init();
   // Output DC block
   this.dc.lms_dc_init();
+  // ADAA state: separate for push (1-exp×1.4) and pull (1-exp×1.35) tubes
+  this.push_xp = 0; this.push_Fp = 0;
+  this.pull_xp = 0; this.pull_Fp = 0;
 );
 
 function lms_el34_set(drive, presence)
   local(pres_freq, pres_db)
 (
   this.drive = drive;
-  // Presence: variable HF shelf (NFB reduces HF, so presence=1 lifts HF)
-  // Real component: 33kΩ presence pot, 500pF cap → ~10kHz at max
-  // At presence=0: heavy NFB, sounds dark and controlled
-  // At presence=1: minimal NFB, bright and slightly "loose"
-  pres_freq = 2000 + presence * 6000;  // 2kHz to 8kHz pivot
-  pres_db   = presence * 8;            // 0 to +8dB — NFB reduction effect
+  pres_freq = 2000 + presence * 6000;
+  pres_db   = presence * 8;
   this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
 );
 
 function lms_el34_proc(x)
-  local(b, peak, sag_gain, push, pull, out)
+  local(b, peak, sag_gain, push, pull, out, Fb, mid, f_mid)
 (
-  // Power supply sag (envelope-based, class AB compression)
+  // Sag
   peak = abs(x);
   peak > this.sag_env ? (
     this.sag_env = this.sag_att * this.sag_env + (1 - this.sag_att) * peak;
   ) : (
     this.sag_env = this.sag_rel * this.sag_env;
   );
-  sag_gain = 1.0 / (1.0 + this.sag_env * 0.35);  // max ~26% sag at full clip
+  sag_gain = 1.0 / (1.0 + this.sag_env * 0.35);
+  this.sag_smooth = this.sag_smooth_c * this.sag_smooth + (1 - this.sag_smooth_c) * sag_gain;
 
-  b = x * sag_gain;
+  b = x * this.sag_smooth * (1.0 + this.drive * 2.5);
 
-  // Drive into output stage
-  b = b * (1.0 + this.drive * 2.5);
-
-  // Push-pull: split into positive and negative half-cycles, clip each independently
-  // Each EL34 handles one half. The odd-harmonic dominance is automatic from
-  // running each half through the same nonlinearity — even harmonics cancel at
-  // the output transformer.
   push = b > 0 ? b : 0;
   pull = b < 0 ? -b : 0;
 
-  // EL34 plate saturation: 1-exp curve (harder than 12AX7, different character)
-  // Positive half (push tube)
+  // EL34 push tube — 1-exp×1.4 — ADAA
+  // f(x) = 1 - exp(-1.4x)   F(x) = x + exp(-1.4x)/1.4
   push > 0 ? (
-    push = 1.0 - exp(-push * 1.4);
-  );
-  // Negative half (pull tube) — slight mismatch creates tiny even harmonic residual
-  // (real amps always have slight tube matching asymmetry)
-  pull > 0 ? (
-    pull = 1.0 - exp(-pull * 1.35);
+    Fb    = push + exp(-1.4 * push) / 1.4;
+    mid   = (push + this.push_xp) * 0.5;
+    f_mid = 1.0 - exp(-1.4 * mid);
+    push  = lms_adaa_eval(push, this.push_xp, Fb, this.push_Fp, f_mid);
+    this.push_xp = b > 0 ? b : 0; this.push_Fp = Fb;
+  ) : (
+    this.push_xp = 0; this.push_Fp = 1.0 / 1.4;  // F(0) = 0 + 1/1.4
   );
 
-  // Recombine (restoring sign of pull half)
+  // EL34 pull tube — 1-exp×1.35 — ADAA
+  pull > 0 ? (
+    Fb    = pull + exp(-1.35 * pull) / 1.35;
+    mid   = (pull + this.pull_xp) * 0.5;
+    f_mid = 1.0 - exp(-1.35 * mid);
+    pull  = lms_adaa_eval(pull, this.pull_xp, Fb, this.pull_Fp, f_mid);
+    this.pull_xp = b < 0 ? -b : 0; this.pull_Fp = Fb;
+  ) : (
+    this.pull_xp = 0; this.pull_Fp = 1.0 / 1.35;
+  );
+
   out = push - pull;
 
-  // Presence (HF NFB model — applied post-output-transformer)
   out = this.pres_f.lms_bq_proc_l(out);
-
-  // DC block (transformer coupling)
   out = this.dc.lms_dc_proc_l(out);
 
   out * 0.85;
@@ -1020,5 +1267,357 @@ function lms_cab_412_proc_r(x)
   b = this.f3.lms_bq_proc_r(b);
   b = this.f4.lms_bq_proc_r(b);
   b = this.f5.lms_bq_proc_r(b);
+  b;
+);
+
+
+// ============================================================================
+//  SECTION 16: Mesa Triple Rectifier V2b Cold-Bias Stage (stateful)
+//
+//  The Mesa Triple Rectifier Modern channel's "wall of brown" comes primarily
+//  from V2b — the third triode in the preamp chain (after V1a and V2a).
+//  V2b runs with:
+//    - Unbypassed cathode resistor (large value, ~2.7kΩ) — near-cutoff bias
+//    - This "cold bias" means the tube spends much of its cycle in quasi-cutoff
+//    - Result: extreme asymmetric clipping, ~49% 2nd harmonic content
+//    - This is the opposite of V1B (which is unbypassed for NFB/linearising)
+//    - V2b's cathode is unbypassed for *bias shift* — the cathode voltage rises
+//      dramatically on signal, pulling the tube toward cutoff on positive peaks
+//
+//  The Modern channel chain: V1a (bypassed, high gain) → V2a (partial bypass,
+//  bass limited) → V2b (cold bias, extreme 2nd) → tone stack → 6L6 power amp
+//
+//  V2b characteristics:
+//    - Strong asymmetric clipping: positive peaks clip much earlier than negative
+//    - Soft-cut on negative (quasi-cutoff: tube turns off rather than hard clips)
+//    - 2nd harmonic dominant (~4× compared to 3rd at moderate levels)
+//    - "Spongy" feel: cathode voltage follows signal, providing programme-dependent
+//      gain reduction (separate from the power amp sag)
+//
+//  Usage:
+//    @init:   v2b.lms_triode_v2b_init();
+//    @sample: out = v2b.lms_triode_v2b_proc(in, drive);
+//    drive: 0..1 — grid swing into the stage
+// ============================================================================
+
+function lms_triode_v2b_init()
+(
+  // Coupling cap HPF (22Hz — Mesa uses a large coupling cap, very low cutoff)
+  this.hpx = 0; this.hpy = 0;
+  this.hp_r = 1 - (2 * $pi * 22 / srate);
+  // Cathode bias envelope
+  this.bias_env = 0;
+  this.bias_att = exp(-1 / (srate * 0.008));
+  this.bias_rel = exp(-1 / (srate * 0.120));
+  // ADAA state: negative quasi-cutoff tanh fold + grid current tanh
+  this.xp_neg = 0; this.Fp_neg = 0;
+  this.xp_gc  = 0; this.Fp_gc  = 0;
+);
+
+function lms_triode_v2b_proc(x, drive)
+  local(gain, b, b_in, bias_shift, pos_thresh, ab, u, Fu, mid, f_mid, b_gc, Fb_gc)
+(
+  // Coupling cap
+  this.hpy = x - this.hpx + this.hp_r * this.hpy;
+  this.hpx = x;
+  b = this.hpy;
+
+  gain = 1.0 + drive * 4.5;
+  b = b * gain;
+
+  // Cathode bias envelope
+  abs(b) > this.bias_env ? (
+    this.bias_env = this.bias_att * this.bias_env + (1 - this.bias_att) * abs(b);
+  ) : (
+    this.bias_env = this.bias_rel * this.bias_env;
+  );
+  bias_shift = min(0.7, this.bias_env * 0.5);
+
+  // Positive clipping — hard brickwall with dynamic threshold.
+  // Hard clip is not a smooth function so ADAA isn't applicable here directly;
+  // the threshold changes sample-to-sample (bias_shift), making it a
+  // time-varying nonlinearity. We tame it instead with a tanh soft knee:
+  pos_thresh = 0.65 - bias_shift * 0.30;
+  b > pos_thresh * 0.85 ? (
+    // Soft approach to the ceiling via tanh (avoids hard discontinuity)
+    b = pos_thresh * lms_tanh(b / pos_thresh);
+  );
+
+  // Negative quasi-cutoff — tanh fold, ADAA applied
+  // f(x) for |x|>0.2: -0.2 - tanh((|x|-0.2)*1.8)*0.45
+  // Antiderivative (for x<-0.2): -0.2*x - log(cosh((|x|-0.2)*1.8))*0.45/1.8
+  // We compute in terms of u = (-b - 0.2) for x < -0.2
+  b < -0.2 ? (
+    u     = (-b - 0.2);   // u > 0 when b < -0.2
+    mid   = ((-b - 0.2) + this.xp_neg) * 0.5;  // midpoint of u
+    Fu    = -0.2 * b - lms_F_tanh(u * 1.8) * 0.45 / 1.8;
+    f_mid = -0.2 - lms_tanh(mid * 1.8) * 0.45;
+    b     = lms_adaa_eval(u, this.xp_neg, Fu, this.Fp_neg, f_mid);
+    this.xp_neg = u; this.Fp_neg = Fu;
+  ) : (
+    // Out of negative zone — reset ADAA state cleanly
+    this.xp_neg = 0; this.Fp_neg = 0;
+  );
+  b_in = b;
+
+  // Grid current — tanh soft knee, ADAA
+  b > 0.3 ? (
+    b_gc  = b / 0.50;
+    mid   = (b_gc + this.xp_gc) * 0.5;
+    Fb_gc = lms_F_tanh(b_gc) * 0.50;
+    b     = lms_adaa_eval(b_gc, this.xp_gc, Fb_gc, this.Fp_gc, lms_tanh(mid)) * 0.50;
+    this.xp_gc = b_gc; this.Fp_gc = Fb_gc;
+  ) : (
+    this.xp_gc = b / 0.50; this.Fp_gc = lms_F_tanh(b / 0.50) * 0.50;
+  );
+
+  b * 0.88;
+);
+
+
+// ============================================================================
+//  SECTION 17: 6L6 Push-Pull Power Amp (stateful)
+//
+//  The Mesa Triple Rectifier uses a quad of 6L6GC tubes in push-pull Class AB.
+//  Compared to the EL34 (Section 14):
+//    - Higher plate voltage tolerance → more headroom before clip
+//    - Brighter character (different transfer curve, less 3rd harmonic domination)
+//    - Sag is MORE prominent with the tube rectifier option (the "Vintage" setting)
+//    - With silicon rectifier: tight and fast, very little sag
+//    - Modern channel presence is NOT an NFB shelf but an RC treble filter
+//      in the feedback loop — modelled here as a resonant presence peak
+//      rather than a shelf (Mesa "Presence" sounds different from Marshall "Presence")
+//
+//  Usage:
+//    @init:   pa.lms_6l6_init();
+//    @slider/@block: pa.lms_6l6_set(drive, presence, sob_rect);
+//                    // drive 0..1, presence 0..1, sob_rect 0=Si/1=Tube
+//    @sample: out = pa.lms_6l6_proc(in);
+// ============================================================================
+
+function lms_6l6_init()
+(
+  // Power supply sag envelope
+  this.sag_env = 0;
+  this.sag_att = exp(-1 / (srate * 0.012));
+  this.sag_rel = exp(-1 / (srate * 0.200));
+  this.sag_smooth = 0;
+  this.sag_smooth_c = exp(-1 / (srate * 0.005));
+  // Presence peak filter
+  this.pres_f.lms_bq_init();
+  // DC block
+  this.dc.lms_dc_init();
+  this.sag_depth = 0.20;
+  // ADAA state: atan-based push and pull tubes
+  this.push_xp = 0; this.push_Fp = 0;
+  this.pull_xp = 0; this.pull_Fp = 0;
+);
+
+function lms_6l6_set(drive, presence, sob_rect)
+  local(pres_freq, pres_db, pres_q)
+(
+  this.drive = drive;
+  this.sag_depth = sob_rect == 1 ? 0.35 : 0.12;
+  pres_freq = 3000 + presence * 4000;
+  pres_db   = presence * 10;
+  pres_q    = 1.5 + presence * 1.5;
+  this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
+);
+
+function lms_6l6_proc(x)
+  local(b, peak, sag_gain, push, pull, out, Fb, mid, f_mid)
+(
+  // Sag
+  peak = abs(x);
+  peak > this.sag_env ? (
+    this.sag_env = this.sag_att * this.sag_env + (1 - this.sag_att) * peak;
+  ) : (
+    this.sag_env = this.sag_rel * this.sag_env;
+  );
+  sag_gain = 1.0 / (1.0 + this.sag_env * this.sag_depth);
+  this.sag_smooth = this.sag_smooth_c * this.sag_smooth + (1 - this.sag_smooth_c) * sag_gain;
+
+  b = x * this.sag_smooth * (1.0 + this.drive * 2.0);
+
+  push = b > 0 ? b : 0;
+  pull = b < 0 ? -b : 0;
+
+  // 6L6 push tube — atan×1.6 — ADAA
+  // f(x) = (2/π)·atan(1.6x)   F(x) = lms_F_atan(1.6x)/1.6
+  push > 0 ? (
+    Fb    = lms_F_atan(push * 1.6) / 1.6;
+    mid   = (push + this.push_xp) * 0.5;
+    f_mid = (2 / $pi) * atan(mid * 1.6);
+    push  = lms_adaa_eval(push, this.push_xp, Fb, this.push_Fp, f_mid);
+    this.push_xp = b > 0 ? b : 0; this.push_Fp = Fb;
+  ) : (
+    this.push_xp = 0; this.push_Fp = 0;
+  );
+
+  // 6L6 pull tube — atan×1.58 — ADAA (slight mismatch)
+  pull > 0 ? (
+    Fb    = lms_F_atan(pull * 1.58) / 1.58;
+    mid   = (pull + this.pull_xp) * 0.5;
+    f_mid = (2 / $pi) * atan(mid * 1.58);
+    pull  = lms_adaa_eval(pull, this.pull_xp, Fb, this.pull_Fp, f_mid);
+    this.pull_xp = b < 0 ? -b : 0; this.pull_Fp = Fb;
+  ) : (
+    this.pull_xp = 0; this.pull_Fp = 0;
+  );
+
+  out = push - pull;
+
+  out = this.pres_f.lms_bq_proc_l(out);
+  out = this.dc.lms_dc_proc_l(out);
+
+  out * 0.85;
+);
+
+
+// ============================================================================
+//  SECTION 18: Mesa 4×12 Cabinet — Celestion V30 Model (stereo)
+//
+//  Five-band biquad model of a Mesa Boogie 4×12 loaded with Celestion V30
+//  speakers. The V30 sounds noticeably different from the G12T-75 (Section 15):
+//
+//    G12T-75 (Marshall):  cone breakup ~3.5kHz, darker, boxier, more midrange
+//    V30 (Mesa):          cone breakup ~4kHz, tighter bass, more upper presence
+//                         pronounced "singing" mid-upper range, iconic metal sound
+//
+//  Bands (from Celestion published data + measured IR analysis):
+//
+//    1. Cab resonance HP  — 90Hz Q=0.60 (Mesa cab is tighter/smaller than 1960A)
+//       Slightly higher than Marshall (90 vs 80Hz) — Mesa cabs are more sealed
+//
+//    2. Cab resonance peak — 110Hz +2dB Q=2.0
+//       Mesa cab resonance sits slightly higher and is narrower than Marshall
+//       Less "thump", more defined low end
+//
+//    3. Voice coil notch — 800Hz -3dB Q=0.7
+//       V30 voice coil dip is in the upper-mid range (800Hz vs G12T-75 at 1200Hz)
+//       This gives the V30 its characteristic "hollowed" 800Hz response
+//
+//    4. Cone breakup peak — 4000Hz +6dB Q=1.6
+//       V30 cone resonance is higher and more prominent than G12T-75
+//       This is THE V30 sound — that upper presence "singing" characteristic
+//
+//    5. Air LP — 7000Hz Q=0.70 (V30 extends slightly higher than G12T-75)
+//
+//  Usage:
+//    @init:   cab.lms_cab_mesa_412_init();
+//    @sample: l = cab.lms_cab_mesa_412_proc_l(l);
+//             r = cab.lms_cab_mesa_412_proc_r(r);
+// ============================================================================
+
+function lms_cab_mesa_412_init()
+(
+  this.f1.lms_bq_init();  // cab resonance HP
+  this.f2.lms_bq_init();  // cab resonance peak
+  this.f3.lms_bq_init();  // voice coil notch
+  this.f4.lms_bq_init();  // cone breakup peak
+  this.f5.lms_bq_init();  // air LP
+
+  this.f1.lms_bq_set_hp(90, 0.60);
+  this.f2.lms_bq_set_peak(110, 2.0, 2.0);
+  this.f3.lms_bq_set_peak(800, -3.0, 0.7);
+  this.f4.lms_bq_set_peak(4000, 6.0, 1.6);
+  this.f5.lms_bq_set_lp(7000, 0.70);
+);
+
+function lms_cab_mesa_412_proc_l(x)
+  local(b)
+(
+  b = this.f1.lms_bq_proc_l(x);
+  b = this.f2.lms_bq_proc_l(b);
+  b = this.f3.lms_bq_proc_l(b);
+  b = this.f4.lms_bq_proc_l(b);
+  b = this.f5.lms_bq_proc_l(b);
+  b;
+);
+
+function lms_cab_mesa_412_proc_r(x)
+  local(b)
+(
+  b = this.f1.lms_bq_proc_r(x);
+  b = this.f2.lms_bq_proc_r(b);
+  b = this.f3.lms_bq_proc_r(b);
+  b = this.f4.lms_bq_proc_r(b);
+  b = this.f5.lms_bq_proc_r(b);
+  b;
+);
+
+
+// ============================================================================
+//  SECTION 19: Mesa Triple Rectifier Tone Stack (stateful)
+//
+//  The Mesa Boogie Triple Rectifier Modern channel uses a different tone stack
+//  topology from the Marshall (Section 13):
+//
+//    Marshall (JCM800): Baxandall-derived, Bass/Mid/Treble all interactive,
+//                       mid is a CUT at 370Hz. Very interactive controls.
+//
+//    Mesa Modern:       More independent controls, different component values.
+//                       Bass: larger pot (500kΩ), deeper shelf (~60Hz)
+//                       Mid:  25kΩ pot at 750Hz (higher than Marshall's 370Hz)
+//                       Treble: shelf at ~1.5kHz
+//                       The "scoop" character comes from the mid control acting
+//                       as a boost/cut at 750Hz — unlike Marshall where it's
+//                       primarily a cut network.
+//
+//  The Mesa stack is placed AFTER the preamp stages and BEFORE the power amp,
+//  like the Marshall, but the insertion loss is less severe (~12dB vs ~18dB).
+//
+//  Usage:
+//    @init:   ts.lms_tonestack_mesa_init();
+//    @slider/@block: ts.lms_tonestack_mesa_set(bass, mid, treble);
+//                    // bass/mid/treble: 0..1 (pot position)
+//    @sample: out = ts.lms_tonestack_mesa_proc(in);
+// ============================================================================
+
+function lms_tonestack_mesa_init()
+(
+  this.f_bass.lms_bq_init();
+  this.f_mid.lms_bq_init();
+  this.f_treb.lms_bq_init();
+);
+
+function lms_tonestack_mesa_set(bass, mid, treble)
+  local(
+    bass_db, mid_db, treb_db,
+    bass_freq, mid_freq, treb_freq,
+    mid_q
+  )
+(
+  // Bass: 500kΩ pot, larger cap → deeper shelf around 60Hz
+  // More independent from mid than Marshall (lower crossover point)
+  bass_freq = 50 + bass * 80;      // 50Hz to 130Hz
+  bass_db   = (bass - 0.5) * 16;   // ±8dB
+
+  // Mid: 25kΩ pot, 22nF → ~750Hz centre (higher than Marshall's 370Hz)
+  // Mesa mid is more of a boost/cut than a pure cut network
+  // mid=0.5 is flat, mid=0 scoops, mid=1 gives the "shout"
+  mid_freq  = 750;
+  mid_q     = 0.8 + mid * 1.2;    // Q broadens at higher settings
+  mid_db    = (mid - 0.5) * 16;   // ±8dB (symmetric, unlike Marshall)
+
+  // Treble: shelf at ~1.5kHz — acts a bit like presence on Mesa
+  treb_freq = 1200 + treble * 800; // 1200Hz to 2000Hz
+  treb_db   = (treble - 0.5) * 14; // ±7dB
+
+  // Mesa controls are more independent — less cross-coupling than Marshall
+  // But bass at extremes still affects perceived mid
+  bass_db -= (bass - 0.5) * 1.5;  // minimal cross-couple
+
+  this.f_bass.lms_bq_set_loshelf(bass_freq, bass_db, 0.55);
+  this.f_mid.lms_bq_set_peak(mid_freq, mid_db, mid_q);
+  this.f_treb.lms_bq_set_hishelf(treb_freq, treb_db, 0.70);
+);
+
+function lms_tonestack_mesa_proc(x)
+  local(b)
+(
+  b = this.f_bass.lms_bq_proc_l(x);
+  b = this.f_mid.lms_bq_proc_l(b);
+  b = this.f_treb.lms_bq_proc_l(b);
   b;
 );

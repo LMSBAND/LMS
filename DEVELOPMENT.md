@@ -58,9 +58,15 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_moog_synth | 8 | 900000 | 900032 |
 | lms_chris_bedroom | 9 | 600000 | 600032 |
 | lms_amp_suite | 10 | 640000 | 640032 |
-| **your new plugin** | **11+** | **pick unused** | **HB + 32** |
+| lms_frenchie_v2 | 11 | 700000 | 700032 |
+| lms_punk_v2 | 12 | 710000 | 710032 |
+| lms_fridge_v2 | 13 | 720000 | 720032 |
+| lms_ac15_v2 | 14 | 730000 | 730032 |
+| lms_mesa_v2 | 15 | 740000 | 740032 |
+| lms_twins_v2 | 16 | 750000 | 750032 |
+| **your new plugin** | **17+** | **pick unused** | **HB + 32** |
 
-For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `600000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
+For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `800000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
 ### 3. Update the slider broadcast arrays
 
@@ -370,6 +376,20 @@ c1x = margin;
 c2x = margin + col_w + gap;
 c3x = margin + (col_w + gap)*2;
 ```
+
+### Hiding the native slider panel
+
+When a plugin has a custom GFX panel, hide REAPER's native slider panel by prefixing every slider label with `-`. This prevents the ugly double-UI (native sliders above your custom GUI):
+
+```jsfx
+// WRONG — native sliders visible alongside GFX panel
+slider1:0<-24,24,0.1>Input Level (dB)
+
+// RIGHT — native sliders hidden, GFX panel is the only UI
+slider1:0<-24,24,0.1>-Input Level (dB)
+```
+
+The `-` goes immediately after the `>` and before the label text. Every slider in the plugin must have it — if even one is missing, REAPER shows the native panel for all of them.
 
 ### Slider automate pattern
 
