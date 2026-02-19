@@ -1320,6 +1320,56 @@
     margin-bottom: 2rem;
   }
 
+  .tldr-toggle {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    color: #0a0a0f;
+    background: var(--good-green);
+    border: none;
+    border-radius: 6px;
+    padding: 0.8rem 2.5rem;
+    margin-top: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    text-transform: uppercase;
+    box-shadow: 0 0 20px rgba(77,232,138,0.25);
+  }
+
+  .tldr-toggle:hover {
+    background: #5fffa0;
+    transform: translateY(-1px);
+    box-shadow: 0 0 30px rgba(77,232,138,0.4);
+  }
+
+  .tldr-toggle:active {
+    transform: translateY(0);
+  }
+
+  .tldr-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.3s;
+    margin-left: 0.5rem;
+  }
+
+  .tldr-toggle.open .arrow {
+    transform: rotate(180deg);
+  }
+
+  .tldr-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
+
+  .tldr-body.open {
+    max-height: 3000px;
+    opacity: 1;
+  }
+
   .tldr-badge {
     display: inline-block;
     font-family: 'JetBrains Mono', monospace;
@@ -1507,8 +1557,10 @@
     <div class="tldr-badge">TLDR</div>
     <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
     <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
+    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#9660;</span></button>
   </div>
 
+  <div class="tldr-body" id="tldr-body">
   <div class="tldr-steps">
 
     <!-- Step 1 -->
@@ -1660,6 +1712,7 @@
   </div>
 
   <div class="tldr-time">TOTAL TIME: <span>~3 MINUTES</span> &mdash; ZERO ACCOUNTS &mdash; ZERO DOLLARS &mdash; WORKS ON EVERY OS</div>
+  </div><!-- /tldr-body -->
 </div>
 
 <!-- ============================================ -->
@@ -3150,6 +3203,16 @@
 <!-- DENSITY-AMP INTERACTIVE DEMO JAVASCRIPT -->
 <!-- ============================================ -->
 <script>
+// === INSTALL TOGGLE ===
+function toggleInstall() {
+  var body = document.getElementById('tldr-body');
+  var btn = document.getElementById('tldr-toggle');
+  var isOpen = body.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  btn.firstChild.textContent = isOpen ? 'COLLAPSE ' : 'INSTALL NOW ';
+  if (isOpen) body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // === STATE ===
 let daMode = 'lms';
 let daIsStrumming = false;
