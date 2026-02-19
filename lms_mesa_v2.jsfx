@@ -6,7 +6,7 @@ desc:LMS - The TRSOB v2 (Density-Aware Triple Rectifier)
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
-slider1:0<-24,24,0.1>-Input Level (dB)
+slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
 slider3:2<0,2,1{Clean,Vintage,Modern}>-Channel
 slider4:50<0,100,1>-Bass (%)
@@ -18,7 +18,7 @@ slider9:0<0,1,1{Silicon,Tube}>-Rectifier
 slider10:0<0,1,1{Bold,Spongy}>-Bold/Spongy
 slider11:50<0,100,1>-Input Stage (%)
 slider12:50<0,100,1>-PSU Sag (%)
-slider13:0<-24,24,0.1>-Output Level (dB)
+slider13:-12<-24,24,0.1>-Output Level (dB)
 slider14:0<0,1,1{Off,On}>-FX Bypass
 slider15:0<0,1,1{Off,On}>-Noise Gate
 // --- TAPE ECHO ---
@@ -731,6 +731,8 @@ loop(BC_MAX_INST,
 
 @sample
 mono = (spl0 + spl1) * 0.5 * in_level;
+// Input clamp — catches record-arm spikes before the amp sees them
+mono = max(-1.0, min(1.0, mono));
 
 // 0. RF filter (removes ultrasonic content before gain stages)
 mono = rf_filter.bq_proc(mono);
@@ -828,6 +830,15 @@ channel == 0 ? (
 amp_out = v4a.triode_proc(amp_out, v4a_drive, bplus,
   1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
 
+// === EFFECTS LOOP (pre-power-amp — tape echo returns through 6L6s + cab) ===
+fx_bypass == 0 ? (
+  echo_mix > 0 ? (
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+  );
+  // Safety clamp — catches runaway feedback before it hits power tubes
+  amp_out = max(-0.95, min(0.95, amp_out));
+);
+
 // === POWER AMP (6L6 push-pull) ===
 amp_out *= master;
 amp_out = pa.poweramp_proc(amp_out, bplus);
@@ -847,14 +858,9 @@ amp_out = cab6.bq_proc(amp_out);
 amp_out = cab7.bq_proc(amp_out);
 amp_out = cab_res.bq_proc(amp_out);
 
-// === TAPE ECHO ===
-fx_bypass == 0 ? (
-  echo_mix > 0 ? (
-    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
-  );
-);
-
 amp_out *= out_level;
+// Brickwall output limiter — transparent safety ceiling
+amp_out = max(-0.95, min(0.95, amp_out));
 spl0 = amp_out;
 spl1 = amp_out;
 
