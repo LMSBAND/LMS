@@ -306,7 +306,7 @@ function se_poweramp_proc(x, bplus)
 
 // === SPRING REVERB (Champ-style — single spring, lo-fi, drippy) ===
 function spring_init() (
-  this.buf_base = 100000;
+  this.buf_base = 50000;
   this.pd_off = 0;       this.pd_len = 337;    this.pd_pos = 0;
   this.ap1_off = 400;    this.ap1_len = 1087;  this.ap1_pos = 0;
   this.ap2_off = 1500;   this.ap2_len = 1483;  this.ap2_pos = 0;
