@@ -1325,223 +1325,6 @@
   </p>
   <div class="scroll-hint">▼ scroll ▼</div>
 </section>
-
-<!-- ============================================ -->
-<!-- NEW: DENSITY-AWARE AMP SECTION -->
-<!-- ============================================ -->
-<div class="da-section-label">INTERACTIVE DEMO</div>
-
-<div class="da-demo-wrap">
-  <div class="da-mode-toggle">
-    <button class="da-mode-btn da-active-lms" id="da-btn-lms" onclick="daSetMode('lms')">LMS (Density-Aware)</button>
-    <button class="da-mode-btn" id="da-btn-trad" onclick="daSetMode('traditional')">Traditional (Static)</button>
-  </div>
-
-  <div class="da-demo-layout">
-    <!-- Strum area -->
-    <div style="display:flex;flex-direction:column;align-items:center">
-      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
-      <div class="da-strum-area" id="da-strum-area">
-        <div class="da-strum-string" style="left:20%"></div>
-        <div class="da-strum-string" style="left:35%"></div>
-        <div class="da-strum-string" style="left:50%"></div>
-        <div class="da-strum-string" style="left:65%"></div>
-        <div class="da-strum-string" style="left:80%"></div>
-        <div class="da-pick-indicator" id="da-pick-indicator"></div>
-        <div class="da-strum-hint" style="top:6px">SOFT</div>
-        <div class="da-strum-hint" style="bottom:6px">HARD</div>
-      </div>
-    </div>
-
-    <!-- Amp viz -->
-    <div style="display:flex;flex-direction:column;align-items:center" id="da-amp-viz">
-      <div class="da-tubes-row" id="da-tubes-row"></div>
-      <div class="da-matrix-wrap da-lms-mode" id="da-matrix-wrap">
-        <div class="da-matrix-grid" id="da-matrix-grid"></div>
-        <div class="da-band-labels" id="da-band-labels"></div>
-      </div>
-      <div class="da-meters-row" id="da-meters-row"></div>
-    </div>
-
-    <!-- Output -->
-    <div class="da-output-bar-wrap" style="display:flex;flex-direction:column;align-items:center">
-      <div class="da-strum-label">OUTPUT</div>
-      <div class="da-output-bar">
-        <div class="da-output-fill" id="da-output-fill"></div>
-        <div class="da-output-value" id="da-output-value">0</div>
-      </div>
-      <div class="da-output-label" id="da-output-label">Shaped by density</div>
-    </div>
-  </div>
-
-  <!-- Miller explanation -->
-  <div class="da-miller-box" id="da-miller-box">
-    <h3 id="da-miller-title">WHAT YOU'RE SEEING</h3>
-    <p id="da-miller-text"></p>
-    <div class="da-miller-callout" id="da-miller-callout"></div>
-  </div>
-</div>
-
-<!-- Quote transition -->
-<div class="da-quote-box">
-  <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
-  <div class="da-attr">— the question that started all of this</div>
-</div>
-
-<!-- ============================================ -->
-<!-- NEW: ARCHITECTURE COMPARISON FROM DENSITY-AMP -->
-<!-- ============================================ -->
-<div class="da-section-label">ARCHITECTURE COMPARISON</div>
-
-<div class="da-compare-section">
-  <div class="da-compare-grid">
-    <!-- Traditional -->
-    <div class="da-compare-col da-trad-col">
-      <h3>Every Other Amp Sim</h3>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
-      <div class="da-checklist">
-        <div class="da-check-item da-off">Inter-stage awareness</div>
-        <div class="da-check-item da-off">Frequency tracking</div>
-        <div class="da-check-item da-off">Dynamic Miller cap</div>
-        <div class="da-check-item da-off">Shared power supply</div>
-        <div class="da-check-item da-off">Density feedback</div>
-        <div class="da-check-item da-off">Grid physics</div>
-        <div class="da-check-item da-off">Harmonic analysis</div>
-        <div class="da-check-item da-off">Adaptive clipping</div>
-      </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
-          Since the stages can't talk to each other, they brute-force their way to "good enough":
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LMS -->
-    <div class="da-compare-col da-lms-col">
-      <h3>LMS Density-Aware</h3>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
-      <div class="da-checklist">
-        <div class="da-check-item da-on">Inter-stage awareness</div>
-        <div class="da-check-item da-on">Frequency tracking</div>
-        <div class="da-check-item da-on">Dynamic Miller cap</div>
-        <div class="da-check-item da-on">Shared power supply</div>
-        <div class="da-check-item da-on">Density feedback</div>
-        <div class="da-check-item da-on">Grid physics</div>
-        <div class="da-check-item da-on">Harmonic analysis</div>
-        <div class="da-check-item da-on">Adaptive clipping</div>
-      </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
-          When stages know what the others are doing, you don't need brute force:
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================ -->
-<!-- NEW: THE DONUT PROBLEM -->
-<!-- ============================================ -->
-<div class="da-section-label">THE DONUT PROBLEM</div>
-
-<div class="da-donut-wrap">
-  <div class="da-donut-box">
-    <div class="da-donut-quote">
-      "I give you the money, you give me the donut. End of transaction.<br>
-      We don't need to bring ink and paper into this."
-    </div>
-    <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
-    <div class="da-donut-text">
-      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong> 
-      what the input just did. The compressor sees a peak and guesses a transient happened. 
-      The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses 
-      the vocalist hit an S.
-    </div>
-    <div class="da-donut-text">
-      The signal already passed through. The transient already happened. Why are you printing a receipt?
-    </div>
-    <div class="da-donut-text">
-      LMS plugins don't infer. The density tracker <strong style="color:var(--amber)">was there</strong>. 
-      It processed the signal. It knows the harmonic content because it computed the harmonic 
-      content as part of doing its actual job. The measurement isn't a query — it's a 
-      <strong style="color:var(--amber)">byproduct of the work that already happened</strong>.
-    </div>
-    <div class="da-donut-comparison">
-      <div class="da-donut-side">
-        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
-        <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
-      </div>
-      <div class="da-donut-side">
-        <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
-        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
-      </div>
-    </div>
-    <div class="da-donut-footer">
-      I give you the signal. You give me the donut. No receipt needed.
-    </div>
-  </div>
-</div>
-
-<!-- Epicycles quote -->
-<div class="da-quote-box">
-  <p>"They make averages and wonder why it sounds average.<br>Rube Goldberg machines and epicycles."</p>
-  <div class="da-attr">— on the traditional approach</div>
-</div>
-
 <!-- ============================================ -->
 <!-- EXISTING: SECTION 1: PLUGIN LOADING -->
 <!-- ============================================ -->
@@ -2359,6 +2142,222 @@
     </div>
   </div>
 </section>
+
+<!-- ============================================ -->
+<!-- DENSITY-AWARE AMP SECTION -->
+<!-- ============================================ -->
+<div class="da-section-label">INTERACTIVE DEMO</div>
+
+<div class="da-demo-wrap">
+  <div class="da-mode-toggle">
+    <button class="da-mode-btn da-active-lms" id="da-btn-lms" onclick="daSetMode('lms')">LMS (Density-Aware)</button>
+    <button class="da-mode-btn" id="da-btn-trad" onclick="daSetMode('traditional')">Traditional (Static)</button>
+  </div>
+
+  <div class="da-demo-layout">
+    <!-- Strum area -->
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
+      <div class="da-strum-area" id="da-strum-area">
+        <div class="da-strum-string" style="left:20%"></div>
+        <div class="da-strum-string" style="left:35%"></div>
+        <div class="da-strum-string" style="left:50%"></div>
+        <div class="da-strum-string" style="left:65%"></div>
+        <div class="da-strum-string" style="left:80%"></div>
+        <div class="da-pick-indicator" id="da-pick-indicator"></div>
+        <div class="da-strum-hint" style="top:6px">SOFT</div>
+        <div class="da-strum-hint" style="bottom:6px">HARD</div>
+      </div>
+    </div>
+
+    <!-- Amp viz -->
+    <div style="display:flex;flex-direction:column;align-items:center" id="da-amp-viz">
+      <div class="da-tubes-row" id="da-tubes-row"></div>
+      <div class="da-matrix-wrap da-lms-mode" id="da-matrix-wrap">
+        <div class="da-matrix-grid" id="da-matrix-grid"></div>
+        <div class="da-band-labels" id="da-band-labels"></div>
+      </div>
+      <div class="da-meters-row" id="da-meters-row"></div>
+    </div>
+
+    <!-- Output -->
+    <div class="da-output-bar-wrap" style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">OUTPUT</div>
+      <div class="da-output-bar">
+        <div class="da-output-fill" id="da-output-fill"></div>
+        <div class="da-output-value" id="da-output-value">0</div>
+      </div>
+      <div class="da-output-label" id="da-output-label">Shaped by density</div>
+    </div>
+  </div>
+
+  <!-- Miller explanation -->
+  <div class="da-miller-box" id="da-miller-box">
+    <h3 id="da-miller-title">WHAT YOU'RE SEEING</h3>
+    <p id="da-miller-text"></p>
+    <div class="da-miller-callout" id="da-miller-callout"></div>
+  </div>
+</div>
+
+<!-- Quote transition -->
+<div class="da-quote-box">
+  <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
+  <div class="da-attr">— the question that started all of this</div>
+</div>
+
+<!-- ============================================ -->
+<!-- ARCHITECTURE COMPARISON FROM DENSITY-AMP -->
+<!-- ============================================ -->
+<div class="da-section-label">ARCHITECTURE COMPARISON</div>
+
+<div class="da-compare-section">
+  <div class="da-compare-grid">
+    <!-- Traditional -->
+    <div class="da-compare-col da-trad-col">
+      <h3>Every Other Amp Sim</h3>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-off">Inter-stage awareness</div>
+        <div class="da-check-item da-off">Frequency tracking</div>
+        <div class="da-check-item da-off">Dynamic Miller cap</div>
+        <div class="da-check-item da-off">Shared power supply</div>
+        <div class="da-check-item da-off">Density feedback</div>
+        <div class="da-check-item da-off">Grid physics</div>
+        <div class="da-check-item da-off">Harmonic analysis</div>
+        <div class="da-check-item da-off">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          Since the stages can't talk to each other, they brute-force their way to "good enough":
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LMS -->
+    <div class="da-compare-col da-lms-col">
+      <h3>LMS Density-Aware</h3>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-on">Inter-stage awareness</div>
+        <div class="da-check-item da-on">Frequency tracking</div>
+        <div class="da-check-item da-on">Dynamic Miller cap</div>
+        <div class="da-check-item da-on">Shared power supply</div>
+        <div class="da-check-item da-on">Density feedback</div>
+        <div class="da-check-item da-on">Grid physics</div>
+        <div class="da-check-item da-on">Harmonic analysis</div>
+        <div class="da-check-item da-on">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          When stages know what the others are doing, you don't need brute force:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- THE DONUT PROBLEM -->
+<!-- ============================================ -->
+<div class="da-section-label">THE DONUT PROBLEM</div>
+
+<div class="da-donut-wrap">
+  <div class="da-donut-box">
+    <div class="da-donut-quote">
+      "I give you the money, you give me the donut. End of transaction.<br>
+      We don't need to bring ink and paper into this."
+    </div>
+    <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
+    <div class="da-donut-text">
+      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong>
+      what the input just did. The compressor sees a peak and guesses a transient happened.
+      The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses
+      the vocalist hit an S.
+    </div>
+    <div class="da-donut-text">
+      The signal already passed through. The transient already happened. Why are you printing a receipt?
+    </div>
+    <div class="da-donut-text">
+      LMS plugins don't infer. The density tracker <strong style="color:var(--amber)">was there</strong>.
+      It processed the signal. It knows the harmonic content because it computed the harmonic
+      content as part of doing its actual job. The measurement isn't a query — it's a
+      <strong style="color:var(--amber)">byproduct of the work that already happened</strong>.
+    </div>
+    <div class="da-donut-comparison">
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
+        <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
+      </div>
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
+        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
+      </div>
+    </div>
+    <div class="da-donut-footer">
+      I give you the signal. You give me the donut. No receipt needed.
+    </div>
+  </div>
+</div>
+
+<!-- Epicycles quote -->
+<div class="da-quote-box">
+  <p>"They make averages and wonder why it sounds average.<br>Rube Goldberg machines and epicycles."</p>
+  <div class="da-attr">— on the traditional approach</div>
+</div>
 
 <!-- ============================================ -->
 <!-- EXISTING: PERFORMANCE PROOF -->
