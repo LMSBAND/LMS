@@ -65,13 +65,19 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   fridge_uhi.lms_bq_init();
   fridge_notch.lms_bq_init();
 
-  // Cabinet simulation — generic (SOB/Fridge/Frenchie)
+  // Cabinet simulation — generic (Fridge/Frenchie only; SOB/JCM use 5-band models)
   cab_lo.lms_bq_init();
   cab_hi.lms_bq_init();
 
-  // JCM800 preamp triode stages
-  jcm_v1b.lms_triode_v1b_init();   // V1B: unbypassed cathode, soft
-  jcm_v1a.lms_triode_v1a_init();   // V1A: bypassed cathode, hard (Hi input only)
+  // Section 3 sat suite — must init for ADAA state
+  fridge_sat.lms_sat_warm_init();       // Fridge 12AX7 preamp warmth
+  fridge_harm.lms_sat_harmonics_init(); // Fridge 6550 power amp harmonics
+  frenchie_sat.lms_sat_warm_init();     // Frenchie 6V6 single-ended warmth
+  frenchie_harm.lms_sat_harmonics_init(); // Frenchie even harmonic bloom
+
+  // JCM800 preamp triode stages (ADAA inside)
+  jcm_v1b.lms_triode_v1b_init();
+  jcm_v1a.lms_triode_v1a_init();
 
   // JCM800 input coupling cap (100Hz HP — before V1B)
   jcm_input_hp.lms_bq_init();
@@ -80,18 +86,37 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   // JCM800 passive tone stack
   jcm_ts.lms_tonestack_jcm_init();
 
-  // JCM800 EL34 power amp
+  // JCM800 EL34 power amp (ADAA inside)
   jcm_pa.lms_el34_init();
 
   // JCM800 4×12 cabinet (Celestion G12T-75)
   jcm_cab.lms_cab_412_init();
+
+  // SOB preamp stages (Mesa Triple Rectifier — ADAA inside both)
+  sob_v1a.lms_triode_v1a_init();
+  sob_v2b.lms_triode_v2b_init();
+
+  // SOB inter-stage LP — Miller capacitance + plate resistor loading between V1a and V2b
+  // Real value: ~8kHz from 100kΩ plate + ~200pF grid/stray capacitance
+  // Kills the fizzy upper harmonics that accumulate between gain stages
+  sob_interstage_lp.lms_bq_init();
+  sob_interstage_lp.lms_bq_set_lp(8000, 0.6);
+
+  // SOB power amp (6L6 push-pull — ADAA inside)
+  sob_pa.lms_6l6_init();
+
+  // SOB passive tone stack (Mesa Modern)
+  sob_ts.lms_tonestack_mesa_init();
+
+  // SOB 4×12 cabinet (Celestion V30)
+  sob_cab.lms_cab_mesa_412_init();
 
   // DC blocker — essential after asymmetric clipping
   dc.lms_dc_init();
 
   // Sag simulator (SOB tube rectifier mode)
   sag.lms_sag_init();
-  sag.lms_sag_set(22);   // 22ms attack — Mesa-style bloom
+  sag.lms_sag_set(22);
 
   // Opto comp (Frenchie natural compression)
   frenchie_opto.lms_opto_init();
@@ -243,15 +268,11 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
 
   // Tone stack EQ parameters per model
   amp_model == 0 ? (
-    // SOB: Mesa Boogie Modern channel
-    // Bass: shelving at 88Hz (tight, not flabby)
-    // Mid: peak at 700Hz Q=0.8 (the scoop zone — mid_amt cuts here)
-    // Treble: shelf at 936Hz (Modern ch pivot point — shifted from 1.27k)
-    // Presence: tight shelf at 2400Hz Q=2.0 (Mesa Modern presence character)
-    bass_eq.lms_bq_set_loshelf(88, bass_amt * 10, 0.6);
-    mid_eq.lms_bq_set_peak(700, mid_amt * 10, 0.8);
-    treb_eq.lms_bq_set_hishelf(936, treb_amt * 10, 0.707);
-    pres_eq.lms_bq_set_hishelf(2400, pres_amt * 8, 2.0);
+    // SOB: Mesa Triple Rectifier — real passive tone stack + 6L6 power amp
+    // Bass/mid/treble go to the Mesa tone stack (inline in @sample)
+    // Presence goes to the 6L6 power amp presence resonant peak
+    sob_ts.lms_tonestack_mesa_set(slider6 / 100, slider7 / 100, slider8 / 100);
+    sob_pa.lms_6l6_set(amp_gain, pres_amt, sob_rect);
   ) : amp_model == 1 ? (
     // Punk Idol: JCM800 — passive tone stack + EL34 power amp
     // bass_amt/mid_amt/treb_amt are 0..1 pot positions (not ±, unlike other models)
@@ -303,20 +324,12 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     pres_eq.lms_bq_set_lp(champ_tone_freq, 0.6);         // THE tone knob
   );
 
-  // Cabinet EQ per model
-  amp_model == 0 ? (
-    // SOB: Mesa 4×12 — HP 80Hz, LP 6500Hz (Mesa cabs go brighter)
-    cab_lo.lms_bq_set_hp(80, 0.6);
-    cab_hi.lms_bq_set_lp(6500, 0.7);
-  ) : amp_model == 1 ? (
-    // Punk Idol: Marshall 4×12 — HP 120Hz, LP 5000Hz (darker, boxier)
-    cab_lo.lms_bq_set_hp(120, 0.6);
-    cab_hi.lms_bq_set_lp(5000, 0.7);
-  ) : amp_model == 2 ? (
+  // Cabinet EQ — generic 2-biquad (only Fridge/Frenchie; SOB/JCM800 use 5-band models)
+  amp_model == 2 ? (
     // Fridge: Ampeg 8×10 bass cab — HP 40Hz, LP 4000Hz
     cab_lo.lms_bq_set_hp(40, 0.5);
     cab_hi.lms_bq_set_lp(4000, 0.7);
-  ) : (
+  ) : amp_model == 3 ? (
     // Frenchie: 1×8" Champ cab — HP 80Hz, LP 8000Hz (small speaker, wide HF)
     cab_lo.lms_bq_set_hp(80, 0.6);
     cab_hi.lms_bq_set_lp(8000, 0.6);
@@ -363,10 +376,8 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   );
 
   amp_model == 0 ? (
-    bass_eq.lms_bq_set_loshelf(88, bass_amt * 10, 0.6);
-    mid_eq.lms_bq_set_peak(700, mid_amt * 10, 0.8);
-    treb_eq.lms_bq_set_hishelf(936, treb_amt * 10, 0.707);
-    pres_eq.lms_bq_set_hishelf(2400, pres_amt * 8, 2.0);
+    sob_ts.lms_tonestack_mesa_set(slider6 / 100, slider7 / 100, slider8 / 100);
+    sob_pa.lms_6l6_set(amp_gain, pres_amt, sob_rect);
   ) : amp_model == 1 ? (
     jcm_ts.lms_tonestack_jcm_set(slider6 / 100, slider7 / 100, slider8 / 100);
     jcm_pa.lms_el34_set(amp_gain, pres_amt);
@@ -400,16 +411,10 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     pres_eq.lms_bq_set_lp(champ_tone_freq, 0.6);
   );
 
-  amp_model == 0 ? (
-    cab_lo.lms_bq_set_hp(80, 0.6);
-    cab_hi.lms_bq_set_lp(6500, 0.7);
-  ) : amp_model == 1 ? (
-    cab_lo.lms_bq_set_hp(120, 0.6);
-    cab_hi.lms_bq_set_lp(5000, 0.7);
-  ) : amp_model == 2 ? (
+  amp_model == 2 ? (
     cab_lo.lms_bq_set_hp(40, 0.5);
     cab_hi.lms_bq_set_lp(4000, 0.7);
-  ) : (
+  ) : amp_model == 3 ? (
     cab_lo.lms_bq_set_hp(80, 0.6);
     cab_hi.lms_bq_set_lp(8000, 0.6);
   );
@@ -604,24 +609,57 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   // AMP SATURATION — per model
   // ============================================================
   amp_model == 0 ? (
-    // TRIPLE RECTIFIED SOB — Mesa Boogie Triple Rectifier Modern
-    // Tube rectifier sag (if enabled)
+    // TRIPLE RECTIFIED SOB — Mesa Boogie Triple Rectifier full circuit model
+    //
+    // Channel routing (matches real Triple Rectifier channel switching):
+    //   Clean  (0): V1a single-stage, low drive — Class A warm
+    //   Crunch (1): V1a pushed harder + V2b cold-bias entry → Vintage/Orange ch
+    //   Lead   (2): V1a → V2b at full cold-bias → Modern ch (the brown sound)
+    //
+    // Tube rectifier sag: applies BEFORE preamp (sag.lms_sag_proc handles this)
+    // The sag.lms_sag_init() uses 22ms attack — Mesa tube rect is slower than Marshall
+    // silicon/tube selector already set in sag — sag_gain = 1.0 if silicon (no sag)
     sob_rect == 1 ? (
       sag_gain = sag.lms_sag_proc(mono);
       mono *= sag_gain;
     );
-    // Channel: 0=Clean, 1=Crunch (Vintage), 2=Lead (Modern)
+
     amp_channel == 0 ? (
-      // Clean — Class A warm, low drive
-      amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.3), drive_amt * 0.15, 0.0);
+      // CLEAN — V1a single stage at low drive
+      amp_l = sob_v1a.lms_triode_v1a_proc(mono, amp_gain * 0.22);
+
     ) : amp_channel == 1 ? (
-      // Crunch — Vintage hot tube
-      amp_l = lms_sat_hot(mono * (1 + drive_amt * 1.2), drive_amt * 0.7, 0.05);
+      // CRUNCH / VINTAGE — V1a hard into V2b cold-bias
+      // V1a must be solidly clipping before V2b sees the signal — otherwise
+      // V2b's bias_shift never kicks in and it sounds too clean
+      amp_l = sob_v1a.lms_triode_v1a_proc(mono, amp_gain * 0.88);
+      // Inter-stage LP: models Miller capacitance + plate resistor loading
+      // Kills the fizzy upper harmonics V1a generates before they enter V2b
+      amp_l = sob_interstage_lp.lms_bq_proc_l(amp_l);
+      amp_l = sob_v2b.lms_triode_v2b_proc(amp_l, amp_gain * 0.70);
+
     ) : (
-      // Lead — Modern: hot stacked with rectifier (the chug wall)
-      pre = lms_sat_hot(mono * (1 + drive_amt * 1.5), drive_amt * 0.9, 0.05);
-      amp_l = lms_sat_rect(pre, drive_amt * 0.4, 0.02);
+      // LEAD / MODERN — full chain, maximum saturation
+      amp_l = sob_v1a.lms_triode_v1a_proc(mono, amp_gain * 0.95);
+      amp_l = sob_interstage_lp.lms_bq_proc_l(amp_l);
+      amp_l = sob_v2b.lms_triode_v2b_proc(amp_l, amp_gain * 0.90);
     );
+
+    // DC block between preamp and tone stack — V2b's strong asymmetry creates
+    // a DC offset that would bias the tone stack filters and cause buzz
+    amp_l = dc.lms_dc_proc_l(amp_l);
+
+    // Mesa passive tone stack
+    amp_l = sob_ts.lms_tonestack_mesa_proc(amp_l);
+
+    // Recovery gain stage — light triode pass (V1b character: soft, unbypassed)
+    // Replaces raw ×5.0 multiply: adds another soft saturation stage with
+    // the gentle cathode-NFB compression of a real recovery triode
+    amp_l = sob_v1a.lms_triode_v1a_proc(amp_l * 4.5, amp_gain * 0.12);
+
+    // 6L6 push-pull power amp
+    amp_l = sob_pa.lms_6l6_proc(amp_l);
+
     amp_r = amp_l;
 
   ) : amp_model == 1 ? (
@@ -669,10 +707,10 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
 
   ) : amp_model == 2 ? (
     // THE FRIDGE — Ampeg SVT-CL (no channel switch, drive_amt from amp_gain)
-    // 12AX7 preamp: even harmonics, warm tube
-    amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.7), drive_amt * 0.5, 0.06);
-    // 6550 push-pull power amp: odd harmonics (even cancel in push-pull)
-    amp_l = lms_sat_harmonics(amp_l, 0.0, 0.15);
+    // 12AX7 preamp: even harmonics, warm tube — ADAA anti-aliased
+    amp_l = fridge_sat.lms_sat_warm(mono * (1 + drive_amt * 0.7), drive_amt * 0.5, 0.06);
+    // 6550 push-pull power amp: odd harmonics — ADAA anti-aliased
+    amp_l = fridge_harm.lms_sat_harmonics(amp_l, 0.0, 0.15);
     amp_r = amp_l;
     // Ultra Lo / Ultra Hi EQ (applied after saturation)
     amp_l = fridge_ulo.lms_bq_proc_l(amp_l);
@@ -687,12 +725,12 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
     // Opto comp first (natural low-wattage compression)
     frenchie_opto.lms_opto_proc(mono, mono);
     mono *= frenchie_opto.gr;
-    // 6V6GT single-ended Class A: pure even harmonics, warm breakup
-    amp_l = lms_sat_warm(mono * (1 + drive_amt * 0.9), drive_amt * 0.8, 0.0);
-    // Even harmonics increase with drive (single-ended character)
+    // 6V6GT single-ended Class A: pure even harmonics, warm breakup — ADAA anti-aliased
+    amp_l = frenchie_sat.lms_sat_warm(mono * (1 + drive_amt * 0.9), drive_amt * 0.8, 0.0);
+    // Even harmonics increase with drive (single-ended character) — ADAA anti-aliased
     drive_amt > 0.8 ? (
       even_amt = (drive_amt - 0.8) * 0.5;
-      amp_l = lms_sat_harmonics(amp_l, min(0.35, even_amt), 0.03);
+      amp_l = frenchie_harm.lms_sat_harmonics(amp_l, min(0.35, even_amt), 0.03);
     );
     amp_r = amp_l;
   );
@@ -702,9 +740,9 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   amp_r = dc.lms_dc_proc_r(amp_r);
 
   // ============================================================
-  // TONE STACK — generic (not JCM800; JCM800 runs its passive stack inline)
+  // TONE STACK — generic (SOB and JCM800 run their passive stacks inline)
   // ============================================================
-  amp_model != 1 ? (
+  amp_model >= 2 ? (
     amp_l = bass_eq.lms_bq_proc_l(amp_l);
     amp_r = bass_eq.lms_bq_proc_r(amp_r);
     amp_l = mid_eq.lms_bq_proc_l(amp_l);
@@ -719,12 +757,16 @@ slider21:100<0,100,0.1>-Dry/Wet (%)
   // CABINET SIMULATION
   // ============================================================
   cab_on == 1 ? (
-    amp_model == 1 ? (
-      // JCM800: 5-band Celestion G12T-75 model
+    amp_model == 0 ? (
+      // SOB: Mesa 4×12 with Celestion V30 (5-band model)
+      amp_l = sob_cab.lms_cab_mesa_412_proc_l(amp_l);
+      amp_r = sob_cab.lms_cab_mesa_412_proc_r(amp_r);
+    ) : amp_model == 1 ? (
+      // JCM800: Marshall 4×12 with Celestion G12T-75 (5-band model)
       amp_l = jcm_cab.lms_cab_412_proc_l(amp_l);
       amp_r = jcm_cab.lms_cab_412_proc_r(amp_r);
     ) : (
-      // All other amps: generic 2-biquad cab
+      // Fridge / Frenchie: generic 2-biquad cab
       amp_l = cab_lo.lms_bq_proc_l(amp_l);
       amp_r = cab_lo.lms_bq_proc_r(amp_r);
       amp_l = cab_hi.lms_bq_proc_l(amp_l);

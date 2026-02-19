@@ -6,6 +6,10 @@
         <changelog><![CDATA[Initial release — shared DSP kernel. All LMS plugins import this. Contains: tanh/dB math, stereo biquad filters (HP/LP/BP/peak/shelf), saturation suite (warm/hot/tape/rect/fuzz/harmonics), FET compressor, DC blocker, tone filter, cubic interpolation, spring reverb allpass.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-18T20:00:00Z">
+        <changelog><![CDATA[v2.0 — Density-aware amp ecosystem support. Core kernel now used by Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT), Top Boost v2 (AC15), and The TRSOB v2 (Mesa Triple Rectifier) density-aware amp sims with built-in effects (spring reverb, tremolo, tape echo, Crushinator).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -179,6 +183,94 @@
       <version name="1.0" author="LMS" time="2026-02-18T12:00:00Z">
         <changelog><![CDATA[Initial release — Guitar amp sim with room reverb. Preamp stage (Clean/Crunch/Lead/Fuzz), passive tone stack (bass/mid/treble/presence), cabinet simulation (100Hz HP + 5.5kHz LP), Schroeder room reverb (6 comb + 4 allpass), three room types (Bedroom/Garage/Basement), bird's-eye room visualizer with animated sound waves. Full broadcast system (follow/steal/leader).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_chris_bedroom.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Fender Champ 5F1 amp sim. Two triode stages (V1a 12AX7 preamp + V2b power driver) with fixed asymmetric clipping and 4-band density tracker (Lo/Mid/Hi/Air) driving Miller LP, air shelf, drive boost, and NFB bandwidth — NOT the clipping curve. PSU sag (25% max droop, 80ms recovery). Simple tone control (LP sweep). 1x12 Greenback cab sim. Built-in spring reverb (4-stage allpass diffusion, pre-delay, feedback LP) and bias tremolo (sine LFO, 1-10Hz). Runs 16 instances at 2.5% CPU.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-19T18:00:00Z">
+        <changelog><![CDATA[v1.1 — Six Champ 5F1 circuit additions from real schematic: (1) 5Y3 tube rectifier PSU — upgraded to 5ms attack, 200ms recovery, 30% max droop (one of the saggiest rectifiers ever, notes "bloom" as supply recovers). (2) Single-ended 6V6 Class A power amp — replaces V2b triode with proper SE power amp: single tube asymmetric clipping (positive plate-current limiting, negative gradual cutoff), even harmonics preserved (no push-pull cancellation), cathode bias shift (5ms/150ms, up to 20% gain reduction). (3) Output transformer saturation — tiny 5W Champ OT saturates earliest in the suite (×4.0 sensitivity at ~80Hz), density-driven low-frequency core loading creates the fat compressed Champ sound. (4) Transformer winding resonance — 3.5kHz +2.5dB peak (the Champ "sparkle"). (5) RF input filter — 68kΩ grid stopper LP at 10kHz (the soft Champ input feel). (6) Open-back cab resonance — 90Hz +2.0dB Q=2.5 (1x12 baffle resonance). Monitor updated with 6V6 density, transformer core load %, cathode bias shift %, and B+ voltage.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=11, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 560×420 two-column layout (Preamp + Effects). All controls now match the LMS channel strip / tube sat / tape machine GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Marshall JCM800 2203 amp sim. Dual triode stages (V1B crunch + V1A lead) with fixed asymmetric clipping and 4-band density tracker driving Miller LP, air shelf, drive boost, and NFB bandwidth. EL34 push-pull power amp (asymmetric 1.4x/1.35x hardness). PSU sag with tube rectifier response. Clean/Crunch/Lead switching. Full passive tone stack (bass/mid/treble/presence). 4x12 Greenback cab sim. Built-in spring reverb, bias tremolo, and tape echo (circular delay with LP feedback, wow/flutter). Runs 16 instances at 2.5% CPU.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-19T12:00:00Z">
+        <changelog><![CDATA[v1.1 — Six JCM800 circuit additions from real 2203/2204 schematic: (1) Bright cap — 120pF gain-dependent treble boost at 3kHz, preserves pick attack at low gain, swamped at high gain. (2) Cathode follower — 12AX7 unity-gain buffer between preamp and tone stack, programme-dependent compression (up to 20% gain reduction), prevents tone stack loading. (3) Long-tail pair phase inverter — 12AX7 LTP driving EL34 grids, soft round clipping at high master adds "pillow" pre-compression before power tubes. (4) Output transformer saturation — density-driven low-frequency core loading at ~120Hz, saturates lows only on big power chords (smaller core than SVT = more sensitive). (5) Presence in NFB loop — presence control adjusts HF content of negative feedback loop (more presence = less HF NFB = more bite). (6) Cab resonance — 110Hz closed-back 4x12 air resonance (Q=3.0). Monitor updated with PI density, transformer core load, and CF compression readouts.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=12, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Channel mode selector (Clean/Crunch/Lead). All controls now match the LMS suite GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Ampeg SVT-CL bass amp sim. Single V1 12AX7 preamp with even harmonic emphasis (neg clips softer), 6550 push-pull power amp (symmetric 1.2x, high headroom). Bass-tuned 4-band density tracker (Lo<150Hz, Mid 150-1200Hz, Hi>1200Hz, Air>3500Hz). SVT tone stack with selectable mid freq (220/450/800/1.6k/3k), Ultra Lo/Hi switches. 8x10 sealed cab sim (6-band). Built-in Crushinator pedal (SansAmp-style parallel clean/dirty blend with diode clipping, pre-clip presence/mid push, post-clip bass/treble EQ). Tape echo. Runs 16 instances at 2.5% CPU.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-19T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Full SVT-CL circuit modeling: V1b recovery stage (low-gain even-harmonic buffer between V1a and tone stack), 12AU7 phase inverter/driver (pillow overdrive at high master), output transformer low-frequency saturation (THE GROWL — density-driven core loading saturates lows only, even harmonics on big bass notes), RF input filter (12kHz LP removes ultrasonic content that aliases through gain stages), mid frequency Q variation (220Hz=wide shelf-like, 3kHz=narrow surgical — matches real SVT component impedances), sealed box 60Hz resonance (chest punch). All using existing density-aware architecture. ~0.3% additional CPU per instance.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=13, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 640×520 three-column layout (Preamp + Tone/Power + Effects). Mid Freq 5-way mode selector, Ultra Lo/Hi toggles, Crushinator toggle with Drive/Blend/Presence/Low/High controls. All controls now match the LMS suite GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_ac15_v2.jsfx" type="effect" desc="LMS - Top Boost v2 — Density-Aware AC15 Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-19T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Vox AC15 amp sim. EF86 pentode preamp (soft positive/HARD negative cutoff — the AC15 "glass") with 12AX7 second stage on Top Boost channel. EL84 cathode-biased push-pull power amp with NO negative feedback (raw, alive, touch-sensitive), cathode bias shift for natural compression. Top Boost EQ with built-in mid presence peak (the chime). Tone Cut (back panel LP). Celestion Alnico Blue 1x12 cab sim with 2.5kHz presence peak. Built-in bias tremolo and spring reverb. Normal/Top Boost channel switching. 20% PSU sag with spongy feel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-19T18:00:00Z">
+        <changelog><![CDATA[v1.1 — Six AC15 circuit additions from real schematic: (1) Cathodyne phase inverter — real AC15 uses cathodyne (concertina), NOT long-tail pair like Marshall. Wider bandwidth = more HF (Vox shimmer). Plate clips harder than cathode (asymmetric bloom under drive). (2) Output transformer saturation — small 15W EL84 OT (×3.5 sensitivity at ~90Hz), density-driven low-frequency core loading creates creamy breakup on power chords. (3) Transformer winding resonance — 4kHz +2.0dB peak (the Vox shimmer, between Champ 3.5k and Mesa 4.5k). (4) Interstage coupling cap HP at 160Hz — real AC15 has SMALLER coupling caps than Marshall (0.01µF vs 0.022µF), tighter bass than you'd expect from a Vox. (5) EF86 screen grid compression — pentode-specific positive peak soft knee, screen grid current limits positive peaks creating the "glassy" EF86 ceiling that's different from triode grid conduction. (6) Open-back cab resonance — 180Hz +1.5dB Q=2.0 (the "body" of the Vox sound). Monitor updated with cathodyne PI density, transformer core load %, and EF86 screen compression.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=14, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×460 three-column layout (Preamp + Tone/Power + Effects). Normal/Top Boost channel mode selector with Tone Cut control. All controls now match the LMS suite GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Fender Twin Reverb / Deluxe Reverb amp sim. Two amps in one plugin: Twin Reverb (85W, 6L6GC push-pull, silicon rectifier, 2×12 open-back Jensen C12N) and Deluxe Reverb (22W, 6V6GT push-pull, 5U4GB tube rectifier, 1×12 open-back Jensen C12N). Shared AB763 preamp: V1a 12AX7 (fully bypassed cathode), cathode follower buffer (V1b, prevents tone stack loading, 18% programme-dependent compression), Fender passive tone stack (700Hz mid — THE scooped Fender sound), 12AT7 LTP phase inverter (lower gain than Marshall's 12AX7 = more headroom = stays clean longer). Gain-dependent bright cap (120pF, 3.5kHz). RF input filter (68k grid stopper). Twin: 6L6GC push-pull with minimal cathode bias shift (8%), 85W output transformer (×1.8 sensitivity — hardest to saturate in suite), 3.8kHz winding resonance, 10dB NFB with presence. Deluxe: 6V6GT push-pull with 15% cathode bias shift (more compression), 22W output transformer (×3.0 sensitivity — saturates earlier = warmer breakup), 3.5kHz winding resonance, 8dB NFB with presence. Fender 3-spring reverb tank (brighter, more diffuse than single-spring). Bias tremolo. Tape echo. Full monitor with per-channel power amp density, transformer core load, cathode bias, and B+ voltage.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=16, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Twin (85W) / Deluxe (22W) channel mode selector with channel-dependent power amp switching. All controls now match the LMS suite GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
+      <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware Mesa Boogie Triple Rectifier amp sim. Three channels: Clean (V1a only, Fender-like breakup), Vintage (V1a→V2a→V2b, creamy singing lead), Modern (V1a→V2a→V2b driven HARD, wall of brown crushing chug). V2b cold-bias stage with extreme asymmetry (pos_hard=2.0, neg_hard=0.7) for massive 2nd harmonics — THE Mesa sound. V2a partially bypassed cathode with 86Hz HP (0.68uF/2.7k) — THE tightness mechanism, 12dB less gain below 86Hz prevents low-end mud through cascaded stages. Interstage coupling cap HP at 72Hz (3× cascaded = ultra-tight at max gain). Cathode follower (programme-dependent compression up to 30% gain reduction). 6L6 push-pull power amp with output transformer saturation and winding resonance (4.5kHz). Silicon/Tube rectifier × Bold/Spongy PSU matrix (4 distinct dynamics from tightest to saggiest). Mesa passive tone stack (mid at 750Hz). Gain-dependent bright cap (2kHz). V30 4x12 closed-back cab with 8-stage EQ and 120Hz box resonance. Built-in noise gate and tape echo. Full monitor with per-stage density, B+ voltage, CF compression, xfmr load.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-20T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=15, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Channel mode selector (Clean/Vintage/Modern), Rectifier toggle (Silicon/Tube), Bold/Spongy toggle, Noise Gate toggle. All controls now match the LMS suite GUI standard.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Limiter — Predictive Mastering Limiter">
+      <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware master bus limiter. Reads harmonic density state from LMS amp plugins via gmem to predict peaks BEFORE they arrive. Gain reduction is proactive, not reactive — the signal never clips because the limiter already set the gain correctly. True peak detection with inter-sample peak interpolation. Soft knee with 3dB width. Tanh soft clip safety net. GR meter, density state display, measured vs predicted peak comparison. Works standalone (standard reactive limiting) or gmem-linked (predictive mode). "Dead things don't move when you poke them."]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_density_seq.jsfx" type="effect" desc="LMS - Density Sequencer — Your Playing Is The Sequence">
+      <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-reactive sequencer/instrument. Reads density state from any LMS amp plugin via gmem and generates rhythmic/melodic output driven by the harmonic content of your playing. Four modes: Drums (lo→kick, mid→snare, hi→hats, air→cymbals), Bass Synth (scale-quantized bass from density), Arp (density-driven arpeggiation with direction/range modulation), Drone (two oscillators with density-reactive filter and volume). Scale selection (minor/major pent, minor/major, chromatic), root note, swing, humanize. Pattern memory grid shows last 16 steps as density-colored cells. Built-in synth engine with 10 voices.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
@@ -411,7 +503,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

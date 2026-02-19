@@ -1,0 +1,555 @@
+desc:LMS - Density Sequencer (gmem reactive)
+//tags: sequencer density generator midi
+//author: LMS + Claude
+//version: 0.1
+//license: GPL-3.0
+import lms_core.jsfx-inc
+options:gmem=DrumBagger
+
+// Reads density state from any LMS amp plugin via gmem
+// Generates rhythmic/melodic output driven by the harmonic content
+// of whatever is flowing through the amp stages
+//
+// YOUR PLAYING IS THE SEQUENCE.
+
+slider1:0<0,3,1{Drums,Bass Synth,Arp,Drone}>Mode
+slider2:50<0,100,1>Sensitivity (%)
+slider3:50<0,100,1>Density (pattern complexity) (%)
+slider4:120<40,240,1>BPM
+slider5:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>Root Note
+slider6:0<0,4,1{Minor Pent,Major Pent,Minor,Major,Chromatic}>Scale
+slider7:50<0,100,1>Swing (%)
+slider8:50<0,100,1>Humanize (%)
+slider9:0<-24,24,0.1>Output Level (dB)
+slider10:50<0,100,1>Wet Mix (%)
+
+@init
+
+function tanh_a(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
+function bq_init() ( this.b0=1; this.b1=0; this.b2=0; this.a1=0; this.a2=0; this.x1=0; this.x2=0; this.y1=0; this.y2=0; );
+function bq_set_lp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1-cs)/2*a0_inv; this.b1=(1-cs)*a0_inv; this.b2=(1-cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+function bq_set_hp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1+cs)/2*a0_inv; this.b1=-(1+cs)*a0_inv; this.b2=(1+cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+function bq_set_bp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(sn/2)*a0_inv; this.b1=0; this.b2=-(sn/2)*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+function bq_proc(x) local(o) ( o=this.b0*x + this.b1*this.x1 + this.b2*this.x2 - this.a1*this.y1 - this.a2*this.y2; this.x2=this.x1; this.x1=x; this.y2=this.y1; this.y1=o; o; );
+
+// === SCALES ===
+// Each scale is a set of semitone offsets from root
+// Stored as arrays in memory
+scale_base = 10000;
+
+// Minor pentatonic: 0 3 5 7 10
+scale_base[0] = 0; scale_base[1] = 3; scale_base[2] = 5;
+scale_base[3] = 7; scale_base[4] = 10;
+scale_len_0 = 5;
+
+// Major pentatonic: 0 2 4 7 9
+scale_base[10] = 0; scale_base[11] = 2; scale_base[12] = 4;
+scale_base[13] = 7; scale_base[14] = 9;
+scale_len_1 = 5;
+
+// Minor: 0 2 3 5 7 8 10
+scale_base[20] = 0; scale_base[21] = 2; scale_base[22] = 3;
+scale_base[23] = 5; scale_base[24] = 7; scale_base[25] = 8;
+scale_base[26] = 10;
+scale_len_2 = 7;
+
+// Major: 0 2 4 5 7 9 11
+scale_base[30] = 0; scale_base[31] = 2; scale_base[32] = 4;
+scale_base[33] = 5; scale_base[34] = 7; scale_base[35] = 9;
+scale_base[36] = 11;
+scale_len_3 = 7;
+
+// Chromatic: 0 1 2 3 4 5 6 7 8 9 10 11
+scale_base[40] = 0; scale_base[41] = 1; scale_base[42] = 2;
+scale_base[43] = 3; scale_base[44] = 4; scale_base[45] = 5;
+scale_base[46] = 6; scale_base[47] = 7; scale_base[48] = 8;
+scale_base[49] = 9; scale_base[50] = 10; scale_base[51] = 11;
+scale_len_4 = 12;
+
+function get_scale_note(scale_sel, degree) local(base, len, octave, deg_in_scale, semitone) (
+  base = scale_sel * 10;
+  scale_sel == 0 ? len = scale_len_0;
+  scale_sel == 1 ? len = scale_len_1;
+  scale_sel == 2 ? len = scale_len_2;
+  scale_sel == 3 ? len = scale_len_3;
+  scale_sel == 4 ? len = scale_len_4;
+  octave = (degree / len) | 0;
+  deg_in_scale = degree - octave * len;
+  deg_in_scale < 0 ? ( deg_in_scale += len; octave -= 1; );
+  semitone = scale_base[base + deg_in_scale] + octave * 12;
+  semitone;
+);
+
+function midi_to_freq(note) (
+  440.0 * pow(2, (note - 69) / 12);
+);
+
+// === SIMPLE SYNTH VOICE ===
+// One oscillator + envelope + filter per voice
+// Used for all modes (drums use noise + filter, melodic uses osc)
+function voice_init() (
+  this.phase = 0;
+  this.freq = 440;
+  this.amp = 0;
+  this.target_amp = 0;
+  this.att = 0;
+  this.rel = 0;
+  this.noise_mix = 0;  // 0 = pure tone, 1 = pure noise
+  this.filt.bq_init();
+  this.filt_freq = 1000;
+  this.active = 0;
+  this.vel = 0;
+);
+
+function voice_trigger(freq, vel, att_ms, rel_ms, noise_mix, filt_freq, filt_q) (
+  this.freq = freq;
+  this.vel = vel;
+  this.target_amp = vel;
+  this.att = att_ms > 0.1 ? exp(-1/(srate * att_ms * 0.001)) : 0;
+  this.rel = exp(-1/(srate * rel_ms * 0.001));
+  this.noise_mix = noise_mix;
+  this.filt_freq = filt_freq;
+  this.filt.bq_set_bp(filt_freq, filt_q);
+  this.active = 1;
+  // Reset phase on trigger for punchy attack
+  noise_mix < 0.5 ? this.phase = 0;
+);
+
+function voice_proc() local(osc, noise, raw, out) (
+  this.active == 0 ? ( 0; ) : (
+    // Oscillator
+    this.phase += this.freq / srate;
+    this.phase >= 1 ? this.phase -= 1;
+    // Mix of triangle and square for richness
+    osc = this.phase < 0.5 ? (this.phase * 4 - 1) : (3 - this.phase * 4);
+    osc = osc * 0.7 + (this.phase < 0.5 ? 0.3 : -0.3);  // add some square
+    
+    // Noise (for drums)
+    noise = (rand(2) - 1);
+    
+    // Mix
+    raw = osc * (1.0 - this.noise_mix) + noise * this.noise_mix;
+    
+    // Envelope
+    this.amp < this.target_amp ? (
+      this.att > 0 ? (
+        this.amp = this.att * this.amp + (1 - this.att) * this.target_amp;
+      ) : (
+        this.amp = this.target_amp;
+      );
+    ) : (
+      this.target_amp = 0;
+      this.amp = this.rel * this.amp;
+    );
+    
+    // Kill voice when silent
+    this.amp < 0.0001 ? ( this.active = 0; this.amp = 0; );
+    
+    // Filter
+    out = this.filt.bq_proc(raw * this.amp);
+    out;
+  );
+);
+
+// === DRUM VOICES ===
+kick.voice_init();
+snare.voice_init();
+hat.voice_init();
+cymbal.voice_init();
+
+// === MELODIC VOICES (4 voice polyphony) ===
+mel0.voice_init();
+mel1.voice_init();
+mel2.voice_init();
+mel3.voice_init();
+mel_idx = 0;  // round robin
+
+// === DRONE VOICES (2 oscillators) ===
+drone0.voice_init();
+drone1.voice_init();
+drone_active = 0;
+
+// === TIMING ===
+clock_pos = 0;
+step_samples = 0;
+current_step = 0;
+steps_per_bar = 16;
+
+// Density reading state (smoothed from gmem)
+d_lo = 0; d_mid = 0; d_hi = 0; d_air = 0;
+d_total = 0;
+d_smooth = 0;
+
+// Trigger cooldowns (prevent machine-gun retriggering)
+kick_cooldown = 0;
+snare_cooldown = 0;
+hat_cooldown = 0;
+cymbal_cooldown = 0;
+
+// Pattern memory (last 16 steps of density → becomes the pattern)
+pat_base = 20000;
+pat_len = 16;
+i = 0;
+loop(pat_len * 4,
+  pat_base[i] = 0;
+  i += 1;
+);
+
+out_level = 1;
+sensitivity = 0.5;
+complexity = 0.5;
+swing = 0.5;
+humanize = 0.5;
+wet_mix = 0.5;
+mode = 0;
+root = 0;
+scale_sel = 0;
+bpm = 120;
+
+// pseudo-random (deterministic from density for repeatable-ish patterns)
+seed = 12345;
+function d_rand() (
+  seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF;
+  seed / 0x7FFFFFFF;
+);
+
+@slider
+mode = slider1;
+sensitivity = slider2 / 100;
+complexity = slider3 / 100;
+bpm = slider4;
+root = slider5;
+scale_sel = slider6;
+swing = slider7 / 100;
+humanize = slider8 / 100;
+out_level = 10 ^ (slider9 / 20);
+wet_mix = slider10 / 100;
+
+step_samples = (srate * 60 / bpm / 4) | 0;  // 16th notes
+
+@sample
+
+// === READ DENSITY FROM GMEM ===
+// These are written by any LMS amp plugin with Monitor on
+// gmem[50002] = density (lo band ratio)
+// gmem[50003] = mid_density (mid band fraction)
+// gmem[50004] = hi_density (hi band fraction)
+// gmem[50005] = air_density (air band fraction)
+// gmem[50016] = B+ voltage (PSU sag)
+sm = 0.995;  // very smooth reading — we want trends not jitter
+d_lo = d_lo * sm + gmem[50002] * (1 - sm);
+d_mid = d_mid * sm + gmem[50003] * (1 - sm);
+d_hi = d_hi * sm + gmem[50004] * (1 - sm);
+d_air = d_air * sm + gmem[50005] * (1 - sm);
+d_total = d_lo + d_mid + d_hi + d_air;
+
+// === CLOCK ===
+clock_pos += 1;
+
+// Swing: even steps are on time, odd steps are pushed late
+swing_offset = 0;
+(current_step % 2 == 1) ? (
+  swing_offset = (swing - 0.5) * step_samples * 0.5;
+);
+
+clock_pos >= (step_samples + swing_offset) ? (
+  clock_pos = 0;
+  
+  // Store density snapshot for this step (pattern memory)
+  pat_idx = current_step % pat_len;
+  pat_base[pat_idx * 4] = d_lo;
+  pat_base[pat_idx * 4 + 1] = d_mid;
+  pat_base[pat_idx * 4 + 2] = d_hi;
+  pat_base[pat_idx * 4 + 3] = d_air;
+  
+  // Seed the pseudo-random from density (makes patterns density-dependent)
+  seed = ((d_lo * 10000) | 0) + current_step * 7919;
+  
+  // === TRIGGER LOGIC ===
+  // Each band drives different instruments/notes
+  // Sensitivity scales the trigger threshold
+  // Complexity scales how many things can trigger per step
+  
+  thresh_base = 0.15 * (1.0 - sensitivity);
+  
+  mode == 0 ? (
+    // === DRUM MODE ===
+    // lo → kick (on strong density, on beats)
+    d_lo > thresh_base + 0.1 && kick_cooldown <= 0 ? (
+      // Kick more likely on beats 1 and 3 (steps 0,4,8,12)
+      kick_prob = (current_step % 4 == 0) ? 0.9 : 0.3 * complexity;
+      d_rand() < kick_prob ? (
+        vel = min(1.0, d_lo * sensitivity * 2.0);
+        // Humanize velocity
+        vel *= 1.0 - humanize * 0.3 + d_rand() * humanize * 0.6;
+        kick.voice_trigger(55, vel, 0.5, 80, 0.2, 80, 2.0);
+        kick_cooldown = 2;  // min 2 steps between kicks
+      );
+    );
+    
+    // mid → snare (on backbeats, or when mid is dominant)
+    d_mid > thresh_base && snare_cooldown <= 0 ? (
+      snare_prob = (current_step % 8 == 4) ? 0.85 : 
+                   (current_step % 4 == 2) ? 0.4 * complexity : 0.1 * complexity;
+      d_rand() < snare_prob ? (
+        vel = min(1.0, d_mid * sensitivity * 2.5);
+        vel *= 1.0 - humanize * 0.3 + d_rand() * humanize * 0.6;
+        snare.voice_trigger(180, vel, 0.3, 60, 0.7, 2500, 1.5);
+        snare_cooldown = 1;
+      );
+    );
+    
+    // hi → hihat (frequent, density controls openness)
+    d_hi > thresh_base * 0.5 ? (
+      hat_prob = 0.3 + complexity * 0.5;
+      d_rand() < hat_prob ? (
+        vel = min(0.6, d_hi * sensitivity * 1.5);
+        vel *= 1.0 - humanize * 0.2 + d_rand() * humanize * 0.4;
+        // Open hat when hi density is high, closed when low
+        hat_decay = 30 + d_hi * 150;  // 30ms (closed) to 180ms (open)
+        hat.voice_trigger(8000, vel, 0.1, hat_decay, 0.95, 6000 + d_hi * 4000, 0.8);
+      );
+    );
+    
+    // air → cymbal (rare, on big moments)
+    d_air > thresh_base + 0.15 && cymbal_cooldown <= 0 ? (
+      cymbal_prob = 0.15 * complexity;
+      d_rand() < cymbal_prob ? (
+        vel = min(0.5, d_air * sensitivity * 2.0);
+        cymbal.voice_trigger(4000, vel, 1, 500, 0.85, 3000 + d_air * 6000, 0.5);
+        cymbal_cooldown = 4;
+      );
+    );
+    
+    kick_cooldown -= 1;
+    snare_cooldown -= 1;
+    cymbal_cooldown -= 1;
+  
+  ) : mode == 1 ? (
+    // === BASS SYNTH MODE ===
+    // lo energy triggers bass notes, mid picks the scale degree
+    // hi controls filter, air controls release
+    d_lo > thresh_base ? (
+      bass_prob = 0.4 + complexity * 0.4;
+      d_rand() < bass_prob ? (
+        // Scale degree from mid density (low mid = root, high mid = 5th+)
+        degree = (d_mid * 8 * complexity) | 0;
+        semitone = get_scale_note(scale_sel, degree);
+        midi_note = 36 + root + semitone;  // bass range (C2 = 36)
+        freq = midi_to_freq(midi_note);
+        vel = min(0.8, d_lo * sensitivity * 1.5);
+        vel *= 1.0 - humanize * 0.2 + d_rand() * humanize * 0.4;
+        filt_f = 200 + d_hi * 2000;  // hi density opens filter
+        rel = 100 + (1.0 - d_air) * 300;  // air controls sustain
+        
+        // Round robin voices
+        mel_idx == 0 ? mel0.voice_trigger(freq, vel, 2, rel, 0.0, filt_f, 1.5);
+        mel_idx == 1 ? mel1.voice_trigger(freq, vel, 2, rel, 0.0, filt_f, 1.5);
+        mel_idx == 2 ? mel2.voice_trigger(freq, vel, 2, rel, 0.0, filt_f, 1.5);
+        mel_idx == 3 ? mel3.voice_trigger(freq, vel, 2, rel, 0.0, filt_f, 1.5);
+        mel_idx = (mel_idx + 1) % 4;
+      );
+    );
+  
+  ) : mode == 2 ? (
+    // === ARP MODE ===
+    // Steps through scale degrees based on density
+    // Speed/direction reactive to harmonic content
+    d_total > thresh_base * 2 ? (
+      arp_prob = 0.5 + complexity * 0.4;
+      d_rand() < arp_prob ? (
+        // Degree walks up with each step, range set by density
+        arp_range = 5 + (complexity * 10) | 0;
+        degree = current_step % arp_range;
+        // Reverse direction when mid density is high
+        d_mid > 0.4 ? degree = arp_range - 1 - degree;
+        semitone = get_scale_note(scale_sel, degree);
+        midi_note = 60 + root + semitone;  // mid range (C4 = 60)
+        freq = midi_to_freq(midi_note);
+        vel = min(0.7, d_total * sensitivity * 0.8);
+        vel *= 1.0 - humanize * 0.2 + d_rand() * humanize * 0.4;
+        filt_f = 500 + d_hi * 4000;
+        rel = 50 + (1.0 - d_air) * 200;
+        
+        mel_idx == 0 ? mel0.voice_trigger(freq, vel, 1, rel, 0.0, filt_f, 2.0);
+        mel_idx == 1 ? mel1.voice_trigger(freq, vel, 1, rel, 0.0, filt_f, 2.0);
+        mel_idx == 2 ? mel2.voice_trigger(freq, vel, 1, rel, 0.0, filt_f, 2.0);
+        mel_idx == 3 ? mel3.voice_trigger(freq, vel, 1, rel, 0.0, filt_f, 2.0);
+        mel_idx = (mel_idx + 1) % 4;
+      );
+    );
+  
+  ) : mode == 3 ? (
+    // === DRONE MODE ===
+    // Two oscillators tuned to root + 5th
+    // Density modulates filter and volume — plays when you play, breathes when you breathe
+    drone_active == 0 && d_total > thresh_base * 3 ? (
+      root_freq = midi_to_freq(48 + root);  // C3
+      fifth_freq = midi_to_freq(48 + root + 7);  // G3
+      drone0.voice_trigger(root_freq, 0.5, 500, 2000, 0.0, 300, 0.8);
+      drone1.voice_trigger(fifth_freq, 0.3, 800, 2000, 0.0, 400, 0.8);
+      drone_active = 1;
+    );
+  );
+  
+  current_step = (current_step + 1) % (steps_per_bar * 4);  // 4 bars
+);
+
+// === DRONE CONTINUOUS MODULATION (every sample, not just on steps) ===
+mode == 3 && drone_active == 1 ? (
+  // Filter follows density in real time (not stepped)
+  drone_filt = 150 + d_total * 800;
+  drone0.filt.bq_set_bp(drone_filt, 0.8 + d_mid * 2.0);
+  drone1.filt.bq_set_bp(drone_filt * 1.5, 0.8 + d_hi * 2.0);
+  // Volume follows density
+  drone0.target_amp = min(0.5, d_total * sensitivity * 0.5);
+  drone1.target_amp = min(0.3, d_total * sensitivity * 0.3);
+  // Kill drone when signal dies
+  d_total < 0.02 ? (
+    drone0.target_amp = 0;
+    drone1.target_amp = 0;
+    d_total < 0.005 ? drone_active = 0;
+  );
+);
+
+// === RENDER ALL VOICES ===
+synth_out = 0;
+synth_out += kick.voice_proc();
+synth_out += snare.voice_proc();
+synth_out += hat.voice_proc();
+synth_out += cymbal.voice_proc();
+synth_out += mel0.voice_proc();
+synth_out += mel1.voice_proc();
+synth_out += mel2.voice_proc();
+synth_out += mel3.voice_proc();
+synth_out += drone0.voice_proc();
+synth_out += drone1.voice_proc();
+
+synth_out = tanh_a(synth_out * 1.5) * 0.7;  // soft limit
+synth_out *= out_level;
+
+// === MIX ===
+spl0 = spl0 * (1.0 - wet_mix) + synth_out * wet_mix;
+spl1 = spl1 * (1.0 - wet_mix) + synth_out * wet_mix;
+
+// === BROADCAST OUR STATE ===
+gmem[50020] = current_step;
+gmem[50021] = d_lo;
+gmem[50022] = d_mid;
+gmem[50023] = d_hi;
+gmem[50024] = d_air;
+
+@gfx 500 300
+gfx_set(1, 1, 1);
+gfx_x = 10; gfx_y = 10;
+gfx_drawstr("=== DENSITY SEQUENCER ===");
+
+// Mode
+gfx_x = 10; gfx_y = 30;
+gfx_set(1, 0.8, 0.2);
+mode == 0 ? gfx_drawstr("MODE: DRUMS")
+: mode == 1 ? gfx_drawstr("MODE: BASS SYNTH")
+: mode == 2 ? gfx_drawstr("MODE: ARP")
+: gfx_drawstr("MODE: DRONE");
+
+// Density bars
+gfx_set(1, 1, 1);
+gfx_x = 10; gfx_y = 55;
+gfx_drawstr("DENSITY INPUT:");
+
+bar_x = 10;
+bar_y = 70;
+bar_w = 100;
+bar_h = 12;
+
+// Lo
+gfx_set(0.12, 0.31, 0.86);
+gfx_rect(bar_x, bar_y, bar_w * min(1, d_lo), bar_h);
+gfx_set(0.3, 0.3, 0.3);
+gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_drawstr("LO "); gfx_drawnumber(d_lo, 3);
+
+// Mid
+bar_y += 16;
+gfx_set(0.86, 0.63, 0.12);
+gfx_rect(bar_x, bar_y, bar_w * min(1, d_mid), bar_h);
+gfx_set(0.3, 0.3, 0.3);
+gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_drawstr("MID "); gfx_drawnumber(d_mid, 3);
+
+// Hi
+bar_y += 16;
+gfx_set(0.86, 0.24, 0.12);
+gfx_rect(bar_x, bar_y, bar_w * min(1, d_hi), bar_h);
+gfx_set(0.3, 0.3, 0.3);
+gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_drawstr("HI "); gfx_drawnumber(d_hi, 3);
+
+// Air
+bar_y += 16;
+gfx_set(0.71, 0.16, 0.86);
+gfx_rect(bar_x, bar_y, bar_w * min(1, d_air), bar_h);
+gfx_set(0.3, 0.3, 0.3);
+gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_drawstr("AIR "); gfx_drawnumber(d_air, 3);
+
+// Step display (pattern memory as color grid)
+grid_x = 10;
+grid_y = 150;
+cell_w = 28;
+cell_h = 28;
+gfx_set(1,1,1);
+gfx_x = 10; gfx_y = 138;
+gfx_drawstr("PATTERN (last 16 steps — brighter = more energy):");
+
+i = 0;
+loop(pat_len,
+  px = grid_x + i * (cell_w + 2);
+  py = grid_y;
+  
+  p_lo = pat_base[i * 4];
+  p_mid = pat_base[i * 4 + 1];
+  p_hi = pat_base[i * 4 + 2];
+  p_air = pat_base[i * 4 + 3];
+  
+  // Color from band mix
+  cr = min(1, p_mid * 2 + p_hi * 1.5);
+  cg = min(1, p_lo * 1.5 + p_mid * 0.5);
+  cb = min(1, p_air * 3 + p_hi * 0.5);
+  
+  // Current step highlight
+  i == (current_step % pat_len) ? (
+    gfx_set(1, 1, 1, 0.3);
+    gfx_rect(px - 1, py - 1, cell_w + 2, cell_h + 2);
+  );
+  
+  gfx_set(cr * 0.8, cg * 0.8, cb * 0.8);
+  gfx_rect(px, py, cell_w, cell_h);
+  
+  // Beat markers
+  i % 4 == 0 ? (
+    gfx_set(1, 1, 1, 0.15);
+    gfx_rect(px, py + cell_h - 2, cell_w, 2);
+  );
+  
+  i += 1;
+);
+
+// Step counter
+gfx_set(0.5, 1, 0.5);
+gfx_x = 10; gfx_y = grid_y + cell_h + 8;
+gfx_drawstr("Step: "); gfx_drawnumber(current_step % pat_len + 1, 0);
+gfx_drawstr("/"); gfx_drawnumber(pat_len, 0);
+gfx_drawstr("  BPM: "); gfx_drawnumber(bpm, 0);
+
+// Active voices
+gfx_set(1, 0.8, 0.2);
+gfx_x = 10; gfx_y = grid_y + cell_h + 24;
+voices_active = kick.active + snare.active + hat.active + cymbal.active +
+                mel0.active + mel1.active + mel2.active + mel3.active +
+                drone0.active + drone1.active;
+gfx_drawstr("Active voices: "); gfx_drawnumber(voices_active, 0);

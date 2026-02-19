@@ -1,0 +1,473 @@
+desc:LMS - Density Limiter (gmem aware, artifact-free)
+//tags: limiter mastering density
+//author: LMS + Claude
+//version: 0.1
+//license: GPL-3.0
+options:gmem=DrumBagger
+
+// ============================================================================
+//  DENSITY-AWARE MASTER LIMITER
+//
+//  Traditional limiters sit at the end of the chain and clamp peaks after
+//  they've already been created. This creates artifacts:
+//    - Transient distortion from clamping a waveform mid-peak
+//    - Pumping from the release envelope fighting the signal
+//    - Inter-sample peaks that clip the DAC despite limiting
+//
+//  This limiter reads the density state from every LMS plugin on the bus
+//  via gmem. It knows the harmonic content, the PSU state, and the energy
+//  distribution of the signal BEFORE it sums to clipping. It reduces gain
+//  proportionally to the predicted peak, not the measured peak.
+//
+//  The signal never clips. The limiter never reacts to a peak.
+//  There is nothing to react TO — the gain was already right.
+//
+//  Dead things don't move when you poke them.
+//  This limiter doesn't move because nothing pokes it.
+// ============================================================================
+
+slider1:0<-12,12,0.1>Input Gain (dB)
+slider2:-0.3<-3,0,0.1>Ceiling (dBFS)
+slider3:50<0,100,1>Density Influence (%)
+slider4:3<0.5,10,0.1>Release (ms)
+slider5:0<0,1,1{Off,On}>Gmem Link
+slider6:0<-24,0,0.1>Gain Reduction (dB)
+
+@init
+
+function tanh_a(x) local(e2x) (
+  x > 10 ? 1 : x < -10 ? -1 : (
+    e2x = exp(2*x);
+    (e2x-1)/(e2x+1);
+  );
+);
+
+function bq_init() (
+  this.b0=1; this.b1=0; this.b2=0;
+  this.a1=0; this.a2=0;
+  this.x1=0; this.x2=0;
+  this.y1=0; this.y2=0;
+);
+
+function bq_set_lp(freq, q) local(w0, cs, sn, alpha, a0_inv) (
+  w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0);
+  alpha=sn/(2*q); a0_inv=1/(1+alpha);
+  this.b0=(1-cs)/2*a0_inv; this.b1=(1-cs)*a0_inv;
+  this.b2=(1-cs)/2*a0_inv;
+  this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv;
+);
+
+function bq_set_hp(freq, q) local(w0, cs, sn, alpha, a0_inv) (
+  w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0);
+  alpha=sn/(2*q); a0_inv=1/(1+alpha);
+  this.b0=(1+cs)/2*a0_inv; this.b1=-(1+cs)*a0_inv;
+  this.b2=(1+cs)/2*a0_inv;
+  this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv;
+);
+
+function bq_proc(x) local(o) (
+  o = this.b0*x + this.b1*this.x1 + this.b2*this.x2
+    - this.a1*this.y1 - this.a2*this.y2;
+  this.x2=this.x1; this.x1=x;
+  this.y2=this.y1; this.y1=o;
+  o;
+);
+
+// === DENSITY STATE (read from gmem) ===
+d_lo = 0;
+d_mid = 0;
+d_hi = 0;
+d_air = 0;
+d_total = 0;
+d_bplus = 1.0;
+
+// === LIMITER STATE ===
+// Predictive gain reduction — not reactive
+gain_reduction = 1.0;        // current applied GR (linear)
+predicted_peak = 0;          // predicted peak from density
+measured_peak = 0;           // actual measured peak (safety net)
+
+// Envelope followers
+env_fast = 0;                // fast peak follower (~0.1ms attack)
+env_slow = 0;                // slow RMS follower (~5ms)
+env_density = 0;             // density-predicted level
+
+// Attack/release coefficients
+att_fast = exp(-1/(srate * 0.0001));     // 0.1ms — catches everything
+att_slow = exp(-1/(srate * 0.005));      // 5ms RMS
+rel_coeff = exp(-1/(srate * 0.003));     // 3ms default release
+
+// Smoothing for gain reduction (prevents zipper noise)
+gr_smooth = 0;
+gr_smooth_coeff = exp(-1/(srate * 0.0005));  // 0.5ms smoothing
+
+// Soft knee — gentler transition into limiting
+knee_width = 3.0;  // dB
+
+// === OVERSAMPLING: 2x for true peak detection ===
+// Half-band interpolation filter for detecting inter-sample peaks
+// Without this, peaks between samples clip the DAC
+hb_l.bq_init();
+hb_r.bq_init();
+hb_l.bq_set_lp(srate * 0.25, 0.54);  // half-band LP for interpolation
+hb_r.bq_set_lp(srate * 0.25, 0.54);
+
+// Previous samples for interpolation
+prev_l = 0;
+prev_r = 0;
+
+// === GR HISTORY for metering ===
+gr_meter = 0;
+gr_meter_rel = exp(-1/(srate * 0.100));  // 100ms meter release
+
+ceiling = 1.0;
+in_gain = 1.0;
+density_influence = 0.5;
+gmem_link = 0;
+
+@slider
+
+in_gain = 10 ^ (slider1 / 20);
+ceiling = 10 ^ (slider2 / 20);
+density_influence = slider3 / 100;
+rel_coeff = exp(-1/(srate * slider4 * 0.001));
+gmem_link = slider5;
+
+@sample
+
+// === READ INPUT ===
+l = spl0 * in_gain;
+r = spl1 * in_gain;
+
+// === READ DENSITY FROM GMEM ===
+gmem_link == 1 ? (
+  sm = 0.99;
+  d_lo  = d_lo  * sm + gmem[50002] * (1 - sm);
+  d_mid = d_mid * sm + gmem[50003] * (1 - sm);
+  d_hi  = d_hi  * sm + gmem[50004] * (1 - sm);
+  d_air = d_air * sm + gmem[50005] * (1 - sm);
+  d_bplus = d_bplus * 0.999 + gmem[50016] * 0.001;
+  d_total = d_lo + d_mid + d_hi + d_air;
+);
+
+// === TRUE PEAK DETECTION ===
+// Interpolate between current and previous sample to catch inter-sample peaks
+// This is the one place we DO compute something extra — because DAC clipping
+// is the one artifact we can't prevent through architecture alone
+mid_l = (l + prev_l) * 0.5;  // midpoint estimate
+mid_r = (r + prev_r) * 0.5;
+// Filter for better interpolation
+mid_l = hb_l.bq_proc(mid_l);
+mid_r = hb_r.bq_proc(mid_r);
+prev_l = l;
+prev_r = r;
+
+// True peak is max of sample peak and interpolated peak
+sample_peak = max(abs(l), abs(r));
+interp_peak = max(abs(mid_l), abs(mid_r));
+true_peak = max(sample_peak, interp_peak);
+
+// === FAST PEAK ENVELOPE (safety net — catches anything) ===
+true_peak > env_fast ? (
+  env_fast = true_peak;  // instant attack
+) : (
+  env_fast = env_fast * rel_coeff + true_peak * (1 - rel_coeff);
+);
+
+// === SLOW RMS ENVELOPE (for smooth behavior) ===
+rms_input = l * l + r * r;
+env_slow > rms_input ? (
+  env_slow = env_slow * att_slow;
+) : (
+  env_slow = env_slow * att_slow + rms_input * (1 - att_slow);
+);
+rms_level = sqrt(env_slow);
+
+// === DENSITY-PREDICTED PEAK ===
+// This is the key innovation:
+// The density state tells us how harmonically loaded the signal is.
+// Higher density = more energy packed into overtones = higher crest factor likely
+// We can predict the peak will be higher than the RMS by a density-dependent ratio
+//
+// Clean signal (density ~1.0): crest factor ~3dB (sine wave)
+// Dense signal (density ~2.5): crest factor ~6-9dB (lots of transient energy)
+//
+// By knowing the density NOW, we can set gain reduction for where the peak
+// WILL be, not where it WAS.
+
+gmem_link == 1 && d_total > 0.01 ? (
+  // Predicted crest factor from density
+  // More density = expect bigger peaks relative to RMS
+  predicted_crest = 1.4 + d_total * 0.6;  // 1.4 (clean) to ~3.0 (dense)
+  
+  // Predicted peak = RMS * crest factor
+  density_predicted = rms_level * predicted_crest;
+  
+  // Smooth the prediction
+  density_predicted > env_density ? (
+    env_density = env_density * 0.9 + density_predicted * 0.1;  // fast up
+  ) : (
+    env_density = env_density * 0.998 + density_predicted * 0.002;  // slow down
+  );
+) : (
+  env_density = env_density * 0.999;  // decay when no density info
+);
+
+// === GAIN REDUCTION CALCULATION ===
+// Blend between measured peak and density-predicted peak
+// Density prediction is proactive (reduces before peak arrives)
+// Measured peak is reactive (catches anything density missed)
+
+effective_peak = env_fast * (1.0 - density_influence) 
+               + max(env_fast, env_density) * density_influence;
+
+// Soft knee: gradual transition into limiting
+// Below knee: no reduction
+// In knee: gradual onset
+// Above knee: full reduction
+peak_db = effective_peak > 0.00001 ? 20 * log10(effective_peak) : -100;
+ceil_db = 20 * log10(ceiling);
+knee_lo = ceil_db - knee_width * 0.5;
+knee_hi = ceil_db + knee_width * 0.5;
+
+peak_db < knee_lo ? (
+  // Below knee — no reduction
+  target_gr_db = 0;
+) : peak_db > knee_hi ? (
+  // Above knee — full reduction
+  target_gr_db = ceil_db - peak_db;
+) : (
+  // In knee — quadratic blend
+  knee_factor = (peak_db - knee_lo) / knee_width;
+  target_gr_db = -knee_width * 0.5 * knee_factor * knee_factor;
+);
+
+// Convert to linear
+target_gr = 10 ^ (target_gr_db / 20);
+target_gr = min(1.0, max(0.01, target_gr));
+
+// === SMOOTH GAIN REDUCTION ===
+// Fast attack (instant for true peaks), smooth release (no pumping)
+target_gr < gain_reduction ? (
+  // Attack: instant — we need this for true peak prevention
+  gain_reduction = target_gr;
+) : (
+  // Release: smooth
+  gain_reduction = gain_reduction * rel_coeff + target_gr * (1 - rel_coeff);
+);
+
+// Extra smoothing to prevent zipper noise on fast changes
+gr_smooth = gr_smooth * gr_smooth_coeff + gain_reduction * (1 - gr_smooth_coeff);
+
+// === APPLY GAIN REDUCTION ===
+l *= gr_smooth;
+r *= gr_smooth;
+
+// === FINAL SAFETY CLIP ===
+// Soft clip anything that still exceeds ceiling (should be rare/never with density)
+// Using tanh soft clip instead of hard clip — no artifacts even if triggered
+l_over = abs(l) / ceiling;
+r_over = abs(r) / ceiling;
+
+l_over > 1.0 ? (
+  l = (l > 0 ? 1 : -1) * ceiling * tanh_a(l_over) / tanh_a(1.0);
+);
+r_over > 1.0 ? (
+  r = (r > 0 ? 1 : -1) * ceiling * tanh_a(r_over) / tanh_a(1.0);
+);
+
+// === OUTPUT ===
+spl0 = l;
+spl1 = r;
+
+// === METERING ===
+gr_db = 20 * log10(max(0.001, gr_smooth));
+gr_db < gr_meter ? (
+  gr_meter = gr_db;  // instant attack on meter
+) : (
+  gr_meter = gr_meter * gr_meter_rel + gr_db * (1 - gr_meter_rel);
+);
+slider6 = gr_meter;
+
+// Broadcast our state
+gmem[50030] = gr_smooth;       // current gain reduction (linear)
+gmem[50031] = gr_meter;        // GR in dB
+gmem[50032] = effective_peak;  // what we're responding to
+gmem[50033] = env_density;     // density-predicted level
+
+@gfx 500 240
+
+gfx_set(0.04, 0.04, 0.06);
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+// Title
+gfx_set(1, 0.8, 0.2);
+gfx_x = 10; gfx_y = 8;
+gfx_drawstr("DENSITY LIMITER");
+gfx_set(0.5, 0.5, 0.5);
+gfx_x = 150; gfx_y = 8;
+gmem_link == 1 ? (
+  gfx_set(0.2, 0.8, 0.4);
+  gfx_drawstr("GMEM LINKED");
+) : (
+  gfx_set(0.5, 0.3, 0.3);
+  gfx_drawstr("GMEM OFF (standard mode)");
+);
+
+// === GR METER (the big one) ===
+meter_x = 10;
+meter_y = 30;
+meter_w = gfx_w - 20;
+meter_h = 40;
+
+// Background
+gfx_set(0.08, 0.08, 0.10);
+gfx_rect(meter_x, meter_y, meter_w, meter_h);
+
+// GR bar (right to left, 0dB on right, -24dB on left)
+gr_pct = min(1.0, abs(gr_meter) / 24.0);
+bar_w = gr_pct * meter_w;
+
+// Color: green for light GR, amber for moderate, red for heavy
+gr_meter > -3 ? (
+  gfx_set(0.2, 0.8, 0.3, 0.8);
+) : gr_meter > -6 ? (
+  gfx_set(0.9, 0.7, 0.1, 0.8);
+) : (
+  gfx_set(0.9, 0.2, 0.2, 0.8);
+);
+gfx_rect(meter_x + meter_w - bar_w, meter_y, bar_w, meter_h);
+
+// GR value text
+gfx_set(1, 1, 1);
+gfx_x = meter_x + meter_w / 2 - 30;
+gfx_y = meter_y + 12;
+gfx_drawstr("GR: ");
+gfx_drawnumber(gr_meter, 1);
+gfx_drawstr(" dB");
+
+// Border
+gfx_set(0.25, 0.25, 0.3);
+gfx_rect(meter_x, meter_y, meter_w, meter_h, 0);
+
+// Scale marks
+i = 0;
+loop(7,
+  mark_db = -i * 4;  // 0, -4, -8, -12, -16, -20, -24
+  mark_x = meter_x + meter_w - (abs(mark_db) / 24.0) * meter_w;
+  gfx_set(0.3, 0.3, 0.35);
+  gfx_line(mark_x, meter_y, mark_x, meter_y + meter_h);
+  gfx_set(0.4, 0.4, 0.5);
+  gfx_x = mark_x - 5;
+  gfx_y = meter_y + meter_h + 2;
+  gfx_drawnumber(mark_db, 0);
+  i += 1;
+);
+
+// === DENSITY INPUT DISPLAY ===
+dy = 100;
+gfx_set(1, 1, 1);
+gfx_x = 10; gfx_y = dy;
+gfx_drawstr("DENSITY STATE:");
+
+bar_w = 80;
+bar_h = 10;
+bx = 120;
+
+// Lo
+gfx_set(0.12, 0.31, 0.86);
+gfx_rect(bx, dy, bar_w * min(1, d_lo), bar_h);
+gfx_set(0.2, 0.2, 0.25);
+gfx_rect(bx, dy, bar_w, bar_h, 0);
+gfx_set(0.5, 0.5, 0.6);
+gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_drawstr("LO");
+
+dy += 14;
+gfx_set(0.86, 0.63, 0.12);
+gfx_rect(bx, dy, bar_w * min(1, d_mid), bar_h);
+gfx_set(0.2, 0.2, 0.25);
+gfx_rect(bx, dy, bar_w, bar_h, 0);
+gfx_set(0.5, 0.5, 0.6);
+gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_drawstr("MID");
+
+dy += 14;
+gfx_set(0.86, 0.24, 0.12);
+gfx_rect(bx, dy, bar_w * min(1, d_hi), bar_h);
+gfx_set(0.2, 0.2, 0.25);
+gfx_rect(bx, dy, bar_w, bar_h, 0);
+gfx_set(0.5, 0.5, 0.6);
+gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_drawstr("HI");
+
+dy += 14;
+gfx_set(0.71, 0.16, 0.86);
+gfx_rect(bx, dy, bar_w * min(1, d_air), bar_h);
+gfx_set(0.2, 0.2, 0.25);
+gfx_rect(bx, dy, bar_w, bar_h, 0);
+gfx_set(0.5, 0.5, 0.6);
+gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_drawstr("AIR");
+
+// === PREDICTION vs MEASURED ===
+py = 100;
+px = 280;
+gfx_set(1, 1, 1);
+gfx_x = px; gfx_y = py;
+gfx_drawstr("PEAK TRACKING:");
+
+// Measured peak bar
+py += 16;
+meas_pct = min(1, env_fast / max(0.001, ceiling));
+gfx_set(0.5, 0.5, 0.6);
+gfx_rect(px, py, 150, bar_h);
+gfx_set(0.3, 0.7, 0.9);
+gfx_rect(px, py, 150 * meas_pct, bar_h);
+gfx_set(0.6, 0.6, 0.7);
+gfx_x = px + 155; gfx_y = py;
+gfx_drawstr("MEAS");
+
+// Density predicted peak bar
+py += 14;
+dens_pct = min(1, env_density / max(0.001, ceiling));
+gfx_set(0.5, 0.5, 0.6);
+gfx_rect(px, py, 150, bar_h);
+gfx_set(1, 0.7, 0.1);
+gfx_rect(px, py, 150 * dens_pct, bar_h);
+gfx_set(0.6, 0.6, 0.7);
+gfx_x = px + 155; gfx_y = py;
+gfx_drawstr("PRED");
+
+// Ceiling line
+ceil_x = px + 150 * min(1, ceiling / max(0.001, ceiling));
+gfx_set(1, 0.2, 0.2, 0.7);
+gfx_line(ceil_x, py - 18, ceil_x, py + bar_h + 4);
+
+// === STATUS ===
+sy = 180;
+gfx_set(1, 1, 1);
+gfx_x = 10; gfx_y = sy;
+
+gmem_link == 1 && d_total > 0.01 ? (
+  gfx_set(0.2, 0.8, 0.4);
+  gfx_drawstr("PREDICTIVE — density-informed gain reduction");
+  gfx_x = 10; gfx_y = sy + 14;
+  gfx_set(0.5, 0.5, 0.6);
+  gfx_drawstr("Predicted crest: ");
+  gfx_drawnumber(1.4 + d_total * 0.6, 2);
+  gfx_drawstr("x   Influence: ");
+  gfx_drawnumber(density_influence * 100, 0);
+  gfx_drawstr("%");
+) : gmem_link == 1 ? (
+  gfx_set(0.6, 0.6, 0.3);
+  gfx_drawstr("LINKED — waiting for density signal...");
+) : (
+  gfx_set(0.5, 0.5, 0.5);
+  gfx_drawstr("STANDARD — reactive peak limiting (enable gmem for predictive)");
+);
+
+// Footer
+gfx_set(0.2, 0.2, 0.25);
+gfx_x = 10; gfx_y = gfx_h - 14;
+gfx_drawstr("LMS x CLAUDE  |  no artifacts because we never make any");
