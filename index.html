@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0a0a0c">
 <title>The Architecture of Freedom — LMS vs The Industry</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Space+Grotesk:wght@300;400;500;700&family=Outfit:wght@200;300;400;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Space+Grotesk:wght@300;400;500;700&family=Outfit:wght@200;300;400;700;900&family=IBM+Plex+Mono:wght@400;600;700&family=Instrument+Serif&display=swap');
 
   html {
     background: #0a0a0c !important;
@@ -32,6 +32,18 @@
     --text: #d8d8dd;
     --text-dim: #888890;
     --money: #44dd66;
+    --amber: #f59e0b;
+    --amber-dim: #f59e0b33;
+    --da-surface: #08080f;
+    --da-border: #1a1a25;
+    --da-text-dim: #666;
+    --da-text-dead: #333;
+    --da-green: #22c55e;
+    --da-red: #ef4444;
+    --da-blue: #3b82f6;
+    --da-purple: #a78bfa;
+    --da-mono: 'IBM Plex Mono', monospace;
+    --da-serif: 'Instrument Serif', serif;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -435,7 +447,6 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  /* Evil track colors */
   .bus-diagram.evil .bus-track-box {
     border: 1px solid #2a1015;
     background: #150810;
@@ -454,7 +465,6 @@
     color: var(--evil-red);
   }
 
-  /* Good track colors */
   .bus-diagram.good .bus-track-box {
     border: 1px solid #0a2a15;
     background: #081508;
@@ -473,7 +483,6 @@
     color: var(--good-green);
   }
 
-  /* Connection lines */
   .bus-connections {
     margin-top: 1rem;
     padding-top: 1rem;
@@ -584,6 +593,718 @@
   .comparison:nth-child(2) .fade-in { animation-delay: 0.1s; }
   .comparison:nth-child(3) .fade-in { animation-delay: 0.15s; }
   .comparison:nth-child(4) .fade-in { animation-delay: 0.2s; }
+
+  /* ============================================ */
+  /* SECTION TRANSITION LABELS */
+  /* ============================================ */
+  .da-section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 3rem 1rem 1.5rem;
+    color: var(--amber);
+  }
+
+  /* ============================================ */
+  /* DENSITY-AMP SCOPED STYLES */
+  /* ============================================ */
+  .da-demo-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 16px 2rem;
+  }
+
+  .da-mode-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .da-mode-btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 2px solid var(--da-text-dead);
+    background: transparent;
+    color: var(--da-text-dim);
+    font-family: var(--da-mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .da-mode-btn.da-active-lms {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
+  }
+
+  .da-mode-btn.da-active-trad {
+    border-color: #555;
+    background: #55555520;
+    color: #888;
+  }
+
+  .da-demo-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .da-strum-area {
+    width: 60px;
+    height: 300px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #0a0a14, #12101a 50%, #1a1018);
+    border: 1px solid var(--da-border);
+    position: relative;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    flex-shrink: 0;
+  }
+
+  .da-strum-area.da-active { border-color: var(--amber-dim); }
+  .da-strum-area.da-trad.da-active { border-color: #44444488; }
+
+  .da-strum-label {
+    font-family: var(--da-mono);
+    font-size: 8px;
+    color: var(--da-text-dim);
+    text-align: center;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .da-strum-string {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: rgba(200,160,80,0.12);
+    transition: background 0.2s;
+  }
+
+  .da-strum-string.da-trad { background: rgba(120,120,120,0.10); }
+
+  .da-pick-indicator {
+    position: absolute;
+    left: 6px; right: 6px;
+    height: 3px;
+    border-radius: 2px;
+    transition: none;
+    pointer-events: none;
+  }
+
+  .da-strum-hint {
+    position: absolute;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: var(--da-mono);
+    font-size: 7px;
+    color: #444;
+    pointer-events: none;
+  }
+
+  .da-tubes-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+
+  .da-tube-wrap { text-align: center; }
+
+  .da-tube {
+    width: 44px;
+    height: 60px;
+    border-radius: 11px 11px 5px 5px;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.08s;
+  }
+
+  .da-tube.da-trad { border-color: #222; }
+
+  .da-tube-filament {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 16px;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .da-tube-plate {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 24px;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .da-tube-pins {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 3px;
+  }
+
+  .da-tube-pin {
+    width: 2px;
+    height: 4px;
+    background: #555;
+    border-radius: 0 0 1px 1px;
+  }
+
+  .da-tube-label {
+    font-family: var(--da-mono);
+    font-size: 7px;
+    margin-top: 3px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .da-matrix-wrap {
+    border: 1px solid var(--da-border);
+    border-radius: 8px;
+    padding: 6px;
+    background: var(--da-surface);
+  }
+
+  .da-matrix-wrap.da-lms-mode {
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+  }
+
+  .da-matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 1.5px;
+  }
+
+  .da-matrix-cell {
+    width: 12px;
+    height: 12px;
+    border-radius: 1.5px;
+    transition: background 0.05s;
+  }
+
+  .da-band-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding: 0 2px;
+  }
+
+  .da-band-label {
+    font-family: var(--da-mono);
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .da-meters-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .da-meter {
+    flex: 1;
+    min-width: 55px;
+    max-width: 70px;
+  }
+
+  .da-meter-label {
+    font-family: var(--da-mono);
+    font-size: 7px;
+    color: var(--da-text-dim);
+    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  .da-meter-bar {
+    height: 5px;
+    background: #111118;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid #222;
+  }
+
+  .da-meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.08s;
+  }
+
+  .da-meter-value {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .da-output-bar-wrap {
+    width: 40px;
+    flex-shrink: 0;
+  }
+
+  .da-output-bar {
+    width: 40px;
+    height: 300px;
+    border-radius: 8px;
+    background: #0a0a14;
+    border: 1px solid var(--da-border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .da-output-fill {
+    position: absolute;
+    bottom: 0;
+    left: 4px;
+    right: 4px;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.06s;
+  }
+
+  .da-output-value {
+    position: absolute;
+    bottom: 6px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: var(--da-mono);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .da-output-label {
+    font-family: var(--da-mono);
+    font-size: 8px;
+    color: var(--da-text-dim);
+    text-align: center;
+    margin-top: 4px;
+    line-height: 1.3;
+    max-width: 50px;
+  }
+
+  .da-miller-box {
+    max-width: 420px;
+    margin: 20px auto 0;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #0c0c14;
+    border: 1px solid var(--amber-dim);
+    transition: all 0.3s;
+  }
+
+  .da-miller-box.da-trad {
+    background: #111;
+    border-color: #222;
+  }
+
+  .da-miller-box h3 {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .da-miller-box p {
+    font-size: 11px;
+    line-height: 1.6;
+    color: #999;
+  }
+
+  .da-miller-box .da-highlight { color: var(--amber); }
+  .da-miller-box .da-highlight-red { color: var(--da-red); }
+  .da-miller-box .da-highlight-blue { color: var(--da-purple); }
+  .da-miller-box .da-highlight-green { color: var(--da-green); }
+
+  .da-miller-callout {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid var(--amber-dim);
+    font-family: var(--da-mono);
+    font-size: 10px;
+    color: var(--amber);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .da-miller-callout.da-dead {
+    background: rgba(100,100,100,0.06);
+    border-color: #333;
+    color: #555;
+  }
+
+  /* === DA ARCHITECTURE COMPARISON === */
+  .da-compare-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 16px 3rem;
+  }
+
+  .da-compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .da-compare-grid { grid-template-columns: 1fr; }
+  }
+
+  .da-compare-col {
+    padding: 20px;
+    border-radius: 10px;
+  }
+
+  .da-compare-col.da-trad-col {
+    background: #111;
+    border: 1px solid #222;
+  }
+
+  .da-compare-col.da-lms-col {
+    background: #0c0c14;
+    border: 1px solid var(--amber-dim);
+  }
+
+  .da-compare-col h3 {
+    font-family: var(--da-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .da-compare-col.da-trad-col h3 { color: #666; }
+  .da-compare-col.da-lms-col h3 { color: var(--amber); }
+
+  .da-stage-box {
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+
+  .da-stage-box.da-trad {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #777;
+  }
+
+  .da-stage-box.da-lms {
+    background: rgba(245,158,11,0.05);
+    border: 1px solid rgba(245,158,11,0.15);
+    color: #bbb;
+  }
+
+  .da-stage-box .da-stage-name {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .da-stage-box.da-trad .da-stage-name { color: #888; }
+  .da-stage-box.da-lms .da-stage-name { color: var(--amber); }
+
+  .da-stage-box .da-stage-sub {
+    font-size: 10px;
+    margin-top: 2px;
+    color: #555;
+  }
+
+  .da-stage-box.da-lms .da-stage-sub { color: #888; }
+
+  .da-stage-arrow {
+    text-align: center;
+    padding: 2px 0;
+    font-size: 14px;
+  }
+
+  .da-stage-arrow.da-trad { color: #333; }
+  .da-stage-arrow.da-lms { color: var(--amber-dim); }
+
+  .da-checklist {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .da-check-item {
+    font-family: var(--da-mono);
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .da-check-item.da-off {
+    color: #444;
+    text-decoration: line-through;
+  }
+
+  .da-check-item.da-off::before {
+    content: '\2717';
+    color: #663333;
+    font-size: 11px;
+    text-decoration: none;
+  }
+
+  .da-check-item.da-on {
+    color: #aaa;
+  }
+
+  .da-check-item.da-on::before {
+    content: '\2713';
+    color: var(--da-green);
+    font-size: 11px;
+  }
+
+  /* Quote boxes from density-amp */
+  .da-quote-box {
+    max-width: 500px;
+    margin: 2.5rem auto;
+    padding: 20px 24px;
+    border-radius: 8px;
+    background: #1e1510;
+    border: 1px solid #332a1a;
+    text-align: center;
+  }
+
+  .da-quote-box p {
+    font-family: var(--da-serif);
+    font-size: 16px;
+    color: #aa9977;
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .da-quote-box .da-attr {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    color: #665544;
+    margin-top: 10px;
+  }
+
+  /* === DA DONUT PROBLEM === */
+  .da-donut-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px 3rem;
+  }
+
+  .da-donut-box {
+    padding: 24px;
+    border-radius: 10px;
+    background: #0c0c14;
+    border: 1px solid var(--amber-dim);
+  }
+
+  .da-donut-box .da-donut-quote {
+    font-family: var(--da-serif);
+    font-size: clamp(18px, 3vw, 24px);
+    color: #f5f5f5;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .da-donut-box .da-donut-attr {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    color: #665544;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .da-donut-box .da-donut-text {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.7;
+  }
+
+  .da-donut-box .da-donut-text + .da-donut-text {
+    margin-top: 12px;
+  }
+
+  .da-donut-comparison {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    background: #1a1510;
+    border: 1px solid #332a1a;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .da-donut-side {
+    text-align: center;
+    min-width: 140px;
+  }
+
+  .da-donut-side-label {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .da-donut-side-text {
+    font-size: 12px;
+    color: #888;
+  }
+
+  .da-donut-footer {
+    font-family: var(--da-mono);
+    font-size: 10px;
+    color: #444;
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  /* === DA WHERE THIS GOES === */
+  .da-future-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px 3rem;
+  }
+
+  .da-future-box {
+    padding: 24px;
+    border-radius: 10px;
+    background: #0c0c14;
+    border: 1px solid var(--da-border);
+  }
+
+  .da-future-box .da-future-text {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.8;
+  }
+
+  .da-future-box .da-future-text + .da-future-text {
+    margin-top: 12px;
+  }
+
+  .da-future-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .da-future-stat {
+    padding: 10px;
+    border-radius: 6px;
+    background: #111;
+    border: 1px solid #222;
+    text-align: center;
+  }
+
+  .da-future-stat-number {
+    font-family: var(--da-mono);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .da-future-stat-label {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  /* === PLUGIN SUITE GRID === */
+  .da-suite-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 16px 3rem;
+  }
+
+  .da-suite-desc {
+    font-size: 13px;
+    color: #888;
+    text-align: center;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .da-suite-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .da-suite-card {
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--bg2);
+    border: 1px solid var(--dimmer);
+  }
+
+  .da-suite-card-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .da-suite-card-header.da-amber { color: var(--amber); }
+  .da-suite-card-header.da-green { color: var(--da-green); }
+  .da-suite-card-header.da-purple { color: var(--da-purple); }
+  .da-suite-card-header.da-blue { color: var(--da-blue); }
+  .da-suite-card-header.da-orange { color: var(--orange); }
+
+  .da-suite-item {
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #ccc;
+    line-height: 1.5;
+  }
+
+  .da-suite-item strong {
+    color: #eee;
+    font-weight: 600;
+  }
+
+  .da-suite-item-desc {
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  .da-suite-footer {
+    font-size: 10px;
+    color: #555;
+    margin-top: 8px;
+    font-family: var(--da-mono);
+  }
 </style>
 </head>
 <body>
@@ -606,7 +1327,223 @@
 </section>
 
 <!-- ============================================ -->
-<!-- SECTION 1: PLUGIN LOADING -->
+<!-- NEW: DENSITY-AWARE AMP SECTION -->
+<!-- ============================================ -->
+<div class="da-section-label">INTERACTIVE DEMO</div>
+
+<div class="da-demo-wrap">
+  <div class="da-mode-toggle">
+    <button class="da-mode-btn da-active-lms" id="da-btn-lms" onclick="daSetMode('lms')">LMS (Density-Aware)</button>
+    <button class="da-mode-btn" id="da-btn-trad" onclick="daSetMode('traditional')">Traditional (Static)</button>
+  </div>
+
+  <div class="da-demo-layout">
+    <!-- Strum area -->
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
+      <div class="da-strum-area" id="da-strum-area">
+        <div class="da-strum-string" style="left:20%"></div>
+        <div class="da-strum-string" style="left:35%"></div>
+        <div class="da-strum-string" style="left:50%"></div>
+        <div class="da-strum-string" style="left:65%"></div>
+        <div class="da-strum-string" style="left:80%"></div>
+        <div class="da-pick-indicator" id="da-pick-indicator"></div>
+        <div class="da-strum-hint" style="top:6px">SOFT</div>
+        <div class="da-strum-hint" style="bottom:6px">HARD</div>
+      </div>
+    </div>
+
+    <!-- Amp viz -->
+    <div style="display:flex;flex-direction:column;align-items:center" id="da-amp-viz">
+      <div class="da-tubes-row" id="da-tubes-row"></div>
+      <div class="da-matrix-wrap da-lms-mode" id="da-matrix-wrap">
+        <div class="da-matrix-grid" id="da-matrix-grid"></div>
+        <div class="da-band-labels" id="da-band-labels"></div>
+      </div>
+      <div class="da-meters-row" id="da-meters-row"></div>
+    </div>
+
+    <!-- Output -->
+    <div class="da-output-bar-wrap" style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">OUTPUT</div>
+      <div class="da-output-bar">
+        <div class="da-output-fill" id="da-output-fill"></div>
+        <div class="da-output-value" id="da-output-value">0</div>
+      </div>
+      <div class="da-output-label" id="da-output-label">Shaped by density</div>
+    </div>
+  </div>
+
+  <!-- Miller explanation -->
+  <div class="da-miller-box" id="da-miller-box">
+    <h3 id="da-miller-title">WHAT YOU'RE SEEING</h3>
+    <p id="da-miller-text"></p>
+    <div class="da-miller-callout" id="da-miller-callout"></div>
+  </div>
+</div>
+
+<!-- Quote transition -->
+<div class="da-quote-box">
+  <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
+  <div class="da-attr">— the question that started all of this</div>
+</div>
+
+<!-- ============================================ -->
+<!-- NEW: ARCHITECTURE COMPARISON FROM DENSITY-AMP -->
+<!-- ============================================ -->
+<div class="da-section-label">ARCHITECTURE COMPARISON</div>
+
+<div class="da-compare-section">
+  <div class="da-compare-grid">
+    <!-- Traditional -->
+    <div class="da-compare-col da-trad-col">
+      <h3>Every Other Amp Sim</h3>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-off">Inter-stage awareness</div>
+        <div class="da-check-item da-off">Frequency tracking</div>
+        <div class="da-check-item da-off">Dynamic Miller cap</div>
+        <div class="da-check-item da-off">Shared power supply</div>
+        <div class="da-check-item da-off">Density feedback</div>
+        <div class="da-check-item da-off">Grid physics</div>
+        <div class="da-check-item da-off">Harmonic analysis</div>
+        <div class="da-check-item da-off">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          Since the stages can't talk to each other, they brute-force their way to "good enough":
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LMS -->
+    <div class="da-compare-col da-lms-col">
+      <h3>LMS Density-Aware</h3>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-on">Inter-stage awareness</div>
+        <div class="da-check-item da-on">Frequency tracking</div>
+        <div class="da-check-item da-on">Dynamic Miller cap</div>
+        <div class="da-check-item da-on">Shared power supply</div>
+        <div class="da-check-item da-on">Density feedback</div>
+        <div class="da-check-item da-on">Grid physics</div>
+        <div class="da-check-item da-on">Harmonic analysis</div>
+        <div class="da-check-item da-on">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          When stages know what the others are doing, you don't need brute force:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- NEW: THE DONUT PROBLEM -->
+<!-- ============================================ -->
+<div class="da-section-label">THE DONUT PROBLEM</div>
+
+<div class="da-donut-wrap">
+  <div class="da-donut-box">
+    <div class="da-donut-quote">
+      "I give you the money, you give me the donut. End of transaction.<br>
+      We don't need to bring ink and paper into this."
+    </div>
+    <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
+    <div class="da-donut-text">
+      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong> 
+      what the input just did. The compressor sees a peak and guesses a transient happened. 
+      The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses 
+      the vocalist hit an S.
+    </div>
+    <div class="da-donut-text">
+      The signal already passed through. The transient already happened. Why are you printing a receipt?
+    </div>
+    <div class="da-donut-text">
+      LMS plugins don't infer. The density tracker <strong style="color:var(--amber)">was there</strong>. 
+      It processed the signal. It knows the harmonic content because it computed the harmonic 
+      content as part of doing its actual job. The measurement isn't a query — it's a 
+      <strong style="color:var(--amber)">byproduct of the work that already happened</strong>.
+    </div>
+    <div class="da-donut-comparison">
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
+        <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
+      </div>
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
+        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
+      </div>
+    </div>
+    <div class="da-donut-footer">
+      I give you the signal. You give me the donut. No receipt needed.
+    </div>
+  </div>
+</div>
+
+<!-- Epicycles quote -->
+<div class="da-quote-box">
+  <p>"They make averages and wonder why it sounds average.<br>Rube Goldberg machines and epicycles."</p>
+  <div class="da-attr">— on the traditional approach</div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: SECTION 1: PLUGIN LOADING -->
 <!-- ============================================ -->
 <div class="comparison">
   <div class="divider"></div>
@@ -673,7 +1610,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- SECTION 2: INTER-PLUGIN COMMUNICATION -->
+<!-- EXISTING: SECTION 2: INTER-PLUGIN COMMUNICATION -->
 <!-- ============================================ -->
 <div class="comparison">
   <div class="divider"></div>
@@ -745,7 +1682,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- SECTION 3: SHARING SETTINGS -->
+<!-- EXISTING: SECTION 3: SHARING SETTINGS -->
 <!-- ============================================ -->
 <div class="comparison">
   <div class="divider"></div>
@@ -802,7 +1739,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- SECTION 4: SESSION MANAGEMENT -->
+<!-- EXISTING: SECTION 4: SESSION MANAGEMENT -->
 <!-- ============================================ -->
 <div class="comparison">
   <div class="divider"></div>
@@ -859,7 +1796,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- STATS -->
+<!-- EXISTING: STATS -->
 <!-- ============================================ -->
 <div class="stats">
   <div class="stat">
@@ -897,7 +1834,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- BUS ARCHITECTURE COMPARISON -->
+<!-- EXISTING: BUS ARCHITECTURE COMPARISON -->
 <!-- ============================================ -->
 <section class="bus-section">
   <h2 class="fade-in">Signal <span style="color:var(--evil-red)">Routing</span> vs Signal <span style="color:var(--good-green)">Sharing</span></h2>
@@ -1008,7 +1945,7 @@
 </section>
 
 <!-- ============================================ -->
-<!-- MEMORY / RESOURCE USAGE -->
+<!-- EXISTING: MEMORY / RESOURCE USAGE -->
 <!-- ============================================ -->
 <div class="comparison">
   <div class="divider"></div>
@@ -1110,7 +2047,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- LINUX + REAPER TIME TRAVEL -->
+<!-- EXISTING: LINUX + REAPER TIME TRAVEL -->
 <!-- ============================================ -->
 <section class="time-travel">
   <div class="time-travel-inner">
@@ -1268,7 +2205,7 @@
   }
 
   .tt-item.bad::before {
-    content: '✕ ';
+    content: '\2715 ';
     color: var(--evil-red);
     font-weight: 800;
   }
@@ -1280,7 +2217,7 @@
   }
 
   .tt-item.good-item::before {
-    content: '✓ ';
+    content: '\2713 ';
     color: var(--good-green);
     font-weight: 800;
   }
@@ -1315,7 +2252,7 @@
 </style>
 
 <!-- ============================================ -->
-<!-- SHARED DSP CORE -->
+<!-- EXISTING: SHARED DSP CORE -->
 <!-- ============================================ -->
 <section class="core-section">
   <div class="core-inner">
@@ -1424,7 +2361,7 @@
 </section>
 
 <!-- ============================================ -->
-<!-- PERFORMANCE PROOF -->
+<!-- EXISTING: PERFORMANCE PROOF -->
 <!-- ============================================ -->
 <section class="perf-section">
   <div class="perf-inner">
@@ -1724,7 +2661,123 @@
 </style>
 
 <!-- ============================================ -->
-<!-- FINALE -->
+<!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
+<!-- ============================================ -->
+<div class="da-section-label">THE LMS SUITE</div>
+
+<div class="da-suite-wrap">
+  <div class="da-suite-desc">
+    All open source. All JSFX. All zero latency. All interconnected via shared memory.<br>
+    Install from ReaPack in one click. Works everywhere REAPER runs — including Linux.
+  </div>
+
+  <div class="da-suite-grid">
+    <!-- DENSITY-AWARE AMP SIMS -->
+    <div class="da-suite-card" style="border-color:var(--amber-dim);">
+      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (7)</div>
+      <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Fender Twin Reverb / Deluxe Reverb (AB763 preamp, cathode follower, Fender tone stack, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
+      <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— Marshall JCM800 (bright cap, Marshall tone stack, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
+      <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— Fender Champ 5F1 (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— Ampeg SVT (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
+      <div class="da-suite-item"><strong>Top Boost v2</strong> <span class="da-suite-item-desc">— Vox AC15 (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— Mesa Triple Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
+      <div class="da-suite-item"><strong>Chris' Bedroom</strong> <span class="da-suite-item-desc">— Four classic amp models in one (legacy, pre-density-aware)</span></div>
+      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking</div>
+    </div>
+
+    <!-- INSTRUMENTS -->
+    <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
+      <div class="da-suite-card-header da-green">INSTRUMENTS (5)</div>
+      <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Moog-style analog synthesizer (24dB ladder filter, 3 oscillators)</span></div>
+      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
+      <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
+      <div class="da-suite-item"><strong>Drone FX</strong> <span class="da-suite-item-desc">— FX processing satellite (sidechain, delay, flanger via gmem)</span></div>
+      <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
+      <div class="da-suite-footer">All interconnected via gmem bus</div>
+    </div>
+
+    <!-- CHANNEL TOOLS -->
+    <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
+      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (6)</div>
+      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— Channel strip (EQ + compression + gate)</span></div>
+      <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
+      <div class="da-suite-item"><strong>PEQ4U</strong> <span class="da-suite-item-desc">— 4-band parametric EQ</span></div>
+      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation</span></div>
+      <div class="da-suite-item"><strong>Density Limiter</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
+      <div class="da-suite-item"><strong>Matchering</strong> <span class="da-suite-item-desc">— Mastering reference matching (FIR convolution)</span></div>
+      <div class="da-suite-footer">Density-aware compressors coming</div>
+    </div>
+
+    <!-- EFFECTS -->
+    <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
+      <div class="da-suite-card-header da-blue">EFFECTS (3)</div>
+      <div class="da-suite-item"><strong>Henge Delay</strong> <span class="da-suite-item-desc">— Tape echo with wow/flutter/feedback</span></div>
+      <div class="da-suite-item"><strong>Tape Machine</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
+      <div class="da-suite-item"><strong>Sound City Drum Room</strong> <span class="da-suite-item-desc">— Vintage room reverb + compression</span></div>
+      <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
+    </div>
+
+    <!-- SESSION SCRIPTS -->
+    <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
+      <div class="da-suite-card-header da-orange">SESSION SCRIPTS — LUA (3)</div>
+      <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one instance to another</span></div>
+      <div class="da-suite-footer">Session management via Reaper Actions</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- NEW: WHERE THIS GOES -->
+<!-- ============================================ -->
+<div class="da-section-label">WHERE THIS GOES</div>
+
+<div class="da-future-wrap">
+  <div class="da-future-box">
+    <div class="da-future-text">
+      Every plugin in the LMS suite shares state through a common memory bus. The amp's density tracker 
+      broadcasts harmonic content. The compressor reads it and sets gain reduction before the peak arrives. 
+      The reverb reads it and shortens its tail when the mix gets dense. The limiter reads every track's 
+      density simultaneously and knows the master bus sum before it clips.
+    </div>
+    <div class="da-future-text">
+      Every legendary compressor — the LA-2A, 1176, SSL G-Bus, Fairchild 670 — gets its character from 
+      transformer saturation responding to harmonic content. That's not a sidechain filter. That's 
+      density-aware processing through physics. The density tracker already measures exactly what those 
+      transformers respond to. Different parameters = different transformer = different compressor character. 
+      <strong style="color:var(--amber)">The character was always in the shared state.</strong>
+    </div>
+    <div class="da-future-text">
+      The more plugins that join the bus, the smarter the whole system gets. Not through complexity. 
+      Through awareness. Each plugin is a neuron. Each gmem read is a synapse. 
+      The architecture scales because the mechanism is cheap — envelope followers and ratios, 
+      nearly free — and the intelligence emerges from the connections, not the processing.
+    </div>
+
+    <div class="da-future-stats">
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--amber)">~10</div>
+        <div class="da-future-stat-label">ops per sample for density tracking</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-green)">0</div>
+        <div class="da-future-stat-label">latency — measurement IS the process</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-purple)">∞</div>
+        <div class="da-future-stat-label">connections — every plugin reads every other</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-red)">0</div>
+        <div class="da-future-stat-label">artifacts — because we never make any</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: FINALE -->
 <!-- ============================================ -->
 <section class="finale">
   <h2 class="fade-in">THEY ARE TRYING TO<br>STEAL YOUR COMPUTER</h2>
@@ -1740,6 +2793,339 @@
     https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml
   </div>
 </section>
+
+<!-- ============================================ -->
+<!-- DENSITY-AMP INTERACTIVE DEMO JAVASCRIPT -->
+<!-- ============================================ -->
+<script>
+// === STATE ===
+let daMode = 'lms';
+let daIsStrumming = false;
+let daPickY = 0.5;
+let daPickIntensity = 0;
+let daPickDecay = 0;
+let daPickRaw = 0;
+let daFrame = 0;
+
+// Density state
+let daDensity = 1.0;
+let daMillerFreq = 8000;
+let daMillerQ = 0.6;
+let daGridCond = 0.35;
+let daDriveBoost = 1.0;
+let daBplus = 100;
+let daSignalOut = 0;
+let daBandEnergy = [0, 0, 0, 0];
+let daTubeGlow = [0.15, 0.15, 0.15, 0.15];
+
+// Matrix
+const DA_COLS = 16, DA_ROWS = 8;
+let daMatrixCells = [];
+let daMatrixData = [];
+
+// === INIT DOM ===
+function daInitTubes() {
+  const labels = ['INPUT', 'V1', 'V2', 'POWER'];
+  const row = document.getElementById('da-tubes-row');
+  row.innerHTML = '';
+  labels.forEach((lbl, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'da-tube-wrap';
+    wrap.innerHTML = `
+      <div class="da-tube" id="da-tube-${i}">
+        <div class="da-tube-filament" id="da-tube-fil-${i}"></div>
+        <div class="da-tube-plate" id="da-tube-plate-${i}"></div>
+        <div class="da-tube-pins"><div class="da-tube-pin"></div><div class="da-tube-pin"></div><div class="da-tube-pin"></div></div>
+      </div>
+      <div class="da-tube-label" id="da-tube-lbl-${i}">${lbl}</div>`;
+    row.appendChild(wrap);
+  });
+}
+
+function daInitMatrix() {
+  const grid = document.getElementById('da-matrix-grid');
+  const labels = document.getElementById('da-band-labels');
+  grid.innerHTML = '';
+  labels.innerHTML = '';
+  daMatrixCells = [];
+  daMatrixData = [];
+
+  const bandNames = ['SUB/LOW', 'MID', 'HIGH', 'AIR'];
+
+  for (let r = 0; r < DA_ROWS; r++) {
+    for (let c = 0; c < DA_COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'da-matrix-cell';
+      grid.appendChild(cell);
+      daMatrixCells.push(cell);
+      daMatrixData.push({ value: 0, target: 0, band: r < 2 ? 0 : r < 4 ? 1 : r < 6 ? 2 : 3 });
+    }
+  }
+
+  bandNames.forEach((name, i) => {
+    const lbl = document.createElement('div');
+    lbl.className = 'da-band-label';
+    lbl.id = `da-blbl-${i}`;
+    lbl.textContent = name;
+    labels.appendChild(lbl);
+  });
+}
+
+function daInitMeters() {
+  const row = document.getElementById('da-meters-row');
+  const meters = [
+    { id: 'miller-freq', label: 'MILLER LP', unit: ' Hz' },
+    { id: 'miller-q', label: 'MILLER Q', unit: '' },
+    { id: 'grid-cond', label: 'GRID COND', unit: '' },
+    { id: 'drive', label: 'DRIVE', unit: '\u00d7' },
+    { id: 'bplus', label: 'B+ RAIL', unit: '%' },
+  ];
+  row.innerHTML = '';
+  meters.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'da-meter';
+    div.innerHTML = `
+      <div class="da-meter-label">${m.label}</div>
+      <div class="da-meter-bar"><div class="da-meter-fill" id="da-mf-${m.id}"></div></div>
+      <div class="da-meter-value" id="da-mv-${m.id}"></div>`;
+    row.appendChild(div);
+  });
+}
+
+// === STRUM INPUT ===
+const daStrumArea = document.getElementById('da-strum-area');
+
+function daStrumStart(clientY) {
+  daIsStrumming = true;
+  daStrumArea.classList.add('da-active');
+  const rect = daStrumArea.getBoundingClientRect();
+  daPickY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+  const intensity = 0.2 + daPickY * 0.8;
+  daPickRaw = intensity;
+  daPickDecay = intensity;
+}
+
+function daStrumMove(clientY) {
+  if (!daIsStrumming) return;
+  const rect = daStrumArea.getBoundingClientRect();
+  daPickY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+  const intensity = 0.2 + daPickY * 0.8;
+  daPickRaw = Math.max(daPickRaw, intensity * 0.9);
+  daPickDecay = Math.max(daPickDecay, intensity);
+}
+
+function daStrumEnd() {
+  daIsStrumming = false;
+  daStrumArea.classList.remove('da-active');
+}
+
+daStrumArea.addEventListener('mousedown', e => daStrumStart(e.clientY));
+daStrumArea.addEventListener('mousemove', e => daStrumMove(e.clientY));
+daStrumArea.addEventListener('mouseup', daStrumEnd);
+daStrumArea.addEventListener('mouseleave', daStrumEnd);
+daStrumArea.addEventListener('touchstart', e => { e.preventDefault(); daStrumStart(e.touches[0].clientY); }, { passive: false });
+daStrumArea.addEventListener('touchmove', e => { e.preventDefault(); daStrumMove(e.touches[0].clientY); }, { passive: false });
+daStrumArea.addEventListener('touchend', daStrumEnd);
+
+// === MODE SWITCH ===
+function daSetMode(m) {
+  daMode = m;
+  document.getElementById('da-btn-lms').className = m === 'lms' ? 'da-mode-btn da-active-lms' : 'da-mode-btn';
+  document.getElementById('da-btn-trad').className = m === 'traditional' ? 'da-mode-btn da-active-trad' : 'da-mode-btn';
+  document.getElementById('da-matrix-wrap').className = m === 'lms' ? 'da-matrix-wrap da-lms-mode' : 'da-matrix-wrap';
+  document.getElementById('da-miller-box').className = m === 'lms' ? 'da-miller-box' : 'da-miller-box da-trad';
+  document.getElementById('da-output-label').textContent = m === 'lms' ? 'Shaped by density' : 'Linear gain only';
+
+  document.querySelectorAll('.da-strum-string').forEach(s => {
+    s.className = m === 'lms' ? 'da-strum-string' : 'da-strum-string da-trad';
+  });
+
+  if (m === 'lms') {
+    document.getElementById('da-miller-title').textContent = "WHAT YOU'RE SEEING";
+    document.getElementById('da-miller-title').style.color = 'var(--amber)';
+    document.getElementById('da-miller-text').innerHTML = 'Drag harder on the strings. Watch the <span class="da-highlight">Miller LP</span> frequency drop \u2014 that\'s the virtual tube\'s internal capacitance increasing as you push it harder, rolling off highs between stages. The matrix shows the 4-band density tracker reading the harmonic content in real time. Each tube glows differently because each one responds to what the others are doing. The <span class="da-highlight-red">grid conduction</span> threshold drops when hi-band energy rises, squashing fizz. The <span class="da-highlight-blue">B+ rail</span> sags under load. Everything breathes together.';
+    document.getElementById('da-miller-callout').className = 'da-miller-callout';
+    document.getElementById('da-miller-callout').textContent = 'The Miller LP follows the density \u2014 it doesn\'t sweep on its own. The signal tells the filter where to be.';
+  } else {
+    document.getElementById('da-miller-title').textContent = "WHAT'S NOT HAPPENING";
+    document.getElementById('da-miller-title').style.color = '#555';
+    document.getElementById('da-miller-text').innerHTML = 'Same input, same stages. But the Miller LP is stuck at 8000 Hz. The tubes all glow the same dim gray because they don\'t know what frequency they\'re clipping. The matrix is dead because nobody\'s tracking anything. No density feedback. No dynamic coupling. No shared power supply response. Each stage processes in a vacuum. <span style="color:#554433;display:block;margin-top:6px;font-style:italic">This is what $150\u2013$400 amp sims do.</span>';
+    document.getElementById('da-miller-callout').className = 'da-miller-callout da-dead';
+    document.getElementById('da-miller-callout').textContent = 'Fixed at 8000 Hz. Doesn\'t care if you\'re whispering or shredding.';
+  }
+}
+
+// === ANIMATION ===
+const daBandColors = [
+  [30, 80, 220],
+  [220, 160, 30],
+  [220, 60, 30],
+  [180, 40, 220],
+];
+
+const daTubeColorsLMS = [
+  [100, 220, 140],
+  [255, 180, 50],
+  [255, 100, 50],
+  [180, 130, 255],
+];
+
+function daAnimate() {
+  daFrame++;
+  const t = daFrame * 0.025;
+
+  if (!daIsStrumming) {
+    daPickDecay *= 0.985;
+    daPickRaw *= 0.97;
+  }
+  const input = daPickDecay;
+
+  // Pick indicator
+  const pick = document.getElementById('da-pick-indicator');
+  const col = daMode === 'lms' ? `rgba(245,158,11,${0.3 + input * 0.7})` : `rgba(150,150,150,${0.2 + input * 0.5})`;
+  pick.style.background = col;
+  pick.style.top = (daPickY * 100) + '%';
+  pick.style.transform = 'translateY(-50%)';
+  if (daIsStrumming && daMode === 'lms') {
+    pick.style.boxShadow = `0 0 12px rgba(245,158,11,${input * 0.5})`;
+  } else {
+    pick.style.boxShadow = 'none';
+  }
+
+  // Simulate bands
+  const harmonicRichness = Math.min(1, input * 1.5);
+  const lo = input * 0.8 * (0.7 + Math.sin(t * 1.1) * 0.3);
+  const mid = input * harmonicRichness * 0.6 * (0.6 + Math.sin(t * 1.7 + 1) * 0.4);
+  const hi = input * harmonicRichness * harmonicRichness * 0.5 * (0.5 + Math.sin(t * 2.3 + 2) * 0.5);
+  const air = input * harmonicRichness * harmonicRichness * 0.3 * (0.4 + Math.sin(t * 3.1 + 3) * 0.6);
+  daBandEnergy = [lo, mid, hi, air];
+  const totalE = lo + mid + hi + air;
+  const rawDensity = lo > 0.01 ? Math.min(2.5, Math.max(1.0, totalE / lo)) : 1.0;
+
+  if (daMode === 'lms') {
+    daDensity += (rawDensity - daDensity) * 0.08;
+    daMillerFreq = Math.max(5000, Math.min(8500, 8500 - (daDensity - 1.0) * 2300));
+    daMillerQ = Math.min(0.95, 0.6 + (hi / Math.max(0.01, totalE)) * 0.35);
+    daGridCond = Math.max(0.15, 0.35 - (hi / Math.max(0.01, totalE)) * 0.15);
+    daDriveBoost = 1.0 + (mid / Math.max(0.01, totalE)) * 0.4;
+    daBplus = Math.max(75, Math.min(100, 100 - totalE * 12));
+    daSignalOut = Math.min(1, input * (1.5 - daDensity * 0.3));
+    daTubeGlow = [
+      0.1 + daPickRaw * 0.9,
+      0.08 + daDensity * 0.35 + hi * 0.4,
+      0.05 + daDensity * 0.3 + mid * 0.5,
+      0.1 + totalE * 0.2 + lo * 0.4,
+    ];
+  } else {
+    daDensity = 1.0;
+    daMillerFreq = 8000;
+    daMillerQ = 0.6;
+    daGridCond = 0.35;
+    daDriveBoost = 1.0;
+    daBplus = 100;
+    daSignalOut = Math.min(1, input * 1.2);
+    const fg = 0.1 + input * 0.3;
+    daTubeGlow = [fg, fg, fg, fg];
+  }
+
+  // Update tubes
+  for (let i = 0; i < 4; i++) {
+    const g = daTubeGlow[i];
+    const [r, gn, b] = daMode === 'lms' ? daTubeColorsLMS[i] : [120, 120, 120];
+    const tube = document.getElementById(`da-tube-${i}`);
+    const fil = document.getElementById(`da-tube-fil-${i}`);
+    const plate = document.getElementById(`da-tube-plate-${i}`);
+    const lbl = document.getElementById(`da-tube-lbl-${i}`);
+
+    tube.style.background = `radial-gradient(ellipse at 50% 60%, rgba(${r},${gn},${b},${0.05 + g * 0.5}), transparent 70%), linear-gradient(180deg, #0a0a12, #050508)`;
+    if (daMode === 'lms') {
+      tube.style.boxShadow = `0 0 ${4 + g * 28}px rgba(${r},${gn},${b},${g * 0.7}), 0 0 ${2 + g * 14}px rgba(${r},${gn},${b},${g * 0.4})`;
+    } else {
+      tube.style.boxShadow = `0 0 ${g * 4}px rgba(100,100,100,${g * 0.3})`;
+    }
+    tube.className = daMode === 'lms' ? 'da-tube' : 'da-tube da-trad';
+    fil.style.background = `radial-gradient(circle, rgba(${Math.min(255, r + 80)},${Math.min(255, gn + 40)},${Math.min(255, b + 20)},${0.15 + g * 0.7}), transparent 70%)`;
+    plate.style.border = `1px solid rgba(255,255,255,${0.03 + g * 0.08})`;
+    lbl.style.color = daMode === 'lms' ? `rgba(${r},${gn},${b},${0.4 + g * 0.6})` : '#444';
+  }
+
+  // Update matrix
+  for (let i = 0; i < daMatrixData.length; i++) {
+    const d = daMatrixData[i];
+    if (daMode === 'lms') {
+      const r = Math.floor(i / DA_COLS), c = i % DA_COLS;
+      const bandVal = daBandEnergy[d.band];
+      const cellPhase = Math.sin(t * ((r * DA_COLS + c) * 0.37 + r * 1.1) * 0.1 + c * 0.5 + r * 0.8);
+      d.target = Math.max(0, Math.min(1, cellPhase * bandVal * 1.3));
+    } else {
+      d.target = input > 0.05 ? 0.06 : 0;
+    }
+    d.value += (d.target - d.value) * 0.15;
+
+    const [cr, cg, cb] = daMode === 'lms' ? daBandColors[d.band] : [100, 100, 100];
+    const a = Math.max(0.03, d.value * 0.9);
+    daMatrixCells[i].style.background = `rgba(${cr},${cg},${cb},${a})`;
+    if (daMode === 'lms' && d.value > 0.3) {
+      daMatrixCells[i].style.boxShadow = `0 0 ${d.value * 5}px rgba(${cr},${cg},${cb},${d.value * 0.4})`;
+    } else {
+      daMatrixCells[i].style.boxShadow = 'none';
+    }
+  }
+
+  // Band labels color
+  for (let i = 0; i < 4; i++) {
+    const lbl = document.getElementById(`da-blbl-${i}`);
+    if (daMode === 'lms') {
+      const [r, g, b] = daBandColors[i];
+      lbl.style.color = `rgba(${r},${g},${b},0.7)`;
+    } else {
+      lbl.style.color = '#333';
+    }
+  }
+
+  // Meters
+  const isLMS = daMode === 'lms';
+  const mColor = isLMS ? 'var(--amber)' : '#444';
+
+  daSetMeter('miller-freq', daMillerFreq, 8500, Math.round(daMillerFreq), ' Hz', mColor, daMillerFreq < 6000);
+  daSetMeter('miller-q', daMillerQ, 1, daMillerQ.toFixed(2), '', mColor, false);
+  daSetMeter('grid-cond', daGridCond, 0.5, daGridCond.toFixed(2), '', isLMS ? 'var(--da-red)' : '#444', daGridCond < 0.2);
+  daSetMeter('drive', daDriveBoost, 1.5, daDriveBoost.toFixed(2), '\u00d7', isLMS ? 'var(--da-green)' : '#444', false);
+  daSetMeter('bplus', daBplus, 100, Math.round(daBplus), '%', isLMS ? 'var(--da-purple)' : '#444', daBplus < 85);
+
+  // Output
+  const outFill = document.getElementById('da-output-fill');
+  const outVal = document.getElementById('da-output-value');
+  outFill.style.height = (daSignalOut * 100) + '%';
+  if (daMode === 'lms') {
+    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#ef4444' : daSignalOut > 0.5 ? '#f59e0b' : '#22c55e'}, transparent)`;
+    outVal.style.color = '#ccc';
+  } else {
+    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#888' : '#555'}, #33333322)`;
+    outVal.style.color = '#666';
+  }
+  outVal.textContent = Math.round(daSignalOut * 100);
+
+  requestAnimationFrame(daAnimate);
+}
+
+function daSetMeter(id, value, max, display, unit, color, warning) {
+  const fill = document.getElementById(`da-mf-${id}`);
+  const val = document.getElementById(`da-mv-${id}`);
+  const pct = Math.min(100, (value / max) * 100);
+  fill.style.width = pct + '%';
+  fill.style.background = daMode === 'lms' ? (warning ? `linear-gradient(90deg, ${color}, var(--da-red))` : color) : '#333';
+  val.textContent = display + unit;
+  val.style.color = daMode === 'lms' ? color : '#444';
+}
+
+// === BOOT ===
+daInitTubes();
+daInitMatrix();
+daInitMeters();
+daSetMode('lms');
+requestAnimationFrame(daAnimate);
+</script>
 
 </body>
 </html>
