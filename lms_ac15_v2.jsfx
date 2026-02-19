@@ -6,7 +6,7 @@ desc:LMS - Top Boost v2 (Density-Aware AC15)
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
-slider1:0<-24,24,0.1>-Input Level (dB)
+slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
 slider3:0<0,1,1{Normal,Top Boost}>-Channel
 slider4:50<0,100,1>-Bass (%)
@@ -15,7 +15,7 @@ slider6:50<0,100,1>-Tone Cut (%)
 slider7:50<0,100,1>-Master (%)
 slider8:50<0,100,1>-Input Stage (%)
 slider9:50<0,100,1>-PSU Sag (%)
-slider10:0<-24,24,0.1>-Output Level (dB)
+slider10:-12<-24,24,0.1>-Output Level (dB)
 slider11:0<0,1,1{Off,On}>-FX Bypass
 // --- TREMOLO (bias wobble on EL84s) ---
 slider12:0<0,100,1>-Tremolo Depth (%)
@@ -661,6 +661,8 @@ loop(BC_MAX_INST,
 
 @sample
 mono = (spl0 + spl1) * 0.5 * in_level;
+// Input clamp — catches record-arm spikes before the amp sees them
+mono = max(-1.0, min(1.0, mono));
 
 // 1. Input stage (EF86 pentode grid physics)
 input_intensity > 0.0 ? (
@@ -716,14 +718,9 @@ amp_out *= 6.0;
 pi_drive = master * 0.40;
 amp_out = pi.triode_proc(amp_out, pi_drive, bplus, 1.0, 0.85, 0.85, 0.90, 0.45, 0.08);
 
-// 6. Power amp (EL84 cathode-biased push-pull, NO NFB)
-//    v1.1: Now includes output transformer saturation + winding resonance
-amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, bplus);
-
-// 7. Tremolo (bias wobble on EL84s) + 10. Spring reverb
+// 6. Effects loop (pre-power-amp — signal returns through EL84s + cab)
 fx_bypass == 0 ? (
-  // Tremolo
+  // Tremolo (bias wobble)
   trem_depth > 0 ? (
     amp_out = trem.trem_proc(amp_out, trem_depth, trem_speed);
   );
@@ -731,7 +728,14 @@ fx_bypass == 0 ? (
   spring_mix > 0 ? (
     amp_out = spring.spring_proc(amp_out, spring_mix);
   );
+  // Safety clamp — catches runaway feedback before it hits power tubes
+  amp_out = max(-0.95, min(0.95, amp_out));
 );
+
+// 7. Power amp (EL84 cathode-biased push-pull, NO NFB)
+//    v1.1: Now includes output transformer saturation + winding resonance
+amp_out *= master;
+amp_out = pa.poweramp_proc(amp_out, bplus);
 
 // 8. Soft gate
 amp_out = gate.sgate_proc(amp_out);
@@ -746,6 +750,8 @@ amp_out = cab6.bq_proc(amp_out);
 amp_out = cab_res.bq_proc(amp_out);
 
 amp_out *= out_level;
+// Brickwall output limiter — transparent safety ceiling
+amp_out = max(-0.95, min(0.95, amp_out));
 spl0 = amp_out;
 spl1 = amp_out;
 
