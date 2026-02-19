@@ -344,6 +344,7 @@ function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   ap_out = fb - ap_out * 0.4;
   this.ap4_pos += 1; this.ap4_pos >= this.ap4_len ? this.ap4_pos = 0;
   this.fb_val = this.fb_lp.bq_proc(ap_out);
+  this.fb_val = max(-0.9, min(0.9, this.fb_val));
   wet = (this.buf_base + this.fb_off)[this.fb_pos];
   (this.buf_base + this.fb_off)[this.fb_pos] = ap_out;
   this.fb_pos += 1; this.fb_pos >= this.fb_len ? this.fb_pos = 0;
