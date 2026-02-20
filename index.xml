@@ -14,6 +14,10 @@
         <changelog><![CDATA[v3.0 — Density-aware saturation replaces ADAA waveshaper. All 5 sat modes (warm/hot/tape/rect/fuzz) now use same triode architecture as v2 amp sims: coupling cap bias shift, 4-band density tracker (Lo/Mid/Hi/Air), density-driven drive boost, grid conduction (peak envelope gated soft clamp), Miller LP (density-driven cutoff), air shelf (density-driven HF), DC blocker. Fixes crash on load in tube sat and all plugins using sat functions (uninitialized ADAA state caused spike on first sample). Added mono lms_bq_proc to biquad section.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="3.1" author="LMS" time="2026-02-20T18:00:00Z">
+        <changelog><![CDATA[v3.1 — Removed 926 lines of dead legacy code: ADAA triode stages, EL34/6L6 power amps, Marshall/Mesa tone stacks and cabinet sims, sag simulator, opto compressor, cascaded saturation, ADAA antiderivative primitives. All superseded by density-aware v2 amp sims. Core is now 720 clean lines.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
