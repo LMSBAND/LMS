@@ -15,7 +15,11 @@ slider7:100<20,20000,1>-Tone (Hz)
 slider8:0<0,100,0.1>-Bias (%)
 
 @init
-  // Initialize shared DSP instances
+  // Initialize density-aware saturation (L/R independent state)
+  sat_l.lms_sat_warm_init();
+  sat_r.lms_sat_warm_init();
+  harm_l.lms_sat_harmonics_init();
+  harm_r.lms_sat_harmonics_init();
   dc.lms_dc_init_freq(220);
   tone.lms_tone_init();
 
@@ -226,28 +230,28 @@ loop(BC_MAX_INST,
   l = spl0;
   r = spl1;
 
-  // Apply saturation based on mode
+  // Apply density-aware saturation based on mode
   mode == 0 ? (
-    l = lms_sat_warm(l, drive, bias);
-    r = lms_sat_warm(r, drive, bias);
+    l = sat_l.lms_sat_warm(l, drive, bias);
+    r = sat_r.lms_sat_warm(r, drive, bias);
   ) : mode == 1 ? (
-    l = lms_sat_hot(l, drive, bias);
-    r = lms_sat_hot(r, drive, bias);
+    l = sat_l.lms_sat_hot(l, drive, bias);
+    r = sat_r.lms_sat_hot(r, drive, bias);
   ) : mode == 2 ? (
-    l = lms_sat_tape(l, drive, bias);
-    r = lms_sat_tape(r, drive, bias);
+    l = sat_l.lms_sat_tape(l, drive, bias);
+    r = sat_r.lms_sat_tape(r, drive, bias);
   ) : mode == 3 ? (
-    l = lms_sat_rect(l, drive, bias);
-    r = lms_sat_rect(r, drive, bias);
+    l = sat_l.lms_sat_rect(l, drive, bias);
+    r = sat_r.lms_sat_rect(r, drive, bias);
   ) : (
-    l = lms_sat_fuzz(l, drive, bias);
-    r = lms_sat_fuzz(r, drive, bias);
+    l = sat_l.lms_sat_fuzz(l, drive, bias);
+    r = sat_r.lms_sat_fuzz(r, drive, bias);
   );
 
   // Add harmonics
   (even_harm > 0 || odd_harm > 0) ? (
-    l = lms_sat_harmonics(l, even_harm, odd_harm);
-    r = lms_sat_harmonics(r, even_harm, odd_harm);
+    l = harm_l.lms_sat_harmonics(l, even_harm, odd_harm);
+    r = harm_r.lms_sat_harmonics(r, even_harm, odd_harm);
   );
 
   // Tone control
@@ -495,12 +499,12 @@ loop(100,
   // Input from -1 to 1
   in = (i / 99) * 2 - 1;
 
-  // Apply current saturation
-  mode == 0 ? out = lms_sat_warm(in, drive, bias);
-  mode == 1 ? out = lms_sat_hot(in, drive, bias);
-  mode == 2 ? out = lms_sat_tape(in, drive, bias);
-  mode == 3 ? out = lms_sat_rect(in, drive, bias);
-  mode == 4 ? out = lms_sat_fuzz(in, drive, bias);
+  // Show static transfer curve (tanh-based approximation for display only)
+  mode == 0 ? out = lms_tanh(in * (1 + drive) * 1.2) * 0.85;
+  mode == 1 ? out = lms_tanh(in * (1 + drive * 2) * 1.8) * 0.75;
+  mode == 2 ? out = lms_tanh(in * (1 + drive * 1.5) * 0.8) * 0.95;
+  mode == 3 ? out = lms_tanh(in * (1 + drive * 3) * 2.0) * 0.70;
+  mode == 4 ? out = lms_tanh(in * (1 + drive * 4) * 2.5) * 0.60;
 
   out = max(-1, min(1, out));
 

@@ -135,7 +135,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Sound City Drum Room">
+    <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Chris' Bedroom — Drum Room Reverb">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
@@ -177,12 +177,6 @@
       <version name="1.0" author="LMS" time="2026-02-18T18:00:00Z">
         <changelog><![CDATA[Initial release — Four classic amp models in one plugin: Triple Rectified SOB (Mesa Boogie Rectifier Modern), Punk Idol (Marshall JCM800 2203), The Fridge (Ampeg SVT-CL), The Frenchie (Fender Champ 5F1). Input compressor (protection), pre-distortion voicing per model, tone stack (model-specific frequencies from circuit research), cabinet sim on/off, Schroeder room reverb (Studio/Stage/Hall/Church). Amp-specific controls: tube rectifier sag, dual cold-clipper input, SVT Ultra Lo/Hi + mid freq selector, Champ opto compression. Full broadcast system.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_amp_suite.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="lms_chris_bedroom.jsfx" type="effect" desc="LMS - CHRIS' BEDROOM — Amp Sim + Room Reverb">
-      <version name="1.0" author="LMS" time="2026-02-18T12:00:00Z">
-        <changelog><![CDATA[Initial release — Guitar amp sim with room reverb. Preamp stage (Clean/Crunch/Lead/Fuzz), passive tone stack (bass/mid/treble/presence), cabinet simulation (100Hz HP + 5.5kHz LP), Schroeder room reverb (6 comb + 4 allpass), three room types (Bedroom/Garage/Basement), bird's-eye room visualizer with animated sound waves. Full broadcast system (follow/steal/leader).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_chris_bedroom.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
@@ -519,7 +513,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

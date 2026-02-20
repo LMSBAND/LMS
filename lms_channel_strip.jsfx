@@ -35,6 +35,10 @@ slider20:0<-12,12,0.1>-Output Gain (dB)
   hm.lms_bq_init();
   hs.lms_bq_init();
 
+  // Saturation instances (shared library)
+  sat_l.lms_sat_warm_init();
+  sat_r.lms_sat_warm_init();
+
   // Compressor instance (shared library)
   comp.lms_comp_init();
   comp_gr_db = 0;
@@ -327,13 +331,13 @@ loop(BC_MAX_INST,
 
   sat_mode == 1 ? (
     // Warm: asymmetric tube saturation
-    l = lms_sat_warm(l, 0.5, 0.0);
-    r = lms_sat_warm(r, 0.5, 0.0);
+    l = sat_l.lms_sat_warm(l, 0.5, 0.0);
+    r = sat_r.lms_sat_warm(r, 0.5, 0.0);
   );
   sat_mode == 2 ? (
     // Hot: harder asymmetric clipping
-    l = lms_sat_warm(l, 1.5, 0.3);
-    r = lms_sat_warm(r, 1.5, 0.3);
+    l = sat_l.lms_sat_warm(l, 1.5, 0.3);
+    r = sat_r.lms_sat_warm(r, 1.5, 0.3);
   );
 
   // === HPF ===

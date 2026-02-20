@@ -290,180 +290,258 @@ function lms_bq_proc_r(x)
   o;
 );
 
+// Process mono sample through biquad (uses lx/ly state — do NOT mix with proc_l)
+function lms_bq_proc(x)
+  local(o)
+(
+  o = this.b0 * x + this.b1 * this.lx1 + this.b2 * this.lx2
+                   - this.a1 * this.ly1 - this.a2 * this.ly2;
+  this.lx2 = this.lx1; this.lx1 = x;
+  this.ly2 = this.ly1; this.ly1 = o;
+  o;
+);
+
 
 // ============================================================================
-//  SECTION 3: Saturation Suite (stateful, ADAA anti-aliased)
+//  SECTION 3: Saturation Suite (density-aware triode architecture)
 //
-//  All functions use this.* state to hold x_prev / Fx_prev for ADAA.
+//  All functions use this.* state for density tracking, bias shift,
+//  grid conduction, Miller LP, air shelf, and DC blocking.
 //  Call <instance>.lms_sat_XXX_init() once in @init, then
 //  call <instance>.lms_sat_XXX(x, drive, bias) per sample.
 //
-//  The ADAA path computes the alias-suppressed output via antiderivatives.
-//  Stateless helper lms_tanh() is still available for non-clipping uses.
+//  Each mode models a different tube/device character by varying the
+//  clipping curve shape (pos_hard, neg_hard, pos_ceil, neg_ceil).
+//  The density-aware architecture (4-band tracker, bias shift, grid
+//  conduction, Miller LP, air shelf) is shared across all modes —
+//  identical to the v2 amp sim triode stages.
 //
 //  Usage:
 //    @init:   sat.lms_sat_warm_init();
 //    @sample: l = sat.lms_sat_warm(l, drive, bias);
 // ============================================================================
 
-// ---- lms_sat_warm — asymmetric tanh, even harmonics, warm tube character ----
-
-function lms_sat_warm_init()
-(
-  this.xp = 0;   // previous pre-clip input (after gain/bias)
-  this.Fp = 0;   // F(xp) — antiderivative at previous input
+// ---- Shared density-aware saturation init ----
+function lms_sat_da_init() (
+  // Coupling cap bias shift
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1/(srate * 0.0005));
+  this.cap_drain_rate = exp(-1/(srate * 0.030));
+  // 4-band density tracker
+  this.hd_f_lo.lms_bq_init(); this.hd_f_lo.lms_bq_set_lp(250, 0.7);
+  this.hd_f_mid_lo.lms_bq_init(); this.hd_f_mid_lo.lms_bq_set_lp(2000, 0.7);
+  this.hd_f_mid_hi.lms_bq_init(); this.hd_f_mid_hi.lms_bq_set_hp(250, 0.7);
+  this.hd_f_hi.lms_bq_init(); this.hd_f_hi.lms_bq_set_hp(2000, 0.7);
+  this.hd_f_air.lms_bq_init(); this.hd_f_air.lms_bq_set_hp(5000, 0.7);
+  this.hd_env_lo = 0; this.hd_env_mid = 0; this.hd_env_hi = 0;
+  this.hd_env_air = 0; this.hd_env_total = 0;
+  this.hd_att = exp(-1/(srate * 0.002));
+  this.hd_rel = exp(-1/(srate * 0.080));
+  this.hd_density = 1.0; this.hd_mid_density = 0.0;
+  this.hd_hi_density = 0.0; this.hd_air_density = 0.0;
+  this.hd_smooth = exp(-1/(srate * 0.030));
+  // Miller LP (density-driven cutoff)
+  this.miller.lms_bq_init();
+  this.miller.lms_bq_set_lp(8000, 0.6);
+  this.miller_base_freq = 8000;
+  this.last_miller_freq = 8000;
+  this.last_miller_q = 0.6;
+  // Air shelf (density-driven HF control)
+  this.air_shelf.lms_bq_init();
+  this.air_shelf.lms_bq_set_hishelf(5000, 0.0, 0.7);
+  this.last_air_cut = 0.0;
+  // Grid conduction peak envelope
+  this.peak_env = 0;
+  this.peak_att = exp(-1/(srate * 0.0002));
+  this.peak_rel = exp(-1/(srate * 0.050));
+  // DC blocker
+  this.dc_xp = 0; this.dc_yp = 0; this.dc_r = 1 - (20 / srate);
 );
 
-function lms_sat_warm(x, drive, bias)
-  local(b, bp, s, Fb, mid, f_mid)
+// ---- Shared density tracker (inline, uses this.hd_* state) ----
+function lms_sat_da_hd_proc(x)
+  local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total,
+        raw, raw_mid, raw_hi, raw_air)
 (
-  // Apply gain and bias (same as before)
-  b  = (x  + bias * 0.1) * (1 + drive);
-  bp = this.xp;   // previous scaled input
-
-  // Asymmetric antiderivative: positive path uses tanh, negative uses tanh(b*0.8)*1.25
-  // We compute each half's antiderivative separately, choosing based on sign of midpoint
-  mid = (b + bp) * 0.5;
-  mid >= 0 ? (
-    // Positive half — F(tanh(x)) = log(cosh(x))
-    Fb    = lms_F_tanh(b);
-    f_mid = lms_tanh(mid);
+  lo = this.hd_f_lo.lms_bq_proc(x);
+  mid = this.hd_f_mid_hi.lms_bq_proc(this.hd_f_mid_lo.lms_bq_proc(x));
+  hi = this.hd_f_hi.lms_bq_proc(x);
+  air = this.hd_f_air.lms_bq_proc(x);
+  abs_lo = abs(lo); abs_mid = abs(mid); abs_hi = abs(hi);
+  abs_air = abs(air); abs_total = abs(x);
+  abs_lo > this.hd_env_lo ? (
+    this.hd_env_lo = this.hd_att * this.hd_env_lo + (1 - this.hd_att) * abs_lo;
   ) : (
-    // Negative half — f(x) = tanh(x*0.8)*1.25
-    // F: tanh(0.8x)*1.25 antiderivative = 1.25/0.8 * log(cosh(0.8x)) = 1.5625*log(cosh(0.8x))
-    Fb    = lms_F_tanh(b * 0.8) * 1.5625;
-    f_mid = lms_tanh(mid * 0.8) * 1.25;
+    this.hd_env_lo = this.hd_rel * this.hd_env_lo + (1 - this.hd_rel) * abs_lo;
   );
-
-  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
-
-  // Update state (store pre-clip value; Fp matches the half we just used)
-  this.xp = b;
-  this.Fp = Fb;
-  s;
+  abs_mid > this.hd_env_mid ? (
+    this.hd_env_mid = this.hd_att * this.hd_env_mid + (1 - this.hd_att) * abs_mid;
+  ) : (
+    this.hd_env_mid = this.hd_rel * this.hd_env_mid + (1 - this.hd_rel) * abs_mid;
+  );
+  abs_hi > this.hd_env_hi ? (
+    this.hd_env_hi = this.hd_att * this.hd_env_hi + (1 - this.hd_att) * abs_hi;
+  ) : (
+    this.hd_env_hi = this.hd_rel * this.hd_env_hi + (1 - this.hd_rel) * abs_hi;
+  );
+  abs_air > this.hd_env_air ? (
+    this.hd_env_air = this.hd_att * this.hd_env_air + (1 - this.hd_att) * abs_air;
+  ) : (
+    this.hd_env_air = this.hd_rel * this.hd_env_air + (1 - this.hd_rel) * abs_air;
+  );
+  abs_total > this.hd_env_total ? (
+    this.hd_env_total = this.hd_att * this.hd_env_total + (1 - this.hd_att) * abs_total;
+  ) : (
+    this.hd_env_total = this.hd_rel * this.hd_env_total + (1 - this.hd_rel) * abs_total;
+  );
+  this.hd_env_lo > 0.0001 ? (
+    raw = this.hd_env_total / this.hd_env_lo;
+    raw = min(2.5, max(1.0, raw));
+  ) : ( raw = 1.0; );
+  this.hd_env_total > 0.0001 ? (
+    raw_mid = this.hd_env_mid / this.hd_env_total;
+    raw_mid = min(1.0, max(0.0, raw_mid));
+    raw_hi = this.hd_env_hi / this.hd_env_total;
+    raw_hi = min(1.0, max(0.0, raw_hi));
+    raw_air = this.hd_env_air / this.hd_env_total;
+    raw_air = min(1.0, max(0.0, raw_air));
+  ) : ( raw_mid = 0.0; raw_hi = 0.0; raw_air = 0.0; );
+  this.hd_density = this.hd_smooth * this.hd_density + (1 - this.hd_smooth) * raw;
+  this.hd_mid_density = this.hd_smooth * this.hd_mid_density + (1 - this.hd_smooth) * raw_mid;
+  this.hd_hi_density = this.hd_smooth * this.hd_hi_density + (1 - this.hd_smooth) * raw_hi;
+  this.hd_air_density = this.hd_smooth * this.hd_air_density + (1 - this.hd_smooth) * raw_air;
 );
 
-
-// ---- lms_sat_hot — 1-exp aggressive tube, harder asymmetric clip ----
-
-function lms_sat_hot_init()
+// ---- Shared density-aware saturation core ----
+// pos_hard/neg_hard: clipping hardness (higher = harder clip)
+// pos_ceil/neg_ceil: clipping ceiling (output bounded to these)
+// gc_thresh/gc_amount: grid conduction threshold and squash amount
+function lms_sat_da_proc(x, drive, bias, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
+  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q,
+        air_cut, drive_boost, ax)
 (
-  this.xp = 0;
-  this.Fp = 0;
-);
+  // 1. Coupling cap bias shift
+  b = x + bias * 0.1;
+  b > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge
+                    + (1 - this.cap_charge_rate) * b * 0.12;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  b = b - bias_shift;
 
-function lms_sat_hot(x, drive, bias)
-  local(b, bp, Fb, mid, f_mid, ab, s)
-(
-  b  = (x + bias * 0.15) * (1 + drive * 2);
-  bp = this.xp;
-  mid = (b + bp) * 0.5;
+  // 2. Density-driven drive boost (mid density pushes tube harder)
+  drive_boost = 1.0 + this.hd_mid_density * 0.4;
+  gain = (1.0 + drive * 4.0) * drive_boost;
+  b = b * gain;
 
+  // 3. Run density tracker on pre-clip signal
+  this.lms_sat_da_hd_proc(b);
+
+  // 4. Fixed clipping curves — ceiling is constant (no PSU in standalone sat)
+  p_ceil = pos_ceil;
+  n_ceil = neg_ceil;
   b >= 0 ? (
-    // Positive: f(x) = 1-exp(-x)   F(x) = x+exp(-x)
-    Fb    = lms_F_1exp_pos(b);
-    f_mid = mid >= 0 ? 1 - exp(-mid) : -(1 - exp(-abs(mid * 0.7))) * 1.1;
+    b = lms_tanh(b * pos_hard) * p_ceil;
   ) : (
-    // Negative: f(x) = -(1-exp(-|x*0.7|))*1.1
-    // F: antiderivative of -(1-exp(-0.7*(-x)))*1.1 for x<0
-    //  = -1.1*(x + exp(0.7*x)/0.7)  [substituting u=0.7*(-x)]
-    ab = abs(b);
-    Fb = -1.1 * (-ab + exp(-ab * 0.7) / (-0.7));
-    // simplified: 1.1*(ab + exp(-0.7*ab)/0.7)... let's keep it explicit
-    Fb = 1.1 * (ab - exp(-0.7 * ab) / 0.7);
-    f_mid = -(1 - exp(-abs(mid * 0.7))) * 1.1;
+    b = lms_tanh(b * neg_hard) * n_ceil;
   );
 
-  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
-  this.xp = b;
-  this.Fp = Fb;
-  s;
-);
-
-
-// ---- lms_sat_tape — symmetric arctan ----
-
-function lms_sat_tape_init()
-(
-  this.xp = 0;
-  this.Fp = 0;
-);
-
-function lms_sat_tape(x, drive, bias)
-  local(b, bp, Fb, mid, s, scale)
-(
-  scale = $pi * 0.5;
-  b  = (x + bias * 0.05) * (1 + drive * 1.5) * scale;
-  bp = this.xp;
-  mid = (b + bp) * 0.5;
-
-  // f(x) = (2/π)·atan(x·π/2)  →  F(x) = lms_F_atan at scaled x
-  Fb = lms_F_atan(b);
-  s  = lms_adaa_eval(b, bp, Fb, this.Fp, (2 / $pi) * atan(mid));
-
-  this.xp = b;
-  this.Fp = Fb;
-  s;
-);
-
-
-// ---- lms_sat_rect — half-wave rectifier, asymmetric tanh ----
-
-function lms_sat_rect_init()
-(
-  this.xp = 0;
-  this.Fp = 0;
-);
-
-function lms_sat_rect(x, drive, bias)
-  local(b, bp, Fb, mid, s, neg_scale)
-(
-  b  = x + bias * 0.2;
-  b *= (1 + drive * 3);
-  b < 0 ? b = b * (0.2 + drive * 0.1);  // fold negative (same as before)
-  bp = this.xp;
-  mid = (b + bp) * 0.5;
-
-  // tanh path (same antiderivative regardless of sign after fold)
-  Fb = lms_F_tanh(b);
-  s  = lms_adaa_eval(b, bp, Fb, this.Fp, lms_tanh(mid));
-
-  this.xp = b;
-  this.Fp = Fb;
-  s;
-);
-
-
-// ---- lms_sat_fuzz — gated fuzz, sign(x)·(1-exp(-|x|)) ----
-
-function lms_sat_fuzz_init()
-(
-  this.xp = 0;
-  this.Fp = 0;
-);
-
-function lms_sat_fuzz(x, drive, bias)
-  local(b, bp, Fb, mid, f_mid, s, gate)
-(
-  b  = (x + bias * 0.1) * (1 + drive * 4);
-  bp = this.xp;
-  gate = 0.1 * (1 - drive * 0.5);
-  mid = (b + bp) * 0.5;
-
-  abs(b) < gate ? (
-    // Linear region — no aliasing here, ADAA not needed
-    Fb    = b * b * (0.3 + drive * 0.7) * 0.5;  // F of linear = x²/2 * gain
-    f_mid = mid * (0.3 + drive * 0.7);
+  // 5. Grid conduction (peak envelope gated soft clamp)
+  ax = abs(b);
+  ax > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1 - this.peak_att) * ax;
   ) : (
-    // Saturation region: f(x) = sign(x)*(1-exp(-|x|))  F(x) = sign(x)*(|x|+exp(-|x|))
-    Fb    = lms_F_1exp_signed(b);
-    f_mid = sign(mid) * (1 - exp(-abs(mid)));
+    this.peak_env = this.peak_rel * this.peak_env + (1 - this.peak_rel) * ax;
+  );
+  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
+    gc_out = gc_thresh + lms_tanh((b - gc_thresh) * 3.0) * gc_amount;
+    b = gc_out;
   );
 
-  s = lms_adaa_eval(b, bp, Fb, this.Fp, f_mid);
-  this.xp = b;
-  this.Fp = Fb;
-  s;
+  // 6. Miller LP — density drives cutoff (AFTER clipping, on output)
+  lp_freq = this.miller_base_freq - (this.hd_density - 1.0) * 500;
+  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
+  lp_q = 0.6 + this.hd_hi_density * 0.35;
+  lp_q = max(0.6, min(0.95, lp_q));
+  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
+    this.miller.lms_bq_set_lp(lp_freq, lp_q);
+    this.last_miller_freq = lp_freq;
+    this.last_miller_q = lp_q;
+  );
+  b = this.miller.lms_bq_proc(b);
+
+  // 7. Air shelf — density-driven HF control
+  air_cut = -this.hd_air_density * 3.0;
+  air_cut = max(-3.0, min(0.0, air_cut));
+  abs(air_cut - this.last_air_cut) > 0.1 ? (
+    this.air_shelf.lms_bq_set_hishelf(5000, air_cut, 0.7);
+    this.last_air_cut = air_cut;
+  );
+  b = this.air_shelf.lms_bq_proc(b);
+
+  // 8. DC block
+  this.dc_yp = b - this.dc_xp + this.dc_r * this.dc_yp;
+  this.dc_xp = b;
+  b = this.dc_yp;
+
+  b;
+);
+
+
+// ---- lms_sat_warm — warm tube (soft symmetric, high ceiling, gentle) ----
+
+function lms_sat_warm_init() ( this.lms_sat_da_init(); );
+
+function lms_sat_warm(x, drive, bias) (
+  // Warm tube: soft positive, slightly softer negative, high ceiling
+  // pos_hard=1.2, neg_hard=0.9, pos_ceil=0.85, neg_ceil=1.0, gc_thresh=0.30, gc_amount=0.15
+  this.lms_sat_da_proc(x, drive, bias, 1.2, 0.9, 0.85, 1.0, 0.30, 0.15);
+);
+
+
+// ---- lms_sat_hot — hot tube (pushed 12AX7, harder asymmetric) ----
+
+function lms_sat_hot_init() ( this.lms_sat_da_init(); );
+
+function lms_sat_hot(x, drive, bias) (
+  // Hot tube: hard positive, moderate negative, tighter ceiling
+  // pos_hard=1.8, neg_hard=1.4, pos_ceil=0.75, neg_ceil=0.95, gc_thresh=0.25, gc_amount=0.18
+  this.lms_sat_da_proc(x, drive * 2, bias, 1.8, 1.4, 0.75, 0.95, 0.25, 0.18);
+);
+
+
+// ---- lms_sat_tape — tape saturation (symmetric, soft compression) ----
+
+function lms_sat_tape_init() ( this.lms_sat_da_init(); );
+
+function lms_sat_tape(x, drive, bias) (
+  // Tape: symmetric soft compression, wide ceiling, gentle grid conduction
+  // pos_hard=0.8, neg_hard=0.8, pos_ceil=0.95, neg_ceil=0.95, gc_thresh=0.35, gc_amount=0.12
+  this.lms_sat_da_proc(x, drive * 1.5, bias, 0.8, 0.8, 0.95, 0.95, 0.35, 0.12);
+);
+
+
+// ---- lms_sat_rect — rectifier (hard positive, soft negative fold) ----
+
+function lms_sat_rect_init() ( this.lms_sat_da_init(); );
+
+function lms_sat_rect(x, drive, bias) (
+  // Rectifier: very hard positive clip, soft negative (half-wave character)
+  // pos_hard=2.0, neg_hard=0.5, pos_ceil=0.70, neg_ceil=0.40, gc_thresh=0.20, gc_amount=0.20
+  this.lms_sat_da_proc(x, drive * 3, bias, 2.0, 0.5, 0.70, 0.40, 0.20, 0.20);
+);
+
+
+// ---- lms_sat_fuzz — fuzz (aggressive both sides, low ceiling, gated) ----
+
+function lms_sat_fuzz_init() ( this.lms_sat_da_init(); );
+
+function lms_sat_fuzz(x, drive, bias) (
+  // Fuzz: very hard both sides, low ceiling, aggressive grid conduction
+  // pos_hard=2.5, neg_hard=2.0, pos_ceil=0.60, neg_ceil=0.55, gc_thresh=0.15, gc_amount=0.25
+  this.lms_sat_da_proc(x, drive * 4, bias, 2.5, 2.0, 0.60, 0.55, 0.15, 0.25);
 );
 
 

@@ -1,4 +1,4 @@
-desc:LMS Sound City Drum Room
+desc:LMS Chris' Bedroom — Drum Room Reverb
 //tags: reverb room drums compressor
 //author: LMS + Claude
 
@@ -1271,7 +1271,7 @@ body_y = 50;
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", 18);
 gfx_x = 12; gfx_y = 12;
-gfx_drawstr("LMS SOUND CITY DRUM ROOM");
+gfx_drawstr("CHRIS' BEDROOM");
 
 // ============================================================================
 //  COLUMN 1: ROOM

@@ -157,6 +157,9 @@ loop(4,
   i += 1;
 );
 
+// Init saturation (mono — single instance for all drive types)
+sat_mono.lms_sat_warm_init();
+
 // ============================================================================
 //  CHORUS BUFFER
 // ============================================================================
@@ -1373,9 +1376,9 @@ synth_out = filt_out * amp_env_level * vel_amp * lfo_amp_mod;
 // ---- Drive / Saturation ----
 drive_type > 0 && drive_amount > 0 ? (
   drv = drive_amount;
-  drive_type == 1 ? ( synth_out = lms_sat_warm(synth_out, drv * 3, 0); )
-  : drive_type == 2 ? ( synth_out = lms_sat_tape(synth_out, drv * 3, 0); )
-  : drive_type == 3 ? ( synth_out = lms_sat_fuzz(synth_out, drv, 0); );
+  drive_type == 1 ? ( synth_out = sat_mono.lms_sat_warm(synth_out, drv * 3, 0); )
+  : drive_type == 2 ? ( synth_out = sat_mono.lms_sat_tape(synth_out, drv * 3, 0); )
+  : drive_type == 3 ? ( synth_out = sat_mono.lms_sat_fuzz(synth_out, drv, 0); );
 );
 
 // Mono → stereo

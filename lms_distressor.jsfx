@@ -20,6 +20,8 @@ slider10:100<0,100,1>-Mix (%)
 @init
   sc_hp.lms_bq_init();
   comp.lms_comp_init();
+  sat_l.lms_sat_warm_init();
+  sat_r.lms_sat_warm_init();
 
 notice_show = 0;
 
@@ -265,13 +267,13 @@ loop(BC_MAX_INST,
   // === DISTORTION (pre-compression, like the real Distressor) ===
   dist_mode == 1 ? (
     // Dist 2: tape-like warmth (even harmonics)
-    l = lms_sat_tape(l, 0.65, 0.0);
-    r = lms_sat_tape(r, 0.65, 0.0);
+    l = sat_l.lms_sat_tape(l, 0.65, 0.0);
+    r = sat_r.lms_sat_tape(r, 0.65, 0.0);
   );
   dist_mode == 2 ? (
     // Dist 3: tube-like grit (odd harmonics)
-    l = lms_sat_hot(l, 0.7, 0.0);
-    r = lms_sat_hot(r, 0.7, 0.0);
+    l = sat_l.lms_sat_hot(l, 0.7, 0.0);
+    r = sat_r.lms_sat_hot(r, 0.7, 0.0);
   );
 
   // === SIDECHAIN DETECTION ===
