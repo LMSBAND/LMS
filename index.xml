@@ -10,6 +10,10 @@
         <changelog><![CDATA[v2.0 — Density-aware amp ecosystem support. Core kernel now used by Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT), Top Boost v2 (AC15), and The TRSOB v2 (Mesa Triple Rectifier) density-aware amp sims with built-in effects (spring reverb, tremolo, tape echo, Crushinator).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v3.0 — Density-aware saturation replaces ADAA waveshaper. All 5 sat modes (warm/hot/tape/rect/fuzz) now use same triode architecture as v2 amp sims: coupling cap bias shift, 4-band density tracker (Lo/Mid/Hi/Air), density-driven drive boost, grid conduction (peak envelope gated soft clamp), Miller LP (density-driven cutoff), air shelf (density-driven HF), DC blocker. Fixes crash on load in tube sat and all plugins using sat functions (uninitialized ADAA state caused spike on first sample). Added mono lms_bq_proc to biquad section.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -32,6 +36,10 @@
         <changelog><![CDATA[v4.0 — Shared DSP kernel (import lms_core.jsfx-inc): one file contains all biquad filters, saturation, compressor, DC blocker — fix once, every plugin gets better. Broadcast system: BC_MAX_INST 8→32 so sessions with 30+ tracks work correctly. Instance panel paging: 5 rows/page with < > navigation, defaults to your page, YOU button to jump back. Status labels: LEADER (gold, someone following you) / FOLLOWER (blue, you are following) / UNASSIGNED (gray, free agent) — replaces the always-on [LEADER] label.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
+      <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_distressor.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -52,6 +60,10 @@
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+      </version>
+      <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
     </reapack>
@@ -94,6 +106,10 @@
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
+      <version name="5.0" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v5.0 — Density-aware saturation. All 5 modes now use triode architecture from v2 amp sims instead of ADAA waveshaper. Fixes crash on load (uninitialized state). L/R independent density tracking. Transfer curve display updated.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -110,6 +126,10 @@
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+      </version>
+      <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix. Transfer curve display updated.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
     </reapack>
@@ -146,6 +166,10 @@
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Restored room visualization (bird's-eye room, drum kit, mic dots, level meters, GR meter). Hidden native slider panel.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
+      </version>
+      <version name="4.0" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v4.0 — Renamed to "LMS Chris' Bedroom — Drum Room Reverb".]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
     </reapack>
@@ -298,6 +322,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v1.3 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+      </version>
+      <version name="1.4" author="LMS" time="2026-02-20T12:00:00Z">
+        <changelog><![CDATA[v1.4 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
     </reapack>
