@@ -73,6 +73,8 @@ slider20:50<0,100,1>-Dry/Wet (%)
   // === Shared DSP instances ===
   dc.lms_dc_init_freq(220);
   tone.lms_tone_init();
+  sat_l.lms_sat_warm_init();
+  sat_r.lms_sat_warm_init();
 
   // === Tape saturation (feedback loop character) — unique to tape machine ===
   function tape_char(x, age)
@@ -91,20 +93,20 @@ slider20:50<0,100,1>-Dry/Wet (%)
   // === Apply saturation to a stereo pair ===
   function apply_sat(l, r) (
     sat_mode == 0 ? (
-      sat_out_l = lms_sat_warm(l, sat_drive, sat_bias);
-      sat_out_r = lms_sat_warm(r, sat_drive, sat_bias);
+      sat_out_l = sat_l.lms_sat_warm(l, sat_drive, sat_bias);
+      sat_out_r = sat_r.lms_sat_warm(r, sat_drive, sat_bias);
     ) : sat_mode == 1 ? (
-      sat_out_l = lms_sat_hot(l, sat_drive, sat_bias);
-      sat_out_r = lms_sat_hot(r, sat_drive, sat_bias);
+      sat_out_l = sat_l.lms_sat_hot(l, sat_drive, sat_bias);
+      sat_out_r = sat_r.lms_sat_hot(r, sat_drive, sat_bias);
     ) : sat_mode == 2 ? (
-      sat_out_l = lms_sat_tape(l, sat_drive, sat_bias);
-      sat_out_r = lms_sat_tape(r, sat_drive, sat_bias);
+      sat_out_l = sat_l.lms_sat_tape(l, sat_drive, sat_bias);
+      sat_out_r = sat_r.lms_sat_tape(r, sat_drive, sat_bias);
     ) : sat_mode == 3 ? (
-      sat_out_l = lms_sat_rect(l, sat_drive, sat_bias);
-      sat_out_r = lms_sat_rect(r, sat_drive, sat_bias);
+      sat_out_l = sat_l.lms_sat_rect(l, sat_drive, sat_bias);
+      sat_out_r = sat_r.lms_sat_rect(r, sat_drive, sat_bias);
     ) : (
-      sat_out_l = lms_sat_fuzz(l, sat_drive, sat_bias);
-      sat_out_r = lms_sat_fuzz(r, sat_drive, sat_bias);
+      sat_out_l = sat_l.lms_sat_fuzz(l, sat_drive, sat_bias);
+      sat_out_r = sat_r.lms_sat_fuzz(r, sat_drive, sat_bias);
     );
 
     // Harmonics
@@ -975,11 +977,11 @@ sat_on ? (
   loop(50,
     in = (i / 49) * 2 - 1;
 
-    sat_mode == 0 ? out = lms_sat_warm(in, sat_drive, sat_bias);
-    sat_mode == 1 ? out = lms_sat_hot(in, sat_drive, sat_bias);
-    sat_mode == 2 ? out = lms_sat_tape(in, sat_drive, sat_bias);
-    sat_mode == 3 ? out = lms_sat_rect(in, sat_drive, sat_bias);
-    sat_mode == 4 ? out = lms_sat_fuzz(in, sat_drive, sat_bias);
+    sat_mode == 0 ? out = lms_tanh(in * (1 + sat_drive) * 1.2) * 0.85;
+    sat_mode == 1 ? out = lms_tanh(in * (1 + sat_drive * 2) * 1.8) * 0.75;
+    sat_mode == 2 ? out = lms_tanh(in * (1 + sat_drive * 1.5) * 0.8) * 0.95;
+    sat_mode == 3 ? out = lms_tanh(in * (1 + sat_drive * 3) * 2.0) * 0.70;
+    sat_mode == 4 ? out = lms_tanh(in * (1 + sat_drive * 4) * 2.5) * 0.60;
 
     out = max(-1, min(1, out));
 
