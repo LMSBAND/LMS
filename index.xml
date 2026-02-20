@@ -197,12 +197,6 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_amp_suite.jsfx" type="effect" desc="LMS - AMP SUITE — Four Amp Models (Mesa/Marshall/SVT/Champ)">
-      <version name="1.0" author="LMS" time="2026-02-18T18:00:00Z">
-        <changelog><![CDATA[Initial release — Four classic amp models in one plugin: Triple Rectified SOB (Mesa Boogie Rectifier Modern), Punk Idol (Marshall JCM800 2203), The Fridge (Ampeg SVT-CL), The Frenchie (Fender Champ 5F1). Input compressor (protection), pre-distortion voicing per model, tone stack (model-specific frequencies from circuit research), cabinet sim on/off, Schroeder room reverb (Studio/Stage/Hall/Church). Amp-specific controls: tube rectifier sag, dual cold-clipper input, SVT Ultra Lo/Hi + mid freq selector, Champ opto compression. Full broadcast system.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_amp_suite.jsfx</source>
-      </version>
-    </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Champ 5F1 amp sim. Two triode stages (V1a 12AX7 preamp + V2b power driver) with fixed asymmetric clipping and 4-band density tracker (Lo/Mid/Hi/Air) driving Miller LP, air shelf, drive boost, and NFB bandwidth — NOT the clipping curve. PSU sag (25% max droop, 80ms recovery). Simple tone control (LP sweep). 1x12 Greenback cab sim. Built-in spring reverb (4-stage allpass diffusion, pre-delay, feedback LP) and bias tremolo (sine LFO, 1-10Hz). Runs 16 instances at 2.5% CPU.]]></changelog>
