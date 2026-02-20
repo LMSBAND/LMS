@@ -21,6 +21,7 @@
       <version name="3.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v3.2 — Fix: lms_gfx_notice() forward-declaration error (moved above lms_gfx_notice_btn). GUI helpers section added.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
@@ -51,7 +52,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_distressor.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
@@ -82,7 +82,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_passive_eq.jsfx" type="effect" desc="PEQ4U — Passive Equalizer">
@@ -109,7 +108,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
@@ -136,7 +134,6 @@
           <version name="6.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v6.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
@@ -163,7 +160,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_tape_echo.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
@@ -190,7 +186,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Chris' Bedroom — Drum Room Reverb">
@@ -213,7 +208,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_matchering.jsfx" type="effect" desc="LMS Matchering Realtime">
@@ -236,7 +230,6 @@
           <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime (legacy name)">
@@ -247,7 +240,6 @@
           <version name="4.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v4.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
@@ -270,7 +262,6 @@
           <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
@@ -293,7 +284,6 @@
           <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
@@ -312,7 +302,6 @@
           <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_ac15_v2.jsfx" type="effect" desc="LMS - Top Boost v2 — Density-Aware AC15 Amp Sim">
@@ -335,7 +324,6 @@
           <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
@@ -354,7 +342,6 @@
           <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
@@ -369,7 +356,6 @@
           <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Limiter — Predictive Mastering Limiter">
@@ -380,7 +366,6 @@
           <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_density_seq.jsfx" type="effect" desc="LMS - Density Sequencer — Your Playing Is The Sequence">
@@ -391,7 +376,6 @@
           <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
@@ -418,7 +402,6 @@
           <version name="1.5" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.5 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
   </category>
@@ -568,7 +551,6 @@
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling, shakebot logo, pool/kit merge (kits are now subfolders in pool/).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
         <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
         <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
         <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
         <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
@@ -649,7 +631,6 @@
           <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS Drone FX Satellite — FET Comp + Tape Delay + Flanger">
@@ -664,7 +645,6 @@
           <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
   </category>
