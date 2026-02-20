@@ -49,7 +49,7 @@
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
@@ -79,7 +79,7 @@
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
       </version>
@@ -105,7 +105,7 @@
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
       </version>
@@ -131,7 +131,7 @@
         <changelog><![CDATA[v5.0 — Density-aware saturation. All 5 modes now use triode architecture from v2 amp sims instead of ADAA waveshaper. Fixes crash on load (uninitialized state). L/R independent density tracking. Transfer curve display updated.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
-          <version name="6.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="6.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v6.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
@@ -157,7 +157,7 @@
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix. Transfer curve display updated.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
       </version>
@@ -183,7 +183,7 @@
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
@@ -205,7 +205,7 @@
         <changelog><![CDATA[v4.0 — Renamed to "LMS Chris' Bedroom — Drum Room Reverb".]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
@@ -227,7 +227,7 @@
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
       </version>
-          <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
       </version>
@@ -237,7 +237,7 @@
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
-          <version name="4.0" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="4.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v4.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
       </version>
@@ -259,7 +259,7 @@
         <changelog><![CDATA[v1.3 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
-          <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
@@ -281,7 +281,7 @@
         <changelog><![CDATA[v1.3 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
       </version>
-          <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
       </version>
@@ -299,7 +299,7 @@
         <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=13, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 640×520 three-column layout (Preamp + Tone/Power + Effects). Mid Freq 5-way mode selector, Ultra Lo/Hi toggles, Crushinator toggle with Drive/Blend/Presence/Low/High controls. All controls now match the LMS suite GUI standard.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
-          <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
@@ -321,7 +321,7 @@
         <changelog><![CDATA[v1.3 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
       </version>
-          <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
       </version>
@@ -339,7 +339,7 @@
         <changelog><![CDATA[v1.2 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
-          <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
@@ -353,7 +353,7 @@
         <changelog><![CDATA[v1.1 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=15, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Channel mode selector (Clean/Vintage/Modern), Rectifier toggle (Silicon/Tube), Bold/Spongy toggle, Noise Gate toggle. All controls now match the LMS suite GUI standard.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
@@ -363,7 +363,7 @@
         <changelog><![CDATA[Initial release — Density-aware master bus limiter. Reads harmonic density state from LMS amp plugins via gmem to predict peaks BEFORE they arrive. Gain reduction is proactive, not reactive — the signal never clips because the limiter already set the gain correctly. True peak detection with inter-sample peak interpolation. Soft knee with 3dB width. Tanh soft clip safety net. GR meter, density state display, measured vs predicted peak comparison. Works standalone (standard reactive limiting) or gmem-linked (predictive mode). "Dead things don't move when you poke them."]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
       </version>
-          <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
       </version>
@@ -373,7 +373,7 @@
         <changelog><![CDATA[Initial release — Density-reactive sequencer/instrument. Reads density state from any LMS amp plugin via gmem and generates rhythmic/melodic output driven by the harmonic content of your playing. Four modes: Drums (lo→kick, mid→snare, hi→hats, air→cymbals), Bass Synth (scale-quantized bass from density), Arp (density-driven arpeggiation with direction/range modulation), Drone (two oscillators with density-reactive filter and volume). Scale selection (minor/major pent, minor/major, chromatic), root note, swing, humanize. Pattern memory grid shows last 16 steps as density-colored cells. Built-in synth engine with 10 voices.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
-          <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
@@ -399,7 +399,7 @@
         <changelog><![CDATA[v1.4 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
-          <version name="1.5" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.5" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.5 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
@@ -547,43 +547,10 @@
         <source file="kits/2/15.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/15.wav</source>
         <source file="kits/2/16.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/kits/2/16.wav</source>
       </version>
-          <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v1.3 — 4K/HiDPI scaling, shakebot logo, pool/kit merge (kits are now subfolders in pool/).]]></changelog>
+      <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
+        <changelog><![CDATA[v1.3 — 4K/HiDPI scaling, shakebot logo, pool/kit merge (kits are now subfolders in pool/). Hidden kit slider (use GFX selector), removed octave buttons.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
         <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
-        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
-        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
-        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
-        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-rimshot.wav</source>
-        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
-        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hihat-808.wav</source>
-        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-openhat-808.wav</source>
-        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-808.wav</source>
-        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-analog.wav</source>
-        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-fm.wav</source>
-        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
-        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride.wav</source>
-        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
-        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-808.wav</source>
-        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-cowbell-808.wav</source>
-        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-laser.wav</source>
-        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-perc-chirpy.wav</source>
-        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-juicy.wav</source>
-        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-snare-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-papercut.wav</source>
-        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
-        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
-        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
-        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
-        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
-        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
-        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
-        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
-        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
-        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
-        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
-        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
         <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
         <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
         <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
@@ -628,7 +595,7 @@
         <changelog><![CDATA[v1.1 — Added in-plugin NOTICE button with usage instructions (Follow/Lock workflow, scale/chord controls, Re-Capture/Clear).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
       </version>
@@ -642,7 +609,7 @@
         <changelog><![CDATA[v1.1 — Added in-plugin NOTICE button with usage instructions (sidechain/gate modes, filter/flanger/delay controls, watch pad selection).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
+      <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
       </version>
@@ -654,10 +621,18 @@
         <changelog><![CDATA[Initial release — file picker to load samples onto selected pad]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-02-21T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Fixed pool path (DRUMBANGER instead of DrumBox16).]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_rescan.lua" type="script" desc="DRUMBANGER: Rescan Pool">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release — trigger pool rescan from within Reaper]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-21T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Fixed pool path (DRUMBANGER instead of DrumBox16).]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
       </version>
     </reapack>

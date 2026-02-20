@@ -22,7 +22,7 @@ slider3:0<0,7,1{Pattern 1,Pattern 2,Pattern 3,Pattern 4,Pattern 5,Pattern 6,Patt
 slider4:0.8<0,1,0.01>Master Volume
 slider5:1<0,1,1{Off,On}>Sequencer
 slider6:0<0,1,1{Off,Rec}>Record Input
-slider7:0<0,7,1{Kit 1,Kit 2,Kit 3,Kit 4,Kit 5,Kit 6,Kit 7,Kit 8}>Kit Select
+slider7:0<0,7,1{Kit 1,Kit 2,Kit 3,Kit 4,Kit 5,Kit 6,Kit 7,Kit 8}>-Kit Select
 slider8:36<0,112,1>MIDI Root Note
 
 // Per-pad volume (pads 1-16) — sliders 10-25 (hidden, controlled via GFX)
@@ -3473,38 +3473,6 @@ gfx_drawnumber(root_oct, 0);
 gfx_drawstr(" (");
 gfx_drawnumber(root_note, 0);
 gfx_drawstr(")");
-
-// [-] button (down one octave)
-rn_btn_w = 22;
-rn_btn_h = 14;
-rn_minus_x = gfx_w - 80;
-gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
-gfx_rect(rn_minus_x, rn_y, rn_btn_w, rn_btn_h);
-gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-gfx_x = rn_minus_x + 7; gfx_y = rn_y + 1;
-gfx_drawstr("-");
-mouse_cap & 1 && !(last_mouse_cap & 1) ? (
-  mouse_x >= rn_minus_x && mouse_x < rn_minus_x + rn_btn_w &&
-  mouse_y >= rn_y && mouse_y < rn_y + rn_btn_h ? (
-    slider8 = max(0, slider8 - 12);
-    slider_automate(slider8);
-  );
-);
-
-// [+] button (up one octave)
-rn_plus_x = rn_minus_x + rn_btn_w + 4;
-gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
-gfx_rect(rn_plus_x, rn_y, rn_btn_w, rn_btn_h);
-gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-gfx_x = rn_plus_x + 6; gfx_y = rn_y + 1;
-gfx_drawstr("+");
-mouse_cap & 1 && !(last_mouse_cap & 1) ? (
-  mouse_x >= rn_plus_x && mouse_x < rn_plus_x + rn_btn_w &&
-  mouse_y >= rn_y && mouse_y < rn_y + rn_btn_h ? (
-    slider8 = min(112, slider8 + 12);
-    slider_automate(slider8);
-  );
-);
 
 // --- WARNING BANNER (service not running, etc.) ---
 warn_timer > 0 ? (
