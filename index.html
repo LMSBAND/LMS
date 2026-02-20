@@ -1545,750 +1545,416 @@
     color: var(--good-green);
     font-weight: 700;
   }
-</style>
-</head>
-<body>
 
-<!-- ============================================ -->
-<!-- TLDR: INSTALL GUIDE -->
-<!-- ============================================ -->
-<div class="tldr">
-  <div class="tldr-header">
-    <div class="tldr-badge">TLDR</div>
-    <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
-    <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
-    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#9660;</span></button>
-  </div>
+  /* ============================================ */
+  /* COLLAPSIBLE SECTIONS                         */
+  /* ============================================ */
+  .collapsible-header {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.5rem 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(0.9rem, 2vw, 1.2rem);
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    background: var(--bg2);
+    border-top: 1px solid var(--dimmer);
+    border-bottom: 1px solid var(--dimmer);
+    transition: color 0.2s, background 0.2s;
+    user-select: none;
+  }
 
-  <div class="tldr-body" id="tldr-body">
-  <div class="tldr-steps">
+  .collapsible-header:hover {
+    color: var(--text);
+    background: var(--bg3);
+  }
 
-    <!-- Step 1 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">1</div>
-        <div class="tldr-step-title">DOWNLOAD REAPER</div>
-      </div>
-      <div class="tldr-step-body">
-        Go to <a href="https://www.reaper.fm/download.php" target="_blank">reaper.fm/download.php</a> and grab the installer for your OS (Windows, macOS, or Linux). It's a small download (~15 MB). Reaper has an unlimited free evaluation period &mdash; no credit card, no signup.
-      </div>
-    </div>
+  .collapse-arrow {
+    display: inline-block;
+    transition: transform 0.3s;
+    font-size: 0.8em;
+  }
 
-    <!-- Step 2 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">2</div>
-        <div class="tldr-step-title">INSTALL REAPER</div>
-      </div>
-      <div class="tldr-step-body">
-        Run the installer. Click next. That's it. Open Reaper when it's done.
-        <div class="tldr-warn">
-          <div class="tldr-warn-icon">!</div>
-          <div><strong>Linux users:</strong> download the .tar.xz, extract it, run <code>sudo ./install-reaper.sh</code> and follow the prompts. Or just extract it anywhere and run the binary directly.</div>
-        </div>
-      </div>
-    </div>
+  .collapse-arrow.open {
+    transform: rotate(90deg);
+  }
 
-    <!-- Step 3 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">3</div>
-        <div class="tldr-step-title">INSTALL REAPACK</div>
-      </div>
-      <div class="tldr-step-body">
-        ReaPack is the package manager that lets you install LMS (and hundreds of other free plugins) with one click.
-        <div class="substep">
-          <div class="substep-arrow">a.</div>
-          <div>Go to <a href="https://reapack.com" target="_blank">reapack.com</a> and download the file for your OS.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">b.</div>
-          <div>In Reaper, go to <code>Options &rarr; Show REAPER resource path...</code> &mdash; this opens a folder.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">c.</div>
-          <div>Inside that folder, find (or create) the <code>UserPlugins</code> subfolder.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">d.</div>
-          <div>Drop the ReaPack file you downloaded into <code>UserPlugins</code>.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">e.</div>
-          <div><strong>Restart Reaper.</strong> You should now see <code>Extensions &rarr; ReaPack</code> in the menu bar. If you don't, the file isn't in the right folder &mdash; double check.</div>
-        </div>
-      </div>
-    </div>
+  .collapsible-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
 
-    <!-- Step 4 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">4</div>
-        <div class="tldr-step-title">ADD THE LMS REPOSITORY</div>
-      </div>
-      <div class="tldr-step-body">
-        <div class="substep">
-          <div class="substep-arrow">a.</div>
-          <div>In Reaper: <code>Extensions &rarr; ReaPack &rarr; Import repositories...</code></div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">b.</div>
-          <div>Paste this URL into the box and click OK:</div>
-        </div>
-        <div class="tldr-url-box">https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml</div>
-      </div>
-    </div>
+  .collapsible-body.open {
+    max-height: 50000px;
+    opacity: 1;
+  }
 
-    <!-- Step 5 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">5</div>
-        <div class="tldr-step-title">INSTALL ALL LMS PLUGINS</div>
-      </div>
-      <div class="tldr-step-body">
-        <div class="substep">
-          <div class="substep-arrow">a.</div>
-          <div>Go to <code>Extensions &rarr; ReaPack &rarr; Browse packages...</code></div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">b.</div>
-          <div>In the filter/search box at the top, type <code>LMS</code> to show only LMS packages.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">c.</div>
-          <div>Press <code>Ctrl+A</code> (or <code>Cmd+A</code> on Mac) to <strong>select all</strong>.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">d.</div>
-          <div>Right-click &rarr; <strong>Install/update selected packages</strong>.</div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">e.</div>
-          <div>Click <strong>Apply</strong> in the bottom-right. Let it download everything. Done.</div>
-        </div>
-        <div class="tldr-warn">
-          <div class="tldr-warn-icon">!</div>
-          <div>To update later: just repeat this process. <code>Browse packages &rarr; select all LMS &rarr; install/update</code>. Or use <code>Extensions &rarr; ReaPack &rarr; Synchronize packages</code> to update everything at once.</div>
-        </div>
-      </div>
-    </div>
+  /* ============================================ */
+  /* LOGO SECTION                                 */
+  /* ============================================ */
+  .logo-section {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
 
-    <!-- Step 6 -->
-    <div class="tldr-step">
-      <div class="tldr-step-head">
-        <div class="tldr-step-num">6</div>
-        <div class="tldr-step-title">SET UP THE LUA SCRIPTS</div>
-      </div>
-      <div class="tldr-step-body">
-        LMS includes Lua scripts for saving/loading plugin states and Drumbanger integration. You need to register them as Reaper Actions so you can use them.
-        <div class="substep">
-          <div class="substep-arrow">a.</div>
-          <div>In Reaper: <code>Actions &rarr; Show action list...</code></div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">b.</div>
-          <div>Click <strong>New action... &rarr; Load ReaScript...</strong></div>
-        </div>
-        <div class="substep">
-          <div class="substep-arrow">c.</div>
-          <div>Navigate to your Reaper resource path &rarr; <code>Scripts</code> folder. The LMS scripts should already be there from the ReaPack install. Load each one:</div>
-        </div>
-        <div style="padding-left:1.5rem;margin-top:0.3rem">
-          <div style="margin-bottom:0.2rem"><code>lms_save.lua</code> &mdash; saves all LMS plugin states in your project</div>
-          <div style="margin-bottom:0.2rem"><code>lms_load.lua</code> &mdash; restores saved LMS plugin states</div>
-          <div style="margin-bottom:0.2rem"><code>lms_steal.lua</code> &mdash; copy settings between plugin instances</div>
-        </div>
-        <div class="substep" style="margin-top:0.5rem">
-          <div class="substep-arrow">d.</div>
-          <div>You can now run these from <code>Actions &rarr; Show action list</code> by searching "lms". Optionally, assign keyboard shortcuts to them for fast access.</div>
-        </div>
-        <div class="tldr-warn">
-          <div class="tldr-warn-icon">!</div>
-          <div><strong>Drumbanger users:</strong> The Drumbanger-related scripts handle pattern save/load and MIDI routing. Load them the same way. They'll appear in your Actions list ready to assign to toolbar buttons or hotkeys.</div>
-        </div>
-      </div>
-    </div>
+  .logo-section img {
+    max-width: min(400px, 80vw);
+    height: auto;
+    border-radius: 12px;
+  }
 
-  </div>
+  /* ============================================ */
+  /* TWO BIG DIFFERENCES HEADER                   */
+  /* ============================================ */
+  .two-big {
+    text-align: center;
+    padding: clamp(3rem, 6vw, 6rem) 2rem clamp(1.5rem, 3vw, 3rem);
+  }
 
-  <div class="tldr-time">TOTAL TIME: <span>~3 MINUTES</span> &mdash; ZERO ACCOUNTS &mdash; ZERO DOLLARS &mdash; WORKS ON EVERY OS</div>
-  </div><!-- /tldr-body -->
-</div>
+  .two-big h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(1.5rem, 4vw, 3rem);
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
 
-<!-- ============================================ -->
-<!-- HERO -->
-<!-- ============================================ -->
-<section class="hero">
-  <h1 class="fade-in">
-    <span class="their">THEIR ARCHITECTURE</span>
-    <span class="vs">vs</span>
-    <span class="ours">OURS</span>
-  </h1>
-  <p class="subtitle fade-in">
-    How the plugin industry turned simple DSP math into a 
-    subscription-gated, driver-locked, platform-dependent prison.
-    And how JSFX + gmem[] sets you free.
-  </p>
-  <div class="scroll-hint">▼ scroll ▼</div>
-</section>
-<!-- ============================================ -->
-<!-- EXISTING: SECTION 1: PLUGIN LOADING -->
-<!-- ============================================ -->
-<div class="comparison">
-  <div class="divider"></div>
-  <div class="divider-label">PLUGIN ARCHITECTURE</div>
+  .two-big h2 span { color: var(--amber); }
 
-  <div class="side evil">
-    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
-    <div class="section-title fade-in">Loading a Plugin</div>
-    <div class="section-subtitle fade-in">What happens when you open an effect in Logic, Ableton, Pro Tools</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">DAW Host Process</div>
-        <div class="node-detail">Scans VST/AU folders on launch (30-120 seconds)</div>
-      </div>
-      <div class="flow-arrow"><span>▼ loads binary</span></div>
-      <div class="flow-node">
-        <div class="node-name">Plugin Binary (.dll / .vst3 / .component)</div>
-        <div class="node-detail">Compiled C++, platform-specific, architecture-locked</div>
-      </div>
-      <div class="flow-arrow"><span>▼ calls home</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">License Server</div>
-        <div class="node-detail">iLok / NI / Waves / Arturia cloud auth check</div>
-      </div>
-      <div class="flow-arrow"><span>▼ if approved</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Subscription Check</div>
-        <div class="node-detail">Is your payment current? Did the company get acquired?</div>
-      </div>
-      <div class="flow-arrow"><span>▼ sandboxed</span></div>
-      <div class="flow-node">
-        <div class="node-name">Isolated Plugin Instance</div>
-        <div class="node-detail">Own memory space. Cannot see other plugins. Black box.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ audio buffer copy</span></div>
-      <div class="flow-node">
-        <div class="node-name">DAW Audio Engine</div>
-        <div class="node-detail">Copies buffers in and out. Adds latency per plugin.</div>
-      </div>
-    </div>
-  </div>
+  .two-big p {
+    max-width: 650px;
+    margin: 0 auto;
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
 
-  <div class="side good">
-    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
-    <div class="section-title fade-in">Loading a Plugin</div>
-    <div class="section-subtitle fade-in">What happens when you open an LMS effect in Reaper</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">Reaper</div>
-        <div class="node-detail">Reads a text file. That's it.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ interprets</span></div>
-      <div class="flow-node">
-        <div class="node-name">JSFX Source Code (.jsfx)</div>
-        <div class="node-detail">Human-readable text. Runs on any CPU, any OS.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ instant</span></div>
-      <div class="flow-node">
-        <div class="node-name">Live in the Audio Thread</div>
-        <div class="node-detail">No sandbox. No buffer copy. Zero latency. Just math.</div>
-      </div>
-    </div>
-  </div>
-</div>
+  /* ============================================ */
+  /* GMEM INTERACTIVE GRAPHIC                     */
+  /* ============================================ */
+  .gmem-graphic-wrap {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+    padding: 0 16px;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: SECTION 2: INTER-PLUGIN COMMUNICATION -->
-<!-- ============================================ -->
-<div class="comparison">
-  <div class="divider"></div>
-  <div class="divider-label">PLUGIN COMMUNICATION</div>
+  .gmem-graphic {
+    background: var(--bg2);
+    border: 1px solid var(--dimmer);
+    border-radius: 12px;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    position: relative;
+    overflow: hidden;
+  }
 
-  <div class="side evil">
-    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
-    <div class="section-title fade-in">Making Plugins Talk</div>
-    <div class="section-subtitle fade-in">Getting one plugin to react to another</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">Plugin A (Track 1)</div>
-        <div class="node-detail">Compressor wants to duck on kick</div>
-      </div>
-      <div class="flow-arrow"><span>▼ audio send</span></div>
-      <div class="flow-node">
-        <div class="node-name">Create Aux Bus</div>
-        <div class="node-detail">Route audio from kick track to sidechain input</div>
-      </div>
-      <div class="flow-arrow"><span>▼ routing matrix</span></div>
-      <div class="flow-node">
-        <div class="node-name">DAW I/O Router</div>
-        <div class="node-detail">Configure inputs, outputs, bus assignments</div>
-      </div>
-      <div class="flow-arrow"><span>▼ buffer copy</span></div>
-      <div class="flow-node">
-        <div class="node-name">Plugin B Sidechain Input</div>
-        <div class="node-detail">Receives audio copy (1 block latency minimum)</div>
-      </div>
-      <div class="flow-arrow"><span>▼ one direction only</span></div>
-      <div class="flow-node">
-        <div class="node-name">Result</div>
-        <div class="node-detail">One plugin reacts to one other plugin. Repeat for each pair.</div>
-      </div>
-    </div>
-  </div>
+  .gmem-graphic-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--orange);
+  }
 
-  <div class="side good">
-    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
-    <div class="section-title fade-in">Making Plugins Talk</div>
-    <div class="section-subtitle fade-in">Every LMS plugin can see every other LMS plugin</div>
-    <div class="flow fade-in">
-      <div class="flow-node gmem">
-        <div class="node-name">gmem[] — Shared Memory</div>
-        <div class="node-detail">One namespace. All LMS plugins read and write. Same audio block.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ instant read/write</span></div>
-      <div class="flow-node">
-        <div class="node-name">Drumbanger (Track 1)</div>
-        <div class="node-detail">Writes: pad triggers, step position, pattern data, BPM</div>
-      </div>
-      <div class="flow-arrow"><span>▼ same sample</span></div>
-      <div class="flow-node">
-        <div class="node-name">Drone MIDI (Track 3)</div>
-        <div class="node-detail">Reads pad 13, outputs scale-locked MIDI to synth</div>
-      </div>
-      <div class="flow-arrow"><span>▼ same sample</span></div>
-      <div class="flow-node">
-        <div class="node-name">Drone FX (Track 5)</div>
-        <div class="node-detail">Reads pad 1, sidechains bass. No routing. No bus.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ same sample</span></div>
-      <div class="flow-node">
-        <div class="node-name">Result</div>
-        <div class="node-detail">Every plugin knows everything. Zero latency. Zero config.</div>
-      </div>
-    </div>
-  </div>
-</div>
+  .gmem-toggle-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: SECTION 3: SHARING SETTINGS -->
-<!-- ============================================ -->
-<div class="comparison">
-  <div class="divider"></div>
-  <div class="divider-label">SETTINGS & STATE</div>
+  .gmem-toggle-btn {
+    padding: 6px 16px;
+    border-radius: 5px;
+    border: 2px solid var(--dimmer);
+    background: transparent;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-  <div class="side evil">
-    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
-    <div class="section-title fade-in">Copying Settings</div>
-    <div class="section-subtitle fade-in">Using the same effect configuration on two tracks</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">Plugin Instance A</div>
-        <div class="node-detail">You dialed in a great sound</div>
-      </div>
-      <div class="flow-arrow"><span>▼ save preset</span></div>
-      <div class="flow-node">
-        <div class="node-name">Preset File (.fxp / .vstpreset)</div>
-        <div class="node-detail">Binary blob. Vendor-specific format. Sometimes XML.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ navigate folder</span></div>
-      <div class="flow-node">
-        <div class="node-name">File Browser</div>
-        <div class="node-detail">Find the preset. Different location per OS. Per plugin.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ load into new instance</span></div>
-      <div class="flow-node">
-        <div class="node-name">Plugin Instance B</div>
-        <div class="node-detail">Loaded. But now they're independent again. Change A ≠ change B.</div>
-      </div>
-    </div>
-  </div>
+  .gmem-toggle-btn.active-lms {
+    border-color: var(--orange);
+    background: var(--orange-glow);
+    color: var(--orange);
+  }
 
-  <div class="side good">
-    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
-    <div class="section-title fade-in">Copying Settings</div>
-    <div class="section-subtitle fade-in">Every instance can see every other instance's state in real-time</div>
-    <div class="flow fade-in">
-      <div class="flow-node gmem">
-        <div class="node-name">gmem[] Registry</div>
-        <div class="node-detail">Every LMS plugin publishes its slider values to shared memory</div>
-      </div>
-      <div class="flow-arrow"><span>▼ browse</span></div>
-      <div class="flow-node">
-        <div class="node-name">Plugin Instance B — "Steal Settings"</div>
-        <div class="node-detail">Sees all running LMS instances. Click one. Done.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ or link</span></div>
-      <div class="flow-node">
-        <div class="node-name">Linked Mode</div>
-        <div class="node-detail">Change A = change B. Live. Both directions. No files.</div>
-      </div>
-    </div>
-  </div>
-</div>
+  .gmem-toggle-btn.active-trad {
+    border-color: #555;
+    background: #55555520;
+    color: #888;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: SECTION 4: SESSION MANAGEMENT -->
-<!-- ============================================ -->
-<div class="comparison">
-  <div class="divider"></div>
-  <div class="divider-label">SESSION MANAGEMENT</div>
+  .gmem-bus-bar {
+    margin: 0 auto 1.5rem;
+    padding: 10px 20px;
+    border: 2px dashed var(--orange);
+    border-radius: 6px;
+    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--orange);
+    transition: all 0.4s;
+  }
 
-  <div class="side evil">
-    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
-    <div class="section-title fade-in">Sharing a Session</div>
-    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">Your DAW Project File</div>
-        <div class="node-detail">Contains references to every plugin by vendor ID</div>
-      </div>
-      <div class="flow-arrow"><span>▼ send to friend</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Missing Plugins</div>
-        <div class="node-detail">"Plugin X not found" — do they own it? Right version?</div>
-      </div>
-      <div class="flow-arrow"><span>▼ buy or pirate</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Install + License</div>
-        <div class="node-detail">Download 2GB. Activate iLok. Create account. Verify email.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ maybe works</span></div>
-      <div class="flow-node">
-        <div class="node-name">Platform Check</div>
-        <div class="node-detail">Wrong OS? Wrong architecture? Wrong DAW? Sorry.</div>
-      </div>
-    </div>
-  </div>
+  .gmem-bus-bar.trad-mode {
+    border-color: #333;
+    border-style: solid;
+    background: #111;
+    color: #555;
+  }
 
-  <div class="side good">
-    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
-    <div class="section-title fade-in">Sharing a Session</div>
-    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">trap_starter.lms</div>
-        <div class="node-detail">A text file. Human readable. 2KB.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ send to friend</span></div>
-      <div class="flow-node">
-        <div class="node-name">Friend Has Reaper + LMS Suite</div>
-        <div class="node-detail">One ReaPack URL. Free. Any OS. Any CPU.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ run loader</span></div>
-      <div class="flow-node">
-        <div class="node-name">Entire Session Rebuilds</div>
-        <div class="node-detail">Tracks, plugins, patterns, FX chains, mix. Instant.</div>
-      </div>
-    </div>
-  </div>
-</div>
+  .gmem-bus-bar .gmem-bus-sub {
+    font-size: 0.6rem;
+    font-weight: 400;
+    color: #886a40;
+    margin-top: 4px;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: STATS -->
-<!-- ============================================ -->
-<div class="stats">
-  <div class="stat">
-    <div class="number evil">$750</div>
-    <div class="label">Ableton Live Suite</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$599</div>
-    <div class="label">Waves Mercury Bundle</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$9.99/mo</div>
-    <div class="label">Pro Tools Subscription</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$49/yr</div>
-    <div class="label">iLok Cloud License</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$60</div>
-    <div class="label">Reaper (forever)</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$0</div>
-    <div class="label">LMS Plugin Suite</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$0</div>
-    <div class="label">Linux</div>
-  </div>
-  <div class="stat">
-    <div class="number orange">∞</div>
-    <div class="label">Yours forever</div>
-  </div>
-</div>
+  .gmem-bus-bar.trad-mode .gmem-bus-sub {
+    color: #444;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: BUS ARCHITECTURE COMPARISON -->
-<!-- ============================================ -->
-<section class="bus-section">
-  <h2 class="fade-in">Signal <span style="color:var(--evil-red)">Routing</span> vs Signal <span style="color:var(--good-green)">Sharing</span></h2>
-  <p class="bus-subtitle fade-in">
-    Traditional DAWs route audio between tracks through buses — each connection is a separate 
-    audio path you have to build manually. LMS shares state through memory — every 
-    plugin already knows what every other plugin is doing.
-  </p>
+  .gmem-plugins-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
 
-  <!-- Traditional routing -->
-  <div class="bus-diagram evil">
-    <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
-    <div class="bus-tracks">
-      <div class="bus-track">
-        <div class="bus-track-box">KICK</div>
-        <div class="bus-track-label">Track 1</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">SNARE</div>
-        <div class="bus-track-label">Track 2</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span></div>
-        <div class="bus-track-label">Track 3</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">SYNTH</div>
-        <div class="bus-track-label">Track 4</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box send">VERB<br>BUS</div>
-        <div class="bus-track-label">Aux 1</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box send">DELAY<br>BUS</div>
-        <div class="bus-track-label">Aux 2</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box send">DRUM<br>BUS</div>
-        <div class="bus-track-label">Bus 1</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box master">MASTER</div>
-        <div class="bus-track-label">Out</div>
-      </div>
-    </div>
-    <div class="bus-connections">
-      <span class="route">T1 → Bus1 (post)</span>
-      <span class="route">T2 → Bus1 (post)</span>
-      <span class="route">T1 → T3 SC (pre)</span>
-      <span class="route">T1 → Aux1 (send -12dB)</span>
-      <span class="route">T2 → Aux1 (send -6dB)</span>
-      <span class="route">T4 → Aux1 (send -18dB)</span>
-      <span class="route">T4 → Aux2 (send -10dB)</span>
-      <span class="route">Bus1 → Master</span>
-      <span class="route">T3 → Master</span>
-      <span class="route">T4 → Master</span>
-      <span class="route">Aux1 → Master</span>
-      <span class="route">Aux2 → Master</span>
-      <br>
-      <span style="color:#664444;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
-    </div>
-  </div>
+  .gmem-plugin-box {
+    width: 100px;
+    padding: 10px 6px;
+    border-radius: 6px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
 
-  <!-- LMS routing -->
-  <div class="bus-diagram good">
-    <h3>LMS: 6 TRACKS, SIDECHAIN + FX — ZERO ROUTING</h3>
-    <div class="bus-tracks">
-      <div class="bus-track">
-        <div class="bus-track-box">DRUM-<br>BANGER</div>
-        <div class="bus-track-label">Track 1</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">DRONE<br>MIDI→<br>BASS</div>
-        <div class="bus-track-label">Track 2</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">SC pad 1</span></div>
-        <div class="bus-track-label">Track 2</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">DRONE<br>MIDI→<br>SYNTH</div>
-        <div class="bus-track-label">Track 3</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">delay+flg</span></div>
-        <div class="bus-track-label">Track 3</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box">CHAN<br>STRIP</div>
-        <div class="bus-track-label">Track 4</div>
-      </div>
-      <div class="bus-track">
-        <div class="bus-track-box master">MATCH-<br>ERING</div>
-        <div class="bus-track-label">Master</div>
-      </div>
-    </div>
-    <div class="bus-connections">
-      <span class="route gmem-route">gmem[] — ALL PLUGINS SHARE STATE</span>
-      <br>
-      <span class="route">Drumbanger writes triggers → Drones read</span>
-      <span class="route">Pattern change → ALL tracks update</span>
-      <span class="route">Sidechain via gmem[] — no audio routing</span>
-      <br>
-      <span style="color:#448844;font-size:0.55rem;">0 manual routing connections. Drop plugin. Select pad. Done.</span>
-    </div>
-  </div>
-</section>
+  .gmem-plugin-box.lms-mode {
+    border: 1px dashed var(--orange);
+    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+    color: var(--orange);
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: MEMORY / RESOURCE USAGE -->
-<!-- ============================================ -->
-<div class="comparison">
-  <div class="divider"></div>
-  <div class="divider-label">MEMORY USAGE</div>
+  .gmem-plugin-box.lms-mode:hover {
+    background: #1a1508;
+    box-shadow: 0 0 15px rgba(240,122,46,0.2);
+  }
 
-  <div class="side evil">
-    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
-    <div class="section-title fade-in">What's Eating Your RAM</div>
-    <div class="section-subtitle fade-in">Typical memory footprint of a "professional" production session</div>
-    <div class="flow fade-in">
-      <div class="flow-node toll">
-        <div class="node-name">DAW Runtime</div>
-        <div class="node-detail">Logic/Ableton: 800MB–1.5GB just sitting there idle</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Kontakt + Sample Libraries</div>
-        <div class="node-detail">2–8GB per instance. Multiple instances = goodbye RAM.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Serum / Omnisphere / Massive</div>
-        <div class="node-detail">200–500MB each. Wavetable synths preload everything.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node toll">
-        <div class="node-name">Plugin GUIs</div>
-        <div class="node-detail">Each photorealistic knob = textures in VRAM. 50–200MB per plugin window.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node">
-        <div class="node-name">License Daemons</div>
-        <div class="node-detail">iLok, NI Service Center, Pace — running in background 24/7</div>
-      </div>
-      <div class="flow-arrow"><span>▼ total</span></div>
-      <div class="flow-node" style="border-color:#661122;background:#2a0810;">
-        <div class="node-name" style="color:var(--evil-red);font-size:1.2rem;">4–16 GB</div>
-        <div class="node-detail">For a medium session. Heavy sessions swap to disk. Fans spin. Beach ball.</div>
-      </div>
-    </div>
-  </div>
+  .gmem-plugin-box.lms-mode.selected {
+    border-color: var(--amber);
+    box-shadow: 0 0 20px rgba(245,158,11,0.3);
+    background: #1a1508;
+  }
 
-  <div class="side good">
-    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
-    <div class="section-title fade-in">What's Eating Your RAM</div>
-    <div class="section-subtitle fade-in">Memory footprint of an entire LMS production session</div>
-    <div class="flow fade-in">
-      <div class="flow-node">
-        <div class="node-name">Reaper</div>
-        <div class="node-detail">~80MB base. Lean C++ app. Respects your computer.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node">
-        <div class="node-name">Drumbanger (16 samples loaded)</div>
-        <div class="node-detail">~15MB. Raw WAV in memory. No bloat. No GUI textures.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node">
-        <div class="node-name">Drone MIDI + Drone FX (x4)</div>
-        <div class="node-detail">~2MB total. They're text files running math. That's it.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node">
-        <div class="node-name">Channel Strip + Tape Echo + Spring Verb + Matchering</div>
-        <div class="node-detail">~3MB total. DSP algorithms. No sample libraries. No textures.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ plus</span></div>
-      <div class="flow-node gmem">
-        <div class="node-name">gmem[] shared state</div>
-        <div class="node-detail">~64KB. Numbers in memory. The entire inter-plugin mesh.</div>
-      </div>
-      <div class="flow-arrow"><span>▼ total</span></div>
-      <div class="flow-node" style="border-color:#116633;background:#082a10;">
-        <div class="node-name" style="color:var(--good-green);font-size:1.2rem;">~100 MB</div>
-        <div class="node-detail">Full session. Drum machine + sequencer + 4 synth tracks + FX + master. On a 2017 Mac.</div>
-      </div>
-    </div>
-  </div>
-</div>
+  .gmem-plugin-box.trad-mode {
+    border: 1px solid #2a2a2a;
+    background: #111;
+    color: #666;
+  }
 
-<!-- Memory stats row -->
-<div class="stats">
-  <div class="stat">
-    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">1.5 GB</div>
-    <div class="label">Logic Pro idle</div>
-  </div>
-  <div class="stat">
-    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">4–8 GB</div>
-    <div class="label">One Kontakt instance</div>
-  </div>
-  <div class="stat">
-    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">200 MB</div>
-    <div class="label">One plugin GUI</div>
-  </div>
-  <div class="stat">
-    <div class="number good" style="font-size:clamp(1.5rem,3vw,2.5rem);">~5 KB</div>
-    <div class="label">One JSFX plugin</div>
-  </div>
-</div>
+  .gmem-plugin-sub {
+    font-size: 0.5rem;
+    font-weight: 400;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
 
-<!-- ============================================ -->
-<!-- EXISTING: LINUX + REAPER TIME TRAVEL -->
-<!-- ============================================ -->
-<section class="time-travel">
-  <div class="time-travel-inner">
-    <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
-    <h2>LINUX + REAPER =<br><span class="tt-highlight">YOUR COMPUTER JUST WORKS AGAIN</span></h2>
-    <p class="tt-text">
-      Remember when you turned on your computer and it was just... ready? 
-      Before the updates, the notifications, the license checks, the cloud sync, 
-      the "your startup disk is almost full," the spinning beach ball, 
-      the "please update your payment method"?
-    </p>
-    <p class="tt-text">
-      That computer still exists. It's the same hardware. Nothing broke. 
-      They just piled software on top of it until it couldn't breathe.
-    </p>
+  .gmem-plugin-box.lms-mode .gmem-plugin-sub { color: #886a40; }
+  .gmem-plugin-box.trad-mode .gmem-plugin-sub { color: #444; }
 
-    <div class="tt-timeline">
-      <div class="tt-era evil-era">
-        <div class="tt-year">YOUR MAC TODAY</div>
-        <div class="tt-items">
-          <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
-          <div class="tt-item bad">16 background processes you didn't ask for</div>
-          <div class="tt-item bad">4GB RAM used before you open anything</div>
-          <div class="tt-item bad">"Your system has run out of application memory"</div>
-          <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
-          <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
-          <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
-        </div>
-      </div>
-      <div class="tt-arrow">→ install Linux →</div>
-      <div class="tt-era good-era">
-        <div class="tt-year">SAME MACHINE + LINUX</div>
-        <div class="tt-items">
-          <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
-          <div class="tt-item good-item">300MB RAM used at idle</div>
-          <div class="tt-item good-item">Reaper opens in under 1 second</div>
-          <div class="tt-item good-item">Full LMS session: ~100MB total</div>
-          <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
-          <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
-          <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
-        </div>
-      </div>
-    </div>
+  .gmem-data-line {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    width: 2px;
+    height: 8px;
+    transform: translateX(-50%);
+    transition: background 0.3s;
+  }
 
-    <div class="tt-punchline">
-      Your 2017 machine isn't slow. It's been robbed.<br>
-      <span class="tt-small">Take it back.</span>
-    </div>
-  </div>
-</section>
+  .gmem-plugin-box.lms-mode .gmem-data-line { background: var(--orange); }
+  .gmem-plugin-box.trad-mode .gmem-data-line { background: #333; }
 
-<style>
+  .gmem-detail-box {
+    margin-top: 1rem;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #0c0c14;
+    border: 1px solid var(--amber-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #999;
+    line-height: 1.6;
+    transition: all 0.3s;
+    min-height: 60px;
+  }
+
+  .gmem-detail-box.trad-mode {
+    background: #111;
+    border-color: #222;
+  }
+
+  .gmem-detail-box h4 {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .gmem-detail-box.lms-mode-detail h4 { color: var(--amber); }
+  .gmem-detail-box.trad-mode h4 { color: #555; }
+
+  .gmem-rw-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+
+  .gmem-rw-tag.writes {
+    background: rgba(77,232,138,0.1);
+    border: 1px solid rgba(77,232,138,0.3);
+    color: var(--good-green);
+  }
+
+  .gmem-rw-tag.reads {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: var(--da-blue);
+  }
+
+  .gmem-spaghetti {
+    text-align: center;
+    padding: 16px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height: 2;
+  }
+
+  .gmem-spaghetti .route-line {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 2px;
+    background: #1a0810;
+    border: 1px solid #2a1015;
+    border-radius: 3px;
+    color: #aa6666;
+    font-size: 9px;
+  }
+
+  .gmem-packet {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 8px rgba(240,122,46,0.5);
+    animation: gmemPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes gmemPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .gmem-footer-note {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #444;
+    margin-top: 1rem;
+  }
+
+  /* ============================================ */
+  /* 10 AMP SIMS PERF CARD                        */
+  /* ============================================ */
+  .amp-perf-card {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 2rem;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+    border: 2px solid var(--good-green);
+    box-shadow: 0 0 30px rgba(77,232,138,0.1);
+    text-align: center;
+  }
+
+  .amp-perf-card .amp-perf-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    color: var(--good-green);
+    text-shadow: 0 0 30px rgba(77,232,138,0.4);
+    line-height: 1;
+  }
+
+  .amp-perf-card .amp-perf-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #d8d8dd;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .amp-perf-card .amp-perf-detail {
+    font-size: 0.8rem;
+    color: #888890;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  .amp-perf-card .amp-perf-stat-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .amp-perf-card .amp-perf-stat {
+    padding: 0.75rem 1.2rem;
+    border-radius: 6px;
+    background: #0a220a;
+    border: 1px solid #224422;
+    text-align: center;
+  }
+
+  .amp-perf-card .amp-perf-stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: var(--good-green);
+  }
+
+  .amp-perf-card .amp-perf-stat-lbl {
+    font-size: 0.65rem;
+    color: #448844;
+    margin-top: 2px;
+  }
+
   .time-travel {
     padding: clamp(4rem, 8vw, 8rem) clamp(1.5rem, 4vw, 4rem);
     position: relative;
@@ -2438,372 +2104,6 @@
     margin-top: 0.5rem;
     letter-spacing: 0.1em;
   }
-</style>
-
-<!-- ============================================ -->
-<!-- EXISTING: SHARED DSP CORE -->
-<!-- ============================================ -->
-<section class="core-section">
-  <div class="core-inner">
-    <div class="tt-badge" style="border-color:#f07a2e;color:#f07a2e;">SHARED DSP KERNEL</div>
-    <h2 class="core-title">One Core. <span style="color:#f07a2e;">Every Plugin.</span></h2>
-    <p class="core-subtitle">
-      Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
-      LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
-    </p>
-
-    <!-- OLD WAY -->
-    <div class="core-diagram">
-      <div class="core-diagram-label evil-label">THE OLD WAY — EVERY PLUGIN SHIPS ITS OWN COPY</div>
-      <div class="core-grid old-grid">
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">CHANNEL STRIP</div>
-          <div class="core-alg">FET comp <span class="version-bad">v2.1</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.2</span></div>
-          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines of DSP</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">DRUMBANGER</div>
-          <div class="core-alg">FET comp <span class="version-bad">v1.9 ✕</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.0 ✕</span></div>
-          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">DRONE FX</div>
-          <div class="core-alg">FET comp <span class="version-bad">v2.0 ✕</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-bad">v1.5 ✕</span></div>
-          <div class="core-alg">Delay <span class="version-ok">v1.1</span></div>
-          <div class="core-alg">Flanger <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">TAPE ECHO</div>
-          <div class="core-alg">Biquad EQ <span class="version-bad">v1.6 ✕</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.1 ✕</span></div>
-          <div class="core-alg">DC blocker <span class="version-bad">v0.9 ✕</span></div>
-          <div class="core-alg">Delay <span class="version-bad">v1.0 ✕</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-      </div>
-      <div class="core-verdict bad-verdict">✕ 6 different versions of the same math drifting out of sync across the suite</div>
-    </div>
-
-    <!-- NEW WAY -->
-    <div class="core-diagram" style="margin-top:2rem;">
-      <div class="core-diagram-label good-label">THE LMS WAY — ONE SHARED CORE, EVERY PLUGIN IMPORTS IT</div>
-      
-      <!-- The core box -->
-      <div class="the-core">
-        <div class="the-core-name">lms_core.jsfx-inc</div>
-        <div class="the-core-subtitle">ONE FILE — THE SOURCE OF TRUTH</div>
-        <div class="core-alg-grid">
-          <span class="core-chip">FET comp</span>
-          <span class="core-chip">LA2A opto</span>
-          <span class="core-chip">Biquad EQ</span>
-          <span class="core-chip">Tape sat</span>
-          <span class="core-chip">Delay</span>
-          <span class="core-chip">Flanger</span>
-          <span class="core-chip">DC block</span>
-          <span class="core-chip">Pan law</span>
-        </div>
-        <div class="the-core-community">
-          Open source. Community-improved.<br>
-          One PR makes every plugin in the suite better.
-        </div>
-      </div>
-
-      <!-- Connection lines (pure CSS) -->
-      <div class="core-connections">
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-      </div>
-
-      <!-- Thin plugin boxes -->
-      <div class="core-grid new-grid">
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">CHANNEL STRIP</div>
-          <div class="core-thin-desc">UI + routing logic only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">DRUMBANGER</div>
-          <div class="core-thin-desc">UI + sequencer logic only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">DRONE FX</div>
-          <div class="core-thin-desc">UI + gmem[] logic only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">TAPE ECHO</div>
-          <div class="core-thin-desc">UI + tape logic only</div>
-        </div>
-      </div>
-
-      <div class="core-verdict good-verdict">ONE PR TO lms_core → EVERY PLUGIN IN THE SUITE GETS BETTER</div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================ -->
-<!-- DENSITY-AWARE AMP SECTION -->
-<!-- ============================================ -->
-<div class="da-section-label">INTERACTIVE DEMO</div>
-
-<div class="da-demo-wrap">
-  <div class="da-mode-toggle">
-    <button class="da-mode-btn da-active-lms" id="da-btn-lms" onclick="daSetMode('lms')">LMS (Density-Aware)</button>
-    <button class="da-mode-btn" id="da-btn-trad" onclick="daSetMode('traditional')">Traditional (Static)</button>
-  </div>
-
-  <div class="da-demo-layout">
-    <!-- Strum area -->
-    <div style="display:flex;flex-direction:column;align-items:center">
-      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
-      <div class="da-strum-area" id="da-strum-area">
-        <div class="da-strum-string" style="left:20%"></div>
-        <div class="da-strum-string" style="left:35%"></div>
-        <div class="da-strum-string" style="left:50%"></div>
-        <div class="da-strum-string" style="left:65%"></div>
-        <div class="da-strum-string" style="left:80%"></div>
-        <div class="da-pick-indicator" id="da-pick-indicator"></div>
-        <div class="da-strum-hint" style="top:6px">SOFT</div>
-        <div class="da-strum-hint" style="bottom:6px">HARD</div>
-      </div>
-    </div>
-
-    <!-- Amp viz -->
-    <div style="display:flex;flex-direction:column;align-items:center" id="da-amp-viz">
-      <div class="da-tubes-row" id="da-tubes-row"></div>
-      <div class="da-matrix-wrap da-lms-mode" id="da-matrix-wrap">
-        <div class="da-matrix-grid" id="da-matrix-grid"></div>
-        <div class="da-band-labels" id="da-band-labels"></div>
-      </div>
-      <div class="da-meters-row" id="da-meters-row"></div>
-    </div>
-
-    <!-- Output -->
-    <div class="da-output-bar-wrap" style="display:flex;flex-direction:column;align-items:center">
-      <div class="da-strum-label">OUTPUT</div>
-      <div class="da-output-bar">
-        <div class="da-output-fill" id="da-output-fill"></div>
-        <div class="da-output-value" id="da-output-value">0</div>
-      </div>
-      <div class="da-output-label" id="da-output-label">Shaped by density</div>
-    </div>
-  </div>
-
-  <!-- Miller explanation -->
-  <div class="da-miller-box" id="da-miller-box">
-    <h3 id="da-miller-title">WHAT YOU'RE SEEING</h3>
-    <p id="da-miller-text"></p>
-    <div class="da-miller-callout" id="da-miller-callout"></div>
-  </div>
-</div>
-
-<!-- Quote transition -->
-<div class="da-quote-box">
-  <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
-  <div class="da-attr">— the question that started all of this</div>
-</div>
-
-<!-- ============================================ -->
-<!-- ARCHITECTURE COMPARISON FROM DENSITY-AMP -->
-<!-- ============================================ -->
-<div class="da-section-label">ARCHITECTURE COMPARISON</div>
-
-<div class="da-compare-section">
-  <div class="da-compare-grid">
-    <!-- Traditional -->
-    <div class="da-compare-col da-trad-col">
-      <h3>Every Other Amp Sim</h3>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
-      <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
-      <div class="da-checklist">
-        <div class="da-check-item da-off">Inter-stage awareness</div>
-        <div class="da-check-item da-off">Frequency tracking</div>
-        <div class="da-check-item da-off">Dynamic Miller cap</div>
-        <div class="da-check-item da-off">Shared power supply</div>
-        <div class="da-check-item da-off">Density feedback</div>
-        <div class="da-check-item da-off">Grid physics</div>
-        <div class="da-check-item da-off">Harmonic analysis</div>
-        <div class="da-check-item da-off">Adaptive clipping</div>
-      </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
-          Since the stages can't talk to each other, they brute-force their way to "good enough":
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LMS -->
-    <div class="da-compare-col da-lms-col">
-      <h3>LMS Density-Aware</h3>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
-      <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
-      <div class="da-checklist">
-        <div class="da-check-item da-on">Inter-stage awareness</div>
-        <div class="da-check-item da-on">Frequency tracking</div>
-        <div class="da-check-item da-on">Dynamic Miller cap</div>
-        <div class="da-check-item da-on">Shared power supply</div>
-        <div class="da-check-item da-on">Density feedback</div>
-        <div class="da-check-item da-on">Grid physics</div>
-        <div class="da-check-item da-on">Harmonic analysis</div>
-        <div class="da-check-item da-on">Adaptive clipping</div>
-      </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
-          When stages know what the others are doing, you don't need brute force:
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================ -->
-<!-- THE DONUT PROBLEM -->
-<!-- ============================================ -->
-<div class="da-section-label">THE DONUT PROBLEM</div>
-
-<div class="da-donut-wrap">
-  <div class="da-donut-box">
-    <div class="da-donut-quote">
-      "I give you the money, you give me the donut. End of transaction.<br>
-      We don't need to bring ink and paper into this."
-    </div>
-    <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
-    <div class="da-donut-text">
-      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong>
-      what the input just did. The compressor sees a peak and guesses a transient happened.
-      The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses
-      the vocalist hit an S.
-    </div>
-    <div class="da-donut-text">
-      The signal already passed through. The transient already happened. Why are you printing a receipt?
-    </div>
-    <div class="da-donut-text">
-      LMS plugins don't infer. The density tracker <strong style="color:var(--amber)">was there</strong>.
-      It processed the signal. It knows the harmonic content because it computed the harmonic
-      content as part of doing its actual job. The measurement isn't a query — it's a
-      <strong style="color:var(--amber)">byproduct of the work that already happened</strong>.
-    </div>
-    <div class="da-donut-comparison">
-      <div class="da-donut-side">
-        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
-        <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
-      </div>
-      <div class="da-donut-side">
-        <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
-        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
-      </div>
-    </div>
-    <div class="da-donut-footer">
-      I give you the signal. You give me the donut. No receipt needed.
-    </div>
-  </div>
-</div>
-
-<!-- Epicycles quote -->
-<div class="da-quote-box">
-  <p>"They make averages and wonder why it sounds average.<br>Rube Goldberg machines and epicycles."</p>
-  <div class="da-attr">— on the traditional approach</div>
-</div>
-
-<!-- ============================================ -->
-<!-- EXISTING: PERFORMANCE PROOF -->
-<!-- ============================================ -->
-<section class="perf-section">
-  <div class="perf-inner">
-    <div class="tt-badge" style="border-color:#4de88a;color:#4de88a;">REAL WORLD PROOF</div>
-    <h2 class="core-title">Don't Take Our Word For It. <span style="color:#4de88a;">Look at the Numbers.</span></h2>
-    
-    <div class="perf-cards">
-      <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">62</div>
-        <div class="perf-label">Live FX plugins</div>
-        <div class="perf-detail">Fully active channel strips, delays, compressors. Not bypassed. Not frozen.</div>
-      </div>
-      <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">5%</div>
-        <div class="perf-label">Total FX CPU</div>
-        <div class="perf-detail">The computer is barely awake.</div>
-      </div>
-      <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">755 MB</div>
-        <div class="perf-label">Total RAM usage</div>
-        <div class="perf-detail">Full session including the operating system. One Kontakt patch uses more.</div>
-      </div>
-      <div class="perf-card stress-card">
-        <div class="perf-number" style="color:#f07a2e;">256</div>
-        <div class="perf-label">Stress test: plugins running</div>
-        <div class="perf-detail">60 tracks. It took 256 live effects to crack 20% CPU. On a 2017 Mac.</div>
-      </div>
-    </div>
-
-    <div class="perf-punchline">
-      Each LMS plugin costs approximately <span style="color:#4de88a;">0.08% CPU</span>.<br>
-      <span style="color:#888890;">One instance of Serum uses 5–15%. You do the math.</span>
-    </div>
-  </div>
-</section>
-
-<style>
   /* ============================================ */
   /* SHARED CORE SECTION */
   /* ============================================ */
@@ -3064,74 +2364,1008 @@
     margin-top: 1rem;
   }
 </style>
+</head>
+<body>
 
 <!-- ============================================ -->
-<!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
+<!-- TLDR: INSTALL GUIDE -->
 <!-- ============================================ -->
-<div class="da-section-label">THE LMS SUITE</div>
-
-<div class="da-suite-wrap">
-  <div class="da-suite-desc">
-    All open source. All JSFX. All zero latency. All interconnected via shared memory.<br>
-    Install from ReaPack in one click. Works everywhere REAPER runs — including Linux.
+<div class="tldr">
+  <div class="tldr-header">
+    <div class="tldr-badge">TLDR</div>
+    <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
+    <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
+    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#9660;</span></button>
   </div>
 
-  <div class="da-suite-grid">
-    <!-- DENSITY-AWARE AMP SIMS -->
-    <div class="da-suite-card" style="border-color:var(--amber-dim);">
-      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (7)</div>
-      <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Fender Twin Reverb / Deluxe Reverb (AB763 preamp, cathode follower, Fender tone stack, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
-      <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— Marshall JCM800 (bright cap, Marshall tone stack, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
-      <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— Fender Champ 5F1 (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
-      <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— Ampeg SVT (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
-      <div class="da-suite-item"><strong>Top Boost v2</strong> <span class="da-suite-item-desc">— Vox AC15 (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
-      <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— Mesa Triple Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
-      <div class="da-suite-item"><strong>Chris' Bedroom</strong> <span class="da-suite-item-desc">— Four classic amp models in one (legacy, pre-density-aware)</span></div>
-      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking</div>
+  <div class="tldr-body" id="tldr-body">
+  <div class="tldr-steps">
+
+    <!-- Step 1 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">1</div>
+        <div class="tldr-step-title">DOWNLOAD REAPER</div>
+      </div>
+      <div class="tldr-step-body">
+        Go to <a href="https://www.reaper.fm/download.php" target="_blank">reaper.fm/download.php</a> and grab the installer for your OS (Windows, macOS, or Linux). It's a small download (~15 MB). Reaper has an unlimited free evaluation period &mdash; no credit card, no signup.
+      </div>
     </div>
 
-    <!-- INSTRUMENTS -->
-    <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
-      <div class="da-suite-card-header da-green">INSTRUMENTS (5)</div>
-      <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Moog-style analog synthesizer (24dB ladder filter, 3 oscillators)</span></div>
-      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
-      <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
-      <div class="da-suite-item"><strong>Drone FX</strong> <span class="da-suite-item-desc">— FX processing satellite (sidechain, delay, flanger via gmem)</span></div>
-      <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
-      <div class="da-suite-footer">All interconnected via gmem bus</div>
+    <!-- Step 2 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">2</div>
+        <div class="tldr-step-title">INSTALL REAPER</div>
+      </div>
+      <div class="tldr-step-body">
+        Run the installer. Click next. That's it. Open Reaper when it's done.
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div><strong>Linux users:</strong> download the .tar.xz, extract it, run <code>sudo ./install-reaper.sh</code> and follow the prompts. Or just extract it anywhere and run the binary directly.</div>
+        </div>
+      </div>
     </div>
 
-    <!-- CHANNEL TOOLS -->
-    <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
-      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (6)</div>
-      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— Channel strip (EQ + compression + gate)</span></div>
-      <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
-      <div class="da-suite-item"><strong>PEQ4U</strong> <span class="da-suite-item-desc">— 4-band parametric EQ</span></div>
-      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation</span></div>
-      <div class="da-suite-item"><strong>Density Limiter</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
-      <div class="da-suite-item"><strong>Matchering</strong> <span class="da-suite-item-desc">— Mastering reference matching (FIR convolution)</span></div>
-      <div class="da-suite-footer">Density-aware compressors coming</div>
+    <!-- Step 3 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">3</div>
+        <div class="tldr-step-title">INSTALL REAPACK</div>
+      </div>
+      <div class="tldr-step-body">
+        ReaPack is the package manager that lets you install LMS (and hundreds of other free plugins) with one click.
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>Go to <a href="https://reapack.com" target="_blank">reapack.com</a> and download the file for your OS.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>In Reaper, go to <code>Options &rarr; Show REAPER resource path...</code> &mdash; this opens a folder.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Inside that folder, find (or create) the <code>UserPlugins</code> subfolder.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">d.</div>
+          <div>Drop the ReaPack file you downloaded into <code>UserPlugins</code>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">e.</div>
+          <div><strong>Restart Reaper.</strong> You should now see <code>Extensions &rarr; ReaPack</code> in the menu bar. If you don't, the file isn't in the right folder &mdash; double check.</div>
+        </div>
+      </div>
     </div>
 
-    <!-- EFFECTS -->
-    <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
-      <div class="da-suite-card-header da-blue">EFFECTS (3)</div>
-      <div class="da-suite-item"><strong>Henge Delay</strong> <span class="da-suite-item-desc">— Tape echo with wow/flutter/feedback</span></div>
-      <div class="da-suite-item"><strong>Tape Machine</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
-      <div class="da-suite-item"><strong>Sound City Drum Room</strong> <span class="da-suite-item-desc">— Vintage room reverb + compression</span></div>
-      <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
+    <!-- Step 4 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">4</div>
+        <div class="tldr-step-title">ADD THE LMS REPOSITORY</div>
+      </div>
+      <div class="tldr-step-body">
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>In Reaper: <code>Extensions &rarr; ReaPack &rarr; Import repositories...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>Paste this URL into the box and click OK:</div>
+        </div>
+        <div class="tldr-url-box">https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml</div>
+      </div>
     </div>
 
-    <!-- SESSION SCRIPTS -->
-    <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
-      <div class="da-suite-card-header da-orange">SESSION SCRIPTS — LUA (3)</div>
-      <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
-      <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
-      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one instance to another</span></div>
-      <div class="da-suite-footer">Session management via Reaper Actions</div>
+    <!-- Step 5 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">5</div>
+        <div class="tldr-step-title">INSTALL ALL LMS PLUGINS</div>
+      </div>
+      <div class="tldr-step-body">
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>Go to <code>Extensions &rarr; ReaPack &rarr; Browse packages...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>In the filter/search box at the top, type <code>LMS</code> to show only LMS packages.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Press <code>Ctrl+A</code> (or <code>Cmd+A</code> on Mac) to <strong>select all</strong>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">d.</div>
+          <div>Right-click &rarr; <strong>Install/update selected packages</strong>.</div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">e.</div>
+          <div>Click <strong>Apply</strong> in the bottom-right. Let it download everything. Done.</div>
+        </div>
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div>To update later: just repeat this process. <code>Browse packages &rarr; select all LMS &rarr; install/update</code>. Or use <code>Extensions &rarr; ReaPack &rarr; Synchronize packages</code> to update everything at once.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="tldr-step">
+      <div class="tldr-step-head">
+        <div class="tldr-step-num">6</div>
+        <div class="tldr-step-title">SET UP THE LUA SCRIPTS</div>
+      </div>
+      <div class="tldr-step-body">
+        LMS includes Lua scripts for saving/loading plugin states and Drumbanger integration. You need to register them as Reaper Actions so you can use them.
+        <div class="substep">
+          <div class="substep-arrow">a.</div>
+          <div>In Reaper: <code>Actions &rarr; Show action list...</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">b.</div>
+          <div>Click <strong>New action... &rarr; Load ReaScript...</strong></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">c.</div>
+          <div>Navigate to your Reaper resource path &rarr; <code>Scripts</code> folder. The LMS scripts should already be there from the ReaPack install. Load each one:</div>
+        </div>
+        <div style="padding-left:1.5rem;margin-top:0.3rem">
+          <div style="margin-bottom:0.2rem"><code>lms_save.lua</code> &mdash; saves all LMS plugin states in your project</div>
+          <div style="margin-bottom:0.2rem"><code>lms_load.lua</code> &mdash; restores saved LMS plugin states</div>
+          <div style="margin-bottom:0.2rem"><code>lms_steal.lua</code> &mdash; copy settings between plugin instances</div>
+        </div>
+        <div class="substep" style="margin-top:0.5rem">
+          <div class="substep-arrow">d.</div>
+          <div>You can now run these from <code>Actions &rarr; Show action list</code> by searching "lms". Optionally, assign keyboard shortcuts to them for fast access.</div>
+        </div>
+        <div class="tldr-warn">
+          <div class="tldr-warn-icon">!</div>
+          <div><strong>Drumbanger users:</strong> The Drumbanger-related scripts handle pattern save/load and MIDI routing. Load them the same way. They'll appear in your Actions list ready to assign to toolbar buttons or hotkeys.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="tldr-time">TOTAL TIME: <span>~3 MINUTES</span> &mdash; ZERO ACCOUNTS &mdash; ZERO DOLLARS &mdash; WORKS ON EVERY OS</div>
+  </div><!-- /tldr-body -->
+</div>
+
+<!-- ============================================ -->
+<!-- LOGO -->
+<!-- ============================================ -->
+<div class="logo-section">
+  <img src="shakebot.gif" alt="LMS Shakebot">
+</div>
+
+<!-- ============================================ -->
+<!-- HERO -->
+<!-- ============================================ -->
+<section class="hero">
+  <h1 class="fade-in">
+    <span class="their">THEIR ARCHITECTURE</span>
+    <span class="vs">vs</span>
+    <span class="ours">OURS</span>
+  </h1>
+  <p class="subtitle fade-in">
+    How the plugin industry turned simple DSP math into a 
+    subscription-gated, driver-locked, platform-dependent prison.
+    And how JSFX + gmem[] sets you free.
+  </p>
+  <div class="scroll-hint">▼ scroll ▼</div>
+</section>
+
+<!-- ============================================ -->
+<!-- THE TWO BIG DIFFERENCES -->
+<!-- ============================================ -->
+<section class="two-big">
+  <h2>THE TWO BIG <span>DIFFERENCES</span></h2>
+  <p>
+    Every plugin suite in the world processes audio in isolation. 
+    LMS does two things nobody else does: plugins share state through memory, 
+    and every stage knows what every other stage is doing. That changes everything.
+  </p>
+</section>
+
+<!-- Quote transition -->
+<div class="da-quote-box">
+  <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
+  <div class="da-attr">— the question that started all of this</div>
+</div>
+
+<!-- ============================================ -->
+<!-- THE DONUT PROBLEM -->
+<!-- ============================================ -->
+<div class="da-section-label">THE DONUT PROBLEM</div>
+
+<div class="da-donut-wrap">
+  <div class="da-donut-box">
+    <div class="da-donut-quote">
+      "I give you the money, you give me the donut. End of transaction.<br>
+      We don't need to bring ink and paper into this."
+    </div>
+    <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
+    <div class="da-donut-text">
+      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong>
+      what the input just did. The compressor sees a peak and guesses a transient happened.
+      The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses
+      the vocalist hit an S.
+    </div>
+    <div class="da-donut-text">
+      The signal already passed through. The transient already happened. Why are you printing a receipt?
+    </div>
+    <div class="da-donut-text">
+      LMS plugins don't infer. The density tracker <strong style="color:var(--amber)">was there</strong>.
+      It processed the signal. It knows the harmonic content because it computed the harmonic
+      content as part of doing its actual job. The measurement isn't a query — it's a
+      <strong style="color:var(--amber)">byproduct of the work that already happened</strong>.
+    </div>
+    <div class="da-donut-comparison">
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
+        <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
+      </div>
+      <div class="da-donut-side">
+        <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
+        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
+      </div>
+    </div>
+    <div class="da-donut-footer">
+      I give you the signal. You give me the donut. No receipt needed.
     </div>
   </div>
 </div>
+
+<!-- ============================================ -->
+<!-- STATE SHARING VIA GMEM -->
+<!-- ============================================ -->
+<!-- ============================================ -->
+<!-- EXISTING: BUS ARCHITECTURE COMPARISON -->
+<!-- ============================================ -->
+<section class="bus-section">
+  <h2 class="fade-in">Signal <span style="color:var(--evil-red)">Routing</span> vs Signal <span style="color:var(--good-green)">Sharing</span></h2>
+  <p class="bus-subtitle fade-in">
+    Traditional DAWs route audio between tracks through buses — each connection is a separate 
+    audio path you have to build manually. LMS shares state through memory — every 
+    plugin already knows what every other plugin is doing.
+  </p>
+
+  <!-- Traditional routing -->
+  <div class="bus-diagram evil">
+    <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
+    <div class="bus-tracks">
+      <div class="bus-track">
+        <div class="bus-track-box">KICK</div>
+        <div class="bus-track-label">Track 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">SNARE</div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span></div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">SYNTH</div>
+        <div class="bus-track-label">Track 4</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">VERB<br>BUS</div>
+        <div class="bus-track-label">Aux 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">DELAY<br>BUS</div>
+        <div class="bus-track-label">Aux 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box send">DRUM<br>BUS</div>
+        <div class="bus-track-label">Bus 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box master">MASTER</div>
+        <div class="bus-track-label">Out</div>
+      </div>
+    </div>
+    <div class="bus-connections">
+      <span class="route">T1 → Bus1 (post)</span>
+      <span class="route">T2 → Bus1 (post)</span>
+      <span class="route">T1 → T3 SC (pre)</span>
+      <span class="route">T1 → Aux1 (send -12dB)</span>
+      <span class="route">T2 → Aux1 (send -6dB)</span>
+      <span class="route">T4 → Aux1 (send -18dB)</span>
+      <span class="route">T4 → Aux2 (send -10dB)</span>
+      <span class="route">Bus1 → Master</span>
+      <span class="route">T3 → Master</span>
+      <span class="route">T4 → Master</span>
+      <span class="route">Aux1 → Master</span>
+      <span class="route">Aux2 → Master</span>
+      <br>
+      <span style="color:#664444;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
+    </div>
+  </div>
+
+  <!-- LMS routing -->
+  <div class="bus-diagram good">
+    <h3>LMS: 6 TRACKS, SIDECHAIN + FX — ZERO ROUTING</h3>
+    <div class="bus-tracks">
+      <div class="bus-track">
+        <div class="bus-track-box">DRUM-<br>BANGER</div>
+        <div class="bus-track-label">Track 1</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>MIDI→<br>BASS</div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">SC pad 1</span></div>
+        <div class="bus-track-label">Track 2</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>MIDI→<br>SYNTH</div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">delay+flg</span></div>
+        <div class="bus-track-label">Track 3</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box">CHAN<br>STRIP</div>
+        <div class="bus-track-label">Track 4</div>
+      </div>
+      <div class="bus-track">
+        <div class="bus-track-box master">MATCH-<br>ERING</div>
+        <div class="bus-track-label">Master</div>
+      </div>
+    </div>
+    <div class="bus-connections">
+      <span class="route gmem-route">gmem[] — ALL PLUGINS SHARE STATE</span>
+      <br>
+      <span class="route">Drumbanger writes triggers → Drones read</span>
+      <span class="route">Pattern change → ALL tracks update</span>
+      <span class="route">Sidechain via gmem[] — no audio routing</span>
+      <br>
+      <span style="color:#448844;font-size:0.55rem;">0 manual routing connections. Drop plugin. Select pad. Done.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- GMEM INTERACTIVE GRAPHIC -->
+<!-- ============================================ -->
+<div class="da-section-label">HOW GMEM WORKS</div>
+
+<div class="gmem-graphic-wrap">
+  <div class="gmem-graphic">
+    <div class="gmem-graphic-title">SHARED MEMORY STATE BUS</div>
+
+    <div class="gmem-toggle-row">
+      <button class="gmem-toggle-btn active-lms" id="gmem-btn-lms" onclick="gmemSetMode('lms')">LMS (gmem[] bus)</button>
+      <button class="gmem-toggle-btn" id="gmem-btn-trad" onclick="gmemSetMode('traditional')">Traditional (routing)</button>
+    </div>
+
+    <!-- LMS mode: bus bar + plugin boxes -->
+    <div id="gmem-lms-view">
+      <div class="gmem-bus-bar" id="gmem-bus-bar">
+        gmem[] — SHARED MEMORY BUS
+        <div class="gmem-bus-sub">All plugins read &amp; write to the same namespace. Same audio block. Zero latency.</div>
+      </div>
+
+      <div class="gmem-plugins-row" id="gmem-plugins-row">
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(0)" id="gmem-p0">
+          DRUM-<br>BANGER
+          <div class="gmem-plugin-sub">writes triggers, step, BPM</div>
+          <div class="gmem-data-line"></div>
+        </div>
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(1)" id="gmem-p1">
+          AMP SIM<br>(TWINS)
+          <div class="gmem-plugin-sub">writes density, reads follow</div>
+          <div class="gmem-data-line"></div>
+        </div>
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(2)" id="gmem-p2">
+          DRONE<br>MIDI
+          <div class="gmem-plugin-sub">reads triggers, writes MIDI</div>
+          <div class="gmem-data-line"></div>
+        </div>
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(3)" id="gmem-p3">
+          DRONE<br>FX
+          <div class="gmem-plugin-sub">reads pad, applies sidechain</div>
+          <div class="gmem-data-line"></div>
+        </div>
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(4)" id="gmem-p4">
+          CHANNEL<br>STRIP
+          <div class="gmem-plugin-sub">reads/writes broadcast</div>
+          <div class="gmem-data-line"></div>
+        </div>
+        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(5)" id="gmem-p5">
+          DENSITY<br>LIMITER
+          <div class="gmem-plugin-sub">reads all densities</div>
+          <div class="gmem-data-line"></div>
+        </div>
+      </div>
+
+      <div class="gmem-detail-box lms-mode-detail" id="gmem-detail">
+        <h4>CLICK A PLUGIN TO SEE WHAT IT READS &amp; WRITES</h4>
+        <div id="gmem-detail-content">Every plugin in the LMS suite shares a single gmem[] namespace. No audio routing. No sidechain buses. Just memory reads and writes, on the same sample.</div>
+      </div>
+    </div>
+
+    <!-- Traditional mode: spaghetti routing -->
+    <div id="gmem-trad-view" style="display:none">
+      <div class="gmem-bus-bar trad-mode">
+        NO SHARED STATE
+        <div class="gmem-bus-sub">Each plugin is a black box. Communication requires manual audio routing.</div>
+      </div>
+
+      <div class="gmem-plugins-row">
+        <div class="gmem-plugin-box trad-mode">KICK<br>TRACK<div class="gmem-plugin-sub">isolated</div><div class="gmem-data-line"></div></div>
+        <div class="gmem-plugin-box trad-mode">AMP<br>SIM<div class="gmem-plugin-sub">isolated</div><div class="gmem-data-line"></div></div>
+        <div class="gmem-plugin-box trad-mode">COMP<div class="gmem-plugin-sub">needs SC input</div><div class="gmem-data-line"></div></div>
+        <div class="gmem-plugin-box trad-mode">REVERB<br>BUS<div class="gmem-plugin-sub">aux send</div><div class="gmem-data-line"></div></div>
+        <div class="gmem-plugin-box trad-mode">DELAY<br>BUS<div class="gmem-plugin-sub">aux send</div><div class="gmem-data-line"></div></div>
+        <div class="gmem-plugin-box trad-mode">LIMITER<div class="gmem-plugin-sub">master only</div><div class="gmem-data-line"></div></div>
+      </div>
+
+      <div class="gmem-spaghetti">
+        <span class="route-line">Kick → Comp SC (pre-fader)</span>
+        <span class="route-line">Kick → Drum Bus (post)</span>
+        <span class="route-line">Kick → Verb Bus (-12dB)</span>
+        <span class="route-line">Amp → Delay Bus (-6dB)</span>
+        <span class="route-line">Amp → Verb Bus (-18dB)</span>
+        <span class="route-line">Drum Bus → Master</span>
+        <span class="route-line">Verb Bus → Master</span>
+        <span class="route-line">Delay Bus → Master</span>
+        <br>
+        <span style="color:#664444;font-size:9px;margin-top:8px;display:inline-block">Each connection is a manual routing operation in the I/O matrix. No plugin knows what any other plugin is doing.</span>
+      </div>
+    </div>
+
+    <div class="gmem-footer-note">
+      <span class="gmem-packet"></span> data flows between all plugins on every sample — zero latency, zero routing
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- DENSITY-AWARE AMP SECTION -->
+<!-- ============================================ -->
+<div class="da-section-label">INTERACTIVE DEMO</div>
+
+<div class="da-demo-wrap">
+  <div class="da-mode-toggle">
+    <button class="da-mode-btn da-active-lms" id="da-btn-lms" onclick="daSetMode('lms')">LMS (Density-Aware)</button>
+    <button class="da-mode-btn" id="da-btn-trad" onclick="daSetMode('traditional')">Traditional (Static)</button>
+  </div>
+
+  <div class="da-demo-layout">
+    <!-- Strum area -->
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
+      <div class="da-strum-area" id="da-strum-area">
+        <div class="da-strum-string" style="left:20%"></div>
+        <div class="da-strum-string" style="left:35%"></div>
+        <div class="da-strum-string" style="left:50%"></div>
+        <div class="da-strum-string" style="left:65%"></div>
+        <div class="da-strum-string" style="left:80%"></div>
+        <div class="da-pick-indicator" id="da-pick-indicator"></div>
+        <div class="da-strum-hint" style="top:6px">SOFT</div>
+        <div class="da-strum-hint" style="bottom:6px">HARD</div>
+      </div>
+    </div>
+
+    <!-- Amp viz -->
+    <div style="display:flex;flex-direction:column;align-items:center" id="da-amp-viz">
+      <div class="da-tubes-row" id="da-tubes-row"></div>
+      <div class="da-matrix-wrap da-lms-mode" id="da-matrix-wrap">
+        <div class="da-matrix-grid" id="da-matrix-grid"></div>
+        <div class="da-band-labels" id="da-band-labels"></div>
+      </div>
+      <div class="da-meters-row" id="da-meters-row"></div>
+    </div>
+
+    <!-- Output -->
+    <div class="da-output-bar-wrap" style="display:flex;flex-direction:column;align-items:center">
+      <div class="da-strum-label">OUTPUT</div>
+      <div class="da-output-bar">
+        <div class="da-output-fill" id="da-output-fill"></div>
+        <div class="da-output-value" id="da-output-value">0</div>
+      </div>
+      <div class="da-output-label" id="da-output-label">Shaped by density</div>
+    </div>
+  </div>
+
+  <!-- Miller explanation -->
+  <div class="da-miller-box" id="da-miller-box">
+    <h3 id="da-miller-title">WHAT YOU'RE SEEING</h3>
+    <p id="da-miller-text"></p>
+    <div class="da-miller-callout" id="da-miller-callout"></div>
+  </div>
+</div>
+
+<!-- Epicycles quote -->
+<div class="da-quote-box">
+  <p>"They make averages and wonder why it sounds average.<br>Rube Goldberg machines and epicycles."</p>
+  <div class="da-attr">— on the traditional approach</div>
+</div>
+
+<!-- ============================================ -->
+<!-- ARCHITECTURE COMPARISON FROM DENSITY-AMP -->
+<!-- ============================================ -->
+<div class="da-section-label">ARCHITECTURE COMPARISON</div>
+
+<div class="da-compare-section">
+  <div class="da-compare-grid">
+    <!-- Traditional -->
+    <div class="da-compare-col da-trad-col">
+      <h3>Every Other Amp Sim</h3>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
+      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-off">Inter-stage awareness</div>
+        <div class="da-check-item da-off">Frequency tracking</div>
+        <div class="da-check-item da-off">Dynamic Miller cap</div>
+        <div class="da-check-item da-off">Shared power supply</div>
+        <div class="da-check-item da-off">Density feedback</div>
+        <div class="da-check-item da-off">Grid physics</div>
+        <div class="da-check-item da-off">Harmonic analysis</div>
+        <div class="da-check-item da-off">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          Since the stages can't talk to each other, they brute-force their way to "good enough":
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
+            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LMS -->
+    <div class="da-compare-col da-lms-col">
+      <h3>LMS Density-Aware</h3>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
+      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
+      <div class="da-checklist">
+        <div class="da-check-item da-on">Inter-stage awareness</div>
+        <div class="da-check-item da-on">Frequency tracking</div>
+        <div class="da-check-item da-on">Dynamic Miller cap</div>
+        <div class="da-check-item da-on">Shared power supply</div>
+        <div class="da-check-item da-on">Density feedback</div>
+        <div class="da-check-item da-on">Grid physics</div>
+        <div class="da-check-item da-on">Harmonic analysis</div>
+        <div class="da-check-item da-on">Adaptive clipping</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
+        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+          When stages know what the others are doing, you don't need brute force:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:6px">
+            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
+            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- WORKFLOW COMPARISONS (COLLAPSIBLE) -->
+<!-- ============================================ -->
+<div class="collapsible-header" onclick="toggleSection('workflow-comparisons')">
+  WORKFLOW COMPARISONS — SEE THE DETAILS <span class="collapse-arrow" id="arrow-workflow-comparisons">&#9654;</span>
+</div>
+<div class="collapsible-body" id="workflow-comparisons">
+
+<!-- ============================================ -->
+<!-- EXISTING: SECTION 1: PLUGIN LOADING -->
+<!-- ============================================ -->
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">PLUGIN ARCHITECTURE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Loading a Plugin</div>
+    <div class="section-subtitle fade-in">What happens when you open an effect in Logic, Ableton, Pro Tools</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">DAW Host Process</div>
+        <div class="node-detail">Scans VST/AU folders on launch (30-120 seconds)</div>
+      </div>
+      <div class="flow-arrow"><span>▼ loads binary</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Binary (.dll / .vst3 / .component)</div>
+        <div class="node-detail">Compiled C++, platform-specific, architecture-locked</div>
+      </div>
+      <div class="flow-arrow"><span>▼ calls home</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">License Server</div>
+        <div class="node-detail">iLok / NI / Waves / Arturia cloud auth check</div>
+      </div>
+      <div class="flow-arrow"><span>▼ if approved</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Subscription Check</div>
+        <div class="node-detail">Is your payment current? Did the company get acquired?</div>
+      </div>
+      <div class="flow-arrow"><span>▼ sandboxed</span></div>
+      <div class="flow-node">
+        <div class="node-name">Isolated Plugin Instance</div>
+        <div class="node-detail">Own memory space. Cannot see other plugins. Black box.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ audio buffer copy</span></div>
+      <div class="flow-node">
+        <div class="node-name">DAW Audio Engine</div>
+        <div class="node-detail">Copies buffers in and out. Adds latency per plugin.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Loading a Plugin</div>
+    <div class="section-subtitle fade-in">What happens when you open an LMS effect in Reaper</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Reaper</div>
+        <div class="node-detail">Reads a text file. That's it.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ interprets</span></div>
+      <div class="flow-node">
+        <div class="node-name">JSFX Source Code (.jsfx)</div>
+        <div class="node-detail">Human-readable text. Runs on any CPU, any OS.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ instant</span></div>
+      <div class="flow-node">
+        <div class="node-name">Live in the Audio Thread</div>
+        <div class="node-detail">No sandbox. No buffer copy. Zero latency. Just math.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: SECTION 2: INTER-PLUGIN COMMUNICATION -->
+<!-- ============================================ -->
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">PLUGIN COMMUNICATION</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Making Plugins Talk</div>
+    <div class="section-subtitle fade-in">Getting one plugin to react to another</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Plugin A (Track 1)</div>
+        <div class="node-detail">Compressor wants to duck on kick</div>
+      </div>
+      <div class="flow-arrow"><span>▼ audio send</span></div>
+      <div class="flow-node">
+        <div class="node-name">Create Aux Bus</div>
+        <div class="node-detail">Route audio from kick track to sidechain input</div>
+      </div>
+      <div class="flow-arrow"><span>▼ routing matrix</span></div>
+      <div class="flow-node">
+        <div class="node-name">DAW I/O Router</div>
+        <div class="node-detail">Configure inputs, outputs, bus assignments</div>
+      </div>
+      <div class="flow-arrow"><span>▼ buffer copy</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin B Sidechain Input</div>
+        <div class="node-detail">Receives audio copy (1 block latency minimum)</div>
+      </div>
+      <div class="flow-arrow"><span>▼ one direction only</span></div>
+      <div class="flow-node">
+        <div class="node-name">Result</div>
+        <div class="node-detail">One plugin reacts to one other plugin. Repeat for each pair.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Making Plugins Talk</div>
+    <div class="section-subtitle fade-in">Every LMS plugin can see every other LMS plugin</div>
+    <div class="flow fade-in">
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] — Shared Memory</div>
+        <div class="node-detail">One namespace. All LMS plugins read and write. Same audio block.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ instant read/write</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drumbanger (Track 1)</div>
+        <div class="node-detail">Writes: pad triggers, step position, pattern data, BPM</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone MIDI (Track 3)</div>
+        <div class="node-detail">Reads pad 13, outputs scale-locked MIDI to synth</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone FX (Track 5)</div>
+        <div class="node-detail">Reads pad 1, sidechains bass. No routing. No bus.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ same sample</span></div>
+      <div class="flow-node">
+        <div class="node-name">Result</div>
+        <div class="node-detail">Every plugin knows everything. Zero latency. Zero config.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: SECTION 3: SHARING SETTINGS -->
+<!-- ============================================ -->
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">SETTINGS & STATE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Copying Settings</div>
+    <div class="section-subtitle fade-in">Using the same effect configuration on two tracks</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance A</div>
+        <div class="node-detail">You dialed in a great sound</div>
+      </div>
+      <div class="flow-arrow"><span>▼ save preset</span></div>
+      <div class="flow-node">
+        <div class="node-name">Preset File (.fxp / .vstpreset)</div>
+        <div class="node-detail">Binary blob. Vendor-specific format. Sometimes XML.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ navigate folder</span></div>
+      <div class="flow-node">
+        <div class="node-name">File Browser</div>
+        <div class="node-detail">Find the preset. Different location per OS. Per plugin.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ load into new instance</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance B</div>
+        <div class="node-detail">Loaded. But now they're independent again. Change A ≠ change B.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Copying Settings</div>
+    <div class="section-subtitle fade-in">Every instance can see every other instance's state in real-time</div>
+    <div class="flow fade-in">
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] Registry</div>
+        <div class="node-detail">Every LMS plugin publishes its slider values to shared memory</div>
+      </div>
+      <div class="flow-arrow"><span>▼ browse</span></div>
+      <div class="flow-node">
+        <div class="node-name">Plugin Instance B — "Steal Settings"</div>
+        <div class="node-detail">Sees all running LMS instances. Click one. Done.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ or link</span></div>
+      <div class="flow-node">
+        <div class="node-name">Linked Mode</div>
+        <div class="node-detail">Change A = change B. Live. Both directions. No files.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: SECTION 4: SESSION MANAGEMENT -->
+<!-- ============================================ -->
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">SESSION MANAGEMENT</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">Sharing a Session</div>
+    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Your DAW Project File</div>
+        <div class="node-detail">Contains references to every plugin by vendor ID</div>
+      </div>
+      <div class="flow-arrow"><span>▼ send to friend</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Missing Plugins</div>
+        <div class="node-detail">"Plugin X not found" — do they own it? Right version?</div>
+      </div>
+      <div class="flow-arrow"><span>▼ buy or pirate</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Install + License</div>
+        <div class="node-detail">Download 2GB. Activate iLok. Create account. Verify email.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ maybe works</span></div>
+      <div class="flow-node">
+        <div class="node-name">Platform Check</div>
+        <div class="node-detail">Wrong OS? Wrong architecture? Wrong DAW? Sorry.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">Sharing a Session</div>
+    <div class="section-subtitle fade-in">Getting your setup onto someone else's machine</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">trap_starter.lms</div>
+        <div class="node-detail">A text file. Human readable. 2KB.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ send to friend</span></div>
+      <div class="flow-node">
+        <div class="node-name">Friend Has Reaper + LMS Suite</div>
+        <div class="node-detail">One ReaPack URL. Free. Any OS. Any CPU.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ run loader</span></div>
+      <div class="flow-node">
+        <div class="node-name">Entire Session Rebuilds</div>
+        <div class="node-detail">Tracks, plugins, patterns, FX chains, mix. Instant.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /workflow-comparisons -->
+
+<!-- ============================================ -->
+<!-- EXISTING: SHARED DSP CORE -->
+<!-- ============================================ -->
+<section class="core-section">
+  <div class="core-inner">
+    <div class="tt-badge" style="border-color:#f07a2e;color:#f07a2e;">SHARED DSP KERNEL</div>
+    <h2 class="core-title">One Core. <span style="color:#f07a2e;">Every Plugin.</span></h2>
+    <p class="core-subtitle">
+      Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
+      LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
+    </p>
+
+    <!-- OLD WAY -->
+    <div class="core-diagram">
+      <div class="core-diagram-label evil-label">THE OLD WAY — EVERY PLUGIN SHIPS ITS OWN COPY</div>
+      <div class="core-grid old-grid">
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">CHANNEL STRIP</div>
+          <div class="core-alg">FET comp <span class="version-bad">v2.1</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.2</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines of DSP</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">DRUMBANGER</div>
+          <div class="core-alg">FET comp <span class="version-bad">v1.9 ✕</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">DRONE FX</div>
+          <div class="core-alg">FET comp <span class="version-bad">v2.0 ✕</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-bad">v1.5 ✕</span></div>
+          <div class="core-alg">Delay <span class="version-ok">v1.1</span></div>
+          <div class="core-alg">Flanger <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">TAPE ECHO</div>
+          <div class="core-alg">Biquad EQ <span class="version-bad">v1.6 ✕</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.1 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-bad">v0.9 ✕</span></div>
+          <div class="core-alg">Delay <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+      </div>
+      <div class="core-verdict bad-verdict">✕ 6 different versions of the same math drifting out of sync across the suite</div>
+    </div>
+
+    <!-- NEW WAY -->
+    <div class="core-diagram" style="margin-top:2rem;">
+      <div class="core-diagram-label good-label">THE LMS WAY — ONE SHARED CORE, EVERY PLUGIN IMPORTS IT</div>
+      
+      <!-- The core box -->
+      <div class="the-core">
+        <div class="the-core-name">lms_core.jsfx-inc</div>
+        <div class="the-core-subtitle">ONE FILE — THE SOURCE OF TRUTH</div>
+        <div class="core-alg-grid">
+          <span class="core-chip">FET comp</span>
+          <span class="core-chip">LA2A opto</span>
+          <span class="core-chip">Biquad EQ</span>
+          <span class="core-chip">Tape sat</span>
+          <span class="core-chip">Delay</span>
+          <span class="core-chip">Flanger</span>
+          <span class="core-chip">DC block</span>
+          <span class="core-chip">Pan law</span>
+        </div>
+        <div class="the-core-community">
+          Open source. Community-improved.<br>
+          One PR makes every plugin in the suite better.
+        </div>
+      </div>
+
+      <!-- Connection lines (pure CSS) -->
+      <div class="core-connections">
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+      </div>
+
+      <!-- Thin plugin boxes -->
+      <div class="core-grid new-grid">
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">CHANNEL STRIP</div>
+          <div class="core-thin-desc">UI + routing logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">DRUMBANGER</div>
+          <div class="core-thin-desc">UI + sequencer logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">DRONE FX</div>
+          <div class="core-thin-desc">UI + gmem[] logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">TAPE ECHO</div>
+          <div class="core-thin-desc">UI + tape logic only</div>
+        </div>
+      </div>
+
+      <div class="core-verdict good-verdict">ONE PR TO lms_core → EVERY PLUGIN IN THE SUITE GETS BETTER</div>
+    </div>
+  </div>
+</section>
 
 <!-- ============================================ -->
 <!-- NEW: WHERE THIS GOES -->
@@ -3181,6 +3415,341 @@
   </div>
 </div>
 
+
+<!-- ============================================ -->
+<!-- FREE MEMORY AND TIME TRAVEL (COLLAPSIBLE) -->
+<!-- ============================================ -->
+<div class="collapsible-header" onclick="toggleSection('free-mem-section')">
+  FREE MEMORY AND TIME TRAVEL <span class="collapse-arrow" id="arrow-free-mem-section">&#9654;</span>
+</div>
+<div class="collapsible-body" id="free-mem-section">
+
+<section class="time-travel">
+  <div class="time-travel-inner">
+    <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
+    <h2>LINUX + REAPER =<br><span class="tt-highlight">YOUR COMPUTER JUST WORKS AGAIN</span></h2>
+    <p class="tt-text">
+      Remember when you turned on your computer and it was just... ready? 
+      Before the updates, the notifications, the license checks, the cloud sync, 
+      the "your startup disk is almost full," the spinning beach ball, 
+      the "please update your payment method"?
+    </p>
+    <p class="tt-text">
+      That computer still exists. It's the same hardware. Nothing broke. 
+      They just piled software on top of it until it couldn't breathe.
+    </p>
+
+    <div class="tt-timeline">
+      <div class="tt-era evil-era">
+        <div class="tt-year">YOUR MAC TODAY</div>
+        <div class="tt-items">
+          <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
+          <div class="tt-item bad">16 background processes you didn't ask for</div>
+          <div class="tt-item bad">4GB RAM used before you open anything</div>
+          <div class="tt-item bad">"Your system has run out of application memory"</div>
+          <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
+          <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
+          <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
+        </div>
+      </div>
+      <div class="tt-arrow">→ install Linux →</div>
+      <div class="tt-era good-era">
+        <div class="tt-year">SAME MACHINE + LINUX</div>
+        <div class="tt-items">
+          <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
+          <div class="tt-item good-item">300MB RAM used at idle</div>
+          <div class="tt-item good-item">Reaper opens in under 1 second</div>
+          <div class="tt-item good-item">Full LMS session: ~100MB total</div>
+          <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
+          <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
+          <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tt-punchline">
+      Your 2017 machine isn't slow. It's been robbed.<br>
+      <span class="tt-small">Take it back.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- EXISTING: PERFORMANCE PROOF -->
+<!-- ============================================ -->
+<section class="perf-section">
+  <div class="perf-inner">
+    <div class="tt-badge" style="border-color:#4de88a;color:#4de88a;">REAL WORLD PROOF</div>
+    <h2 class="core-title">Don't Take Our Word For It. <span style="color:#4de88a;">Look at the Numbers.</span></h2>
+    
+    <div class="perf-cards">
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">62</div>
+        <div class="perf-label">Live FX plugins</div>
+        <div class="perf-detail">Fully active channel strips, delays, compressors. Not bypassed. Not frozen.</div>
+      </div>
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">5%</div>
+        <div class="perf-label">Total FX CPU</div>
+        <div class="perf-detail">The computer is barely awake.</div>
+      </div>
+      <div class="perf-card">
+        <div class="perf-number" style="color:#4de88a;">755 MB</div>
+        <div class="perf-label">Total RAM usage</div>
+        <div class="perf-detail">Full session including the operating system. One Kontakt patch uses more.</div>
+      </div>
+      <div class="perf-card stress-card">
+        <div class="perf-number" style="color:#f07a2e;">256</div>
+        <div class="perf-label">Stress test: plugins running</div>
+        <div class="perf-detail">60 tracks. It took 256 live effects to crack 20% CPU. On a 2017 Mac.</div>
+      </div>
+    </div>
+
+    <div class="perf-punchline">
+      Each LMS plugin costs approximately <span style="color:#4de88a;">0.08% CPU</span>.<br>
+      <span style="color:#888890;">One instance of Serum uses 5–15%. You do the math.</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- 10 AMP SIMS PERFORMANCE CARD -->
+<div class="amp-perf-card">
+  <div class="amp-perf-number">10</div>
+  <div class="amp-perf-label">DENSITY-AWARE AMP SIMS RUNNING SIMULTANEOUSLY</div>
+  <div class="amp-perf-detail">
+    10 full amp sim instances — each with grid physics, density tracking, dynamic Miller capacitance, 
+    shared power supply modeling — all running latency-free at under 10% total CPU.
+  </div>
+  <div class="amp-perf-stat-row">
+    <div class="amp-perf-stat">
+      <div class="amp-perf-stat-num">&lt;10%</div>
+      <div class="amp-perf-stat-lbl">TOTAL CPU</div>
+    </div>
+    <div class="amp-perf-stat">
+      <div class="amp-perf-stat-num">0 ms</div>
+      <div class="amp-perf-stat-lbl">ADDED LATENCY</div>
+    </div>
+    <div class="amp-perf-stat">
+      <div class="amp-perf-stat-num">~1%</div>
+      <div class="amp-perf-stat-lbl">PER AMP SIM</div>
+    </div>
+    <div class="amp-perf-stat">
+      <div class="amp-perf-stat-num">1x</div>
+      <div class="amp-perf-stat-lbl">NO OVERSAMPLING</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: MEMORY / RESOURCE USAGE -->
+<!-- ============================================ -->
+<div class="comparison">
+  <div class="divider"></div>
+  <div class="divider-label">MEMORY USAGE</div>
+
+  <div class="side evil">
+    <div class="side-label fade-in"><span class="dot"></span> THE INDUSTRY</div>
+    <div class="section-title fade-in">What's Eating Your RAM</div>
+    <div class="section-subtitle fade-in">Typical memory footprint of a "professional" production session</div>
+    <div class="flow fade-in">
+      <div class="flow-node toll">
+        <div class="node-name">DAW Runtime</div>
+        <div class="node-detail">Logic/Ableton: 800MB–1.5GB just sitting there idle</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Kontakt + Sample Libraries</div>
+        <div class="node-detail">2–8GB per instance. Multiple instances = goodbye RAM.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Serum / Omnisphere / Massive</div>
+        <div class="node-detail">200–500MB each. Wavetable synths preload everything.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node toll">
+        <div class="node-name">Plugin GUIs</div>
+        <div class="node-detail">Each photorealistic knob = textures in VRAM. 50–200MB per plugin window.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">License Daemons</div>
+        <div class="node-detail">iLok, NI Service Center, Pace — running in background 24/7</div>
+      </div>
+      <div class="flow-arrow"><span>▼ total</span></div>
+      <div class="flow-node" style="border-color:#661122;background:#2a0810;">
+        <div class="node-name" style="color:var(--evil-red);font-size:1.2rem;">4–16 GB</div>
+        <div class="node-detail">For a medium session. Heavy sessions swap to disk. Fans spin. Beach ball.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side good">
+    <div class="side-label fade-in"><span class="dot"></span> LMS / JSFX</div>
+    <div class="section-title fade-in">What's Eating Your RAM</div>
+    <div class="section-subtitle fade-in">Memory footprint of an entire LMS production session</div>
+    <div class="flow fade-in">
+      <div class="flow-node">
+        <div class="node-name">Reaper</div>
+        <div class="node-detail">~80MB base. Lean C++ app. Respects your computer.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drumbanger (16 samples loaded)</div>
+        <div class="node-detail">~15MB. Raw WAV in memory. No bloat. No GUI textures.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Drone MIDI + Drone FX (x4)</div>
+        <div class="node-detail">~2MB total. They're text files running math. That's it.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node">
+        <div class="node-name">Channel Strip + Tape Echo + Spring Verb + Matchering</div>
+        <div class="node-detail">~3MB total. DSP algorithms. No sample libraries. No textures.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ plus</span></div>
+      <div class="flow-node gmem">
+        <div class="node-name">gmem[] shared state</div>
+        <div class="node-detail">~64KB. Numbers in memory. The entire inter-plugin mesh.</div>
+      </div>
+      <div class="flow-arrow"><span>▼ total</span></div>
+      <div class="flow-node" style="border-color:#116633;background:#082a10;">
+        <div class="node-name" style="color:var(--good-green);font-size:1.2rem;">~100 MB</div>
+        <div class="node-detail">Full session. Drum machine + sequencer + 4 synth tracks + FX + master. On a 2017 Mac.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory stats row -->
+<div class="stats">
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">1.5 GB</div>
+    <div class="label">Logic Pro idle</div>
+  </div>
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">4–8 GB</div>
+    <div class="label">One Kontakt instance</div>
+  </div>
+  <div class="stat">
+    <div class="number evil" style="font-size:clamp(1.5rem,3vw,2.5rem);">200 MB</div>
+    <div class="label">One plugin GUI</div>
+  </div>
+  <div class="stat">
+    <div class="number good" style="font-size:clamp(1.5rem,3vw,2.5rem);">~5 KB</div>
+    <div class="label">One JSFX plugin</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXISTING: STATS -->
+<!-- ============================================ -->
+<div class="stats">
+  <div class="stat">
+    <div class="number evil">$750</div>
+    <div class="label">Ableton Live Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$599</div>
+    <div class="label">Waves Mercury Bundle</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$9.99/mo</div>
+    <div class="label">Pro Tools Subscription</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$49/yr</div>
+    <div class="label">iLok Cloud License</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$60</div>
+    <div class="label">Reaper (forever)</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">LMS Plugin Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">Linux</div>
+  </div>
+  <div class="stat">
+    <div class="number orange">∞</div>
+    <div class="label">Yours forever</div>
+  </div>
+</div>
+
+</div><!-- /free-mem-section -->
+
+<!-- ============================================ -->
+<!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
+<!-- ============================================ -->
+<div class="da-section-label">THE LMS SUITE</div>
+
+<div class="da-suite-wrap">
+  <div class="da-suite-desc">
+    All open source. All JSFX. All zero latency. All interconnected via shared memory.<br>
+    Install from ReaPack in one click. Works everywhere REAPER runs — including Linux.
+  </div>
+
+  <div class="da-suite-grid">
+    <!-- DENSITY-AWARE AMP SIMS -->
+    <div class="da-suite-card" style="border-color:var(--amber-dim);">
+      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (6)</div>
+      <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Fender Twin Reverb / Deluxe Reverb (AB763 preamp, cathode follower, Fender tone stack, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
+      <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— Marshall JCM800 (bright cap, Marshall tone stack, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
+      <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— Fender Champ 5F1 (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— Ampeg SVT (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
+      <div class="da-suite-item"><strong>Top Boost v2</strong> <span class="da-suite-item-desc">— Vox AC15 (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— Mesa Triple Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
+      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking</div>
+    </div>
+
+    <!-- INSTRUMENTS -->
+    <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
+      <div class="da-suite-card-header da-green">INSTRUMENTS (5)</div>
+      <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Moog-style analog synthesizer (24dB ladder filter, 3 oscillators)</span></div>
+      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
+      <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
+      <div class="da-suite-item"><strong>Drone FX</strong> <span class="da-suite-item-desc">— FX processing satellite (sidechain, delay, flanger via gmem)</span></div>
+      <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
+      <div class="da-suite-footer">All interconnected via gmem bus</div>
+    </div>
+
+    <!-- CHANNEL TOOLS -->
+    <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
+      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (6)</div>
+      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— Channel strip (EQ + compression + gate)</span></div>
+      <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
+      <div class="da-suite-item"><strong>PEQ4U</strong> <span class="da-suite-item-desc">— 4-band parametric EQ</span></div>
+      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation</span></div>
+      <div class="da-suite-item"><strong>Density Limiter</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
+      <div class="da-suite-item"><strong>Matchering</strong> <span class="da-suite-item-desc">— Mastering reference matching (FIR convolution)</span></div>
+      <div class="da-suite-footer">Density-aware compressors coming</div>
+    </div>
+
+    <!-- EFFECTS -->
+    <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
+      <div class="da-suite-card-header da-blue">EFFECTS (3)</div>
+      <div class="da-suite-item"><strong>Henge Delay</strong> <span class="da-suite-item-desc">— Tape echo with wow/flutter/feedback</span></div>
+      <div class="da-suite-item"><strong>Tape Machine</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
+      <div class="da-suite-item"><strong>Chris' Bedroom</strong> <span class="da-suite-item-desc">— Vintage room reverb + compression</span></div>
+      <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
+    </div>
+
+    <!-- SESSION SCRIPTS -->
+    <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
+      <div class="da-suite-card-header da-orange">SESSION SCRIPTS — LUA (3)</div>
+      <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one instance to another</span></div>
+      <div class="da-suite-footer">Session management via Reaper Actions</div>
+    </div>
+  </div>
+</div>
+
 <!-- ============================================ -->
 <!-- EXISTING: FINALE -->
 <!-- ============================================ -->
@@ -3199,9 +3768,6 @@
   </div>
 </section>
 
-<!-- ============================================ -->
-<!-- DENSITY-AMP INTERACTIVE DEMO JAVASCRIPT -->
-<!-- ============================================ -->
 <script>
 // === INSTALL TOGGLE ===
 function toggleInstall() {
@@ -3540,6 +4106,88 @@ daInitMatrix();
 daInitMeters();
 daSetMode('lms');
 requestAnimationFrame(daAnimate);
+</script>
+
+<!-- ============================================ -->
+<!-- COLLAPSIBLE + GMEM INTERACTIVE JS -->
+<!-- ============================================ -->
+<script>
+// === COLLAPSIBLE SECTION TOGGLE ===
+function toggleSection(id) {
+  var body = document.getElementById(id);
+  var arrow = document.getElementById('arrow-' + id);
+  if (!body) return;
+  var isOpen = body.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open', isOpen);
+}
+
+// === GMEM INTERACTIVE GRAPHIC ===
+var gmemMode = 'lms';
+var gmemSelectedPlugin = -1;
+
+var gmemPluginData = [
+  {
+    name: 'DRUMBANGER',
+    writes: ['pad triggers (1-16)', 'step position', 'pattern index', 'BPM', 'bar count'],
+    reads: ['(none — Drumbanger is the clock source)']
+  },
+  {
+    name: 'AMP SIM (TWINS)',
+    writes: ['density per stage', 'Miller LP freq', 'grid conduction', 'broadcast slot data'],
+    reads: ['follow/steal commands', 'leader broadcast slot', 'link group state']
+  },
+  {
+    name: 'DRONE MIDI',
+    writes: ['MIDI note output', 'arp state'],
+    reads: ['pad triggers', 'step position', 'pattern index', 'BPM', 'bar count']
+  },
+  {
+    name: 'DRONE FX',
+    writes: ['sidechain envelope', 'FX state'],
+    reads: ['pad triggers', 'step position', 'BPM', 'watched pad activity']
+  },
+  {
+    name: 'CHANNEL STRIP',
+    writes: ['broadcast slot (EQ, comp, gain)', 'density metrics'],
+    reads: ['follow/steal commands', 'leader broadcast slot']
+  },
+  {
+    name: 'DENSITY LIMITER',
+    writes: ['limiting state', 'gain reduction'],
+    reads: ['ALL track densities', 'master bus sum prediction', 'harmonic content from every amp']
+  }
+];
+
+function gmemSetMode(m) {
+  gmemMode = m;
+  document.getElementById('gmem-btn-lms').className = m === 'lms' ? 'gmem-toggle-btn active-lms' : 'gmem-toggle-btn';
+  document.getElementById('gmem-btn-trad').className = m === 'traditional' ? 'gmem-toggle-btn active-trad' : 'gmem-toggle-btn';
+  document.getElementById('gmem-lms-view').style.display = m === 'lms' ? 'block' : 'none';
+  document.getElementById('gmem-trad-view').style.display = m === 'traditional' ? 'block' : 'none';
+}
+
+function gmemSelect(idx) {
+  // Deselect all
+  for (var i = 0; i < 6; i++) {
+    var el = document.getElementById('gmem-p' + i);
+    if (el) el.classList.remove('selected');
+  }
+  gmemSelectedPlugin = idx;
+  var el = document.getElementById('gmem-p' + idx);
+  if (el) el.classList.add('selected');
+
+  var d = gmemPluginData[idx];
+  var html = '<h4>' + d.name + '</h4>';
+  html += '<div style="margin-bottom:6px">';
+  html += '<span class="gmem-rw-tag writes">WRITES</span> ';
+  html += d.writes.join(' &bull; ');
+  html += '</div>';
+  html += '<div>';
+  html += '<span class="gmem-rw-tag reads">READS</span> ';
+  html += d.reads.join(' &bull; ');
+  html += '</div>';
+  document.getElementById('gmem-detail-content').innerHTML = html;
+}
 </script>
 
 </body>
