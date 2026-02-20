@@ -3,6 +3,8 @@ desc:LMS - Density Limiter (gmem aware, artifact-free)
 //author: LMS + Claude
 //version: 0.1
 //license: GPL-3.0
+filename:0,shakebot_logo.png
+
 options:gmem=DrumBagger
 
 // ============================================================================
@@ -297,15 +299,49 @@ gmem[50033] = env_density;     // density-predicted level
 
 @gfx 500 240
 
+// ============================================================================
+//  SCALING — compute scale factor from actual window size vs nominal
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 500;
+S < 0.5 ? S = 0.5;
+
+// Scaled font sizes
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
+// ---- Background ----
 gfx_set(0.04, 0.04, 0.06);
 gfx_rect(0, 0, gfx_w, gfx_h);
 
-// Title
+hdr_h = floor(30 * S);
+gfx_set(0.03, 0.03, 0.05);
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_set(0.57, 0.47, 0.21);
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ---- Logo + Title ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(20 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
 gfx_set(1, 0.8, 0.2);
-gfx_x = 10; gfx_y = 8;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(5 * S);
 gfx_drawstr("DENSITY LIMITER");
-gfx_set(0.5, 0.5, 0.5);
-gfx_x = 150; gfx_y = 8;
+
+// ---- GMEM Status ----
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(200 * S); gfx_y = floor(5 * S);
 gmem_link == 1 ? (
   gfx_set(0.2, 0.8, 0.4);
   gfx_drawstr("GMEM LINKED");
@@ -315,10 +351,10 @@ gmem_link == 1 ? (
 );
 
 // === GR METER (the big one) ===
-meter_x = 10;
-meter_y = 30;
-meter_w = gfx_w - 20;
-meter_h = 40;
+meter_x = floor(10 * S);
+meter_y = hdr_h + floor(6 * S);
+meter_w = gfx_w - floor(20 * S);
+meter_h = floor(40 * S);
 
 // Background
 gfx_set(0.08, 0.08, 0.10);
@@ -340,8 +376,9 @@ gfx_rect(meter_x + meter_w - bar_w, meter_y, bar_w, meter_h);
 
 // GR value text
 gfx_set(1, 1, 1);
-gfx_x = meter_x + meter_w / 2 - 30;
-gfx_y = meter_y + 12;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = meter_x + meter_w / 2 - floor(30 * S);
+gfx_y = meter_y + floor(12 * S);
 gfx_drawstr("GR: ");
 gfx_drawnumber(gr_meter, 1);
 gfx_drawstr(" dB");
@@ -358,21 +395,23 @@ loop(7,
   gfx_set(0.3, 0.3, 0.35);
   gfx_line(mark_x, meter_y, mark_x, meter_y + meter_h);
   gfx_set(0.4, 0.4, 0.5);
-  gfx_x = mark_x - 5;
-  gfx_y = meter_y + meter_h + 2;
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = mark_x - floor(5 * S);
+  gfx_y = meter_y + meter_h + floor(2 * S);
   gfx_drawnumber(mark_db, 0);
   i += 1;
 );
 
 // === DENSITY INPUT DISPLAY ===
-dy = 100;
+dy = meter_y + meter_h + floor(20 * S);
 gfx_set(1, 1, 1);
-gfx_x = 10; gfx_y = dy;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(10 * S); gfx_y = dy;
 gfx_drawstr("DENSITY STATE:");
 
-bar_w = 80;
-bar_h = 10;
-bx = 120;
+bar_w = floor(80 * S);
+bar_h = floor(10 * S);
+bx = floor(120 * S);
 
 // Lo
 gfx_set(0.12, 0.31, 0.86);
@@ -380,79 +419,82 @@ gfx_rect(bx, dy, bar_w * min(1, d_lo), bar_h);
 gfx_set(0.2, 0.2, 0.25);
 gfx_rect(bx, dy, bar_w, bar_h, 0);
 gfx_set(0.5, 0.5, 0.6);
-gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_x = bx + bar_w + floor(5 * S); gfx_y = dy;
 gfx_drawstr("LO");
 
-dy += 14;
+dy += floor(14 * S);
 gfx_set(0.86, 0.63, 0.12);
 gfx_rect(bx, dy, bar_w * min(1, d_mid), bar_h);
 gfx_set(0.2, 0.2, 0.25);
 gfx_rect(bx, dy, bar_w, bar_h, 0);
 gfx_set(0.5, 0.5, 0.6);
-gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_x = bx + bar_w + floor(5 * S); gfx_y = dy;
 gfx_drawstr("MID");
 
-dy += 14;
+dy += floor(14 * S);
 gfx_set(0.86, 0.24, 0.12);
 gfx_rect(bx, dy, bar_w * min(1, d_hi), bar_h);
 gfx_set(0.2, 0.2, 0.25);
 gfx_rect(bx, dy, bar_w, bar_h, 0);
 gfx_set(0.5, 0.5, 0.6);
-gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_x = bx + bar_w + floor(5 * S); gfx_y = dy;
 gfx_drawstr("HI");
 
-dy += 14;
+dy += floor(14 * S);
 gfx_set(0.71, 0.16, 0.86);
 gfx_rect(bx, dy, bar_w * min(1, d_air), bar_h);
 gfx_set(0.2, 0.2, 0.25);
 gfx_rect(bx, dy, bar_w, bar_h, 0);
 gfx_set(0.5, 0.5, 0.6);
-gfx_x = bx + bar_w + 5; gfx_y = dy;
+gfx_x = bx + bar_w + floor(5 * S); gfx_y = dy;
 gfx_drawstr("AIR");
 
 // === PREDICTION vs MEASURED ===
-py = 100;
-px = 280;
+py = meter_y + meter_h + floor(20 * S);
+px = floor(280 * S);
+peak_bar_w = floor(150 * S);
 gfx_set(1, 1, 1);
+gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = px; gfx_y = py;
 gfx_drawstr("PEAK TRACKING:");
 
 // Measured peak bar
-py += 16;
+py += floor(16 * S);
 meas_pct = min(1, env_fast / max(0.001, ceiling));
 gfx_set(0.5, 0.5, 0.6);
-gfx_rect(px, py, 150, bar_h);
+gfx_rect(px, py, peak_bar_w, bar_h);
 gfx_set(0.3, 0.7, 0.9);
-gfx_rect(px, py, 150 * meas_pct, bar_h);
+gfx_rect(px, py, peak_bar_w * meas_pct, bar_h);
 gfx_set(0.6, 0.6, 0.7);
-gfx_x = px + 155; gfx_y = py;
+gfx_x = px + peak_bar_w + floor(5 * S); gfx_y = py;
 gfx_drawstr("MEAS");
 
 // Density predicted peak bar
-py += 14;
+py += floor(14 * S);
 dens_pct = min(1, env_density / max(0.001, ceiling));
 gfx_set(0.5, 0.5, 0.6);
-gfx_rect(px, py, 150, bar_h);
+gfx_rect(px, py, peak_bar_w, bar_h);
 gfx_set(1, 0.7, 0.1);
-gfx_rect(px, py, 150 * dens_pct, bar_h);
+gfx_rect(px, py, peak_bar_w * dens_pct, bar_h);
 gfx_set(0.6, 0.6, 0.7);
-gfx_x = px + 155; gfx_y = py;
+gfx_x = px + peak_bar_w + floor(5 * S); gfx_y = py;
 gfx_drawstr("PRED");
 
 // Ceiling line
-ceil_x = px + 150 * min(1, ceiling / max(0.001, ceiling));
+ceil_x = px + peak_bar_w * min(1, ceiling / max(0.001, ceiling));
 gfx_set(1, 0.2, 0.2, 0.7);
-gfx_line(ceil_x, py - 18, ceil_x, py + bar_h + 4);
+gfx_line(ceil_x, py - floor(18 * S), ceil_x, py + bar_h + floor(4 * S));
 
 // === STATUS ===
-sy = 180;
+sy = meter_y + meter_h + floor(90 * S);
 gfx_set(1, 1, 1);
-gfx_x = 10; gfx_y = sy;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(10 * S); gfx_y = sy;
 
 gmem_link == 1 && d_total > 0.01 ? (
   gfx_set(0.2, 0.8, 0.4);
   gfx_drawstr("PREDICTIVE — density-informed gain reduction");
-  gfx_x = 10; gfx_y = sy + 14;
+  gfx_x = floor(10 * S); gfx_y = sy + floor(14 * S);
   gfx_set(0.5, 0.5, 0.6);
   gfx_drawstr("Predicted crest: ");
   gfx_drawnumber(1.4 + d_total * 0.6, 2);
@@ -469,5 +511,6 @@ gmem_link == 1 && d_total > 0.01 ? (
 
 // Footer
 gfx_set(0.2, 0.2, 0.25);
-gfx_x = 10; gfx_y = gfx_h - 14;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = floor(10 * S); gfx_y = gfx_h - floor(14 * S);
 gfx_drawstr("LMS x CLAUDE  |  no artifacts because we never make any");

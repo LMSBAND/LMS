@@ -10,6 +10,8 @@ desc:LMS DroneFX
 //   - Tape delay (wow/flutter, saturation in feedback)
 //   - Flanger (exaggerated, deep, Maschine-style)
 // All DSP in-house from the LMS suite.
+filename:0,shakebot_logo.png
+
 
 options:gmem=DrumBanger
 
@@ -615,6 +617,19 @@ spl1 = in_r;
 // ============================================================
 @gfx 680 490
 
+// ============================================================================
+//  SCALING — compute scale factor from actual window size vs nominal
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 680;
+S < 0.5 ? S = 0.5;
+
+// Scaled font sizes
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
 // ---- Colors ----
 COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
 COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
@@ -634,10 +649,24 @@ gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
 
 // Header band
+hdr_h = floor(52 * S);
 gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
-gfx_rect(0, 0, gfx_w, 52);
+gfx_rect(0, 0, gfx_w, hdr_h);
 gfx_r = COL_ACCENT_R * 0.6; gfx_g = COL_ACCENT_G * 0.6; gfx_b = COL_ACCENT_B * 0.6;
-gfx_rect(0, 52, gfx_w, 2);
+gfx_rect(0, hdr_h, gfx_w, 2);
+
+// ---- Logo ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
 
 // ============================================================
 //  HELPERS
@@ -661,12 +690,12 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
   gfx_rect(bx, by, bw, 1); gfx_rect(bx, by+bh-1, bw, 1);
   gfx_rect(bx, by, 1, bh); gfx_rect(bx+bw-1, by, 1, bh);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 12);
-  gfx_x = bx + 5; gfx_y = by + floor((bh - 12)/2);
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = bx + floor(5 * S); gfx_y = by + floor((bh - F_LABEL)/2);
   gfx_drawstr(label);
   show_val ? (
-    gfx_setfont(1, "Arial", 11);
-    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11)/2);
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL)/2);
     gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
   mouse_cap & 1 ? (
@@ -684,37 +713,37 @@ function draw_panel(px, py, pw, ph, title) (
   gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
   gfx_rect(px, py, pw, ph);
   gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, 22);
+  gfx_rect(px, py, pw, floor(22 * S));
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py+22, pw, 1);
+  gfx_rect(px, py+floor(22 * S), pw, 1);
   gfx_r = COL_BORDER_R*0.7; gfx_g = COL_BORDER_G*0.7; gfx_b = COL_BORDER_B*0.7;
   gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
   gfx_rect(px+pw-1, py, 1, ph); gfx_rect(px, py+ph-1, pw, 1);
   gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", 12);
-  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
   gfx_drawstr(title);
 );
 
 function draw_toggle(tx, ty, is_on, label) (
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + 8, ty + 8, 7, 0);
+  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
   is_on ? (
     gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + 8, ty + 8, 5, 1);
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
   ) : (
     gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + 8, ty + 8, 5, 1);
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
   );
   gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
   gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
   gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", 11);
-  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
   gfx_drawstr(label);
   (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + 90 &&
-    mouse_y >= ty && mouse_y <= ty + 16 ? (
+    mouse_x >= tx && mouse_x <= tx + floor(90 * S) &&
+    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
       is_on = 1 - is_on;
   );
   is_on;
@@ -734,15 +763,15 @@ function draw_mod_range(bx, by, bw, bh, slider_val, vmin, vmax, floor_idx, env) 
 
   // Draw red floor line
   gfx_r = 1; gfx_g = 0.2; gfx_b = 0.2;
-  gfx_rect(bx + fl_norm * bw, by, 2, bh);
+  gfx_rect(bx + fl_norm * bw, by, max(1, floor(2 * S)), bh);
 
   // Draw red ceiling line
-  gfx_rect(bx + ceil_norm * bw, by, 2, bh);
+  gfx_rect(bx + ceil_norm * bw, by, max(1, floor(2 * S)), bh);
 
   // Draw effective value marker (yellow) between floor and ceiling
   eff_norm = fl_norm + (ceil_norm - fl_norm) * env;
   gfx_r = 1; gfx_g = 0.8; gfx_b = 0;
-  gfx_rect(bx + eff_norm * bw, by, 2, bh);
+  gfx_rect(bx + eff_norm * bw, by, max(1, floor(2 * S)), bh);
 
   // Right-click drag sets the floor value
   mouse_cap & 2 ? (
@@ -783,8 +812,8 @@ function draw_mod_selector(sx, sy, sw, sh, cur, nmax, l0, l1, l2, l3, l4) (
   ) : (
     gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
   );
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = sx + 4; gfx_y = sy + 2;
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = sx + floor(4 * S); gfx_y = sy + floor(2 * S);
   gfx_drawstr("MOD: ");
   cur == 0 ? gfx_drawstr(l0);
   cur == 1 ? gfx_drawstr(l1);
@@ -816,16 +845,16 @@ gfx_is_locked = !gfx_is_follow;
 gfx_lock_slot = gfx_is_locked ? (lock_mode - 1) : 0;
 
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
-gfx_setfont(1, "Arial", 20);
-gfx_x = 14; gfx_y = 8;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(6 * S); gfx_y = floor(8 * S);
 gfx_drawstr("LMS DRONE FX");
 
 // ---- MODE SELECTOR: Follow button + 8 lock slot buttons ----
-mode_row_x = 180; mode_row_y = 4;
-follow_w = 58; slot_w = 22; slot_gap = 2; slot_h = 18;
+mode_row_x = floor(180 * S); mode_row_y = floor(4 * S);
+follow_w = floor(58 * S); slot_w = floor(22 * S); slot_gap = floor(2 * S); slot_h = floor(18 * S);
 
 // FOLLOW button
-gfx_setfont(1, "Arial", 11);
+gfx_setfont(1, "Arial", F_SMALL);
 gfx_is_follow ? (
   gfx_r = COL_GREEN_R * 0.35; gfx_g = COL_GREEN_G * 0.35; gfx_b = COL_GREEN_B * 0.35;
   gfx_rect(mode_row_x, mode_row_y, follow_w, slot_h);
@@ -835,7 +864,7 @@ gfx_is_follow ? (
   gfx_rect(mode_row_x, mode_row_y, follow_w, slot_h);
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 );
-gfx_x = mode_row_x + 6; gfx_y = mode_row_y + 3;
+gfx_x = mode_row_x + floor(6 * S); gfx_y = mode_row_y + floor(3 * S);
 gfx_drawstr("FOLLOW");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
@@ -845,8 +874,8 @@ gfx_drawstr("FOLLOW");
 );
 
 // 8 lock slot buttons
-slot_base_x = mode_row_x + follow_w + 4;
-gfx_setfont(1, "Arial", 10);
+slot_base_x = mode_row_x + follow_w + floor(4 * S);
+gfx_setfont(1, "Arial", F_TINY);
 si = 0;
 loop(NUM_LOCKS,
   sx = slot_base_x + si * (slot_w + slot_gap);
@@ -897,7 +926,7 @@ loop(NUM_LOCKS,
   ) : (
     gfx_r = COL_DIM_R * 0.3; gfx_g = COL_DIM_G * 0.3; gfx_b = COL_DIM_B * 0.3;
   );
-  gfx_x = sx + 7; gfx_y = mode_row_y + 3;
+  gfx_x = sx + floor(7 * S); gfx_y = mode_row_y + floor(3 * S);
   gfx_drawnumber(si + 1, 0);
 
   // Click handling
@@ -933,20 +962,20 @@ loop(NUM_LOCKS,
 
 // Trigger Source selector — FOLLOW MODE ONLY (click to cycle: All → Pad 1-16)
 gfx_is_follow ? (
-  trig_btn_x = mode_row_x; trig_btn_y = 28; trig_btn_w = 100; trig_btn_h = 16;
+  trig_btn_x = mode_row_x; trig_btn_y = floor(28 * S); trig_btn_w = floor(100 * S); trig_btn_h = floor(16 * S);
 
-  gfx_setfont(1, "Arial", 11);
+  gfx_setfont(1, "Arial", F_SMALL);
   trig_source_sel == 0 ? (
     gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
     gfx_rect(trig_btn_x, trig_btn_y, trig_btn_w, trig_btn_h);
     gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-    gfx_x = trig_btn_x + 4; gfx_y = trig_btn_y + 2;
+    gfx_x = trig_btn_x + floor(4 * S); gfx_y = trig_btn_y + floor(2 * S);
     gfx_drawstr("SRC: All Pads");
   ) : (
     gfx_r = COL_ACCENT_R * 0.25; gfx_g = COL_ACCENT_G * 0.25; gfx_b = COL_ACCENT_B * 0.25;
     gfx_rect(trig_btn_x, trig_btn_y, trig_btn_w, trig_btn_h);
     gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-    gfx_x = trig_btn_x + 4; gfx_y = trig_btn_y + 2;
+    gfx_x = trig_btn_x + floor(4 * S); gfx_y = trig_btn_y + floor(2 * S);
     gfx_drawstr("SRC: Pad ");
     gfx_drawnumber(trig_source_sel, 0);
   );
@@ -969,25 +998,25 @@ gfx_is_follow ? (
 // Connection indicator
 db_connected ? (
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-  gfx_circle(gfx_w - 30, 25, 6, 1);
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = gfx_w - 95; gfx_y = 20;
+  gfx_circle(gfx_w - floor(30 * S), floor(25 * S), floor(6 * S), 1);
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = gfx_w - floor(95 * S); gfx_y = floor(20 * S);
   gfx_drawstr("DB LIVE");
 ) : (
   gfx_r = 0.3; gfx_g = 0.15; gfx_b = 0.15;
-  gfx_circle(gfx_w - 30, 25, 6, 1);
+  gfx_circle(gfx_w - floor(30 * S), floor(25 * S), floor(6 * S), 1);
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = gfx_w - 95; gfx_y = 20;
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = gfx_w - floor(95 * S); gfx_y = floor(20 * S);
   gfx_drawstr("DB ---");
 );
 
 // ---- CAPTURE button (Follow mode only) — captures grid into first empty slot ----
 gfx_is_follow ? (
-  cap_btn_w = 60;
-  cap_btn_h = 16;
-  cap_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + 4;
-  cap_btn_y = mode_row_y + 1;
+  cap_btn_w = floor(60 * S);
+  cap_btn_h = floor(16 * S);
+  cap_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + floor(4 * S);
+  cap_btn_y = mode_row_y + floor(1 * S);
 
   // Find first empty slot
   cap_target = -1;
@@ -1007,8 +1036,8 @@ gfx_is_follow ? (
     gfx_rect(cap_btn_x, cap_btn_y, cap_btn_w, cap_btn_h);
     gfx_r = COL_DIM_R * 0.4; gfx_g = COL_DIM_G * 0.4; gfx_b = COL_DIM_B * 0.4;
   );
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = cap_btn_x + 4; gfx_y = cap_btn_y + 2;
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = cap_btn_x + floor(4 * S); gfx_y = cap_btn_y + floor(2 * S);
   cap_target >= 0 ? (
     gfx_drawstr("CAPTURE");
   ) : (
@@ -1039,10 +1068,10 @@ gfx_is_follow ? (
 
 // ---- CLEAR button (Lock mode only) — clears slot and returns to Follow ----
 gfx_is_locked ? (
-  clear_btn_w = 50;
-  clear_btn_h = 16;
-  clear_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + 4;
-  clear_btn_y = mode_row_y + 1;
+  clear_btn_w = floor(50 * S);
+  clear_btn_h = floor(16 * S);
+  clear_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + floor(4 * S);
+  clear_btn_y = mode_row_y + floor(1 * S);
 
   gfx_r = 0.3; gfx_g = 0.12; gfx_b = 0.12;
   gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, clear_btn_h);
@@ -1050,8 +1079,8 @@ gfx_is_locked ? (
   gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, 1);
   gfx_rect(clear_btn_x, clear_btn_y, 1, clear_btn_h);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = clear_btn_x + 8; gfx_y = clear_btn_y + 2;
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = clear_btn_x + floor(8 * S); gfx_y = clear_btn_y + floor(2 * S);
   gfx_drawstr("CLEAR");
 
   (mouse_cap & 1) && !(last_cap & 1) &&
@@ -1066,9 +1095,9 @@ gfx_is_locked ? (
 // ============================================================
 //  PATTERN DISPLAY — 16-step × 16-pad overview
 // ============================================================
-pat_y = 58;
-pat_h = 96;
-cell_w = floor((gfx_w - 20) / 16);
+pat_y = floor(58 * S);
+pat_h = floor(96 * S);
+cell_w = floor((gfx_w - floor(20 * S)) / 16);
 cell_h = floor(pat_h / 16);
 
 // When a specific pad is selected, filter grid to show only that pad's row
@@ -1083,7 +1112,7 @@ loop(16,
 
   s = 0;
   loop(16,
-    cx = 10 + s * cell_w;
+    cx = floor(10 * S) + s * cell_w;
     cy = pat_y + p * cell_h;
 
     pad_visible ? (
@@ -1151,12 +1180,12 @@ loop(16,
 );
 
 // Step numbers below pattern
-gfx_setfont(1, "Arial", 8);
+gfx_setfont(1, "Arial", F_TINY);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 s = 0;
 loop(16,
   s % 4 == 0 ? (
-    gfx_x = 10 + s * cell_w + 2; gfx_y = pat_y + pat_h + 2;
+    gfx_x = floor(10 * S) + s * cell_w + floor(2 * S); gfx_y = pat_y + pat_h + floor(2 * S);
     gfx_drawnumber(s + 1, 0);
   );
   s += 1;
@@ -1165,45 +1194,45 @@ loop(16,
 // ============================================================
 //  FX PANELS
 // ============================================================
-row_y = pat_y + pat_h + 18;
-margin = 10;
-gap = 6;
-bar_h = 18;
-bar_sp = 21;
-pad = 8;
+row_y = pat_y + pat_h + floor(18 * S);
+margin = floor(10 * S);
+gap = floor(6 * S);
+bar_h = floor(18 * S);
+bar_sp = floor(21 * S);
+pad = floor(8 * S);
 
 // ---- FET COMPRESSOR ----
 comp_pw = floor((gfx_w - margin * 2 - gap * 2) / 3);
 comp_px = margin;
-comp_ph = 188;
+comp_ph = floor(188 * S);
 draw_panel(comp_px, row_y, comp_pw, comp_ph, "FET COMPRESSOR");
 
-cy = row_y + 28;
+cy = row_y + floor(28 * S);
 inner_w = comp_pw - pad * 2;
 
 slider2 = draw_toggle(comp_px + pad, cy, slider2, "COMP ON");
 comp_on = slider2;
-cy += 20;
+cy += floor(20 * S);
 
 // Bus/Sidechain toggle — click to switch
 comp_mode > 0 ? (
   gfx_r = COL_ACCENT_R * 0.2; gfx_g = COL_ACCENT_G * 0.2; gfx_b = COL_ACCENT_B * 0.2;
-  gfx_rect(comp_px + pad, cy, inner_w, 16);
+  gfx_rect(comp_px + pad, cy, inner_w, floor(16 * S));
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
 ) : (
   gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
-  gfx_rect(comp_px + pad, cy, inner_w, 16);
+  gfx_rect(comp_px + pad, cy, inner_w, floor(16 * S));
   gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
 );
-gfx_setfont(1, "Arial", 10);
-gfx_x = comp_px + pad + 4; gfx_y = cy + 2;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = comp_px + pad + floor(4 * S); gfx_y = cy + floor(2 * S);
 comp_mode == 0 ? gfx_drawstr("BUS (audio)") : gfx_drawstr("SIDECHAIN (pattern)");
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= comp_px + pad && mouse_x < comp_px + pad + inner_w &&
-  mouse_y >= cy && mouse_y < cy + 16 ? (
+  mouse_y >= cy && mouse_y < cy + floor(16 * S) ? (
   comp_mode = 1 - comp_mode;
 );
-cy += 20;
+cy += floor(20 * S);
 
 slider3 = draw_bar(comp_px + pad, cy, inner_w, bar_h, slider3, 0, 100, "THRESH", 1);
 cy += bar_sp;
@@ -1220,19 +1249,19 @@ comp_mode > 0 ? (
 );
 
 // GR meter
-cy += bar_sp + 2;
+cy += bar_sp + floor(2 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
+gfx_setfont(1, "Arial", F_TINY);
 gfx_x = comp_px + pad; gfx_y = cy;
 gfx_drawstr("GR:");
-gr_bar_x = comp_px + pad + 28;
-gr_bar_w = inner_w - 28;
+gr_bar_x = comp_px + pad + floor(28 * S);
+gr_bar_w = inner_w - floor(28 * S);
 gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-gfx_rect(gr_bar_x, cy, gr_bar_w, 10);
+gfx_rect(gr_bar_x, cy, gr_bar_w, floor(10 * S));
 gr_fill = min(1, comp_gr_display / 20);
 gr_fill > 0 ? (
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.3; gfx_b = 0;
-  gfx_rect(gr_bar_x, cy, gr_fill * gr_bar_w, 10);
+  gfx_rect(gr_bar_x, cy, gr_fill * gr_bar_w, floor(10 * S));
 );
 
 // ---- TAPE DELAY ----
@@ -1241,15 +1270,15 @@ delay_pw = comp_pw;
 delay_ph = comp_ph;
 draw_panel(delay_px, row_y, delay_pw, delay_ph, "TAPE DELAY");
 
-cy = row_y + 28;
+cy = row_y + floor(28 * S);
 inner_w = delay_pw - pad * 2;
 
 slider8 = draw_toggle(delay_px + pad, cy, slider8, "DELAY ON");
 delay_on = slider8;
-cy += 20;
-slider22 = draw_mod_selector(delay_px + pad, cy, inner_w, 16, slider22, 4, "None", "Mix", "Feedback", "Wow/Flt", "Speed");
+cy += floor(20 * S);
+slider22 = draw_mod_selector(delay_px + pad, cy, inner_w, floor(16 * S), slider22, 4, "None", "Mix", "Feedback", "Wow/Flt", "Speed");
 delay_mod_target = slider22;
-cy += 20;
+cy += floor(20 * S);
 
 slider9 = draw_bar(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, "TIME ms", 1);
 delay_mod_target == 4 ? draw_mod_range(delay_px + pad, cy, inner_w, bar_h, slider9, 1, 1000, 6, trig_env);
@@ -1271,15 +1300,15 @@ fl_pw = gfx_w - fl_px - margin;
 fl_ph = comp_ph;
 draw_panel(fl_px, row_y, fl_pw, fl_ph, "FLANGER");
 
-cy = row_y + 28;
+cy = row_y + floor(28 * S);
 inner_w = fl_pw - pad * 2;
 
 slider14 = draw_toggle(fl_px + pad, cy, slider14, "FLANGE ON");
 flange_on = slider14;
-cy += 20;
-slider23 = draw_mod_selector(fl_px + pad, cy, inner_w, 16, slider23, 3, "None", "Depth", "Rate", "Mix", "");
+cy += floor(20 * S);
+slider23 = draw_mod_selector(fl_px + pad, cy, inner_w, floor(16 * S), slider23, 3, "None", "Depth", "Rate", "Mix", "");
 flanger_mod_target = slider23;
-cy += 20;
+cy += floor(20 * S);
 
 slider15 = draw_bar(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, "RATE Hz", 1);
 flanger_mod_target == 2 ? draw_mod_range(fl_px + pad, cy, inner_w, bar_h, slider15, 0.05, 5, 8, trig_env);
@@ -1327,18 +1356,18 @@ loop(out_w - 2,
 );
 
 // Master volume bar in scope area
-slider19 = draw_bar(margin + out_w - 120, out_y + 4, 116, 16, slider19, -24, 24, "OUTPUT", 1);
+slider19 = draw_bar(margin + out_w - floor(120 * S), out_y + floor(4 * S), floor(116 * S), floor(16 * S), slider19, -24, 24, "OUTPUT", 1);
 
 // Trigger activity indicator
 trig_env > 0.01 ? (
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_circle(margin + 14, out_y + 12, 5, 1);
-  gfx_setfont(1, "Arial", 10);
-  gfx_x = margin + 24; gfx_y = out_y + 6;
+  gfx_circle(margin + floor(14 * S), out_y + floor(12 * S), floor(5 * S), 1);
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = margin + floor(24 * S); gfx_y = out_y + floor(6 * S);
   gfx_drawstr("TRIG");
 ) : (
   gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
-  gfx_circle(margin + 14, out_y + 12, 5, 1);
+  gfx_circle(margin + floor(14 * S), out_y + floor(12 * S), floor(5 * S), 1);
 );
 
 // --- VELOCITY EDITOR POPUP (Lock mode grid right-click) ---
@@ -1355,7 +1384,7 @@ vel_edit_open ? (
   gfx_rect(vp_x, vp_y, 1, vp_h); gfx_rect(vp_x + vp_w - 1, vp_y, 1, vp_h);
 
   // Header: step/pad label
-  gfx_setfont(1, "Arial", 9);
+  gfx_setfont(1, "Arial", F_TINY);
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
   gfx_x = vp_x + 3; gfx_y = vp_y + 2;
   gfx_drawstr("S"); gfx_drawnumber(vel_edit_step + 1, 0);
@@ -1363,7 +1392,7 @@ vel_edit_open ? (
 
   // Velocity number
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 11);
+  gfx_setfont(1, "Arial", F_SMALL);
   gfx_x = vp_x + 3; gfx_y = vp_y + 14;
   gfx_drawnumber(cur_vel, 0);
 
@@ -1423,11 +1452,11 @@ vel_edit_open ? (
 notice_btn_x = gfx_w - 60;
 notice_btn_y = gfx_h - 18;
 gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
 gfx_r = 0; gfx_g = 0; gfx_b = 0;
-gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
 gfx_drawstr("NOTICE");
-(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
   notice_show = !notice_show;
   notice_clicked = 1;
 );
@@ -1436,7 +1465,7 @@ notice_show ? (
   gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
   gfx_rect(0, 0, gfx_w, gfx_h);
   gfx_a = 1;
-  gfx_setfont(1, "Arial", 10);
+  gfx_setfont(1, "Arial", F_TINY);
   _nx = 15; _ny = 8; _nl = 13;
   gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
   gfx_x = _nx; gfx_y = _ny;
@@ -1490,11 +1519,11 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("  Yellow marker = effective value. Velocity sweeps between floor and ceiling."); _ny += _nl;
 
-  gfx_setfont(1, "Arial", 12);
+  gfx_setfont(1, "Arial", F_LABEL);
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
-  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
   gfx_drawstr("NOTICE");
 );
 

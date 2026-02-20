@@ -4,8 +4,10 @@ desc:LMS DRUMBANGER
 //license: GPL-3.0
 //
 // A simple 16-pad drum sampler + step sequencer for Reaper.
-// Digitakt-inspired UI. Load kits from wav folders.
+// Digitakt-inspired UI. Subfolders in pool/ become kits.
 // MIDI notes 36-51 (C1 to D#2) trigger pads 1-16.
+filename:0,shakebot_logo.png
+
 
 options:maxmem=16777216
 options:gmem=DrumBanger
@@ -246,8 +248,10 @@ PAD_BUF_SIZE = 480000;
 freembuf(SAMPLE_BUF + NUM_PADS * PAD_BUF_SIZE);
 
 // ---- Load kit function (defined before first call) ----
-// Reads from kits/manifest.txt if available, falls back to legacy kits/{num}/{02d}.wav
-function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_read, mf, cur_kit, pad_idx) (
+// Loads the first 16 samples from a pool folder (kit = pool folder).
+// kit_num maps to pool folder index: kit 0 = folder 1, kit 1 = folder 2, etc.
+// (Folder 0 is "ALL" which isn't a real folder.)
+function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_read, pad_idx, folder_idx) (
   // Stop all voices — sample data is about to be overwritten
   i = 0;
   loop(NUM_PADS,
@@ -264,69 +268,32 @@ function load_kit_samples(kit_num) local(i, j, handle, nch, sr, buf_offset, num_
     i += 1;
   );
 
-  // Try manifest-based loading first
-  mf = file_open("kits/manifest.txt");
-  mf >= 0 ? (
-    file_text(mf);
-    cur_kit = -1;
-    pad_idx = 0;
-    while(file_avail(mf) > 0) (
-      file_string(mf, #kit_line);
-      // Trim trailing whitespace/newlines/CR
-      while(strlen(#kit_line) > 0 &&
-            str_getchar(#kit_line, strlen(#kit_line) - 1) <= 32) (
-        str_setlen(#kit_line, strlen(#kit_line) - 1);
-      );
-      strcmp(#kit_line, "---") == 0 ? (
-        // Kit separator — next line is the kit name
-        cur_kit += 1;
-        pad_idx = 0;
-        file_avail(mf) > 0 ? file_string(mf, #kit_line); // consume name line
-      ) : (
-        // Sample path line — load if this is our target kit
-        cur_kit == kit_num && pad_idx < NUM_PADS && strlen(#kit_line) > 0 ? (
-          strcpy(#pad_filename, "kits/");
-          strcat(#pad_filename, #kit_line);
-          handle = file_open(#pad_filename);
-          handle >= 0 ? (
-            file_riff(handle, nch, sr);
-            nch > 0 ? (
-              PAD_NCH[pad_idx] = nch;
-              PAD_SRATE[pad_idx] = sr;
-              buf_offset = SAMPLE_BUF + pad_idx * PAD_BUF_SIZE;
-              num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
-              PAD_LENGTH[pad_idx] = nch > 1 ? (num_read / nch) : num_read;
-              kit_loaded += 1;
-            );
-            file_close(handle);
-          );
-          pad_idx += 1;
-        ) : (
-          cur_kit == kit_num ? pad_idx += 1;
-        );
-      );
-    );
-    file_close(mf);
-  ) : (
-    // FALLBACK: No manifest — try legacy numbered folder format
-    i = 0;
-    loop(NUM_PADS,
-      sprintf(#pad_filename, "kits/%d/%02d.wav", kit_num + 1, i + 1);
+  // Kit N maps to pool folder N+1 (folder 0 = "ALL")
+  folder_idx = kit_num + 1;
+  pad_idx = 0;
+
+  // Scan pool entries for samples in this folder
+  i = 0;
+  loop(pool_count,
+    pad_idx < NUM_PADS && POOL_FOLDER_IDX[i] == folder_idx ? (
+      strcpy(#pad_filename, "pool/");
+      strcat(#pad_filename, 100 + i);
       handle = file_open(#pad_filename);
       handle >= 0 ? (
         file_riff(handle, nch, sr);
         nch > 0 ? (
-          PAD_NCH[i] = nch;
-          PAD_SRATE[i] = sr;
-          buf_offset = SAMPLE_BUF + i * PAD_BUF_SIZE;
+          PAD_NCH[pad_idx] = nch;
+          PAD_SRATE[pad_idx] = sr;
+          buf_offset = SAMPLE_BUF + pad_idx * PAD_BUF_SIZE;
           num_read = file_mem(handle, buf_offset, PAD_BUF_SIZE);
-          PAD_LENGTH[i] = nch > 1 ? (num_read / nch) : num_read;
+          PAD_LENGTH[pad_idx] = nch > 1 ? (num_read / nch) : num_read;
           kit_loaded += 1;
         );
         file_close(handle);
       );
-      i += 1;
+      pad_idx += 1;
     );
+    i += 1;
   );
 
   // Fill empty pads with silent phantom (no clicks, still triggers Drones)
@@ -413,44 +380,27 @@ function scan_pool() local(mf, ci, slash_pos, fi, found) (
   );
 );
 
-// ---- Scan kit manifest (defined before first call) ----
-// Reads kits/manifest.txt to discover available kits and their display names.
+// ---- Derive kits from pool folders ----
+// Each subfolder in pool/ is a kit. Folder names become kit display names.
 // Kit names stored in string slots 600-607. Kit count at KIT_COUNT.
-function scan_kits() local(mf, kit_idx) (
+// Must be called AFTER scan_pool() which populates pool_folder_count and slots 700+.
+function scan_kits() local(kit_idx, fi) (
   KIT_COUNT[] = 0;
   kit_idx = 0;
-  mf = file_open("kits/manifest.txt");
-  mf >= 0 ? (
-    file_text(mf);
-    while(file_avail(mf) > 0 && kit_idx < 8) (
-      file_string(mf, #kit_line);
-      // Trim trailing whitespace
-      while(strlen(#kit_line) > 0 &&
-            str_getchar(#kit_line, strlen(#kit_line) - 1) <= 32) (
-        str_setlen(#kit_line, strlen(#kit_line) - 1);
-      );
-      // Check for kit separator
-      strcmp(#kit_line, "---") == 0 ? (
-        // Next line is the kit name
-        file_avail(mf) > 0 ? (
-          file_string(mf, 600 + kit_idx);
-          // Trim trailing whitespace from name
-          while(strlen(600 + kit_idx) > 0 &&
-                str_getchar(600 + kit_idx, strlen(600 + kit_idx) - 1) <= 32) (
-            str_setlen(600 + kit_idx, strlen(600 + kit_idx) - 1);
-          );
-          kit_idx += 1;
-        );
-      );
+  // Pool folder 0 = "ALL" (virtual), folders 1+ are real subfolders = kits
+  fi = 1;
+  loop(pool_folder_count,
+    kit_idx < 8 ? (
+      strcpy(600 + kit_idx, 700 + fi);
+      kit_idx += 1;
     );
-    file_close(mf);
+    fi += 1;
   );
   KIT_COUNT[] = kit_idx;
 );
 
 // ---- Load initial kit (first run only) ----
-// Kits discovered from kits/manifest.txt (any folder name, any filenames).
-// Fallback: legacy kits/{1-8}/{01-16}.wav if no manifest exists.
+// Kits = subfolders in pool/. Each folder's first 16 .wav files map to pads.
 // Guard: only load on first @init. Subsequent @init (sample rate change,
 // undo, etc.) must NOT wipe pool-loaded samples.
 !init_done ? (
@@ -501,13 +451,13 @@ function scan_kits() local(mf, kit_idx) (
   init_done = 1;
 );
 
-// ---- Sample pool (for right-click pad assignment) ----
-// Pool lives in: <effect_dir>/pool/*.wav
-// Run scan_pool.sh to generate pool/manifest.txt
+// ---- Sample pool ----
+// Pool lives in: <effect_dir>/pool/*.wav (and subfolders).
+// Subfolders = kits. Drop a folder of .wav files → it becomes a kit.
 scan_pool();
 
-// ---- Kit manifest ----
-// Drop any folder into kits/, run rescan. Names appear in GUI.
+// ---- Kit list (derived from pool subfolders) ----
+// Drop any folder of .wav files into pool/, run rescan. Names appear in GUI.
 scan_kits();
 
 // ---- Pool load request (GFX → block communication) ----
@@ -1314,6 +1264,19 @@ spl1 = out_r * master_vol;
 // ============================================================
 @gfx 750 720
 
+// ============================================================================
+//  SCALING — compute scale factor from actual window size vs nominal
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 750;
+S < 0.5 ? S = 0.5;
+
+// Scaled font sizes
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
 // ---- Bounds-check UI state ----
 ui_selected_pad = max(0, min(NUM_PADS - 1, ui_selected_pad | 0));
 
@@ -1322,30 +1285,43 @@ gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
 
 // ---- Layout constants ----
-margin = 10;
-pad_area_y = 38;
-pad_area_h = 180;
-seq_area_y = pad_area_y + pad_area_h + 20;
-seq_area_h = 180;
-mixer_y = seq_area_y + seq_area_h + 20;
+margin = floor(10 * S);
+pad_area_y = floor(38 * S);
+pad_area_h = floor(180 * S);
+seq_area_y = pad_area_y + pad_area_h + floor(20 * S);
+seq_area_h = floor(180 * S);
+mixer_y = seq_area_y + seq_area_h + floor(20 * S);
+
+// ---- Logo ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(16 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(4 * S);
+  logo_y = floor(2 * S);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
 
 // ============================================
 // KIT NAVIGATION: [<] Kit Name [>]
 // ============================================
-kit_nav_y = 2;
-kit_nav_h = 18;
-kit_arrow_w = 22;
-kit_name_w = 160;
-kit_nav_x = margin;
+kit_nav_y = floor(2 * S);
+kit_nav_h = floor(18 * S);
+kit_arrow_w = floor(22 * S);
+kit_name_w = floor(160 * S);
+kit_nav_x = logo_x + logo_w + floor(4 * S);
 max_kit = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
 
-gfx_setfont(1, "Arial", 12, 'b');
+gfx_setfont(1, "Arial", F_LABEL, 'b');
 
 // [<] button
 gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
 gfx_rect(kit_nav_x, kit_nav_y, kit_arrow_w, kit_nav_h);
 gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
-gfx_x = kit_nav_x + 7; gfx_y = kit_nav_y + 3;
+gfx_x = kit_nav_x + floor(7 * S); gfx_y = kit_nav_y + floor(3 * S);
 gfx_drawchar($'<');
 mouse_cap & 1 && !(last_mouse_cap & 1) &&
   mouse_x >= kit_nav_x && mouse_x < kit_nav_x + kit_arrow_w &&
@@ -1356,9 +1332,9 @@ mouse_cap & 1 && !(last_mouse_cap & 1) &&
 
 // Kit name display
 gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
-gfx_rect(kit_nav_x + kit_arrow_w + 2, kit_nav_y, kit_name_w, kit_nav_h);
+gfx_rect(kit_nav_x + kit_arrow_w + floor(2 * S), kit_nav_y, kit_name_w, kit_nav_h);
 gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
-gfx_x = kit_nav_x + kit_arrow_w + 8; gfx_y = kit_nav_y + 3;
+gfx_x = kit_nav_x + kit_arrow_w + floor(8 * S); gfx_y = kit_nav_y + floor(3 * S);
 KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
   gfx_drawstr(600 + slider7);
 ) : (
@@ -1367,11 +1343,11 @@ KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
 );
 
 // [>] button
-kit_next_x = kit_nav_x + kit_arrow_w + 2 + kit_name_w + 2;
+kit_next_x = kit_nav_x + kit_arrow_w + floor(2 * S) + kit_name_w + floor(2 * S);
 gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
 gfx_rect(kit_next_x, kit_nav_y, kit_arrow_w, kit_nav_h);
 gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
-gfx_x = kit_next_x + 7; gfx_y = kit_nav_y + 3;
+gfx_x = kit_next_x + floor(7 * S); gfx_y = kit_nav_y + floor(3 * S);
 gfx_drawchar($'>');
 mouse_cap & 1 && !(last_mouse_cap & 1) &&
   mouse_x >= kit_next_x && mouse_x < kit_next_x + kit_arrow_w &&
@@ -1381,9 +1357,9 @@ mouse_cap & 1 && !(last_mouse_cap & 1) &&
 );
 
 // Pad count indicator (right of kit name)
-gfx_setfont(1, "Arial", 10);
+gfx_setfont(1, "Arial", F_TINY);
 gfx_r = 0.45; gfx_g = 0.45; gfx_b = 0.50;
-gfx_x = kit_next_x + kit_arrow_w + 8; gfx_y = kit_nav_y + 4;
+gfx_x = kit_next_x + kit_arrow_w + floor(8 * S); gfx_y = kit_nav_y + floor(4 * S);
 gfx_drawnumber(kit_loaded, 0);
 gfx_drawstr("/16 loaded");
 
@@ -1394,7 +1370,7 @@ pad_size = min((gfx_w - margin * 5) / 4, (pad_area_h - margin * 5) / 4);
 pad_grid_w = pad_size * 4 + margin * 3;
 pad_grid_x = (gfx_w - pad_grid_w) / 2;
 
-gfx_setfont(1, "Arial", 12);
+gfx_setfont(1, "Arial", F_LABEL);
 
 gfx_p = 0;
 loop(NUM_PADS,
@@ -1550,7 +1526,7 @@ loop(NUM_PADS,
   gfx_drawnumber(gfx_p + 1, 0);
 
   // Link group badge (bottom-left)
-  gfx_setfont(1, "Arial", 9);
+  gfx_setfont(1, "Arial", F_TINY);
   PAD_LINK_GROUP[gfx_p] > 0 ? (
     PAD_LINK_ROLE[gfx_p] == 0 ? (
       gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.1;  // orange = Daddy
@@ -1569,7 +1545,7 @@ loop(NUM_PADS,
     gfx_drawstr("C");
     gfx_drawnumber(PAD_CHOKE_GROUP[gfx_p], 0);
   );
-  gfx_setfont(1, "Arial", 12);
+  gfx_setfont(1, "Arial", F_LABEL);
 
   gfx_p += 1;
 );
@@ -2445,6 +2421,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
 // gmem[0] = 1: rescan pool, gmem[1] = new sample index, gmem[2] = 1: auto-load
 gmem[0] > 0 ? (
   scan_pool();
+  scan_kits();  // kits derived from pool folders
   gmem[2] > 0 && gmem[1] >= 0 && gmem[1] < pool_count ? (
     pool_load_idx = gmem[1];
     pool_load_pad = ui_selected_pad;
@@ -2454,8 +2431,9 @@ gmem[0] > 0 ? (
   gmem[2] = 0;
 );
 
-// -- gmem[7]: ReaScript signals kit rescan (after adding new kit folders) --
+// -- gmem[7]: ReaScript signals kit rescan (pool folders changed) --
 gmem[7] > 0 ? (
+  scan_pool();
   scan_kits();
   loaded_kit_num = -1; // force reload on next @block
   gmem[7] = 0;
@@ -3464,7 +3442,7 @@ slider6 == 1 ? (
 // ============================================
 // MIDI ROOT NOTE DISPLAY + OCTAVE BUTTONS
 // ============================================
-gfx_setfont(1, "Arial", 12);
+gfx_setfont(1, "Arial", F_LABEL);
 
 // Note name lookup
 root_note = slider8;
@@ -3543,11 +3521,11 @@ warn_timer > 0 ? (
 notice_btn_x = gfx_w - 60;
 notice_btn_y = gfx_h - 18;
 gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
 gfx_r = 0; gfx_g = 0; gfx_b = 0;
-gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
 gfx_drawstr("NOTICE");
-(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + 55 && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + 15 && !notice_clicked ? (
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
   notice_show = !notice_show;
   notice_clicked = 1;
 );
@@ -3556,7 +3534,7 @@ notice_show ? (
   gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
   gfx_rect(0, 0, gfx_w, gfx_h);
   gfx_a = 1;
-  gfx_setfont(1, "Arial", 10);
+  gfx_setfont(1, "Arial", F_TINY);
   _nx = 15; _ny = 8; _nl = 13;
   // -- Title --
   gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
@@ -3643,12 +3621,12 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("  Follow = live pattern. Lock 1-8 = capture + edit snapshots."); _ny += _nl;
 
-  gfx_setfont(1, "Arial", 12);
+  gfx_setfont(1, "Arial", F_LABEL);
   // Redraw NOTICE button on top so it's clickable
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-  gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
-  gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
   gfx_drawstr("NOTICE");
 );
 

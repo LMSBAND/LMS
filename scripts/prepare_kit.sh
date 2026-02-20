@@ -8,7 +8,10 @@ set -euo pipefail
 #   ./prepare_kit.sh synth [kit_name]              — Generate synthetic drum kit (ffmpeg)
 #   ./prepare_kit.sh convert <source_folder> [kit_name] — Convert existing samples
 #
-# Output: ~/.config/REAPER/Effects/DRUMBANGER/kits/<kit_name>/01.wav-16.wav
+# Output: ~/.config/REAPER/Effects/DRUMBANGER/pool/<kit_name>/
+#
+# Subfolders in pool/ become kits in DRUMBANGER.
+# First 16 .wav files (alphabetical) per folder map to pads 1-16.
 #
 # Standard pad mapping:
 #   01=Kick, 02=Snare, 03=Rimshot, 04=Clap,
@@ -19,7 +22,7 @@ set -euo pipefail
 
 REAPER_EFFECTS="$HOME/.config/REAPER/Effects"
 DRUMBOX_DIR="$REAPER_EFFECTS/DRUMBANGER"
-KITS_DIR="$DRUMBOX_DIR/kits"
+POOL_DIR="$DRUMBOX_DIR/pool"
 
 # Pad names for display and file matching
 PAD_NAMES=(
@@ -88,7 +91,7 @@ convert_sample() {
 
 generate_synth_kit() {
   local kit_name="${1:-synth}"
-  local out_dir="$KITS_DIR/$kit_name"
+  local out_dir="$POOL_DIR/$kit_name"
   ensure_dir "$out_dir"
 
   local tmpdir
@@ -255,18 +258,10 @@ generate_synth_kit() {
     fi
   done
 
-  # Write kit.txt metadata
-  cat > "$out_dir/kit.txt" <<KITEOF
-name: Synth Kit
-description: Synthetic drum sounds generated with ffmpeg
-author: DRUMBANGER prepare_kit.sh
-license: Public Domain
-date: $(date +%Y-%m-%d)
-KITEOF
-
   echo ""
   echo "Done! Kit '$kit_name' ready at: $out_dir"
   echo "Samples: $(ls "$out_dir"/*.wav 2>/dev/null | wc -l)/16"
+  echo "Run the DRUMBANGER Rescan action in REAPER to detect the new kit."
 }
 
 # ============================================================
@@ -276,7 +271,7 @@ KITEOF
 convert_existing_kit() {
   local source_dir="$1"
   local kit_name="${2:-custom}"
-  local out_dir="$KITS_DIR/$kit_name"
+  local out_dir="$POOL_DIR/$kit_name"
 
   if [ ! -d "$source_dir" ]; then
     echo "ERROR: Source directory not found: $source_dir"
@@ -347,17 +342,10 @@ convert_existing_kit() {
     done
   fi
 
-  # Write kit.txt
-  cat > "$out_dir/kit.txt" <<KITEOF
-name: $kit_name
-description: Converted from $(basename "$source_dir")
-source: $source_dir
-date: $(date +%Y-%m-%d)
-KITEOF
-
   echo ""
   echo "Done! Kit '$kit_name' ready at: $out_dir"
   echo "Samples: $(ls "$out_dir"/*.wav 2>/dev/null | wc -l)/16"
+  echo "Run the DRUMBANGER Rescan action in REAPER to detect the new kit."
 }
 
 # ============================================================
@@ -371,7 +359,9 @@ usage() {
   echo "  $(basename "$0") synth [kit_name]                  Generate synthetic test kit"
   echo "  $(basename "$0") convert <source_folder> [kit_name] Convert existing samples"
   echo ""
-  echo "Output: $KITS_DIR/<kit_name>/"
+  echo "Output: $POOL_DIR/<kit_name>/"
+  echo ""
+  echo "Kits are subfolders in pool/. Drop a folder of .wav files to add a kit."
   echo ""
   echo "Pad mapping:"
   for i in $(seq 0 15); do

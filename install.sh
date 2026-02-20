@@ -67,10 +67,11 @@ for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
     echo "  Copied $(basename "$f") → Scripts/LMS/"
 done
 
-# Copy kits (only if they exist and have content)
-if [ -d "$SCRIPT_DIR/kits" ]; then
-    cp -r "$SCRIPT_DIR/kits/"* "$DEST/kits/" 2>/dev/null && \
-        echo "  Copied kits/" || echo "  No kits to copy (add your own!)"
+# Copy pool samples (kits are subfolders in pool/)
+if [ -d "$SCRIPT_DIR/pool" ]; then
+    mkdir -p "$DEST/pool"
+    cp -r "$SCRIPT_DIR/pool/"* "$DEST/pool/" 2>/dev/null && \
+        echo "  Copied pool/ (kits + samples)" || echo "  No pool samples to copy (add your own!)"
 fi
 
 echo ""

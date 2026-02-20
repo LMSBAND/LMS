@@ -1,13 +1,13 @@
--- DRUMBANGER: Rescan Pool + Kits
--- --------------------------------
+-- DRUMBANGER: Rescan Pool
+-- -----------------------
 -- Scans the pool folder (including subfolders) and rebuilds pool/manifest.txt.
--- Also scans the kits folder and rebuilds kits/manifest.txt.
--- Run this after adding .wav files to pool or dropping kit folders into kits/.
+-- Subfolders in pool/ become kits — drop a folder of .wav files to add a kit.
+-- Run this after adding .wav files or folders to pool/.
 --
 -- Pool folder: <REAPER resource>/Effects/DRUMBANGER/pool/
--- Kit folder:  <REAPER resource>/Effects/DRUMBANGER/kits/
---   Drop ANY folder of .wav files into kits/ — no renaming needed!
---   First 16 .wav files (alphabetical) map to pads 1-16.
+--   Drop .wav files at root for loose samples.
+--   Drop a FOLDER of .wav files to create a kit.
+--   First 16 .wav files (alphabetical) per folder map to pads 1-16.
 --
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 -- Assign a keyboard shortcut for quick rescanning.
@@ -41,67 +41,12 @@ local function scan_dir(base_dir, rel_prefix, results)
   end
 end
 
-local function scan_kits(kits_dir)
-  local kit_count = 0
-  local manifest_lines = {}
-
-  -- Enumerate subdirectories in kits/
-  local dirs = {}
-  local d = 0
-  while true do
-    local dirname = reaper.EnumerateSubdirectories(kits_dir, d)
-    if not dirname then break end
-    dirs[#dirs + 1] = dirname
-    d = d + 1
-  end
-  table.sort(dirs)
-
-  for _, dirname in ipairs(dirs) do
-    if kit_count >= 8 then break end
-    local kit_path = kits_dir .. "/" .. dirname
-
-    -- Find wav files in this kit folder (non-recursive, first 16)
-    local wavs = {}
-    local i = 0
-    while true do
-      local fname = reaper.EnumerateFiles(kit_path, i)
-      if not fname then break end
-      if fname:lower():match("%.wav$") then
-        wavs[#wavs + 1] = fname
-      end
-      i = i + 1
-    end
-
-    if #wavs > 0 then
-      table.sort(wavs)
-      manifest_lines[#manifest_lines + 1] = "---"
-      manifest_lines[#manifest_lines + 1] = dirname
-      for j = 1, math.min(16, #wavs) do
-        manifest_lines[#manifest_lines + 1] = dirname .. "/" .. wavs[j]
-      end
-      kit_count = kit_count + 1
-    end
-  end
-
-  local f = io.open(kits_dir .. "/manifest.txt", "w")
-  if f then
-    for _, line in ipairs(manifest_lines) do
-      f:write(line .. "\n")
-    end
-    f:close()
-  end
-
-  return kit_count
-end
-
 local function main()
   local resource_path = reaper.GetResourcePath()
   local pool_dir = resource_path .. "/Effects/DRUMBANGER/pool"
-  local kits_dir = resource_path .. "/Effects/DRUMBANGER/kits"
   reaper.RecursiveCreateDirectory(pool_dir, 0)
-  reaper.RecursiveCreateDirectory(kits_dir, 0)
 
-  -- Pool scan
+  -- Pool scan (includes subfolders = kits)
   local results = {}
   scan_dir(pool_dir, "", results)
   table.sort(results)
@@ -114,29 +59,30 @@ local function main()
     f:close()
   end
 
-  -- Kit scan
-  local kit_count = scan_kits(kits_dir)
+  -- Count folders (= kits)
+  local folders = {}
+  for _, entry in ipairs(results) do
+    local folder = entry:match("^(.+)/")
+    if folder and not folders[folder] then
+      folders[folder] = true
+    end
+  end
+  local kit_count = 0
+  for _ in pairs(folders) do kit_count = kit_count + 1 end
 
-  -- Signal JSFX to reload pool + kits
+  -- Signal JSFX to reload
   reaper.gmem_attach(GMEM_NAME)
-  reaper.gmem_write(0, 1)  -- pool rescan signal
-  reaper.gmem_write(7, 1)  -- kit rescan signal
+  reaper.gmem_write(0, 1)  -- pool rescan signal (also rebuilds kit list)
 
   reaper.ShowConsoleMsg(
-    string.format("DRUMBANGER: Pool rescanned — %d samples found\n", #results))
-  reaper.ShowConsoleMsg(
-    string.format("DRUMBANGER: Kits rescanned — %d kits found\n", kit_count))
+    string.format("DRUMBANGER: Pool rescanned — %d samples, %d kits (folders)\n",
+      #results, kit_count))
 
   if #results == 0 then
     reaper.ShowConsoleMsg(
       "  Pool folder: " .. pool_dir .. "\n"..
-      "  Drop .wav files there (use subfolders to organize).\n"..
-      "  Then run this action again.\n")
-  end
-  if kit_count == 0 then
-    reaper.ShowConsoleMsg(
-      "  Kits folder: " .. kits_dir .. "\n"..
-      "  Drop a folder of .wav files there — any name, any filenames!\n"..
+      "  Drop .wav files there for loose samples.\n"..
+      "  Drop a FOLDER of .wav files to create a kit.\n"..
       "  Then run this action again.\n")
   end
 end

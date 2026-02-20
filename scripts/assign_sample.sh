@@ -1,30 +1,33 @@
 #!/bin/bash
 # assign_sample.sh — Assign a single wav file to a specific pad in a kit
 #
-# Usage:  ./assign_sample.sh <wav_file> <kit_number 1-8> <pad_number 1-16>
-# Example: ./assign_sample.sh ~/Downloads/my_kick.wav 2 1
+# Usage:  ./assign_sample.sh <wav_file> <kit_folder_name> <pad_number 1-16>
+# Example: ./assign_sample.sh ~/Downloads/my_kick.wav Kit1-808 1
 #
-# Copies the wav file into the kit folder as the correct pad number.
-# Switch kits in the plugin to hear the change (or switch away and back).
+# Copies the wav file into the pool kit folder as the correct pad number.
+# Run the DRUMBANGER Rescan action in REAPER after assigning.
 
 set -e
 
-KITS_DIR="$HOME/.config/REAPER/Effects/DRUMBANGER/kits"
+POOL_DIR="$HOME/.config/REAPER/Effects/DRUMBANGER/pool"
 
 if [ $# -lt 3 ]; then
-    echo "Usage: $0 <wav_file> <kit 1-8> <pad 1-16>"
+    echo "Usage: $0 <wav_file> <kit_folder_name> <pad 1-16>"
     echo ""
-    echo "Example: $0 ~/Downloads/fat_kick.wav 2 1"
-    echo "  → Assigns fat_kick.wav to Pad 1 of Kit 2"
+    echo "Example: $0 ~/Downloads/fat_kick.wav Kit1-808 1"
+    echo "  → Assigns fat_kick.wav to Pad 1 of Kit1-808"
     echo ""
-    echo "Current kit contents:"
-    for k in 1 2 3 4 5 6 7 8; do
-        dir="$KITS_DIR/$k"
-        if [ -d "$dir" ] && ls "$dir"/*.wav &>/dev/null; then
-            count=$(ls "$dir"/*.wav 2>/dev/null | wc -l)
-            echo "  Kit $k: $count pads loaded"
-        fi
-    done
+    echo "Kits are subfolders in pool/. Current pool contents:"
+    if [ -d "$POOL_DIR" ]; then
+        for dir in "$POOL_DIR"/*/; do
+            [ -d "$dir" ] || continue
+            dirname=$(basename "$dir")
+            count=$(find "$dir" -maxdepth 1 -iname "*.wav" 2>/dev/null | wc -l)
+            echo "  $dirname: $count samples"
+        done
+    else
+        echo "  (pool folder not found)"
+    fi
     exit 1
 fi
 
@@ -37,20 +40,15 @@ if [ ! -f "$WAV" ]; then
     exit 1
 fi
 
-if [ "$KIT" -lt 1 ] || [ "$KIT" -gt 8 ]; then
-    echo "Error: kit must be 1-8"
-    exit 1
-fi
-
 if [ "$PAD" -lt 1 ] || [ "$PAD" -gt 16 ]; then
     echo "Error: pad must be 1-16"
     exit 1
 fi
 
-DEST="$KITS_DIR/$KIT"
+DEST="$POOL_DIR/$KIT"
 mkdir -p "$DEST"
 
 PADNUM=$(printf "%02d" "$PAD")
 cp "$WAV" "$DEST/$PADNUM.wav"
-echo "Pad $PAD (Kit $KIT) ← $(basename "$WAV")"
-echo "Switch to Kit $KIT in DRUMBANGER to hear it."
+echo "Pad $PAD ($KIT) ← $(basename "$WAV")"
+echo "Run the DRUMBANGER Rescan action in REAPER to pick up the change."

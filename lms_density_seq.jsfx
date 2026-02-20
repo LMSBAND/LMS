@@ -3,6 +3,8 @@ desc:LMS - Density Sequencer (gmem reactive)
 //author: LMS + Claude
 //version: 0.1
 //license: GPL-3.0
+filename:0,shakebot_logo.png
+
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
@@ -440,13 +442,49 @@ gmem[50023] = d_hi;
 gmem[50024] = d_air;
 
 @gfx 500 300
-gfx_set(1, 1, 1);
-gfx_x = 10; gfx_y = 10;
-gfx_drawstr("=== DENSITY SEQUENCER ===");
+
+// ============================================================================
+//  SCALING — compute scale factor from actual window size vs nominal
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 500;
+S < 0.5 ? S = 0.5;
+
+// Scaled font sizes
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+// ---- Background ----
+gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.07;
+gfx_rect(0, 0, gfx_w, gfx_h);
+hdr_h = floor(44 * S);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_r = 0.57; gfx_g = 0.47; gfx_b = 0.21;
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ---- Logo + Title ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
+gfx_set(0.95, 0.78, 0.35);
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
+gfx_drawstr("DENSITY SEQUENCER");
 
 // Mode
-gfx_x = 10; gfx_y = 30;
+gfx_x = floor(10 * S); gfx_y = hdr_h + floor(6 * S);
 gfx_set(1, 0.8, 0.2);
+gfx_setfont(1, "Arial", F_LABEL);
 mode == 0 ? gfx_drawstr("MODE: DRUMS")
 : mode == 1 ? gfx_drawstr("MODE: BASS SYNTH")
 : mode == 2 ? gfx_drawstr("MODE: ARP")
@@ -454,101 +492,104 @@ mode == 0 ? gfx_drawstr("MODE: DRUMS")
 
 // Density bars
 gfx_set(1, 1, 1);
-gfx_x = 10; gfx_y = 55;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(10 * S); gfx_y = hdr_h + floor(22 * S);
 gfx_drawstr("DENSITY INPUT:");
 
-bar_x = 10;
-bar_y = 70;
-bar_w = 100;
-bar_h = 12;
+bar_x = floor(10 * S);
+bar_y = hdr_h + floor(36 * S);
+bar_w = floor(100 * S);
+bar_h = floor(12 * S);
 
 // Lo
 gfx_set(0.12, 0.31, 0.86);
 gfx_rect(bar_x, bar_y, bar_w * min(1, d_lo), bar_h);
 gfx_set(0.3, 0.3, 0.3);
 gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
-gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + floor(5 * S); gfx_y = bar_y + floor(1 * S);
 gfx_drawstr("LO "); gfx_drawnumber(d_lo, 3);
 
 // Mid
-bar_y += 16;
+bar_y += floor(16 * S);
 gfx_set(0.86, 0.63, 0.12);
 gfx_rect(bar_x, bar_y, bar_w * min(1, d_mid), bar_h);
 gfx_set(0.3, 0.3, 0.3);
 gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
-gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + floor(5 * S); gfx_y = bar_y + floor(1 * S);
 gfx_drawstr("MID "); gfx_drawnumber(d_mid, 3);
 
 // Hi
-bar_y += 16;
+bar_y += floor(16 * S);
 gfx_set(0.86, 0.24, 0.12);
 gfx_rect(bar_x, bar_y, bar_w * min(1, d_hi), bar_h);
 gfx_set(0.3, 0.3, 0.3);
 gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
-gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + floor(5 * S); gfx_y = bar_y + floor(1 * S);
 gfx_drawstr("HI "); gfx_drawnumber(d_hi, 3);
 
 // Air
-bar_y += 16;
+bar_y += floor(16 * S);
 gfx_set(0.71, 0.16, 0.86);
 gfx_rect(bar_x, bar_y, bar_w * min(1, d_air), bar_h);
 gfx_set(0.3, 0.3, 0.3);
 gfx_rect(bar_x, bar_y, bar_w, bar_h, 0);
-gfx_set(1,1,1); gfx_x = bar_x + bar_w + 5; gfx_y = bar_y + 1;
+gfx_set(1,1,1); gfx_x = bar_x + bar_w + floor(5 * S); gfx_y = bar_y + floor(1 * S);
 gfx_drawstr("AIR "); gfx_drawnumber(d_air, 3);
 
 // Step display (pattern memory as color grid)
-grid_x = 10;
-grid_y = 150;
-cell_w = 28;
-cell_h = 28;
+grid_x = floor(10 * S);
+grid_y = hdr_h + floor(106 * S);
+cell_w = floor(28 * S);
+cell_h = floor(28 * S);
 gfx_set(1,1,1);
-gfx_x = 10; gfx_y = 138;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = floor(10 * S); gfx_y = grid_y - floor(12 * S);
 gfx_drawstr("PATTERN (last 16 steps — brighter = more energy):");
 
 i = 0;
 loop(pat_len,
-  px = grid_x + i * (cell_w + 2);
+  px = grid_x + i * (cell_w + floor(2 * S));
   py = grid_y;
-  
+
   p_lo = pat_base[i * 4];
   p_mid = pat_base[i * 4 + 1];
   p_hi = pat_base[i * 4 + 2];
   p_air = pat_base[i * 4 + 3];
-  
+
   // Color from band mix
   cr = min(1, p_mid * 2 + p_hi * 1.5);
   cg = min(1, p_lo * 1.5 + p_mid * 0.5);
   cb = min(1, p_air * 3 + p_hi * 0.5);
-  
+
   // Current step highlight
   i == (current_step % pat_len) ? (
     gfx_set(1, 1, 1, 0.3);
-    gfx_rect(px - 1, py - 1, cell_w + 2, cell_h + 2);
+    gfx_rect(px - floor(1 * S), py - floor(1 * S), cell_w + floor(2 * S), cell_h + floor(2 * S));
   );
-  
+
   gfx_set(cr * 0.8, cg * 0.8, cb * 0.8);
   gfx_rect(px, py, cell_w, cell_h);
-  
+
   // Beat markers
   i % 4 == 0 ? (
     gfx_set(1, 1, 1, 0.15);
-    gfx_rect(px, py + cell_h - 2, cell_w, 2);
+    gfx_rect(px, py + cell_h - floor(2 * S), cell_w, floor(2 * S));
   );
-  
+
   i += 1;
 );
 
 // Step counter
 gfx_set(0.5, 1, 0.5);
-gfx_x = 10; gfx_y = grid_y + cell_h + 8;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(10 * S); gfx_y = grid_y + cell_h + floor(8 * S);
 gfx_drawstr("Step: "); gfx_drawnumber(current_step % pat_len + 1, 0);
 gfx_drawstr("/"); gfx_drawnumber(pat_len, 0);
 gfx_drawstr("  BPM: "); gfx_drawnumber(bpm, 0);
 
 // Active voices
 gfx_set(1, 0.8, 0.2);
-gfx_x = 10; gfx_y = grid_y + cell_h + 24;
+gfx_x = floor(10 * S); gfx_y = grid_y + cell_h + floor(24 * S);
 voices_active = kick.active + snare.active + hat.active + cymbal.active +
                 mel0.active + mel1.active + mel2.active + mel3.active +
                 drone0.active + drone1.active;
