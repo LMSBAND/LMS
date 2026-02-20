@@ -1,6 +1,8 @@
 desc:NUUG 420
 //tags: synthesizer instrument mono moog
 //author: LMS
+filename:0,shakebot_logo.png
+
 
 import lms_core.jsfx-inc
 
@@ -1484,6 +1486,19 @@ spl1 = out_r;
 @gfx 750 480
 
 // ============================================================================
+//  SCALING — compute scale factor from actual window size vs nominal
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 750;
+S < 0.5 ? S = 0.5;
+
+// Scaled font sizes
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
+// ============================================================================
 //  COLOR PALETTE
 // ============================================================================
 COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
@@ -1506,12 +1521,26 @@ gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
 
 // Top strip — darker header band
+hdr_h = floor(58 * S);
 gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
-gfx_rect(0, 0, gfx_w, 58);
+gfx_rect(0, 0, gfx_w, hdr_h);
 
 // Header accent line (warm gold)
 gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
-gfx_rect(0, 58, gfx_w, 2);
+gfx_rect(0, hdr_h, gfx_w, floor(2 * S));
+
+// ---- Logo ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
 
 // ============================================================================
 //  HELPER: draw_bar — slick slider bar with glow fill
@@ -1546,14 +1575,14 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 
   // Label (left)
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", 12);
-  gfx_x = bx + 5; gfx_y = by + floor((bh - 12) / 2);
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = bx + floor(5 * S); gfx_y = by + floor((bh - F_LABEL) / 2);
   gfx_drawstr(label);
 
   // Value (right)
   show_val ? (
-    gfx_setfont(1, "Arial", 11);
-    gfx_x = bx + bw - 40; gfx_y = by + floor((bh - 11) / 2);
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
     gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
 
@@ -1580,11 +1609,11 @@ function draw_panel(px, py, pw, ph, title) (
 
   // Header bar
   gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, 22);
+  gfx_rect(px, py, pw, floor(22 * S));
 
   // Header bottom accent
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + 22, pw, 1);
+  gfx_rect(px, py + floor(22 * S), pw, 1);
 
   // Panel border
   gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
@@ -1595,8 +1624,8 @@ function draw_panel(px, py, pw, ph, title) (
 
   // Title text
   gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", 12);
-  gfx_x = px + 8; gfx_y = py + 4;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
   gfx_drawstr(title);
 );
 
@@ -1614,7 +1643,7 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 
   // Draw actual waveform shape
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  cx = wx + 4; cw = ww - 8; cmid = wy + floor(wh/2); camp = floor(wh/2) - 3;
+  cx = wx + floor(4 * S); cw = ww - floor(8 * S); cmid = wy + floor(wh/2); camp = floor(wh/2) - floor(3 * S);
 
   wave_val == 0 ? ( // Saw — ramp up then drop
     gfx_x = cx; gfx_y = cmid + camp;
@@ -1656,17 +1685,17 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 
   // Label text underneath shape
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", 9);
-  wave_val == 0 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SAW"); )
-  : wave_val == 1 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SQR"); )
-  : wave_val == 2 ? ( gfx_x = wx + floor((ww - 16)/2); gfx_y = wy + wh + 1; gfx_drawstr("TRI"); )
-  : wave_val == 3 ? ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("SIN"); )
-  : ( gfx_x = wx + floor((ww - 20)/2); gfx_y = wy + wh + 1; gfx_drawstr("NSE"); );
+  gfx_setfont(1, "Arial", F_TINY);
+  wave_val == 0 ? ( gfx_x = wx + floor((ww - floor(20 * S))/2); gfx_y = wy + wh + floor(1 * S); gfx_drawstr("SAW"); )
+  : wave_val == 1 ? ( gfx_x = wx + floor((ww - floor(20 * S))/2); gfx_y = wy + wh + floor(1 * S); gfx_drawstr("SQR"); )
+  : wave_val == 2 ? ( gfx_x = wx + floor((ww - floor(16 * S))/2); gfx_y = wy + wh + floor(1 * S); gfx_drawstr("TRI"); )
+  : wave_val == 3 ? ( gfx_x = wx + floor((ww - floor(20 * S))/2); gfx_y = wy + wh + floor(1 * S); gfx_drawstr("SIN"); )
+  : ( gfx_x = wx + floor((ww - floor(20 * S))/2); gfx_y = wy + wh + floor(1 * S); gfx_drawstr("NSE"); );
 
   // Click to cycle
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= wx && mouse_x <= wx + ww &&
-    mouse_y >= wy && mouse_y <= wy + wh + 12 ? (
+    mouse_y >= wy && mouse_y <= wy + wh + floor(12 * S) ? (
       wave_val = (wave_val + 1) % (max_waves + 1);
   );
 
@@ -1679,27 +1708,27 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 function draw_toggle(tx, ty, is_on, label) (
   // Outer ring
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + 8, ty + 8, 7, 0);
+  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
   // Inner fill
   is_on ? (
     gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + 8, ty + 8, 5, 1);
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
   ) : (
     gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + 8, ty + 8, 5, 1);
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
   );
   // Label
   gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
   gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
   gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", 11);
-  gfx_x = tx + 20; gfx_y = ty + 1;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
   gfx_drawstr(label);
 
   // Click
   (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + 80 &&
-    mouse_y >= ty && mouse_y <= ty + 16 ? (
+    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
+    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
       is_on = 1 - is_on;
   );
   is_on;
@@ -1710,11 +1739,11 @@ function draw_toggle(tx, ty, is_on, label) (
 // ============================================================================
 function draw_mode_sel(mx, my, label, value_str) (
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", 11);
+  gfx_setfont(1, "Arial", F_SMALL);
   gfx_x = mx; gfx_y = my;
   gfx_drawstr(label);
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_setfont(1, "Arial", 12);
+  gfx_setfont(1, "Arial", F_LABEL);
   gfx_drawstr("  ");
   gfx_drawstr(value_str);
 );
@@ -1722,31 +1751,32 @@ function draw_mode_sel(mx, my, label, value_str) (
 // ============================================================================
 //  LAYOUT CONSTANTS
 // ============================================================================
-margin = 10;
-gap = 6;
-bar_h = 18;
-bar_sp = 21;
+margin = floor(10 * S);
+gap = floor(6 * S);
+bar_h = floor(18 * S);
+bar_sp = floor(21 * S);
 col_w = floor((gfx_w - margin * 2 - gap * 2) / 3);
-body_y = 64;
+body_y = floor(64 * S);
 
 // ============================================================================
 //  TITLE BAR
 // ============================================================================
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
-gfx_setfont(1, "Arial", 22);
-gfx_x = 18; gfx_y = 10;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
 gfx_drawstr("NUUG 420");
 
 // Subtitle
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 11);
-gfx_x = 18; gfx_y = 38;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_measurestr("Mono  //  Ladder Filter  //  Unison  //  FX", sub_w, sub_h);
+gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("Mono  //  Ladder Filter  //  Unison  //  FX");
 
 // Preset name (top bar, right of title)
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-gfx_setfont(1, "Arial", 12);
-gfx_x = 320; gfx_y = 14;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = floor(320 * S); gfx_y = floor(14 * S);
 gfx_drawstr("PRESET: ");
 gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
 slider49 == 0 ? gfx_drawstr("INIT")
@@ -1765,20 +1795,20 @@ slider49 == 0 ? gfx_drawstr("INIT")
 
 // Preset click — left=forward, right=backward
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= 320 && mouse_x < 500 &&
-  mouse_y >= 10 && mouse_y < 30 ? (
+  mouse_x >= floor(320 * S) && mouse_x < floor(500 * S) &&
+  mouse_y >= floor(10 * S) && mouse_y < floor(30 * S) ? (
   slider49 = (slider49 + 1) % 13;
 );
 (mouse_cap & 2) && !(last_cap & 2) &&
-  mouse_x >= 320 && mouse_x < 500 &&
-  mouse_y >= 10 && mouse_y < 30 ? (
+  mouse_x >= floor(320 * S) && mouse_x < floor(500 * S) &&
+  mouse_y >= floor(10 * S) && mouse_y < floor(30 * S) ? (
   slider49 = slider49 - 1;
   slider49 < 0 ? slider49 = 12;
 );
 
 // Note/vel display (top bar)
-gfx_setfont(1, "Arial", 11);
-gfx_x = 320; gfx_y = 34;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = floor(320 * S); gfx_y = floor(34 * S);
 gate ? (
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
   // Note name
@@ -1804,27 +1834,27 @@ gate ? (
 );
 
 // Envelope meters in top bar
-env_bar_y = 16; env_bar_h = 6;
+env_bar_y = floor(16 * S); env_bar_h = floor(6 * S); env_bar_w = floor(80 * S);
 // AMP
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 9);
-gfx_x = gfx_w - 280; gfx_y = env_bar_y - 2;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = gfx_w - floor(280 * S); gfx_y = env_bar_y - floor(2 * S);
 gfx_drawstr("AMP");
 gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-gfx_rect(gfx_w - 252, env_bar_y, 80, env_bar_h);
+gfx_rect(gfx_w - floor(252 * S), env_bar_y, env_bar_w, env_bar_h);
 gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-gfx_rect(gfx_w - 252, env_bar_y, amp_env_level * 80, env_bar_h);
+gfx_rect(gfx_w - floor(252 * S), env_bar_y, amp_env_level * env_bar_w, env_bar_h);
 // FILT
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_x = gfx_w - 280; gfx_y = env_bar_y + env_bar_h + 6;
+gfx_x = gfx_w - floor(280 * S); gfx_y = env_bar_y + env_bar_h + floor(6 * S);
 gfx_drawstr("FLT");
 gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-gfx_rect(gfx_w - 252, env_bar_y + env_bar_h + 6, 80, env_bar_h);
+gfx_rect(gfx_w - floor(252 * S), env_bar_y + env_bar_h + floor(6 * S), env_bar_w, env_bar_h);
 gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
-gfx_rect(gfx_w - 252, env_bar_y + env_bar_h + 6, filt_env_level * 80, env_bar_h);
+gfx_rect(gfx_w - floor(252 * S), env_bar_y + env_bar_h + floor(6 * S), filt_env_level * env_bar_w, env_bar_h);
 
 // RANDOMIZE button
-rand_btn_x = gfx_w - 145; rand_btn_y = 10; rand_btn_w = 130; rand_btn_h = 34;
+rand_btn_x = gfx_w - floor(145 * S); rand_btn_y = floor(10 * S); rand_btn_w = floor(130 * S); rand_btn_h = floor(34 * S);
 rand_flash > 0 ? (
   // Flash green
   flash_amt = rand_flash / 60;
@@ -1839,8 +1869,8 @@ gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
 gfx_rect(rand_btn_x, rand_btn_y, rand_btn_w, 2);
 // Button text
 gfx_r = 1; gfx_g = 1; gfx_b = 1;
-gfx_setfont(1, "Arial", 14);
-gfx_x = rand_btn_x + 14; gfx_y = rand_btn_y + 9;
+gfx_setfont(1, "Arial", max(8, floor(14 * S)));
+gfx_x = rand_btn_x + floor(14 * S); gfx_y = rand_btn_y + floor(9 * S);
 gfx_drawstr("RANDOMIZE!");
 
 // Click randomize
@@ -1851,9 +1881,9 @@ gfx_drawstr("RANDOMIZE!");
 );
 
 // Random Category selector — below RANDOMIZE button
-cat_x = rand_btn_x; cat_y = rand_btn_y + rand_btn_h + 4;
+cat_x = rand_btn_x; cat_y = rand_btn_y + rand_btn_h + floor(4 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_setfont(1, "Arial", 10);
+gfx_setfont(1, "Arial", F_TINY);
 gfx_x = cat_x; gfx_y = cat_y;
 gfx_drawstr("CAT: ");
 gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
@@ -1863,13 +1893,13 @@ slider50 == 0 ? gfx_drawstr("ALL")
 : slider50 == 3 ? gfx_drawstr("PAD")
 : gfx_drawstr("FX");
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= cat_x && mouse_x < cat_x + 80 &&
-  mouse_y >= cat_y && mouse_y < cat_y + 14 ? (
+  mouse_x >= cat_x && mouse_x < cat_x + floor(80 * S) &&
+  mouse_y >= cat_y && mouse_y < cat_y + floor(14 * S) ? (
   slider50 = (slider50 + 1) % 5;
 );
 (mouse_cap & 2) && !(last_cap & 2) &&
-  mouse_x >= cat_x && mouse_x < cat_x + 80 &&
-  mouse_y >= cat_y && mouse_y < cat_y + 14 ? (
+  mouse_x >= cat_x && mouse_x < cat_x + floor(80 * S) &&
+  mouse_y >= cat_y && mouse_y < cat_y + floor(14 * S) ? (
   slider50 = slider50 - 1;
   slider50 < 0 ? slider50 = 4;
 );
@@ -1877,59 +1907,59 @@ slider50 == 0 ? gfx_drawstr("ALL")
 // ============================================================================
 //  ROW 1: OSCILLATORS | FILTER | AMP + SCOPE
 // ============================================================================
-row1_h = 210;
+row1_h = floor(210 * S);
 
 // ---- OSCILLATORS ----
 osc_x = margin; osc_w = col_w;
 draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
 
-cy = body_y + 28;
-pad = 8;
+cy = body_y + floor(28 * S);
+pad = floor(8 * S);
 inner_w = osc_w - pad * 2;
 
 // OSC 1 section
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-gfx_setfont(1, "Arial", 11);
+gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = osc_x + pad; gfx_y = cy;
 gfx_drawstr("OSC 1");
 
 // Wave icon
-slider1 = draw_wave_sel(osc_x + pad + 50, cy - 2, 42, 22, slider1, 4);
+slider1 = draw_wave_sel(osc_x + pad + floor(50 * S), cy - floor(2 * S), floor(42 * S), floor(22 * S), slider1, 4);
 
 // Level bar next to wave
-slider4 = draw_bar(osc_x + pad + 100, cy, inner_w - 100, bar_h, slider4, 0, 100, "LEVEL", 1);
-cy += bar_sp + 10;  // extra space for wave label beneath
+slider4 = draw_bar(osc_x + pad + floor(100 * S), cy, inner_w - floor(100 * S), bar_h, slider4, 0, 100, "LEVEL", 1);
+cy += bar_sp + floor(10 * S);  // extra space for wave label beneath
 
-slider2 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider2, -24, 24, "TUNE", 1);
-slider3 = draw_bar(osc_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider3, -100, 100, "FINE", 1);
+slider2 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider2, -24, 24, "TUNE", 1);
+slider3 = draw_bar(osc_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider3, -100, 100, "FINE", 1);
 cy += bar_sp;
 
 slider5 = draw_bar(osc_x + pad, cy, inner_w, bar_h, slider5, 0, 100, "PW", 1);
-cy += bar_sp + 6;
+cy += bar_sp + floor(6 * S);
 
 // Divider line between OSC 1 and OSC 2
 gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-gfx_rect(osc_x + pad, cy - 3, inner_w, 1);
+gfx_rect(osc_x + pad, cy - floor(3 * S), inner_w, 1);
 
 // OSC 2 section
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-gfx_setfont(1, "Arial", 11);
+gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = osc_x + pad; gfx_y = cy;
 gfx_drawstr("OSC 2");
 
-slider6 = draw_wave_sel(osc_x + pad + 50, cy - 2, 42, 22, slider6, 4);
-slider9 = draw_bar(osc_x + pad + 100, cy, inner_w - 100, bar_h, slider9, 0, 100, "LEVEL", 1);
-cy += bar_sp + 10;
+slider6 = draw_wave_sel(osc_x + pad + floor(50 * S), cy - floor(2 * S), floor(42 * S), floor(22 * S), slider6, 4);
+slider9 = draw_bar(osc_x + pad + floor(100 * S), cy, inner_w - floor(100 * S), bar_h, slider9, 0, 100, "LEVEL", 1);
+cy += bar_sp + floor(10 * S);
 
-slider7 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider7, -24, 24, "TUNE", 1);
-slider8 = draw_bar(osc_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider8, -100, 100, "FINE", 1);
+slider7 = draw_bar(osc_x + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider7, -24, 24, "TUNE", 1);
+slider8 = draw_bar(osc_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider8, -100, 100, "FINE", 1);
 
 // ---- FILTER ----
 flt_x = osc_x + osc_w + gap;
 flt_w = col_w;
 draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
 
-cy = body_y + 28;
+cy = body_y + floor(28 * S);
 inner_w = flt_w - pad * 2;
 
 slider15 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider15, 20, 20000, "CUTOFF", 1);
@@ -1937,7 +1967,7 @@ cy += bar_sp;
 slider16 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider16, 0, 100, "RESONANCE", 1);
 cy += bar_sp;
 slider18 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider18, 0, 100, "ENV AMT", 1);
-cy += bar_sp + 4;
+cy += bar_sp + floor(4 * S);
 
 // Filter mode
 filt_mode == 0 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 24dB")
@@ -1946,36 +1976,36 @@ filt_mode == 0 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 24dB")
 : draw_mode_sel(flt_x + pad, cy, "MODE:", "BP 12dB");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= flt_x + pad && mouse_x <= flt_x + pad + 140 &&
-  mouse_y >= cy && mouse_y <= cy + 16 ? (
+  mouse_x >= flt_x + pad && mouse_x <= flt_x + pad + floor(140 * S) &&
+  mouse_y >= cy && mouse_y <= cy + floor(16 * S) ? (
     slider17 = (slider17 + 1) % 4;
     filt_mode = slider17;
 );
 
-cy += bar_sp + 2;
+cy += bar_sp + floor(2 * S);
 
 // Filter ADSR divider
 gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-gfx_rect(flt_x + pad, cy - 3, inner_w, 1);
+gfx_rect(flt_x + pad, cy - floor(3 * S), inner_w, 1);
 
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-gfx_setfont(1, "Arial", 10);
+gfx_setfont(1, "Arial", F_TINY);
 gfx_x = flt_x + pad; gfx_y = cy;
 gfx_drawstr("FILTER ENVELOPE");
-cy += 16;
+cy += floor(16 * S);
 
-slider19 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider19, 0, 2000, "A", 1);
-slider20 = draw_bar(flt_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider20, 0, 5000, "D", 1);
+slider19 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider19, 0, 2000, "A", 1);
+slider20 = draw_bar(flt_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider20, 0, 5000, "D", 1);
 cy += bar_sp;
-slider21 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - 2, bar_h, slider21, 0, 100, "S", 1);
-slider22 = draw_bar(flt_x + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider22, 0, 5000, "R", 1);
+slider21 = draw_bar(flt_x + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider21, 0, 100, "S", 1);
+slider22 = draw_bar(flt_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider22, 0, 5000, "R", 1);
 
 // ---- AMP + SCOPE ----
 amp_x = flt_x + flt_w + gap;
 amp_w = gfx_w - amp_x - margin;
 draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
 
-cy = body_y + 28;
+cy = body_y + floor(28 * S);
 inner_w = amp_w - pad * 2;
 
 slider23 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider23, 0, 2000, "ATTACK", 1);
@@ -1985,7 +2015,7 @@ cy += bar_sp;
 slider25 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider25, 0, 100, "SUSTAIN", 1);
 cy += bar_sp;
 slider26 = draw_bar(amp_x + pad, cy, inner_w, bar_h, slider26, 0, 5000, "RELEASE", 1);
-cy += bar_sp + 6;
+cy += bar_sp + floor(6 * S);
 
 // Scope
 scope_x = amp_x + pad;
@@ -2030,19 +2060,19 @@ gfx_a = 1;
 //  ROW 2: SUB/UNI | LFO | EFFECTS | PERFORM
 // ============================================================================
 row2_y = body_y + row1_h + gap;
-row2_h = 148;
+row2_h = floor(148 * S);
 col2_w = floor((gfx_w - margin * 2 - gap * 3) / 4);
 
 // ---- SUB / UNISON ----
 sub_x = margin; sub_w = col2_w;
 draw_panel(sub_x, row2_y, sub_w, row2_h, "SUB / UNISON");
 
-cy = row2_y + 28;
+cy = row2_y + floor(28 * S);
 inner_w = sub_w - pad * 2;
 
 slider10 = draw_toggle(sub_x + pad, cy, slider10, "SUB OSC");
 sub_on = slider10;
-cy += 22;
+cy += floor(22 * S);
 
 slider11 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider11, 0, 100, "SUB LVL", 1);
 cy += bar_sp;
@@ -2057,7 +2087,7 @@ lfo_px = sub_x + sub_w + gap;
 lfo_pw = col2_w;
 draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
 
-cy = row2_y + 28;
+cy = row2_y + floor(28 * S);
 inner_w = lfo_pw - pad * 2;
 
 // LFO shape
@@ -2069,41 +2099,41 @@ lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
 : draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "RND");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= lfo_px + pad && mouse_x <= lfo_px + pad + 140 &&
-  mouse_y >= cy && mouse_y <= cy + 16 ? (
+  mouse_x >= lfo_px + pad && mouse_x <= lfo_px + pad + floor(140 * S) &&
+  mouse_y >= cy && mouse_y <= cy + floor(16 * S) ? (
     slider27 = (slider27 + 1) % 6;
     lfo_shape = slider27;
 );
 // LFO Sync toggle (right side of SHAPE line)
-slider29 = draw_toggle(lfo_px + pad + inner_w - 60, cy, slider29, "SYNC");
+slider29 = draw_toggle(lfo_px + pad + inner_w - floor(60 * S), cy, slider29, "SYNC");
 lfo_sync = slider29;
 cy += bar_sp;
 
 slider28 = draw_bar(lfo_px + pad, cy, inner_w, bar_h, slider28, 0.01, 50, "RATE", 1);
 cy += bar_sp;
-slider30 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider30, 0, 100, ">PIT", 1);
-slider31 = draw_bar(lfo_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider31, 0, 100, ">FLT", 1);
+slider30 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider30, 0, 100, ">PIT", 1);
+slider31 = draw_bar(lfo_px + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider31, 0, 100, ">FLT", 1);
 cy += bar_sp;
-slider32 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider32, 0, 100, ">AMP", 1);
-slider33 = draw_bar(lfo_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider33, 0, 100, ">PWM", 1);
+slider32 = draw_bar(lfo_px + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider32, 0, 100, ">AMP", 1);
+slider33 = draw_bar(lfo_px + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider33, 0, 100, ">PWM", 1);
 
 // LFO activity indicator — animated dot
-cy += bar_sp + 2;
+cy += bar_sp + floor(2 * S);
 lfo_dot_cx = lfo_px + pad + floor(inner_w / 2);
-lfo_dot_x = lfo_dot_cx + lfo_value * floor(inner_w / 2 - 6);
+lfo_dot_x = lfo_dot_cx + lfo_value * floor(inner_w / 2 - floor(6 * S));
 // Track line
 gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-gfx_rect(lfo_px + pad, cy + 3, inner_w, 1);
+gfx_rect(lfo_px + pad, cy + floor(3 * S), inner_w, 1);
 // Dot
 gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-gfx_circle(lfo_dot_x, cy + 3, 4, 1);
+gfx_circle(lfo_dot_x, cy + floor(3 * S), floor(4 * S), 1);
 
 // ---- EFFECTS ----
 fx_px = lfo_px + lfo_pw + gap;
 fx_pw = col2_w;
 draw_panel(fx_px, row2_y, fx_pw, row2_h, "EFFECTS");
 
-cy = row2_y + 28;
+cy = row2_y + floor(28 * S);
 inner_w = fx_pw - pad * 2;
 
 // Drive mode
@@ -2113,45 +2143,45 @@ drive_type == 0 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "OFF")
 : draw_mode_sel(fx_px + pad, cy, "DRIVE:", "FUZZ");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= fx_px + pad && mouse_x <= fx_px + pad + 140 &&
-  mouse_y >= cy && mouse_y <= cy + 16 ? (
+  mouse_x >= fx_px + pad && mouse_x <= fx_px + pad + floor(140 * S) &&
+  mouse_y >= cy && mouse_y <= cy + floor(16 * S) ? (
     slider38 = (slider38 + 1) % 4;
     drive_type = slider38;
 );
 cy += bar_sp;
 
 slider39 = draw_bar(fx_px + pad, cy, inner_w, bar_h, slider39, 0, 100, "DRIVE", 1);
-cy += bar_sp + 4;
+cy += bar_sp + floor(4 * S);
 
 // Chorus
 slider40 = draw_toggle(fx_px + pad, cy, slider40, "CHORUS");
 chorus_on = slider40;
-chr_half = floor((inner_w - 80) / 2) - 1;
-slider41 = draw_bar(fx_px + pad + 80, cy, chr_half, bar_h, slider41, 0, 100, "DPTH", 1);
-slider42 = draw_bar(fx_px + pad + 80 + chr_half + 2, cy, chr_half, bar_h, slider42, 0.1, 5, "RATE", 1);
-cy += 22;
+chr_half = floor((inner_w - floor(80 * S)) / 2) - 1;
+slider41 = draw_bar(fx_px + pad + floor(80 * S), cy, chr_half, bar_h, slider41, 0, 100, "DPTH", 1);
+slider42 = draw_bar(fx_px + pad + floor(80 * S) + chr_half + floor(2 * S), cy, chr_half, bar_h, slider42, 0.1, 5, "RATE", 1);
+cy += floor(22 * S);
 
 // Delay
 slider43 = draw_toggle(fx_px + pad, cy, slider43, "DELAY");
 delay_on = slider43;
-slider44 = draw_bar(fx_px + pad + 80, cy, inner_w - 80, bar_h, slider44, 1, 1000, "TIME", 1);
-cy += 22;
+slider44 = draw_bar(fx_px + pad + floor(80 * S), cy, inner_w - floor(80 * S), bar_h, slider44, 1, 1000, "TIME", 1);
+cy += floor(22 * S);
 
-slider45 = draw_bar(fx_px + pad, cy, floor(inner_w/2) - 2, bar_h, slider45, 0, 90, "FB %", 1);
-slider46 = draw_bar(fx_px + pad + floor(inner_w/2) + 2, cy, floor(inner_w/2) - 2, bar_h, slider46, 0, 100, "MIX", 1);
+slider45 = draw_bar(fx_px + pad, cy, floor(inner_w/2) - floor(2 * S), bar_h, slider45, 0, 90, "FB %", 1);
+slider46 = draw_bar(fx_px + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inner_w/2) - floor(2 * S), bar_h, slider46, 0, 100, "MIX", 1);
 
 // ---- PERFORM ----
 perf_px = fx_px + fx_pw + gap;
 perf_pw = gfx_w - perf_px - margin;
 draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
 
-cy = row2_y + 28;
+cy = row2_y + floor(28 * S);
 inner_w = perf_pw - pad * 2;
 
 slider35 = draw_toggle(perf_px + pad, cy, slider35, "GLIDE");
 glide_on = slider35;
-slider34 = draw_bar(perf_px + pad + 80, cy, inner_w - 80, bar_h, slider34, 0, 1000, "ms", 1);
-cy += 24;
+slider34 = draw_bar(perf_px + pad + floor(80 * S), cy, inner_w - floor(80 * S), bar_h, slider34, 0, 1000, "ms", 1);
+cy += floor(24 * S);
 
 slider36 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider36, 0, 100, "VEL > AMP", 1);
 cy += bar_sp;
@@ -2162,15 +2192,15 @@ cy += bar_sp;
 slider52 = draw_bar(perf_px + pad, cy, inner_w, bar_h, slider52, 0, 100, "FX MIX", 1);
 
 // DrumBanger Pad selector (clickable)
-cy += bar_sp + 4;
+cy += bar_sp + floor(4 * S);
 db_connected ? (
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
 ) : (
   gfx_r = COL_DIM_R * 0.6; gfx_g = COL_DIM_G * 0.6; gfx_b = COL_DIM_B * 0.6;
 );
-gfx_circle(perf_px + pad + 8, cy + 4, 4, 1);
-gfx_setfont(1, "Arial", 10);
-gfx_x = perf_px + pad + 18; gfx_y = cy;
+gfx_circle(perf_px + pad + floor(8 * S), cy + floor(4 * S), floor(4 * S), 1);
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = perf_px + pad + floor(18 * S); gfx_y = cy;
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_drawstr("DB: ");
 gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
@@ -2181,12 +2211,12 @@ slider48 == 0 ? gfx_drawstr("MIDI")
 );
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= perf_px + pad && mouse_x < perf_px + pad + inner_w &&
-  mouse_y >= cy && mouse_y < cy + 14 ? (
+  mouse_y >= cy && mouse_y < cy + floor(14 * S) ? (
   slider48 = (slider48 + 1) % 9;
 );
 (mouse_cap & 2) && !(last_cap & 2) &&
   mouse_x >= perf_px + pad && mouse_x < perf_px + pad + inner_w &&
-  mouse_y >= cy && mouse_y < cy + 14 ? (
+  mouse_y >= cy && mouse_y < cy + floor(14 * S) ? (
   slider48 = slider48 - 1;
   slider48 < 0 ? slider48 = 8;
 );
@@ -2195,7 +2225,10 @@ slider48 == 0 ? gfx_drawstr("MIDI")
 // INSTANCE MANAGER PANEL
 // ============================================================
 bc_rows_per_page = 5;
-bc_panel_h = bc_panel_expanded ? (30 + bc_rows_per_page * 14 + 18) : 30;
+bc_row_h = floor(14 * S);
+  bc_bar_h = floor(30 * S);
+  bc_btn_h = floor(20 * S);
+  bc_panel_h = bc_panel_expanded ? (bc_bar_h + bc_rows_per_page * bc_row_h + floor(18 * S)) : bc_bar_h;
 bc_panel_y = gfx_h - bc_panel_h;
 
 // Panel background
@@ -2205,9 +2238,9 @@ gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
 gfx_rect(0, bc_panel_y, gfx_w, 1);
 
 // Instance count
-gfx_setfont(1, "Arial", 11);
+gfx_setfont(1, "Arial", F_SMALL);
 gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-gfx_x = 8; gfx_y = bc_panel_y + 8;
+gfx_x = floor(8 * S); gfx_y = bc_panel_y + floor(8 * S);
 bc_my_slot >= 0 ? (
   gfx_drawstr("I");
   gfx_drawnumber(bc_my_slot + 1, 0);
@@ -2236,14 +2269,14 @@ bc_following > 0 ? (
 );
 
 // EXPAND/COLLAPSE button
-exp_x = gfx_w - 200;
-exp_y = bc_panel_y + 4;
-exp_w = 65;
-exp_h = 20;
+exp_x = gfx_w - floor(200 * S);
+  exp_y = bc_panel_y + floor(4 * S);
+  exp_w = floor(65 * S);
+  exp_h = floor(20 * S);
 gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
 gfx_rect(exp_x, exp_y, exp_w, exp_h);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-gfx_x = exp_x + 5; gfx_y = exp_y + 4;
+gfx_x = exp_x + floor(5 * S); gfx_y = exp_y + floor(4 * S);
 bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
@@ -2253,10 +2286,10 @@ bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
 );
 
 // STEAL button
-stl_x = gfx_w - 125;
-stl_y = bc_panel_y + 4;
-stl_w = 50;
-stl_h = 20;
+stl_x = gfx_w - floor(125 * S);
+  stl_y = bc_panel_y + floor(4 * S);
+  stl_w = floor(50 * S);
+  stl_h = floor(20 * S);
 bc_steal_mode ? (
   gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
 ) : (
@@ -2264,7 +2297,7 @@ bc_steal_mode ? (
 );
 gfx_rect(stl_x, stl_y, stl_w, stl_h);
 gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
-gfx_x = stl_x + 6; gfx_y = stl_y + 4;
+gfx_x = stl_x + floor(6 * S); gfx_y = stl_y + floor(4 * S);
 gfx_drawstr("STEAL");
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
@@ -2275,14 +2308,14 @@ gfx_drawstr("STEAL");
 
 // UNFOLLOW button (only when following)
 bc_following > 0 ? (
-  unf_x = gfx_w - 65;
-  unf_y = bc_panel_y + 4;
-  unf_w = 55;
-  unf_h = 20;
+  unf_x = gfx_w - floor(65 * S);
+    unf_y = bc_panel_y + floor(4 * S);
+    unf_w = floor(55 * S);
+    unf_h = floor(20 * S);
   gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
   gfx_rect(unf_x, unf_y, unf_w, unf_h);
   gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
-  gfx_x = unf_x + 4; gfx_y = unf_y + 4;
+  gfx_x = unf_x + floor(4 * S); gfx_y = unf_y + floor(4 * S);
   gfx_drawstr("UNFLW");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
@@ -2294,8 +2327,8 @@ bc_following > 0 ? (
 
 // Expanded: instance list
 bc_panel_expanded ? (
-  row_y = bc_panel_y + 30;
-  row_h = 14;
+  row_y = bc_panel_y + bc_bar_h;
+    row_h = bc_row_h;
 
   // Page nav — auto-scroll to show YOU on expand
   bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
@@ -2312,13 +2345,13 @@ bc_panel_expanded ? (
   bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
 
   // Prev page button
-  pg_btn_w = 18; pg_btn_h = 14;
-  pg_prev_x = 8; pg_prev_y = bc_panel_y + 30 + bc_rows_per_page * row_h + 2;
+  pg_btn_w = floor(18 * S); pg_btn_h = floor(14 * S);
+  pg_prev_x = floor(8 * S); pg_prev_y = bc_panel_y + bc_bar_h + bc_rows_per_page * row_h + floor(2 * S);
   bc_total_pages > 1 ? (
     gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
     gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
     gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-    gfx_x = pg_prev_x + 4; gfx_y = pg_prev_y + 2;
+    gfx_x = pg_prev_x + floor(4 * S); gfx_y = pg_prev_y + floor(2 * S);
     gfx_drawstr("<");
     (mouse_cap & 1) && !(last_cap & 1) &&
       mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
@@ -2327,33 +2360,33 @@ bc_panel_expanded ? (
     );
 
     gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
-    gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
+    gfx_rect(pg_prev_x + pg_btn_w + floor(2 * S), pg_prev_y, pg_btn_w, pg_btn_h);
     gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-    gfx_x = pg_prev_x + pg_btn_w + 6; gfx_y = pg_prev_y + 2;
+    gfx_x = pg_prev_x + pg_btn_w + floor(6 * S); gfx_y = pg_prev_y + floor(2 * S);
     gfx_drawstr(">");
     (mouse_cap & 1) && !(last_cap & 1) &&
-      mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
+      mouse_x >= pg_prev_x + pg_btn_w + floor(2 * S) && mouse_x < pg_prev_x + pg_btn_w * 2 + floor(2 * S) &&
       mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
       bc_page < bc_total_pages - 1 ? bc_page += 1;
     );
 
     // Page indicator
     gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
-    gfx_x = pg_prev_x + pg_btn_w * 2 + 8; gfx_y = pg_prev_y + 2;
+    gfx_x = pg_prev_x + pg_btn_w * 2 + floor(8 * S); gfx_y = pg_prev_y + floor(2 * S);
     gfx_drawnumber(bc_page + 1, 0);
     gfx_drawstr("/");
     gfx_drawnumber(bc_total_pages, 0);
 
     // YOU button — jump to your page
     bc_page != bc_my_page ? (
-      you_x = pg_prev_x + pg_btn_w * 2 + 40;
+      you_x = pg_prev_x + pg_btn_w * 2 + floor(40 * S);
       gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-      gfx_rect(you_x, pg_prev_y, 30, pg_btn_h);
+      gfx_rect(you_x, pg_prev_y, floor(30 * S), pg_btn_h);
       gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-      gfx_x = you_x + 3; gfx_y = pg_prev_y + 2;
+      gfx_x = you_x + floor(3 * S); gfx_y = pg_prev_y + floor(2 * S);
       gfx_drawstr("YOU");
       (mouse_cap & 1) && !(last_cap & 1) &&
-        mouse_x >= you_x && mouse_x < you_x + 30 &&
+        mouse_x >= you_x && mouse_x < you_x + floor(30 * S) &&
         mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
         bc_page = bc_my_page;
       );
@@ -2374,19 +2407,19 @@ bc_panel_expanded ? (
         draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
 
         mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
-          mouse_x >= 8 && mouse_x < gfx_w - 8 &&
-          bc_s != bc_my_slot ? (
+          mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) &&
+            bc_s != bc_my_slot ? (
           gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
-          gfx_rect(4, draw_row_y, gfx_w - 8, row_h);
+          gfx_rect(floor(4 * S), draw_row_y, gfx_w - floor(8 * S), row_h);
         );
 
-        gfx_setfont(1, "Arial", 10);
+        gfx_setfont(1, "Arial", F_TINY);
         bc_s == bc_my_slot ? (
           gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
         ) : (
           gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
         );
-        gfx_x = 12; gfx_y = draw_row_y + 1;
+        gfx_x = floor(12 * S); gfx_y = draw_row_y + floor(1 * S);
         gfx_drawstr("I");
         gfx_drawnumber(bc_s + 1, 0);
         gfx_drawstr("  ");
@@ -2424,7 +2457,7 @@ bc_panel_expanded ? (
           );
           (mouse_cap & 1) && !(last_cap & 1) &&
             mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
-            mouse_x >= 8 && mouse_x < gfx_w - 8 ? (
+            mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) ? (
             bc_steal_mode ? (
               bc_steal_target = isid;
               bc_steal_pending = 1;

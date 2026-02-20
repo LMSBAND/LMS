@@ -718,3 +718,251 @@ function lms_spring_ap(buf, pos, len, input, coeff)
   buf[pos] = input + delayed * coeff;
   output;
 );
+
+
+// ============================================================================
+//  SECTION 9: GUI Helpers (called from @gfx in importing plugins)
+//
+//  All drawing functions use global scale variable S and font variables
+//  F_TITLE, F_LABEL, F_SMALL, F_TINY. Call lms_gfx_setup(nominal_w) at
+//  the top of your @gfx section to initialize scaling.
+//
+//  These functions are defined in @init so they're available everywhere.
+//  They call gfx_* functions which only do anything when called from @gfx.
+//
+//  Color constants are set by lms_gfx_setup() and shared across all helpers.
+//
+//  Usage:
+//    @gfx 500 310
+//    lms_gfx_setup(500);
+//    lms_gfx_background();
+//    lms_gfx_logo_title("MY PLUGIN", "subtitle");
+//    // ... then use draw_bar, draw_panel, draw_toggle, draw_mode_sel
+// ============================================================================
+
+// ---- Global scale & font setup ----
+function lms_gfx_setup(nominal_w) (
+  gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+  S = gfx_w / nominal_w;
+  S < 0.5 ? S = 0.5;
+
+  // Scaled font sizes
+  F_TITLE = max(10, floor(22 * S));
+  F_LABEL = max(8, floor(12 * S));
+  F_SMALL = max(7, floor(11 * S));
+  F_TINY  = max(7, floor(10 * S));
+
+  // Header height
+  lms_hdr_h = floor(44 * S);
+
+  // Color constants (set once, used by all helpers)
+  COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+  COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+  COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+  COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+  COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+  COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+  COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+  COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+  COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+  COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+  COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+  COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+);
+
+// ---- Background + header bar ----
+function lms_gfx_background() (
+  gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+  gfx_rect(0, 0, gfx_w, lms_hdr_h);
+  gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+  gfx_rect(0, lms_hdr_h, gfx_w, max(1, floor(2 * S)));
+);
+
+// ---- Logo + title text ----
+// logo_slot: image index (usually 0). title: main name. subtitle: optional (pass "" to skip)
+function lms_gfx_logo_title(logo_slot, title, subtitle) (
+  lms_logo_h = floor(32 * S);
+  lms_logo_w = floor(32 * S * (1920 / 1080));
+  lms_logo_x = floor(6 * S);
+  lms_logo_y = floor((lms_hdr_h - lms_logo_h) / 2);
+  gfx_blit(logo_slot, 1, 0, 0, 0, 1920, 1080, lms_logo_x, lms_logo_y, lms_logo_w, lms_logo_h);
+  gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+  gfx_setfont(1, "Arial", F_TITLE);
+  gfx_x = lms_logo_x + lms_logo_w + floor(8 * S);
+  gfx_y = floor(10 * S);
+  gfx_drawstr(title);
+  strlen(subtitle) > 0 ? (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_setfont(1, "Arial", F_LABEL);
+    gfx_x += floor(12 * S);
+    gfx_y = floor(18 * S);
+    gfx_drawstr(subtitle);
+  );
+);
+
+// ---- draw_bar — slider bar with fill, label, optional value, click-drag ----
+function lms_draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = bx + floor(5 * S); gfx_y = by + floor((bh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
+
+// ---- draw_panel — bordered section with title bar ----
+function lms_draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, floor(22 * S));
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + floor(22 * S), pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
+  gfx_drawstr(title);
+);
+
+// ---- draw_toggle — on/off circle + label ----
+function lms_draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
+  );
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
+    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ---- draw_mode_sel — clickable mode selector (up to 4 options) ----
+function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(72 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr(v0);
+  val == 1 ? gfx_drawstr(v1);
+  val == 2 ? gfx_drawstr(v2);
+  val == 3 ? gfx_drawstr(v3);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % (vmax + 1);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = vmax;
+  );
+  val;
+);
+
+// ---- NOTICE overlay ----
+function lms_gfx_notice() (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_a = 1;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+  gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = floor(15 * S); gfx_y = floor(30 * S);
+  gfx_drawstr("The algorithms in our favorite software are decades old.");
+  gfx_x = floor(15 * S); gfx_y = floor(45 * S);
+  gfx_drawstr("A mathematical model is a truth about the world,");
+  gfx_x = floor(15 * S); gfx_y = floor(60 * S);
+  gfx_drawstr("not a copyrightable product. You do not have to stay");
+  gfx_x = floor(15 * S); gfx_y = floor(75 * S);
+  gfx_drawstr("a slave to subscription software. Install Linux.");
+  gfx_x = floor(15 * S); gfx_y = floor(90 * S);
+  gfx_drawstr("Build your own tools. Believe in yourself.");
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = floor(15 * S); gfx_y = floor(115 * S);
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+);
+
+// ---- NOTICE button + overlay ----
+// Call at the end of @gfx. Uses notice_show and notice_clicked globals.
+// bc_panel_y should be set before calling (from instance panel or gfx_h).
+function lms_gfx_notice_btn(bc_panel_y) (
+  notice_btn_x = gfx_w - floor(60 * S);
+  notice_btn_y = bc_panel_y - floor(18 * S);
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S)
+    && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
+    notice_show = !notice_show;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  notice_show ? (
+    lms_gfx_notice();
+    // Redraw notice button on top of overlay
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+    gfx_drawstr("NOTICE");
+  );
+);
