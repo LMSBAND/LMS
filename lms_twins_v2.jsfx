@@ -1715,23 +1715,67 @@ slider18 != _old ? slider_automate(2^17);
 
   last_cap = mouse_cap;
 
-  // --- NOTICE BUTTON ---
+  // --- BUY + NOTICE BUTTONS ---
   notice_btn_x = gfx_w - floor(60 * S);
   notice_btn_y = bc_panel_y - floor(18 * S);
+  buy_btn_x = notice_btn_x - floor(50 * S);
+  buy_btn_y = notice_btn_y;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+  gfx_drawstr("BUY");
+  (mouse_cap & 1) && mouse_x >= buy_btn_x && mouse_x <= buy_btn_x + floor(45 * S) && mouse_y >= buy_btn_y && mouse_y <= buy_btn_y + floor(15 * S) && !buy_clicked ? (
+    buy_show = !buy_show; buy_show ? notice_show = 0;
+    buy_clicked = 1;
+  );
+  !(mouse_cap & 1) ? buy_clicked = 0;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
   gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
   gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
   gfx_drawstr("NOTICE");
   (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
-    notice_show = !notice_show;
+    notice_show = !notice_show; notice_show ? buy_show = 0;
     notice_clicked = 1;
   );
   !(mouse_cap & 1) ? notice_clicked = 0;
+  buy_show ? (
+    gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+    gfx_rect(0, 0, gfx_w, gfx_h); gfx_a = 1;
+    gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+    gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+    gfx_drawstr("SUPPORT LMS");
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+    gfx_x = floor(15 * S); gfx_y = floor(35 * S);
+    gfx_drawstr("These plugins are offered for free use by anyone not able to afford it.");
+    gfx_x = floor(15 * S); gfx_y = floor(50 * S);
+    gfx_drawstr("No need to prove anything to us. But if you can afford to buy this suite,");
+    gfx_x = floor(15 * S); gfx_y = floor(65 * S);
+    gfx_drawstr("we would sure appreciate it. 50 dollars gets you every update and every");
+    gfx_x = floor(15 * S); gfx_y = floor(80 * S);
+    gfx_drawstr("plugin added to this suite forever. Its in its baby stages and these will");
+    gfx_x = floor(15 * S); gfx_y = floor(95 * S);
+    gfx_drawstr("only get doper over time. We also offer 6 months installments. But if you");
+    gfx_x = floor(15 * S); gfx_y = floor(110 * S);
+    gfx_drawstr("dont have the money, dont sweat it, you can use as much and as long as");
+    gfx_x = floor(15 * S); gfx_y = floor(125 * S);
+    gfx_drawstr("you like. Hail Satan. - LMS");
+    gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+    gfx_x = floor(15 * S); gfx_y = floor(150 * S);
+    gfx_drawstr("bryanleaf.gumroad.com/l/zzgmzx");
+    gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+    gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+    gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+    gfx_drawstr("BUY");
+    gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+    gfx_drawstr("NOTICE");
+  );
   notice_show ? (
     gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
-    gfx_rect(0, 0, gfx_w, gfx_h);
-    gfx_a = 1;
+    gfx_rect(0, 0, gfx_w, gfx_h); gfx_a = 1;
     gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
     gfx_x = floor(15 * S); gfx_y = floor(10 * S);
     gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
@@ -1749,11 +1793,12 @@ slider18 != _old ? slider_automate(2^17);
     gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
     gfx_x = floor(15 * S); gfx_y = floor(115 * S);
     gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
-    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
-    gfx_x = floor(15 * S); gfx_y = floor(140 * S);
     gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+    gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
     gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
     gfx_r = 0; gfx_g = 0; gfx_b = 0;
+    gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+    gfx_drawstr("BUY");
     gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
     gfx_drawstr("NOTICE");
   );
