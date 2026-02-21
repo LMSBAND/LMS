@@ -378,6 +378,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_drawmer.jsfx" type="effect" desc="LMS - Density Drawmer — 3-Band Stereo FET Compressor (Drawmer 1973)">
+      <version name="1.0" author="LMS" time="2026-02-21T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware 3-band stereo FET compressor modeled on the Drawmer 1973. 6 dB/octave first-order crossover filters, soft-knee FET compression (4:1 fixed ratio), per-band parallel compression (mix), Drawmer-authentic attack presets (0.2/0.5/2/10/25/50 ms) and release presets (80/300/1000 ms), density-aware threshold and knee modulation via gmem, per-band GR metering, broadcast follow/steal.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drawmer.jsfx</source>
+      </version>
+    </reapack>
     <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — Moog-inspired mono synth with PolyBLEP oscillators, 4-pole Moog ladder filter (LP/HP/BP), 2 ADSR envelopes, LFO with 6 shapes, up to 8-voice unison, glide/portamento, tube/tape/fuzz saturation, chorus, ping-pong delay, 11 built-in presets, category-based randomizer, DrumBanger pad trigger integration via gmem. Full GUI with waveform scope.]]></changelog>

@@ -64,9 +64,10 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_ac15_v2 | 14 | 730000 | 730032 |
 | lms_mesa_v2 | 15 | 740000 | 740032 |
 | lms_twins_v2 | 16 | 750000 | 750032 |
-| **your new plugin** | **17+** | **pick unused** | **HB + 32** |
+| lms_drawmer | 17 | 800000 | 800032 |
+| **your new plugin** | **18+** | **pick unused** | **HB + 32** |
 
-For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `800000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
+For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `810000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
 ### 3. Update the slider broadcast arrays
 

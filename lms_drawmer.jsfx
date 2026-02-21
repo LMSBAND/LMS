@@ -1,0 +1,1317 @@
+desc:LMS - Density Drawmer (3-Band FET Compressor)
+//tags: compressor mastering multiband density drawmer
+//author: LMS + Claude
+//version: 1.0
+//license: GPL-3.0
+filename:0,shakebot_logo.png
+
+
+import lms_core.jsfx-inc
+
+options:gmem=DrumBanger
+
+// ============================================================================
+//  DENSITY-AWARE 3-BAND STEREO FET COMPRESSOR
+//
+//  Modeled on the Drawmer 1973: three independent FET compressors with
+//  6 dB/octave (1st-order) crossover filters. Soft-knee FET behavior with
+//  fixed 4:1 ratio. Drawmer-authentic attack presets (0.2/0.5/2/10/25/50 ms)
+//  and release presets (80/300/1000 ms). Per-band parallel compression.
+//
+//  Density-aware: reads harmonic density from gmem and modulates per-band
+//  thresholds and knee width. Dense material gets more compression with a
+//  gentler onset. At 0% density influence, acts as a straight Drawmer clone.
+//
+//  The crossover uses complementary subtraction (HP = input - LP) which
+//  guarantees perfect reconstruction when bands sum back.
+// ============================================================================
+
+// ---- GLOBAL ----
+slider1:0<-12,12,0.1>-Input Gain (dB)
+slider2:0<-12,12,0.1>-Output Gain (dB)
+slider3:500<50,1300,1>-Low X-Over (Hz)
+slider4:5000<1000,14000,10>-High X-Over (Hz)
+
+// ---- LOW BAND ----
+slider5:-6<-32,26,0.5>-Lo Threshold (dB)
+slider6:2<0,5,1{0.2ms,0.5ms,2ms,10ms,25ms,50ms}>-Lo Attack
+slider7:1<0,2,1{80ms,300ms,1s}>-Lo Release
+slider8:0<-12,12,0.1>-Lo Gain (dB)
+slider9:100<0,100,1>-Lo Mix (%)
+
+// ---- MID BAND ----
+slider10:-6<-32,26,0.5>-Mid Threshold (dB)
+slider11:2<0,5,1{0.2ms,0.5ms,2ms,10ms,25ms,50ms}>-Mid Attack
+slider12:1<0,2,1{80ms,300ms,1s}>-Mid Release
+slider13:0<-12,12,0.1>-Mid Gain (dB)
+slider14:100<0,100,1>-Mid Mix (%)
+
+// ---- HIGH BAND ----
+slider15:-6<-32,26,0.5>-Hi Threshold (dB)
+slider16:2<0,5,1{0.2ms,0.5ms,2ms,10ms,25ms,50ms}>-Hi Attack
+slider17:1<0,2,1{80ms,300ms,1s}>-Hi Release
+slider18:0<-12,12,0.1>-Hi Gain (dB)
+slider19:100<0,100,1>-Hi Mix (%)
+
+// ---- DENSITY / SYSTEM ----
+slider20:50<0,100,1>-Density Influence (%)
+slider21:0<0,1,1{Off,On}>-Gmem Link
+slider22:6<0,12,0.5>-Soft Knee Width (dB)
+
+@init
+
+// === 1ST-ORDER CROSSOVER FILTERS (6 dB/oct) ===
+// The Drawmer 1973 uses first-order Butterworth filters.
+// Simple 1-pole IIR: y[n] = (1-a)*x[n] + a*y[n-1]
+// HP complement = input - LP output (perfect reconstruction)
+
+function lp1_init() (
+  this.yl = 0;
+  this.yr = 0;
+  this.coeff = 0;
+);
+
+function lp1_set(freq) (
+  this.coeff = exp(-2 * $pi * freq / srate);
+);
+
+function lp1_proc_l(x) (
+  this.yl = x * (1 - this.coeff) + this.yl * this.coeff;
+  this.yl;
+);
+
+function lp1_proc_r(x) (
+  this.yr = x * (1 - this.coeff) + this.yr * this.coeff;
+  this.yr;
+);
+
+xo_lo.lp1_init();
+xo_hi.lp1_init();
+
+// === SOFT-KNEE FET COMPRESSOR (per-band) ===
+// Inline implementation — soft knee with fixed 4:1 ratio matching Drawmer FET character
+
+function sk_comp_init() (
+  this.env = 0;
+  this.gr = 1.0;
+  this.gr_db = 0;
+  this.thresh = -6;
+  this.ratio = 4;
+  this.att = 0;
+  this.rel = 0;
+);
+
+function sk_comp_set(thresh_db, att_ms, rel_ms) (
+  this.thresh = thresh_db;
+  this.ratio = 4;
+  this.att = exp(-1 / (att_ms * 0.001 * srate));
+  this.rel = exp(-1 / (rel_ms * 0.001 * srate));
+);
+
+function sk_comp_proc(l, r, knee_db, thresh_mod)
+  local(det, det_db, over, eff_thresh, knee_lo, knee_hi, target_gr, kf, full_gr)
+(
+  det = max(abs(l), abs(r));
+  det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+  eff_thresh = this.thresh + thresh_mod;
+  over = det_db - eff_thresh;
+
+  knee_lo = -knee_db * 0.5;
+  knee_hi =  knee_db * 0.5;
+
+  over < knee_lo ? (
+    target_gr = 0;
+  ) : over > knee_hi ? (
+    target_gr = over - over / this.ratio;
+  ) : (
+    kf = (over - knee_lo) / knee_db;
+    full_gr = over - over / this.ratio;
+    target_gr = kf * kf * full_gr;
+  );
+
+  target_gr > this.env ? (
+    this.env = this.att * this.env + (1 - this.att) * target_gr;
+  ) : (
+    this.env = this.rel * this.env + (1 - this.rel) * target_gr;
+  );
+
+  this.gr = 10 ^ (-this.env / 20);
+  this.gr_db = this.env;
+);
+
+comp_lo.sk_comp_init();
+comp_mid.sk_comp_init();
+comp_hi.sk_comp_init();
+
+// DC blocker for output
+dc.lms_dc_init();
+
+// Density state
+d_lo = 0; d_mid = 0; d_hi = 0; d_air = 0;
+
+// GR meter smoothing per band
+gr_meter_lo = 0; gr_meter_mid = 0; gr_meter_hi = 0;
+gr_meter_rel = exp(-1 / (srate * 0.100));
+
+notice_show = 0;
+
+// Attack lookup (ms): 0.2, 0.5, 2, 10, 25, 50
+ATK_TABLE = 20000;
+ATK_TABLE[0] = 0.2;
+ATK_TABLE[1] = 0.5;
+ATK_TABLE[2] = 2;
+ATK_TABLE[3] = 10;
+ATK_TABLE[4] = 25;
+ATK_TABLE[5] = 50;
+
+// Release lookup (ms): 80, 300, 1000
+REL_TABLE = 20010;
+REL_TABLE[0] = 80;
+REL_TABLE[1] = 300;
+REL_TABLE[2] = 1000;
+
+// ============================================================
+// BROADCAST SYSTEM — Instance Registry
+// ============================================================
+BC_BASE = 100000;
+BC_MY_TYPE = 17;           // Density Drawmer
+BC_SLOT_SIZE = 512;
+BC_MAX_INST = 32;
+BC_PARAM_COUNT = 22;
+BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
+BC_STALE_TIMEOUT = 2;
+
+bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
+bc_my_slot = -1;
+bc_follow_slot = -1;
+bc_steal_pending = 0;
+bc_steal_target = 0;
+bc_panel_expanded = 0;
+bc_page = 0;
+bc_steal_mode = 0;
+bc_instance_count = 0;
+
+BC_STALE_HB = 800000;
+BC_STALE_CT = 800032;
+i = 0;
+loop(BC_MAX_INST,
+  BC_STALE_HB[i] = -1;
+  BC_STALE_CT[i] = 0;
+  i += 1;
+);
+
+bc_i = 0;
+loop(BC_MAX_INST,
+  bc_my_slot < 0 ? (
+    sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+    sid = gmem[sb + 1];
+    (sid == 0 || sid == bc_my_id) ? (
+      bc_my_slot = bc_i;
+    );
+  );
+  bc_i += 1;
+);
+
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] = 0;
+  gmem[sb + 1] = bc_my_id;
+  gmem[sb + 2] = BC_MY_TYPE;
+  gmem[sb + 3] = 0;
+  gmem[sb + 4] = BC_PARAM_COUNT;
+);
+
+@slider
+input_gain = lms_db2lin(slider1);
+output_gain = lms_db2lin(slider2);
+
+// Crossover
+xo_lo.lp1_set(slider3);
+// Enforce minimum separation
+slider4 < slider3 + 100 ? slider4 = slider3 + 100;
+xo_hi.lp1_set(slider4);
+
+// Lo band
+comp_lo.sk_comp_set(slider5, ATK_TABLE[slider6], REL_TABLE[slider7]);
+lo_gain = lms_db2lin(slider8);
+lo_mix = slider9 / 100;
+
+// Mid band
+comp_mid.sk_comp_set(slider10, ATK_TABLE[slider11], REL_TABLE[slider12]);
+mid_gain = lms_db2lin(slider13);
+mid_mix = slider14 / 100;
+
+// Hi band
+comp_hi.sk_comp_set(slider15, ATK_TABLE[slider16], REL_TABLE[slider17]);
+hi_gain = lms_db2lin(slider18);
+hi_mix = slider19 / 100;
+
+// Density
+density_influence = slider20 / 100;
+gmem_link = slider21;
+knee_width = slider22;
+
+// ============================================================
+// @BLOCK — Recalculate coefficients + Broadcast
+// ============================================================
+@block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+input_gain = lms_db2lin(slider1);
+output_gain = lms_db2lin(slider2);
+
+xo_lo.lp1_set(slider3);
+slider4 < slider3 + 100 ? slider4 = slider3 + 100;
+xo_hi.lp1_set(slider4);
+
+comp_lo.sk_comp_set(slider5, ATK_TABLE[slider6], REL_TABLE[slider7]);
+lo_gain = lms_db2lin(slider8);
+lo_mix = slider9 / 100;
+
+comp_mid.sk_comp_set(slider10, ATK_TABLE[slider11], REL_TABLE[slider12]);
+mid_gain = lms_db2lin(slider13);
+mid_mix = slider14 / 100;
+
+comp_hi.sk_comp_set(slider15, ATK_TABLE[slider16], REL_TABLE[slider17]);
+hi_gain = lms_db2lin(slider18);
+hi_mix = slider19 / 100;
+
+density_influence = slider20 / 100;
+gmem_link = slider21;
+knee_width = slider22;
+
+// ---- Broadcast system ----
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 1] != bc_my_id ? (
+    bc_my_id = floor(rand() * 1073741824) + 1;
+    bc_my_slot = -1;
+    bc_i = 0;
+    loop(BC_MAX_INST,
+      bc_my_slot < 0 ? (
+        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
+      );
+      bc_i += 1;
+    );
+    bc_my_slot >= 0 ? (
+      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+      gmem[sb + 0] = 0;
+      gmem[sb + 1] = bc_my_id;
+      gmem[sb + 2] = BC_MY_TYPE;
+      gmem[sb + 3] = bc_following;
+      gmem[sb + 4] = BC_PARAM_COUNT;
+    );
+  );
+);
+
+// Follow mode
+bc_my_slot >= 0 && bc_following > 0 ? (
+  bc_found_leader = 0;
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      gmem[lsb + 1] == bc_following ? (
+        bc_found_leader = 1;
+        bc_follow_slot = bc_scan;
+        lbase = lsb + 8;
+        slider1 = gmem[lbase + 0];
+        slider2 = gmem[lbase + 1];
+        slider3 = gmem[lbase + 2];
+        slider4 = gmem[lbase + 3];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
+        slider8 = gmem[lbase + 7];
+        slider9 = gmem[lbase + 8];
+        slider10 = gmem[lbase + 9];
+        slider11 = gmem[lbase + 10];
+        slider12 = gmem[lbase + 11];
+        slider13 = gmem[lbase + 12];
+        slider14 = gmem[lbase + 13];
+        slider15 = gmem[lbase + 14];
+        slider16 = gmem[lbase + 15];
+        slider17 = gmem[lbase + 16];
+        slider18 = gmem[lbase + 17];
+        slider19 = gmem[lbase + 18];
+        slider20 = gmem[lbase + 19];
+        slider21 = gmem[lbase + 20];
+        slider22 = gmem[lbase + 21];
+        bc_scan = BC_MAX_INST;
+      );
+    );
+    bc_scan += 1;
+  );
+  !bc_found_leader ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+// Steal: one-shot copy
+bc_my_slot >= 0 && bc_steal_pending ? (
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+    gmem[lsb + 1] == bc_steal_target ? (
+      lbase = lsb + 8;
+      slider1 = gmem[lbase + 0];
+      slider2 = gmem[lbase + 1];
+      slider3 = gmem[lbase + 2];
+      slider4 = gmem[lbase + 3];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
+      slider8 = gmem[lbase + 7];
+      slider9 = gmem[lbase + 8];
+      slider10 = gmem[lbase + 9];
+      slider11 = gmem[lbase + 10];
+      slider12 = gmem[lbase + 11];
+      slider13 = gmem[lbase + 12];
+      slider14 = gmem[lbase + 13];
+      slider15 = gmem[lbase + 14];
+      slider16 = gmem[lbase + 15];
+      slider17 = gmem[lbase + 16];
+      slider18 = gmem[lbase + 17];
+      slider19 = gmem[lbase + 18];
+      slider20 = gmem[lbase + 19];
+      slider21 = gmem[lbase + 20];
+      slider22 = gmem[lbase + 21];
+      bc_scan = BC_MAX_INST;
+    );
+    bc_scan += 1;
+  );
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_steal_mode = 0;
+);
+
+// Broadcast our params + heartbeat
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 3] = bc_following;
+  pbase = sb + 8;
+  gmem[pbase + 0] = slider1;
+  gmem[pbase + 1] = slider2;
+  gmem[pbase + 2] = slider3;
+  gmem[pbase + 3] = slider4;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
+  gmem[pbase + 7] = slider8;
+  gmem[pbase + 8] = slider9;
+  gmem[pbase + 9] = slider10;
+  gmem[pbase + 10] = slider11;
+  gmem[pbase + 11] = slider12;
+  gmem[pbase + 12] = slider13;
+  gmem[pbase + 13] = slider14;
+  gmem[pbase + 14] = slider15;
+  gmem[pbase + 15] = slider16;
+  gmem[pbase + 16] = slider17;
+  gmem[pbase + 17] = slider18;
+  gmem[pbase + 18] = slider19;
+  gmem[pbase + 19] = slider20;
+  gmem[pbase + 20] = slider21;
+  gmem[pbase + 21] = slider22;
+);
+
+// Stale detection
+bc_instance_count = 0;
+bc_scan = 0;
+loop(BC_MAX_INST,
+  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+  tsid = gmem[tsb + 1];
+  tsid > 0 ? (
+    bc_scan == bc_my_slot ? (
+      bc_instance_count += 1;
+    ) : (
+      tshb = gmem[tsb + 0];
+      tshb == BC_STALE_HB[bc_scan] ? (
+        BC_STALE_CT[bc_scan] += samplesblock / srate;
+        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
+          gmem[tsb + 1] = 0;
+          BC_STALE_CT[bc_scan] = 0;
+        );
+      ) : (
+        BC_STALE_HB[bc_scan] = tshb;
+        BC_STALE_CT[bc_scan] = 0;
+        bc_instance_count += 1;
+      );
+    );
+  );
+  bc_scan += 1;
+);
+
+@sample
+
+// === READ DENSITY FROM GMEM ===
+gmem_link == 1 ? (
+  sm = 0.99;
+  d_lo  = d_lo  * sm + gmem[50002] * (1 - sm);
+  d_mid = d_mid * sm + gmem[50003] * (1 - sm);
+  d_hi  = d_hi  * sm + gmem[50004] * (1 - sm);
+  d_air = d_air * sm + gmem[50005] * (1 - sm);
+);
+
+// === INPUT GAIN ===
+l = spl0 * input_gain;
+r = spl1 * input_gain;
+
+// === 3-BAND CROSSOVER (1st-order, 6 dB/oct) ===
+// Split point 1: low crossover
+lo_l = xo_lo.lp1_proc_l(l);
+lo_r = xo_lo.lp1_proc_r(r);
+hi_pass1_l = l - lo_l;
+hi_pass1_r = r - lo_r;
+
+// Split point 2: high crossover (applied to HP1 residual)
+mid_l = xo_hi.lp1_proc_l(hi_pass1_l);
+mid_r = xo_hi.lp1_proc_r(hi_pass1_r);
+hi_l = hi_pass1_l - mid_l;
+hi_r = hi_pass1_r - mid_r;
+
+// === DENSITY MODULATION ===
+density_influence > 0 && gmem_link == 1 ? (
+  // Per-band threshold shift: up to -6 dB at full density influence
+  lo_thresh_mod  = -d_lo  * 6.0 * density_influence;
+  mid_thresh_mod = -d_mid * 6.0 * density_influence;
+  hi_thresh_mod  = -(d_hi + d_air) * 6.0 * density_influence;
+
+  // Knee widening: up to +4 dB extra at high total density
+  d_total = d_lo + d_mid + d_hi + d_air;
+  eff_knee = knee_width + d_total * 4.0 * density_influence;
+) : (
+  lo_thresh_mod = 0;
+  mid_thresh_mod = 0;
+  hi_thresh_mod = 0;
+  eff_knee = knee_width;
+);
+
+// === STORE DRY BANDS (for parallel mix) ===
+dry_lo_l = lo_l; dry_lo_r = lo_r;
+dry_mid_l = mid_l; dry_mid_r = mid_r;
+dry_hi_l = hi_l; dry_hi_r = hi_r;
+
+// === PER-BAND COMPRESSION ===
+
+// -- Low band --
+comp_lo.sk_comp_proc(lo_l, lo_r, eff_knee, lo_thresh_mod);
+lo_l *= comp_lo.gr * lo_gain;
+lo_r *= comp_lo.gr * lo_gain;
+lo_l = dry_lo_l * (1 - lo_mix) + lo_l * lo_mix;
+lo_r = dry_lo_r * (1 - lo_mix) + lo_r * lo_mix;
+
+// -- Mid band --
+comp_mid.sk_comp_proc(mid_l, mid_r, eff_knee, mid_thresh_mod);
+mid_l *= comp_mid.gr * mid_gain;
+mid_r *= comp_mid.gr * mid_gain;
+mid_l = dry_mid_l * (1 - mid_mix) + mid_l * mid_mix;
+mid_r = dry_mid_r * (1 - mid_mix) + mid_r * mid_mix;
+
+// -- Hi band --
+comp_hi.sk_comp_proc(hi_l, hi_r, eff_knee, hi_thresh_mod);
+hi_l *= comp_hi.gr * hi_gain;
+hi_r *= comp_hi.gr * hi_gain;
+hi_l = dry_hi_l * (1 - hi_mix) + hi_l * hi_mix;
+hi_r = dry_hi_r * (1 - hi_mix) + hi_r * hi_mix;
+
+// === SUM BANDS ===
+l = lo_l + mid_l + hi_l;
+r = lo_r + mid_r + hi_r;
+
+// === DC BLOCKER ===
+l = dc.lms_dc_proc_l(l);
+r = dc.lms_dc_proc_r(r);
+
+// === OUTPUT ===
+spl0 = l * output_gain;
+spl1 = r * output_gain;
+
+// === GR METERING ===
+comp_lo.gr_db > gr_meter_lo ? (
+  gr_meter_lo = comp_lo.gr_db;
+) : (
+  gr_meter_lo = gr_meter_lo * gr_meter_rel + comp_lo.gr_db * (1 - gr_meter_rel);
+);
+comp_mid.gr_db > gr_meter_mid ? (
+  gr_meter_mid = comp_mid.gr_db;
+) : (
+  gr_meter_mid = gr_meter_mid * gr_meter_rel + comp_mid.gr_db * (1 - gr_meter_rel);
+);
+comp_hi.gr_db > gr_meter_hi ? (
+  gr_meter_hi = comp_hi.gr_db;
+) : (
+  gr_meter_hi = gr_meter_hi * gr_meter_rel + comp_hi.gr_db * (1 - gr_meter_rel);
+);
+
+@gfx 660 410
+
+// ============================================================================
+//  SCALING
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 660;
+S < 0.5 ? S = 0.5;
+
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
+// ============================================================================
+//  COLOR CONSTANTS
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+hdr_h = floor(44 * S);
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ============================================================================
+//  HELPER: draw_bar
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = bx + floor(5 * S); gfx_y = by + floor((bh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
+
+// ============================================================================
+//  HELPER: draw_panel
+// ============================================================================
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, floor(22 * S));
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + floor(22 * S), pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
+  gfx_drawstr(title);
+);
+
+// ============================================================================
+//  HELPER: draw_toggle
+// ============================================================================
+function draw_toggle(tx, ty, is_on, label) (
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
+  is_on ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
+  ) : (
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
+  );
+  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
+  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
+  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
+  gfx_drawstr(label);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
+    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
+      is_on = 1 - is_on;
+  );
+  is_on;
+);
+
+// ============================================================================
+//  HELPER: draw_atk_sel — 6-option attack selector
+// ============================================================================
+function draw_atk_sel(mx, my, mw, mh, val, label) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(48 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr("0.2ms");
+  val == 1 ? gfx_drawstr("0.5ms");
+  val == 2 ? gfx_drawstr("2ms");
+  val == 3 ? gfx_drawstr("10ms");
+  val == 4 ? gfx_drawstr("25ms");
+  val == 5 ? gfx_drawstr("50ms");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % 6;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = 5;
+  );
+  val;
+);
+
+// ============================================================================
+//  HELPER: draw_rel_sel — 3-option release selector
+// ============================================================================
+function draw_rel_sel(mx, my, mw, mh, val, label) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(48 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr("80ms");
+  val == 1 ? gfx_drawstr("300ms");
+  val == 2 ? gfx_drawstr("1s");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % 3;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = 2;
+  );
+  val;
+);
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = floor(8 * S);
+gap = floor(6 * S);
+bar_h = floor(18 * S);
+bar_sp = floor(21 * S);
+pad = floor(4 * S);
+pad2 = pad * 2;
+gr_bar_h = max(2, floor(6 * S));
+body_y = floor(50 * S);
+
+// 4 columns
+col_w = floor((gfx_w - margin * 2 - gap * 3) / 4);
+c1x = margin;
+c2x = margin + col_w + gap;
+c3x = margin + (col_w + gap) * 2;
+c4x = margin + (col_w + gap) * 3;
+
+panel_h = floor(200 * S);
+
+// ============================================================================
+//  LOGO + TITLE
+// ============================================================================
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
+gfx_drawstr("DENSITY DRAWMER");
+
+// Subtitle right-aligned
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_measurestr("Density-Aware 3-Band FET", sub_w, sub_h);
+gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
+gfx_drawstr("Density-Aware 3-Band FET");
+
+// ============================================================================
+//  COLUMN 1: LO BAND
+// ============================================================================
+draw_panel(c1x, body_y, col_w, panel_h, "LO BAND");
+cy = body_y + floor(26 * S);
+
+_old = slider5; slider5 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider5, -32, 26, "Thresh", 1);
+slider5 != _old ? slider_automate(2^4);
+cy += bar_sp;
+
+_old = slider6; slider6 = draw_atk_sel(c1x + pad, cy, col_w - pad2, bar_h, slider6, "Attack");
+slider6 != _old ? slider_automate(2^5);
+cy += bar_sp;
+
+_old = slider7; slider7 = draw_rel_sel(c1x + pad, cy, col_w - pad2, bar_h, slider7, "Release");
+slider7 != _old ? slider_automate(2^6);
+cy += bar_sp;
+
+_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, -12, 12, "Gain", 1);
+slider8 != _old ? slider_automate(2^7);
+cy += bar_sp;
+
+_old = slider9; slider9 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider9, 0, 100, "Mix %", 0);
+slider9 != _old ? slider_automate(2^8);
+cy += bar_sp;
+
+// GR meter
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = c1x + pad2; gfx_y = cy + floor(2 * S);
+gfx_drawstr("GR: ");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_drawstr("-");
+gfx_drawnumber(gr_meter_lo, 1);
+gfx_drawstr("dB");
+cy += floor(16 * S);
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(c1x + pad, cy, col_w - pad2, gr_bar_h);
+gr_w = min(gr_meter_lo * 6, col_w - pad2);
+gr_w > 0 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.4; gfx_b = 0.1;
+  gfx_rect(c1x + pad, cy, gr_w, gr_bar_h);
+);
+
+// ============================================================================
+//  COLUMN 2: MID BAND
+// ============================================================================
+draw_panel(c2x, body_y, col_w, panel_h, "MID BAND");
+cy = body_y + floor(26 * S);
+
+_old = slider10; slider10 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider10, -32, 26, "Thresh", 1);
+slider10 != _old ? slider_automate(2^9);
+cy += bar_sp;
+
+_old = slider11; slider11 = draw_atk_sel(c2x + pad, cy, col_w - pad2, bar_h, slider11, "Attack");
+slider11 != _old ? slider_automate(2^10);
+cy += bar_sp;
+
+_old = slider12; slider12 = draw_rel_sel(c2x + pad, cy, col_w - pad2, bar_h, slider12, "Release");
+slider12 != _old ? slider_automate(2^11);
+cy += bar_sp;
+
+_old = slider13; slider13 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider13, -12, 12, "Gain", 1);
+slider13 != _old ? slider_automate(2^12);
+cy += bar_sp;
+
+_old = slider14; slider14 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider14, 0, 100, "Mix %", 0);
+slider14 != _old ? slider_automate(2^13);
+cy += bar_sp;
+
+// GR meter
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = c2x + pad2; gfx_y = cy + floor(2 * S);
+gfx_drawstr("GR: ");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_drawstr("-");
+gfx_drawnumber(gr_meter_mid, 1);
+gfx_drawstr("dB");
+cy += floor(16 * S);
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(c2x + pad, cy, col_w - pad2, gr_bar_h);
+gr_w = min(gr_meter_mid * 6, col_w - pad2);
+gr_w > 0 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.4; gfx_b = 0.1;
+  gfx_rect(c2x + pad, cy, gr_w, gr_bar_h);
+);
+
+// ============================================================================
+//  COLUMN 3: HI BAND
+// ============================================================================
+draw_panel(c3x, body_y, col_w, panel_h, "HI BAND");
+cy = body_y + floor(26 * S);
+
+_old = slider15; slider15 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider15, -32, 26, "Thresh", 1);
+slider15 != _old ? slider_automate(2^14);
+cy += bar_sp;
+
+_old = slider16; slider16 = draw_atk_sel(c3x + pad, cy, col_w - pad2, bar_h, slider16, "Attack");
+slider16 != _old ? slider_automate(2^15);
+cy += bar_sp;
+
+_old = slider17; slider17 = draw_rel_sel(c3x + pad, cy, col_w - pad2, bar_h, slider17, "Release");
+slider17 != _old ? slider_automate(2^16);
+cy += bar_sp;
+
+_old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, -12, 12, "Gain", 1);
+slider18 != _old ? slider_automate(2^17);
+cy += bar_sp;
+
+_old = slider19; slider19 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider19, 0, 100, "Mix %", 0);
+slider19 != _old ? slider_automate(2^18);
+cy += bar_sp;
+
+// GR meter
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = c3x + pad2; gfx_y = cy + floor(2 * S);
+gfx_drawstr("GR: ");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_drawstr("-");
+gfx_drawnumber(gr_meter_hi, 1);
+gfx_drawstr("dB");
+cy += floor(16 * S);
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(c3x + pad, cy, col_w - pad2, gr_bar_h);
+gr_w = min(gr_meter_hi * 6, col_w - pad2);
+gr_w > 0 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G * 0.4; gfx_b = 0.1;
+  gfx_rect(c3x + pad, cy, gr_w, gr_bar_h);
+);
+
+// ============================================================================
+//  COLUMN 4: MASTER / DENSITY
+// ============================================================================
+draw_panel(c4x, body_y, col_w, panel_h, "MASTER");
+cy = body_y + floor(26 * S);
+
+_old = slider1; slider1 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider1, -12, 12, "In dB", 1);
+slider1 != _old ? slider_automate(2^0);
+cy += bar_sp;
+
+_old = slider2; slider2 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider2, -12, 12, "Out dB", 1);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+
+_old = slider3; slider3 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider3, 50, 1300, "Lo X Hz", 1);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+
+_old = slider4; slider4 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider4, 1000, 14000, "Hi X Hz", 1);
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+_old = slider22; slider22 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider22, 0, 12, "Knee dB", 1);
+slider22 != _old ? slider_automate(2^21);
+cy += bar_sp;
+
+_old = slider20; slider20 = draw_bar(c4x + pad, cy, col_w - pad2, bar_h, slider20, 0, 100, "Dens %", 0);
+slider20 != _old ? slider_automate(2^19);
+cy += bar_sp;
+
+_old = slider21; slider21 = draw_toggle(c4x + pad2, cy + floor(2 * S), slider21, "GMEM Link");
+slider21 != _old ? slider_automate(2^20);
+cy += bar_sp;
+
+// Density state display (mini bars)
+gmem_link == 1 ? (
+  gfx_setfont(1, "Arial", F_TINY);
+  dbar_w = col_w - pad2 - floor(30 * S);
+  dbar_h = max(2, floor(5 * S));
+  dbar_x = c4x + pad + floor(25 * S);
+
+  // Lo
+  gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
+  gfx_rect(dbar_x, cy, dbar_w * min(1, d_lo), dbar_h);
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+  gfx_rect(dbar_x, cy, dbar_w, dbar_h, 0);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = c4x + pad; gfx_y = cy - floor(1 * S);
+  gfx_drawstr("LO");
+  cy += floor(10 * S);
+
+  // Mid
+  gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
+  gfx_rect(dbar_x, cy, dbar_w * min(1, d_mid), dbar_h);
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+  gfx_rect(dbar_x, cy, dbar_w, dbar_h, 0);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = c4x + pad; gfx_y = cy - floor(1 * S);
+  gfx_drawstr("MD");
+  cy += floor(10 * S);
+
+  // Hi
+  gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
+  gfx_rect(dbar_x, cy, dbar_w * min(1, d_hi), dbar_h);
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+  gfx_rect(dbar_x, cy, dbar_w, dbar_h, 0);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = c4x + pad; gfx_y = cy - floor(1 * S);
+  gfx_drawstr("HI");
+  cy += floor(10 * S);
+
+  // Air
+  gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
+  gfx_rect(dbar_x, cy, dbar_w * min(1, d_air), dbar_h);
+  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
+  gfx_rect(dbar_x, cy, dbar_w, dbar_h, 0);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = c4x + pad; gfx_y = cy - floor(1 * S);
+  gfx_drawstr("AIR");
+);
+
+// ============================================================================
+//  INSTANCE MANAGER PANEL (broadcast)
+// ============================================================================
+bc_rows_per_page = 5;
+bc_row_h = floor(14 * S);
+bc_bar_h = floor(30 * S);
+bc_btn_h = floor(20 * S);
+bc_panel_h = bc_panel_expanded ? (bc_bar_h + bc_rows_per_page * bc_row_h + floor(18 * S)) : bc_bar_h;
+bc_panel_y = gfx_h - bc_panel_h;
+
+gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
+gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+gfx_rect(0, bc_panel_y, gfx_w, 1);
+
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+gfx_x = floor(8 * S); gfx_y = bc_panel_y + floor(8 * S);
+bc_my_slot >= 0 ? (
+  gfx_drawstr("I");
+  gfx_drawnumber(bc_my_slot + 1, 0);
+  gfx_drawstr("/");
+  gfx_drawnumber(bc_instance_count, 0);
+) : (
+  gfx_drawstr("--");
+);
+
+bc_following > 0 ? (
+  gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+  gfx_drawstr("  Following: I");
+  bc_fs = 0;
+  loop(BC_MAX_INST,
+    fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
+    gmem[fsb + 1] == bc_following ? (
+      gfx_drawnumber(bc_fs + 1, 0);
+      bc_fs = BC_MAX_INST;
+    );
+    bc_fs += 1;
+  );
+) : (
+  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+  gfx_drawstr("  Following: --");
+);
+
+// EXPAND/COLLAPSE
+exp_x = gfx_w - floor(200 * S);
+exp_y = bc_panel_y + floor(4 * S);
+exp_w = floor(65 * S);
+exp_h = floor(20 * S);
+gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+gfx_rect(exp_x, exp_y, exp_w, exp_h);
+gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+gfx_x = exp_x + floor(5 * S); gfx_y = exp_y + floor(4 * S);
+bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
+  mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
+  bc_panel_expanded = !bc_panel_expanded;
+  bc_steal_mode = 0;
+);
+
+// STEAL
+stl_x = gfx_w - floor(125 * S);
+stl_y = bc_panel_y + floor(4 * S);
+stl_w = floor(50 * S);
+stl_h = floor(20 * S);
+bc_steal_mode ? (
+  gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
+) : (
+  gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
+);
+gfx_rect(stl_x, stl_y, stl_w, stl_h);
+gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
+gfx_x = stl_x + floor(6 * S); gfx_y = stl_y + floor(4 * S);
+gfx_drawstr("STEAL");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
+  mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
+  bc_steal_mode = !bc_steal_mode;
+  !bc_panel_expanded ? bc_panel_expanded = 1;
+);
+
+// UNFOLLOW
+bc_following > 0 ? (
+  unf_x = gfx_w - floor(65 * S);
+  unf_y = bc_panel_y + floor(4 * S);
+  unf_w = floor(55 * S);
+  unf_h = floor(20 * S);
+  gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
+  gfx_rect(unf_x, unf_y, unf_w, unf_h);
+  gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
+  gfx_x = unf_x + floor(4 * S); gfx_y = unf_y + floor(4 * S);
+  gfx_drawstr("UNFLW");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
+    mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+bc_panel_expanded ? (
+  row_y = bc_panel_y + bc_bar_h;
+  row_h = bc_row_h;
+
+  bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
+  bc_page < 0 ? bc_page = 0;
+
+  bc_active_slots = 0;
+  bc_si = 0;
+  loop(BC_MAX_INST,
+    gmem[BC_MY_REGION + bc_si * BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
+    bc_si += 1;
+  );
+  bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
+  bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
+
+  // Page nav
+  pg_btn_w = floor(18 * S); pg_btn_h = floor(14 * S);
+  pg_prev_x = floor(8 * S); pg_prev_y = bc_panel_y + bc_bar_h + bc_rows_per_page * row_h + floor(2 * S);
+  bc_total_pages > 1 ? (
+    gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+    gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+    gfx_x = pg_prev_x + floor(4 * S); gfx_y = pg_prev_y + floor(2 * S);
+    gfx_drawstr("<");
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
+      mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+      bc_page > 0 ? bc_page -= 1;
+    );
+
+    gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+    gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
+    gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+    gfx_x = pg_prev_x + pg_btn_w + floor(6 * S); gfx_y = pg_prev_y + floor(2 * S);
+    gfx_drawstr(">");
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
+      mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+      bc_page < bc_total_pages - 1 ? bc_page += 1;
+    );
+
+    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+    gfx_x = pg_prev_x + pg_btn_w * 2 + floor(8 * S); gfx_y = pg_prev_y + floor(2 * S);
+    gfx_drawnumber(bc_page + 1, 0);
+    gfx_drawstr("/");
+    gfx_drawnumber(bc_total_pages, 0);
+
+    bc_page != bc_my_page ? (
+      you_x = pg_prev_x + pg_btn_w * 2 + floor(40 * S);
+      gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+      gfx_rect(you_x, pg_prev_y, floor(30 * S), pg_btn_h);
+      gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+      gfx_x = you_x + floor(3 * S); gfx_y = pg_prev_y + floor(2 * S);
+      gfx_drawstr("YOU");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= you_x && mouse_x < you_x + floor(30 * S) &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page = bc_my_page;
+      );
+    );
+  );
+
+  // Draw rows
+  bc_page_start = bc_page * bc_rows_per_page;
+  bc_page_end = bc_page_start + bc_rows_per_page - 1;
+  bc_visible = 0;
+  bc_s = 0;
+  loop(BC_MAX_INST,
+    isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
+    isid = gmem[isb + 1];
+
+    isid > 0 ? (
+      bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
+        draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
+
+        mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+          mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) &&
+          bc_s != bc_my_slot ? (
+          gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+          gfx_rect(floor(4 * S), draw_row_y, gfx_w - floor(8 * S), row_h);
+        );
+
+        gfx_setfont(1, "Arial", F_TINY);
+        bc_s == bc_my_slot ? (
+          gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+        ) : (
+          gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+        );
+        gfx_x = floor(12 * S); gfx_y = draw_row_y + floor(1 * S);
+        gfx_drawstr("I");
+        gfx_drawnumber(bc_s + 1, 0);
+        gfx_drawstr("  ");
+
+        bc_s == bc_my_slot ? (
+          gfx_drawstr("[YOU]");
+        ) : (
+          iwho = gmem[isb + 3];
+          bc_has_follower = 0;
+          bc_fsc = 0;
+          loop(BC_MAX_INST,
+            fsb2 = BC_MY_REGION + bc_fsc * BC_SLOT_SIZE;
+            gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
+            bc_fsc += 1;
+          );
+          iwho > 0 ? (
+            gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
+            gfx_drawstr("[FOLLOWER]");
+          ) : bc_has_follower ? (
+            gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
+            gfx_drawstr("[LEADER]");
+          ) : (
+            gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
+            gfx_drawstr("[UNASSIGNED]");
+          );
+          gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+          bc_steal_mode ? (
+            gfx_drawstr("  click: steal");
+          ) : (
+            gfx_drawstr("  click: follow");
+          );
+          (mouse_cap & 1) && !(last_cap & 1) &&
+            mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+            mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) ? (
+            bc_steal_mode ? (
+              bc_steal_target = isid;
+              bc_steal_pending = 1;
+              bc_steal_mode = 0;
+            ) : (
+              bc_can_follow = 1;
+              bc_cursor = isid;
+              bc_hops = 0;
+              while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+                bc_cursor == bc_my_id ? (
+                  bc_can_follow = 0;
+                  bc_cursor = 0;
+                ) : (
+                  bc_next = 0;
+                  bc_cs = 0;
+                  loop(BC_MAX_INST,
+                    csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                    gmem[csb + 1] == bc_cursor ? (
+                      bc_next = gmem[csb + 3];
+                      bc_cs = BC_MAX_INST;
+                    );
+                    bc_cs += 1;
+                  );
+                  bc_cursor = bc_next;
+                );
+                bc_hops += 1;
+              );
+              bc_can_follow ? (
+                bc_following = isid;
+              );
+            );
+          );
+        );
+      );
+      bc_visible += 1;
+    );
+    bc_s += 1;
+  );
+);
+
+// Mouse state tracking
+last_cap = mouse_cap;
+
+// --- NOTICE BUTTON ---
+notice_btn_x = gfx_w - floor(60 * S);
+notice_btn_y = bc_panel_y - floor(18 * S);
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+gfx_r = 0; gfx_g = 0; gfx_b = 0;
+gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+gfx_drawstr("NOTICE");
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
+  notice_show = !notice_show;
+  notice_clicked = 1;
+);
+!(mouse_cap & 1) ? notice_clicked = 0;
+notice_show ? (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_a = 1;
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+  gfx_drawstr("LMS DENSITY DRAWMER — 3-Band Stereo FET Compressor");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = floor(15 * S); gfx_y = floor(30 * S);
+  gfx_drawstr("Modeled on the Drawmer 1973 multiband FET compressor.");
+  gfx_x = floor(15 * S); gfx_y = floor(45 * S);
+  gfx_drawstr("6 dB/octave crossover filters (1st-order, authentic).");
+  gfx_x = floor(15 * S); gfx_y = floor(60 * S);
+  gfx_drawstr("Soft-knee FET compression with fixed 4:1 ratio.");
+  gfx_x = floor(15 * S); gfx_y = floor(75 * S);
+  gfx_drawstr("Per-band parallel compression via Mix control.");
+  gfx_x = floor(15 * S); gfx_y = floor(95 * S);
+  gfx_drawstr("DENSITY MODE: Enable GMEM Link to modulate thresholds");
+  gfx_x = floor(15 * S); gfx_y = floor(110 * S);
+  gfx_drawstr("and knee width based on upstream harmonic density.");
+  gfx_x = floor(15 * S); gfx_y = floor(130 * S);
+  gfx_drawstr("Left-click: adjust bars / cycle presets.");
+  gfx_x = floor(15 * S); gfx_y = floor(145 * S);
+  gfx_drawstr("Right-click: cycle presets backward.");
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = floor(15 * S); gfx_y = floor(170 * S);
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+  gfx_drawstr("NOTICE");
+);
+
+@serialize
+file_var(0, bc_following);
+file_var(0, bc_my_id);
