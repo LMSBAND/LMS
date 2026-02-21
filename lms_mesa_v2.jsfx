@@ -492,6 +492,15 @@ gate_on = 0;
 fx_bypass = 0;
 echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 
+// Density matrix animation state (128 cells for 16x8 grid)
+DM_CELLS = 90000;
+memset(DM_CELLS, 0, 128);
+dm_frame = 0;
+d_env_lo = 0; d_env_mid = 0; d_env_hi = 0; d_env_air = 0;
+d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
+d_miller_freq = 8000; d_miller_q = 0.6; d_grid_cond = 0;
+d_drive_boost = 1.0; d_bplus = 1.0;
+
   // ============================================================
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
@@ -866,6 +875,26 @@ amp_out = max(-0.95, min(0.95, amp_out));
 spl0 = amp_out;
 spl1 = amp_out;
 
+// Density state for GFX — pick the most relevant preamp triode per channel
+channel == 0 ? (
+  d_env_lo  = v1a.hd.env_lo;  d_env_mid = v1a.hd.env_mid;
+  d_env_hi  = v1a.hd.env_hi;  d_env_air = v1a.hd.env_air;
+  d_density = v1a.hd.density;
+  d_mid_d   = v1a.hd.mid_density;  d_hi_d = v1a.hd.hi_density;  d_air_d = v1a.hd.air_density;
+  d_miller_freq = v1a.last_miller_freq;  d_miller_q = v1a.last_miller_q;
+  d_drive_boost = 1.0 + v1a.hd.mid_density * 0.4;
+  d_grid_cond   = v1a.peak_env;
+) : (
+  d_env_lo  = v2b.hd.env_lo;  d_env_mid = v2b.hd.env_mid;
+  d_env_hi  = v2b.hd.env_hi;  d_env_air = v2b.hd.env_air;
+  d_density = v2b.hd.density;
+  d_mid_d   = v2b.hd.mid_density;  d_hi_d = v2b.hd.hi_density;  d_air_d = v2b.hd.air_density;
+  d_miller_freq = v2b.last_miller_freq;  d_miller_q = v2b.last_miller_q;
+  d_drive_boost = 1.0 + v2b.hd.mid_density * 0.4;
+  d_grid_cond   = v2b.peak_env;
+);
+d_bplus = bplus;
+
 
 @gfx 600 480
 
@@ -1143,6 +1172,223 @@ slider17 != _old ? slider_automate(2^16);
 cy += bar_sp;
 _old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, 0, 100, "Echo FB", 1);
 slider18 != _old ? slider_automate(2^17);
+
+// ============================================================================
+//  DENSITY AWARENESS PANEL
+// ============================================================================
+  // Panel position: below tallest column, spanning full width
+  p1h = 26 + 9 * bar_sp;  // PREAMP height (tallest)
+  p2h = 26 + 8 * bar_sp;  // TONE height
+  p3h = 26 + 7 * bar_sp;  // EFFECTS height
+  dm_panel_y = body_y + p1h + gap;
+  dm_panel_w = col_w * 3 + gap * 2;
+  dm_panel_x = margin;
+
+  // Matrix dimensions
+  dm_cell = max(3, floor(7 * S));
+  dm_gap  = max(1, floor(1.5 * S));
+  dm_cols = 16;
+  dm_rows = 8;
+  dm_grid_w = dm_cols * (dm_cell + dm_gap) - dm_gap;
+  dm_grid_h = dm_rows * (dm_cell + dm_gap) - dm_gap;
+
+  // Meter row height
+  dm_meter_h = max(8, floor(12 * S));
+  dm_meter_gap = max(2, floor(3 * S));
+
+  // Total panel height
+  dm_hdr = floor(22 * S);
+  dm_pad = floor(4 * S);
+  dm_panel_h = dm_hdr + dm_pad + dm_grid_h + dm_meter_gap + dm_meter_h + dm_pad;
+
+  // Draw panel background
+  draw_panel(dm_panel_x, dm_panel_y, dm_panel_w, dm_panel_h, "DENSITY AWARENESS");
+
+  // Band colors (website: blue/orange/red/purple)
+  DM_LO_R = 0.12; DM_LO_G = 0.31; DM_LO_B = 0.86;
+  DM_MI_R = 0.86; DM_MI_G = 0.63; DM_MI_B = 0.12;
+  DM_HI_R = 0.86; DM_HI_G = 0.24; DM_HI_B = 0.12;
+  DM_AI_R = 0.71; DM_AI_G = 0.16; DM_AI_B = 0.86;
+
+  // Scale band envelopes to 0-1 range for visualization
+  dm_band0 = min(1.0, d_env_lo * 8.0);
+  dm_band1 = min(1.0, d_env_mid * 10.0);
+  dm_band2 = min(1.0, d_env_hi * 12.0);
+  dm_band3 = min(1.0, d_env_air * 16.0);
+
+  // Animation frame counter
+  dm_frame += 1;
+  dm_t = dm_frame * 0.025;
+
+  // Draw 16x8 matrix grid
+  dm_gx = dm_panel_x + dm_pad;
+  dm_gy = dm_panel_y + dm_hdr + dm_pad;
+  dm_r = 0;
+  loop(dm_rows,
+    dm_c = 0;
+    // Pick band for this row pair (rows 0-1=LO, 2-3=MID, 4-5=HI, 6-7=AIR)
+    dm_band_idx = floor(dm_r / 2);
+    dm_band_idx == 0 ? ( dm_bval = dm_band0; dm_br = DM_LO_R; dm_bg = DM_LO_G; dm_bb = DM_LO_B; );
+    dm_band_idx == 1 ? ( dm_bval = dm_band1; dm_br = DM_MI_R; dm_bg = DM_MI_G; dm_bb = DM_MI_B; );
+    dm_band_idx == 2 ? ( dm_bval = dm_band2; dm_br = DM_HI_R; dm_bg = DM_HI_G; dm_bb = DM_HI_B; );
+    dm_band_idx == 3 ? ( dm_bval = dm_band3; dm_br = DM_AI_R; dm_bg = DM_AI_G; dm_bb = DM_AI_B; );
+    loop(dm_cols,
+      // Cell index for state memory
+      dm_ci = dm_r * dm_cols + dm_c;
+      // Animated phase (matching website: sin(t * ((r*16+c)*0.37 + r*1.1)*0.1 + c*0.5 + r*0.8))
+      dm_phase = sin(dm_t * ((dm_ci * 0.37 + dm_r * 1.1) * 0.1) + dm_c * 0.5 + dm_r * 0.8);
+      dm_target = max(0, min(1, dm_phase * dm_bval * 1.3));
+      // Smooth interpolation (cell_val += (target - cell_val) * 0.15)
+      dm_cur = DM_CELLS[dm_ci];
+      dm_cur += (dm_target - dm_cur) * 0.15;
+      DM_CELLS[dm_ci] = dm_cur;
+      // Cell brightness
+      dm_alpha = max(0.03, dm_cur * 0.9);
+      // Draw cell
+      dm_cx = dm_gx + dm_c * (dm_cell + dm_gap);
+      dm_cy = dm_gy + dm_r * (dm_cell + dm_gap);
+      gfx_r = dm_br * dm_alpha; gfx_g = dm_bg * dm_alpha; gfx_b = dm_bb * dm_alpha;
+      gfx_rect(dm_cx, dm_cy, dm_cell, dm_cell);
+      dm_c += 1;
+    );
+    dm_r += 1;
+  );
+
+  // Band labels (right of grid)
+  dm_lbl_x = dm_gx + dm_grid_w + floor(6 * S);
+  gfx_setfont(1, "Arial", F_TINY);
+  dm_lbl_names_0 = "LO"; dm_lbl_names_1 = "MID"; dm_lbl_names_2 = "HI"; dm_lbl_names_3 = "AIR";
+  dm_li = 0;
+  loop(4,
+    dm_lbl_cy = dm_gy + dm_li * 2 * (dm_cell + dm_gap) + floor((dm_cell * 2 + dm_gap - F_TINY) / 2);
+    dm_li == 0 ? ( gfx_r = DM_LO_R; gfx_g = DM_LO_G; gfx_b = DM_LO_B; );
+    dm_li == 1 ? ( gfx_r = DM_MI_R; gfx_g = DM_MI_G; gfx_b = DM_MI_B; );
+    dm_li == 2 ? ( gfx_r = DM_HI_R; gfx_g = DM_HI_G; gfx_b = DM_HI_B; );
+    dm_li == 3 ? ( gfx_r = DM_AI_R; gfx_g = DM_AI_G; gfx_b = DM_AI_B; );
+    gfx_x = dm_lbl_x; gfx_y = dm_lbl_cy;
+    dm_li == 0 ? gfx_drawstr("LO");
+    dm_li == 1 ? gfx_drawstr("MID");
+    dm_li == 2 ? gfx_drawstr("HI");
+    dm_li == 3 ? gfx_drawstr("AIR");
+    dm_li += 1;
+  );
+
+  // Density value display (right side, next to band labels)
+  dm_info_x = dm_lbl_x + floor(30 * S);
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = dm_info_x; gfx_y = dm_gy + floor(2 * S);
+  gfx_drawstr("DENSITY");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = dm_info_x; gfx_y = dm_gy + floor(14 * S);
+  gfx_drawnumber(d_density, 2);
+  gfx_drawstr("x");
+
+  // ── METER ROW (5 meters below matrix) ──
+  dm_my = dm_gy + dm_grid_h + dm_meter_gap;
+  dm_meter_count = 5;
+  dm_mw = floor((dm_panel_w - dm_pad * 2 - (dm_meter_count - 1) * dm_meter_gap) / dm_meter_count);
+
+  // Meter 1: MILLER LP
+  dm_mx = dm_panel_x + dm_pad;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_miller_freq - 5000) / 3500));
+  dm_mfill_w = dm_mfill * dm_mw;
+  dm_mfill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
+  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
+  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
+  gfx_drawstr("MLR LP");
+
+  // Meter 2: MILLER Q
+  dm_mx += dm_mw + dm_meter_gap;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_miller_q - 0.6) / 0.35));
+  dm_mfill_w = dm_mfill * dm_mw;
+  dm_mfill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
+  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
+  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
+  gfx_drawstr("MLR Q");
+
+  // Meter 3: GRID COND
+  dm_mx += dm_mw + dm_meter_gap;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, d_grid_cond / 0.35));
+  dm_mfill_w = dm_mfill * dm_mw;
+  dm_mfill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
+  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
+  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
+  gfx_drawstr("GRID");
+
+  // Meter 4: DRIVE
+  dm_mx += dm_mw + dm_meter_gap;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_drive_boost - 1.0) / 0.4));
+  dm_mfill_w = dm_mfill * dm_mw;
+  dm_mfill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
+  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
+  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
+  gfx_drawstr("DRIVE");
+
+  // Meter 5: B+ RAIL
+  dm_mx += dm_mw + dm_meter_gap;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_bplus - 0.75) / 0.25));
+  dm_mfill_w = dm_mfill * dm_mw;
+  dm_mfill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(dm_mx, dm_my, dm_mfill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
+  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
+  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
+  gfx_drawstr("B+");
 
 // ============================================================================
 //  INSTANCE MANAGER PANEL
