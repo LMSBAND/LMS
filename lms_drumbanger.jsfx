@@ -3603,7 +3603,7 @@ notice_show ? (
 // ============================================================
 @serialize
 
-serial_version = 8;
+serial_version = 9;
 file_var(0, serial_version);
 // After file_var: serial_version = 7 when saving, = saved version when loading
 
@@ -3763,4 +3763,39 @@ serial_version >= 8 ? (
   i = 0; loop(8192, file_var(0, PLOCK_VOL_BASE[i]); i += 1);
   i = 0; loop(8192, file_var(0, PLOCK_PAN_BASE[i]); i += 1);
   i = 0; loop(8192, file_var(0, PLOCK_PITCH_BASE[i]); i += 1);
+);
+
+// v9: per-pad pool sample assignments, chop offsets, slice selection
+serial_version >= 9 ? (
+  i = 0; loop(NUM_PADS, file_var(0, PAD_POOL_IDX[i]); i += 1);
+  i = 0; loop(NUM_PADS, file_var(0, PAD_CHOP_OFFSET[i]); i += 1);
+  i = 0; loop(NUM_PADS, file_var(0, PAD_SLICE[i]); i += 1);
+
+  // After loading: reload the correct kit, then restore pool overrides.
+  // @init loaded kit 0 (slider default), but the project may use a different kit.
+  // We must load the correct kit FIRST (so non-overridden pads get right samples),
+  // then reload pool overrides on top.
+  file_avail(0) >= 0 ? (  // loading (not saving)
+    // Stash restored pool state (load_kit_samples resets these to defaults)
+    // Temp memory: 83200-83247 (after PLOCK_PITCH_BASE ends at 83191)
+    i = 0;
+    loop(NUM_PADS,
+      83200[i] = PAD_POOL_IDX[i];    // 83200-83215
+      83216[i] = PAD_CHOP_OFFSET[i];  // 83216-83231
+      83232[i] = PAD_SLICE[i];        // 83232-83247
+      i += 1;
+    );
+    // Load the correct kit (slider7 restored by REAPER before @serialize)
+    load_kit_samples(slider7);
+    // Restore pool overrides and reload their audio from disk
+    i = 0;
+    loop(NUM_PADS,
+      PAD_CHOP_OFFSET[i] = 83216[i];
+      PAD_SLICE[i] = 83232[i];
+      83200[i] >= 0 ? (
+        load_pad_from_pool(i, 83200[i]);
+      );
+      i += 1;
+    );
+  );
 );
