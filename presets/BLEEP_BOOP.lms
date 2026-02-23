@@ -1,0 +1,275 @@
+{
+  "lms_version": "1.0",
+  "created": "2026-02-22T00:00:00",
+  "session_name": "BLEEP_BOOP",
+  "tracks": [
+    {
+      "name": "DRUMBANGER",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_drumbanger.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 1",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 2",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 3",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 4",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 5",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 6",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 7",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Drone 8",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: DrumbangerDroneMIDI2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_moog_synth.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: DrumbangerDroneFX.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Bass",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_fridge_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Guitar",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_ac15_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "MASTER",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_density_limiter.jsfx",
+          "params": []
+        }
+      ]
+    }
+  ]
+}

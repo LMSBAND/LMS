@@ -14,10 +14,11 @@ slider2:0<0,1,1{Single,Drum}>-Mode
 slider3:50<0,100,1>-Gate Threshold (%)
 
 // Gate envelope
-slider4:1<0.1,20,0.1>-Attack (ms)
+slider4:5<0,20,0.1>-Pre-Open (ms)
 slider5:50<10,500,1>-Hold (ms)
 slider6:200<20,2000,1>-Release (ms)
 slider7:-80<-80,0,1>-Range (dB)
+slider16:2<0.1,10,0.1>-Fade In (ms)
 
 // Density tuning
 slider8:30<0,100,1>-Density Sensitivity (%)
@@ -27,7 +28,7 @@ slider9:50<0,100,1>-Hysteresis (%)
 slider10:80<20,500,1>-Sidechain HPF (Hz)
 
 // Drum mode
-slider11:0<0,2,1{Kick,Snare,Tom}>-Drum Type
+slider11:0<0,3,1{Kick,Snare,Tom,OH}>-Drum Type
 slider12:1<1,8,1>-Tom Distance (1=near snare)
 slider13:60<0,100,1>-Bleed Reject (%)
 
@@ -46,17 +47,57 @@ slider15:100<0,100,1>-Mix (%)
 
   // Gate state
   gate_gain = 0.0;       // 0 = closed, 1 = open (smoothed)
-  gate_state = 0;        // 0=CLOSED, 1=ATTACK, 2=OPEN, 3=HOLD, 4=RELEASE
+  gate_state = 0;        // 0=CLOSED, 1=OPENING, 2=OPEN, 3=HOLD, 4=RELEASE
   hold_counter = 0;
   gate_env = 0;          // sidechain envelope
   gate_should_open = 0;
   gate_should_close = 0;
 
+  // Look-ahead delay buffer (stereo, max 20ms)
+  // The sidechain sees the signal NOW, but audio output is delayed
+  // so the gate decision happens BEFORE the audio arrives
+  LA_MAX = ceil(srate * 0.020);  // 20ms max
+  LA_BUF_L = 850000;
+  LA_BUF_R = 850000 + LA_MAX;
+  memset(LA_BUF_L, 0, LA_MAX);
+  memset(LA_BUF_R, 0, LA_MAX);
+  la_pos = 0;
+  la_samples = 0;
+
+  // Monotonic sample counter (synced across all instances in same audio thread)
+  sample_clock = 0;
+
+  // Transient edge detection (for timestamp broadcast)
+  was_above = 0;
+
+  // Phase calibration state
+  cal_state = 0;        // 0=IDLE, 1=ARMED, 2=DONE
+  // cal_offset restored from @serialize — do NOT zero here
+  cal_oh_slot = -1;     // first OH slot
+  cal_oh_slot2 = -1;    // second OH slot (if stereo pair)
+  cal_oh_seq = 0;       // OH1 transient sequence at arm time
+  cal_oh_seq2 = 0;      // OH2 transient sequence at arm time
+  cal_oh_count = 0;     // how many OHs found (1 or 2)
+  cal_my_timestamp = 0;
+  cal_oh_timestamp = 0;
+  cal_armed_time = 0;
+  cal_timeout = srate * 5;  // 5 second timeout
+  cal_request_age = 0;
+
+  // Phase correction delay buffer (stereo, max 10ms)
+  PC_MAX = ceil(srate * 0.010);
+  PC_BUF_L = 860000;
+  PC_BUF_R = 860000 + PC_MAX;
+  memset(PC_BUF_L, 0, PC_MAX);
+  memset(PC_BUF_R, 0, PC_MAX);
+  pc_pos = 0;
+  pc_samples = 0;
+
   // Derived params
   in_gain = 1.0;
   mode = 0;
   gate_thresh = 0.25;
-  att_coeff = 0;
+  fadein_coeff = 0;
   rel_coeff = 0;
   hold_samples = 0;
   range_lin = 0.0001;
@@ -87,7 +128,31 @@ slider15:100<0,100,1>-Mix (%)
   gfx_peer_open_4 = 0; gfx_peer_open_5 = 0; gfx_peer_open_6 = 0; gfx_peer_open_7 = 0;
   gfx_peer_dist_0 = 0; gfx_peer_dist_1 = 0; gfx_peer_dist_2 = 0; gfx_peer_dist_3 = 0;
   gfx_peer_dist_4 = 0; gfx_peer_dist_5 = 0; gfx_peer_dist_6 = 0; gfx_peer_dist_7 = 0;
+  gfx_peer_slot_0 = -1; gfx_peer_slot_1 = -1; gfx_peer_slot_2 = -1; gfx_peer_slot_3 = -1;
+  gfx_peer_slot_4 = -1; gfx_peer_slot_5 = -1; gfx_peer_slot_6 = -1; gfx_peer_slot_7 = -1;
+  gfx_peer_thresh_0 = 50; gfx_peer_thresh_1 = 50; gfx_peer_thresh_2 = 50; gfx_peer_thresh_3 = 50;
+  gfx_peer_thresh_4 = 50; gfx_peer_thresh_5 = 50; gfx_peer_thresh_6 = 50; gfx_peer_thresh_7 = 50;
+  gfx_peer_phase_0 = 0; gfx_peer_phase_1 = 0; gfx_peer_phase_2 = 0; gfx_peer_phase_3 = 0;
+  gfx_peer_phase_4 = 0; gfx_peer_phase_5 = 0; gfx_peer_phase_6 = 0; gfx_peer_phase_7 = 0;
+  gfx_peer_ts_0 = 0; gfx_peer_ts_1 = 0; gfx_peer_ts_2 = 0; gfx_peer_ts_3 = 0;
+  gfx_peer_ts_4 = 0; gfx_peer_ts_5 = 0; gfx_peer_ts_6 = 0; gfx_peer_ts_7 = 0;
+  gfx_peer_seq_0 = 0; gfx_peer_seq_1 = 0; gfx_peer_seq_2 = 0; gfx_peer_seq_3 = 0;
+  gfx_peer_seq_4 = 0; gfx_peer_seq_5 = 0; gfx_peer_seq_6 = 0; gfx_peer_seq_7 = 0;
   gfx_peer_count = 0;
+
+  // Phase view state
+  pv_open = 0;
+  // Smoothed wobble values per peer (for animation)
+  pv_wobble_0 = 1; pv_wobble_1 = 1; pv_wobble_2 = 1; pv_wobble_3 = 1;
+  pv_wobble_4 = 1; pv_wobble_5 = 1; pv_wobble_6 = 1; pv_wobble_7 = 1;
+
+  // Threshold popup state (right-click on peer row)
+  tp_open = 0;
+  tp_peer_idx = 0;
+  tp_peer_slot = -1;
+  tp_x = 0;
+  tp_y = 0;
+  tp_dragging = 0;
 
   notice_show = 0;
   buy_show = 0;
@@ -147,7 +212,14 @@ slider15:100<0,100,1>-Mix (%)
   in_gain = lms_db2lin(slider1);
   mode = slider2;
   gate_thresh = (slider3 / 100) * (slider3 / 100);
-  att_coeff = exp(-1 / (srate * slider4 / 1000));
+  // Pre-open: how far ahead the gate opens (in samples, clamped to buffer size)
+  la_samples = min(LA_MAX - 1, floor(srate * slider4 / 1000));
+  // Tell REAPER about total latency (look-ahead + phase correction)
+  pc_samples = mode == 1 && drum_type < 3 ? cal_offset : 0;
+  pdc_delay = la_samples + pc_samples;
+  pdc_top_ch = 2;
+  // Fade-in: how fast the gate transitions from closed to open
+  fadein_coeff = exp(-1 / (srate * max(0.1, slider16) / 1000));
   hold_samples = floor(srate * slider5 / 1000);
   rel_coeff = exp(-1 / (srate * slider6 / 1000));
   range_lin = lms_db2lin(slider7);
@@ -167,7 +239,11 @@ slider15:100<0,100,1>-Mix (%)
 in_gain = lms_db2lin(slider1);
 mode = slider2;
 gate_thresh = (slider3 / 100) * (slider3 / 100);
-att_coeff = exp(-1 / (srate * slider4 / 1000));
+la_samples = min(LA_MAX - 1, floor(srate * slider4 / 1000));
+pc_samples = mode == 1 && drum_type < 3 ? cal_offset : 0;
+pdc_delay = la_samples + pc_samples;
+pdc_top_ch = 2;
+fadein_coeff = exp(-1 / (srate * max(0.1, slider16) / 1000));
 hold_samples = floor(srate * slider5 / 1000);
 rel_coeff = exp(-1 / (srate * slider6 / 1000));
 range_lin = lms_db2lin(slider7);
@@ -298,6 +374,25 @@ bc_my_slot >= 0 ? (
   gmem[ebase + 2] = hd.env_total;
   gmem[ebase + 3] = hd.density;
   gmem[ebase + 4] = gate_gain > 0.5 ? 1 : 0;
+  gmem[ebase + 5] = slider3;   // broadcast our threshold so peers can display it
+  gmem[ebase + 11] = cal_offset; // broadcast our phase offset for peers to display
+
+  // Check for remote threshold write from another instance
+  // ebase+6 = flag (1 = pending write), ebase+7 = new threshold value
+  gmem[ebase + 6] > 0 ? (
+    slider3 = max(0, min(100, gmem[ebase + 7]));
+    slider_automate(2^2);
+    gmem[ebase + 6] = 0;  // clear the flag
+  );
+
+  // OH: clear calibration request after 2 blocks
+  drum_type == 3 && gmem[ebase + 10] > 0 ? (
+    cal_request_age += 1;
+    cal_request_age > 2 ? (
+      gmem[ebase + 10] = 0;
+      cal_request_age = 0;
+    );
+  );
 );
 
 // ---- Drum mode: scan peers ----
@@ -327,15 +422,49 @@ mode == 1 ? (
           peer_owner_dist = p_dist;
         );
 
+        // OH auto-arm: if an OH sent a calibration request, arm ourselves
+        p_type == 3 && gmem[pbase + 10] > 0 ? (
+          drum_type < 3 && cal_state == 0 ? (
+            cal_state = 1;
+            cal_oh_slot = bc_scan;
+            cal_oh_seq = gmem[pbase + 9];
+            cal_oh_slot2 = -1;
+            cal_oh_seq2 = 0;
+            cal_oh_count = 1;
+            cal_my_seq = bc_my_slot >= 0 ? gmem[BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200 + 9] : 0;
+            cal_armed_time = sample_clock;
+          );
+        );
+
+        // Collect OH slots: first into slot, second into slot2
+        cal_state == 1 && p_type == 3 ? (
+          cal_oh_slot < 0 ? (
+            cal_oh_slot = bc_scan;
+            cal_oh_seq = gmem[pbase + 9];
+            cal_oh_count = 1;
+            cal_my_seq = bc_my_slot >= 0 ? gmem[BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200 + 9] : 0;
+          ) : bc_scan != cal_oh_slot && cal_oh_slot2 < 0 ? (
+            cal_oh_slot2 = bc_scan;
+            cal_oh_seq2 = gmem[pbase + 9];
+            cal_oh_count = 2;
+          );
+        );
+
+        // Read peer's threshold + phase offset + transient data
+        p_thresh = gmem[pbase + 5];
+        p_phase = gmem[pbase + 11];
+        p_ts = gmem[pbase + 8];
+        p_seq = gmem[pbase + 9];
+
         // Store for GFX (up to 8 peers)
-        peer_count == 0 ? (gfx_peer_type_0 = p_type; gfx_peer_open_0 = p_open; gfx_peer_dist_0 = p_dist);
-        peer_count == 1 ? (gfx_peer_type_1 = p_type; gfx_peer_open_1 = p_open; gfx_peer_dist_1 = p_dist);
-        peer_count == 2 ? (gfx_peer_type_2 = p_type; gfx_peer_open_2 = p_open; gfx_peer_dist_2 = p_dist);
-        peer_count == 3 ? (gfx_peer_type_3 = p_type; gfx_peer_open_3 = p_open; gfx_peer_dist_3 = p_dist);
-        peer_count == 4 ? (gfx_peer_type_4 = p_type; gfx_peer_open_4 = p_open; gfx_peer_dist_4 = p_dist);
-        peer_count == 5 ? (gfx_peer_type_5 = p_type; gfx_peer_open_5 = p_open; gfx_peer_dist_5 = p_dist);
-        peer_count == 6 ? (gfx_peer_type_6 = p_type; gfx_peer_open_6 = p_open; gfx_peer_dist_6 = p_dist);
-        peer_count == 7 ? (gfx_peer_type_7 = p_type; gfx_peer_open_7 = p_open; gfx_peer_dist_7 = p_dist);
+        peer_count == 0 ? (gfx_peer_type_0 = p_type; gfx_peer_open_0 = p_open; gfx_peer_dist_0 = p_dist; gfx_peer_slot_0 = bc_scan; gfx_peer_thresh_0 = p_thresh; gfx_peer_phase_0 = p_phase; gfx_peer_ts_0 = p_ts; gfx_peer_seq_0 = p_seq);
+        peer_count == 1 ? (gfx_peer_type_1 = p_type; gfx_peer_open_1 = p_open; gfx_peer_dist_1 = p_dist; gfx_peer_slot_1 = bc_scan; gfx_peer_thresh_1 = p_thresh; gfx_peer_phase_1 = p_phase; gfx_peer_ts_1 = p_ts; gfx_peer_seq_1 = p_seq);
+        peer_count == 2 ? (gfx_peer_type_2 = p_type; gfx_peer_open_2 = p_open; gfx_peer_dist_2 = p_dist; gfx_peer_slot_2 = bc_scan; gfx_peer_thresh_2 = p_thresh; gfx_peer_phase_2 = p_phase; gfx_peer_ts_2 = p_ts; gfx_peer_seq_2 = p_seq);
+        peer_count == 3 ? (gfx_peer_type_3 = p_type; gfx_peer_open_3 = p_open; gfx_peer_dist_3 = p_dist; gfx_peer_slot_3 = bc_scan; gfx_peer_thresh_3 = p_thresh; gfx_peer_phase_3 = p_phase; gfx_peer_ts_3 = p_ts; gfx_peer_seq_3 = p_seq);
+        peer_count == 4 ? (gfx_peer_type_4 = p_type; gfx_peer_open_4 = p_open; gfx_peer_dist_4 = p_dist; gfx_peer_slot_4 = bc_scan; gfx_peer_thresh_4 = p_thresh; gfx_peer_phase_4 = p_phase; gfx_peer_ts_4 = p_ts; gfx_peer_seq_4 = p_seq);
+        peer_count == 5 ? (gfx_peer_type_5 = p_type; gfx_peer_open_5 = p_open; gfx_peer_dist_5 = p_dist; gfx_peer_slot_5 = bc_scan; gfx_peer_thresh_5 = p_thresh; gfx_peer_phase_5 = p_phase; gfx_peer_ts_5 = p_ts; gfx_peer_seq_5 = p_seq);
+        peer_count == 6 ? (gfx_peer_type_6 = p_type; gfx_peer_open_6 = p_open; gfx_peer_dist_6 = p_dist; gfx_peer_slot_6 = bc_scan; gfx_peer_thresh_6 = p_thresh; gfx_peer_phase_6 = p_phase; gfx_peer_ts_6 = p_ts; gfx_peer_seq_6 = p_seq);
+        peer_count == 7 ? (gfx_peer_type_7 = p_type; gfx_peer_open_7 = p_open; gfx_peer_dist_7 = p_dist; gfx_peer_slot_7 = bc_scan; gfx_peer_thresh_7 = p_thresh; gfx_peer_phase_7 = p_phase; gfx_peer_ts_7 = p_ts; gfx_peer_seq_7 = p_seq);
 
         peer_count += 1;
       );
@@ -377,11 +506,27 @@ loop(BC_MAX_INST,
 // ============================================================
 @sample
 
+  sample_clock += 1;
+
   dry_l = spl0; dry_r = spl1;
   l = spl0 * in_gain;
   r = spl1 * in_gain;
 
-  // Sidechain: mono sum → HPF → density tracker
+  // ---- LOOK-AHEAD BUFFER ----
+  // Sidechain analyzes the signal NOW. Audio output is delayed by pre-open ms.
+  // The gate decision happens BEFORE the audio arrives. "I saw it coming."
+  // Write current sample into delay buffer
+  LA_BUF_L[la_pos] = l;
+  LA_BUF_R[la_pos] = r;
+  // Read the delayed sample (la_samples behind)
+  la_read = la_pos - la_samples;
+  la_read < 0 ? la_read += LA_MAX;
+  la_l = LA_BUF_L[la_read];
+  la_r = LA_BUF_R[la_read];
+  la_pos += 1;
+  la_pos >= LA_MAX ? la_pos = 0;
+
+  // Sidechain: mono sum → HPF → density tracker (runs on CURRENT signal, not delayed)
   sc_mono = (l + r) * 0.5;
   sc_mono = sc_hpf.lms_bq_proc(sc_mono);
   hd.lms_opto_hd_proc(sc_mono);
@@ -395,8 +540,9 @@ loop(BC_MAX_INST,
   );
 
   // ---- GATE DECISION ----
-  mode == 0 ? (
-    // SINGLE MODE: density-weighted threshold
+  // OH (drum_type==3) stays in drum mode for broadcasting but gates independently
+  mode == 0 || (mode == 1 && drum_type == 3) ? (
+    // SINGLE MODE or OH: density-weighted threshold, no peer cross-mic comparison
     density_factor = (hd.density - 1.0) / 1.5;
     density_factor = max(0, min(1, density_factor));
     effective_thresh = gate_thresh * (1.0 - density_sens * density_factor);
@@ -404,7 +550,7 @@ loop(BC_MAX_INST,
     gate_should_open = gate_env > effective_thresh;
     gate_should_close = gate_env < effective_thresh * (1 - hysteresis_pct);
   ) : (
-    // DRUM MODE: spatial inference
+    // DRUM MODE close mics: spatial inference with bleed rejection
     density_factor = (hd.density - 1.0) / 1.5;
     density_factor = max(0, min(1, density_factor));
     effective_thresh = gate_thresh * (1.0 - density_sens * density_factor);
@@ -426,13 +572,10 @@ loop(BC_MAX_INST,
 
       // Decision thresholds
       ratio > (1.0 - rej) ? (
-        // I'm at least as loud as peers → my hit → open
         gate_should_open = 1;
       ) : ratio > 0.5 * (1.0 - rej) ? (
-        // Ambiguous — roughly equal → probably intentional → open both
         gate_should_open = 1;
       ) : (
-        // Peer much louder → bleed → stay closed
         gate_should_open = 0;
       );
     ) : (
@@ -444,12 +587,73 @@ loop(BC_MAX_INST,
   // Store effective threshold for GFX
   gfx_eff_thresh = effective_thresh;
 
+  // ---- TRANSIENT TIMESTAMP BROADCAST ----
+  // Detect rising edge: envelope just crossed above threshold
+  mode == 1 && bc_my_slot >= 0 ? (
+    above_now = gate_env > effective_thresh ? 1 : 0;
+    above_now && !was_above ? (
+      // New transient onset — broadcast timestamp
+      ts_sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200;
+      gmem[ts_sb + 8] = sample_clock;   // transient timestamp
+      gmem[ts_sb + 9] += 1;             // increment sequence counter
+    );
+    was_above = above_now;
+
+    // ---- PHASE CALIBRATION MEASUREMENT ----
+    cal_state == 1 && cal_oh_slot >= 0 ? (
+      // Check for timeout
+      (sample_clock - cal_armed_time) > cal_timeout ? (
+        cal_state = 0;  // timed out
+      ) : (
+        // Check if OH1 fired a new transient
+        oh_ebase = BC_MY_REGION + cal_oh_slot * BC_SLOT_SIZE + 200;
+        oh_seq_now = gmem[oh_ebase + 9];
+        oh_seq_now > cal_oh_seq ? (
+          // OH1 fired! Did we also fire?
+          my_ebase = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200;
+          my_seq_now = gmem[my_ebase + 9];
+          my_seq_now > cal_my_seq ? (
+            // Both fired — compute offset from OH1
+            cal_oh_timestamp = gmem[oh_ebase + 8];
+            cal_my_timestamp = gmem[my_ebase + 8];
+            cal_off1 = cal_oh_timestamp - cal_my_timestamp;
+
+            // Check OH2 if we have a stereo pair
+            cal_oh_count == 2 && cal_oh_slot2 >= 0 ? (
+              oh_ebase2 = BC_MY_REGION + cal_oh_slot2 * BC_SLOT_SIZE + 200;
+              oh_seq_now2 = gmem[oh_ebase2 + 9];
+              oh_seq_now2 > cal_oh_seq2 ? (
+                // OH2 also fired — average both offsets
+                cal_off2 = gmem[oh_ebase2 + 8] - cal_my_timestamp;
+                cal_offset = ((cal_off1 + cal_off2) / 2 + 0.5) | 0;
+              ) : (
+                // OH2 hasn't fired yet — just use OH1
+                cal_offset = cal_off1;
+              );
+            ) : (
+              // Only one OH — use it directly
+              cal_offset = cal_off1;
+            );
+
+            cal_offset = max(0, min(PC_MAX - 1, cal_offset));
+            pc_samples = drum_type < 3 ? cal_offset : 0;
+            cal_state = 2;  // DONE
+          );
+        );
+      );
+    );
+  );
+
   // ---- GATE STATE MACHINE ----
-  // 0=CLOSED, 1=ATTACK, 2=OPEN, 3=HOLD, 4=RELEASE
+  // 0=CLOSED, 1=OPENING (fade-in), 2=OPEN, 3=HOLD, 4=RELEASE
+  // The gate decision runs on CURRENT signal. The audio is delayed by pre-open ms.
+  // So when we decide to open, the gate is already fading in by the time the transient
+  // arrives in the delayed audio. "I saw it coming."
   gate_state == 0 ? (
     gate_should_open ? gate_state = 1;
   ) : gate_state == 1 ? (
-    gate_gain += (1.0 - gate_gain) * (1.0 - att_coeff);
+    // OPENING: fade from closed to open (fade-in time)
+    gate_gain += (1.0 - gate_gain) * (1.0 - fadein_coeff);
     gate_gain >= 0.999 ? (gate_gain = 1.0; gate_state = 2);
   ) : gate_state == 2 ? (
     gate_gain = 1.0;
@@ -465,13 +669,26 @@ loop(BC_MAX_INST,
     gate_gain <= range_lin + 0.0001 ? (gate_gain = range_lin; gate_state = 0);
   );
 
-  // Apply gate
-  gated_l = l * gate_gain;
-  gated_r = r * gate_gain;
+  // Apply gate to DELAYED audio (the gate opened pre-open ms ago, audio arrives now)
+  gated_l = la_l * gate_gain;
+  gated_r = la_r * gate_gain;
 
-  // Mix
-  spl0 = dry_l * (1 - mix) + gated_l * mix;
-  spl1 = dry_r * (1 - mix) + gated_r * mix;
+  // Mix (dry uses delayed signal too, so latency is consistent)
+  spl0 = la_l * (1 - mix) + gated_l * mix;
+  spl1 = la_r * (1 - mix) + gated_r * mix;
+
+  // ---- PHASE CORRECTION DELAY ----
+  // Delays close mic output to align with OH timing
+  pc_samples > 0 ? (
+    PC_BUF_L[pc_pos] = spl0;
+    PC_BUF_R[pc_pos] = spl1;
+    pc_read = pc_pos - pc_samples;
+    pc_read < 0 ? pc_read += PC_MAX;
+    spl0 = PC_BUF_L[pc_read];
+    spl1 = PC_BUF_R[pc_read];
+    pc_pos += 1;
+    pc_pos >= PC_MAX ? pc_pos = 0;
+  );
 
   // Metering
   slider14 = gate_gain > 0.001 ? 20 * log10(gate_gain) : -80;
@@ -689,9 +906,14 @@ _old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, 
 slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
 
-// Attack
-_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 0.1, 20, "Attack ms", 1);
+// Pre-Open
+_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 0, 20, "Pre-Open ms", 1);
 slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+// Fade In
+_old = slider16; slider16 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider16, 0.1, 10, "Fade In ms", 1);
+slider16 != _old ? slider_automate(2^15);
 cy += bar_sp;
 
 // Hold
@@ -749,18 +971,19 @@ mode == 1 ? (
   slider11 == 0 ? gfx_drawstr("KICK");
   slider11 == 1 ? gfx_drawstr("SNARE");
   slider11 == 2 ? gfx_drawstr("TOM");
+  slider11 == 3 ? gfx_drawstr("OH");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= c1x + pad && mouse_x <= c1x + pad + dt_sel_w &&
     mouse_y >= cy && mouse_y <= cy + dt_sel_h ? (
     _old = slider11;
-    slider11 = (slider11 + 1) % 3;
+    slider11 = (slider11 + 1) % 4;
     slider11 != _old ? slider_automate(2^10);
   );
   (mouse_cap & 2) && !(last_cap & 2) &&
     mouse_x >= c1x + pad && mouse_x <= c1x + pad + dt_sel_w &&
     mouse_y >= cy && mouse_y <= cy + dt_sel_h ? (
     _old = slider11;
-    slider11 = slider11 - 1; slider11 < 0 ? slider11 = 2;
+    slider11 = slider11 - 1; slider11 < 0 ? slider11 = 3;
     slider11 != _old ? slider_automate(2^10);
   );
   cy += bar_sp;
@@ -775,6 +998,185 @@ mode == 1 ? (
   // Bleed Reject
   _old = slider13; slider13 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider13, 0, 100, "Bleed Rej %", 1);
   slider13 != _old ? slider_automate(2^12);
+  cy += bar_sp;
+
+  // ---- PHASE CORRECTION SECTION ----
+  // Phase offset readout (close mics only: Kick/Snare/Tom)
+  drum_type < 3 ? (
+    // Phase status bar background
+    ph_bar_w = col_w - pad2;
+    ph_bar_h = bar_h;
+    gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+    gfx_rect(c1x + pad, cy, ph_bar_w, ph_bar_h);
+    gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+    gfx_rect(c1x + pad, cy, ph_bar_w, 1); gfx_rect(c1x + pad, cy + ph_bar_h - 1, ph_bar_w, 1);
+    gfx_rect(c1x + pad, cy, 1, ph_bar_h); gfx_rect(c1x + pad + ph_bar_w - 1, cy, 1, ph_bar_h);
+
+    gfx_setfont(1, "Arial", F_LABEL);
+    gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_bar_h - F_LABEL) / 2);
+    gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+    gfx_drawstr("Phase");
+
+    gfx_setfont(1, "Arial", F_SMALL);
+    cal_offset > 0 ? (
+      // Show offset in ms and samples
+      ph_ms = cal_offset / srate * 1000;
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+      gfx_x = c1x + pad + ph_bar_w - floor(90 * S); gfx_y = cy + floor((ph_bar_h - F_SMALL) / 2);
+      gfx_drawnumber(ph_ms, 1);
+      gfx_drawstr("ms (");
+      gfx_drawnumber(cal_offset, 0);
+      gfx_drawstr(" smp)");
+    ) : (
+      gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+      gfx_x = c1x + pad + ph_bar_w - floor(30 * S); gfx_y = cy + floor((ph_bar_h - F_SMALL) / 2);
+      gfx_drawstr("---");
+    );
+    cy += bar_sp;
+
+    // PHASE CORRECT TO OH button
+    ph_btn_w = col_w - pad2 - floor(30 * S); // leave room for CLR
+    ph_btn_h = bar_h;
+
+    // Button background - state dependent
+    cal_state == 1 ? (
+      // ARMED: pulsing amber
+      ph_pulse = 0.5 + 0.5 * sin(time_precise() * 6);
+      gfx_r = 0.9 * ph_pulse; gfx_g = 0.6 * ph_pulse; gfx_b = 0.1 * ph_pulse;
+    ) : cal_state == 2 ? (
+      // DONE: green tint
+      gfx_r = COL_GREEN_R * 0.3; gfx_g = COL_GREEN_G * 0.3; gfx_b = COL_GREEN_B * 0.3;
+    ) : (
+      // IDLE: dark
+      gfx_r = 0.10; gfx_g = 0.12; gfx_b = 0.10;
+    );
+    gfx_rect(c1x + pad, cy, ph_btn_w, ph_btn_h);
+
+    // Button border
+    cal_state == 1 ? (
+      gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.1;
+    ) : cal_state == 2 ? (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    ) : (
+      gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+    );
+    gfx_rect(c1x + pad, cy, ph_btn_w, 1); gfx_rect(c1x + pad, cy + ph_btn_h - 1, ph_btn_w, 1);
+    gfx_rect(c1x + pad, cy, 1, ph_btn_h); gfx_rect(c1x + pad + ph_btn_w - 1, cy, 1, ph_btn_h);
+
+    // Button text
+    gfx_setfont(1, "Arial", F_TINY);
+    cal_state == 0 ? (
+      gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+      gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
+      gfx_drawstr("PHASE CORRECT TO OH");
+    ) : cal_state == 1 ? (
+      gfx_r = 1; gfx_g = 0.9; gfx_b = 0.3;
+      gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
+      gfx_drawstr("HIT A DRUM...");
+    ) : (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+      gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
+      gfx_drawstr("RECALIBRATE");
+    );
+
+    // Click handler: PHASE CORRECT TO OH
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= c1x + pad && mouse_x <= c1x + pad + ph_btn_w &&
+      mouse_y >= cy && mouse_y <= cy + ph_btn_h ? (
+      cal_state == 0 || cal_state == 2 ? (
+        // Arm calibration
+        cal_state = 1;
+        cal_oh_slot = -1;
+        cal_oh_slot2 = -1;
+        cal_oh_count = 0;
+        cal_armed_time = sample_clock;
+      ) : cal_state == 1 ? (
+        // Cancel if already armed
+        cal_state = 0;
+      );
+    );
+
+    // CLR button (right of phase correct button)
+    ph_clr_x = c1x + pad + ph_btn_w + floor(3 * S);
+    ph_clr_w = floor(27 * S);
+    gfx_r = 0.15; gfx_g = 0.08; gfx_b = 0.08;
+    gfx_rect(ph_clr_x, cy, ph_clr_w, ph_btn_h);
+    gfx_r = 0.5; gfx_g = 0.15; gfx_b = 0.15;
+    gfx_rect(ph_clr_x, cy, ph_clr_w, 1); gfx_rect(ph_clr_x, cy + ph_btn_h - 1, ph_clr_w, 1);
+    gfx_rect(ph_clr_x, cy, 1, ph_btn_h); gfx_rect(ph_clr_x + ph_clr_w - 1, cy, 1, ph_btn_h);
+    gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.3;
+    gfx_setfont(1, "Arial", F_TINY);
+    gfx_x = ph_clr_x + floor(3 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
+    gfx_drawstr("CLR");
+
+    // CLR click handler
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= ph_clr_x && mouse_x <= ph_clr_x + ph_clr_w &&
+      mouse_y >= cy && mouse_y <= cy + ph_btn_h ? (
+      cal_offset = 0;
+      pc_samples = 0;
+      cal_state = 0;
+    );
+
+  ) : drum_type == 3 ? (
+    // OH instances: CAL ALL button
+    ph_btn_w = col_w - pad2;
+    ph_btn_h = bar_h;
+
+    gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.15;
+    gfx_rect(c1x + pad, cy, ph_btn_w, ph_btn_h);
+    gfx_r = COL_CYAN_R * 0.5; gfx_g = COL_CYAN_G * 0.5; gfx_b = COL_CYAN_B * 0.5;
+    gfx_rect(c1x + pad, cy, ph_btn_w, 1); gfx_rect(c1x + pad, cy + ph_btn_h - 1, ph_btn_w, 1);
+    gfx_rect(c1x + pad, cy, 1, ph_btn_h); gfx_rect(c1x + pad + ph_btn_w - 1, cy, 1, ph_btn_h);
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_setfont(1, "Arial", F_TINY);
+    gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
+    gfx_drawstr("CAL ALL PHASE");
+
+    // CAL ALL click handler
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= c1x + pad && mouse_x <= c1x + pad + ph_btn_w &&
+      mouse_y >= cy && mouse_y <= cy + ph_btn_h ? (
+      bc_my_slot >= 0 ? (
+        cal_ebase = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200;
+        gmem[cal_ebase + 10] = 1;
+        cal_request_age = 0;
+      );
+    );
+    cy += bar_sp;
+
+    // PHASE VIEW button
+    pv_btn_w = col_w - pad2;
+    pv_btn_h = bar_h;
+    pv_open ? (
+      gfx_r = COL_GREEN_R * 0.25; gfx_g = COL_GREEN_G * 0.25; gfx_b = COL_GREEN_B * 0.25;
+    ) : (
+      gfx_r = 0.08; gfx_g = 0.10; gfx_b = 0.12;
+    );
+    gfx_rect(c1x + pad, cy, pv_btn_w, pv_btn_h);
+    pv_open ? (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    ) : (
+      gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+    );
+    gfx_rect(c1x + pad, cy, pv_btn_w, 1); gfx_rect(c1x + pad, cy + pv_btn_h - 1, pv_btn_w, 1);
+    gfx_rect(c1x + pad, cy, 1, pv_btn_h); gfx_rect(c1x + pad + pv_btn_w - 1, cy, 1, pv_btn_h);
+    pv_open ? (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    ) : (
+      gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+    );
+    gfx_setfont(1, "Arial", F_TINY);
+    gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((pv_btn_h - F_TINY) / 2);
+    gfx_drawstr("PHASE VIEW");
+
+    // PHASE VIEW click handler
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= c1x + pad && mouse_x <= c1x + pad + pv_btn_w &&
+      mouse_y >= cy && mouse_y <= cy + pv_btn_h ? (
+      pv_open = !pv_open;
+    );
+  );
 );
 
 // ============================================================================
@@ -815,7 +1217,7 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_x = meter_x + floor(5 * S);
 gfx_y = meter_y + floor(8 * S);
 gate_state == 0 ? gfx_drawstr("CLOSED");
-gate_state == 1 ? gfx_drawstr("ATTACK");
+gate_state == 1 ? gfx_drawstr("OPENING");
 gate_state == 2 ? gfx_drawstr("OPEN");
 gate_state == 3 ? gfx_drawstr("HOLD");
 gate_state == 4 ? gfx_drawstr("RELEASE");
@@ -942,16 +1344,17 @@ mode == 1 ? (
   );
 
   // Draw each peer
+  peer_row_h = floor(16 * S);
   pi = 0;
   loop(gfx_peer_count,
-    pi == 0 ? (pt = gfx_peer_type_0; po = gfx_peer_open_0; pd = gfx_peer_dist_0);
-    pi == 1 ? (pt = gfx_peer_type_1; po = gfx_peer_open_1; pd = gfx_peer_dist_1);
-    pi == 2 ? (pt = gfx_peer_type_2; po = gfx_peer_open_2; pd = gfx_peer_dist_2);
-    pi == 3 ? (pt = gfx_peer_type_3; po = gfx_peer_open_3; pd = gfx_peer_dist_3);
-    pi == 4 ? (pt = gfx_peer_type_4; po = gfx_peer_open_4; pd = gfx_peer_dist_4);
-    pi == 5 ? (pt = gfx_peer_type_5; po = gfx_peer_open_5; pd = gfx_peer_dist_5);
-    pi == 6 ? (pt = gfx_peer_type_6; po = gfx_peer_open_6; pd = gfx_peer_dist_6);
-    pi == 7 ? (pt = gfx_peer_type_7; po = gfx_peer_open_7; pd = gfx_peer_dist_7);
+    pi == 0 ? (pt = gfx_peer_type_0; po = gfx_peer_open_0; pd = gfx_peer_dist_0; ps = gfx_peer_slot_0; pth = gfx_peer_thresh_0; pph = gfx_peer_phase_0);
+    pi == 1 ? (pt = gfx_peer_type_1; po = gfx_peer_open_1; pd = gfx_peer_dist_1; ps = gfx_peer_slot_1; pth = gfx_peer_thresh_1; pph = gfx_peer_phase_1);
+    pi == 2 ? (pt = gfx_peer_type_2; po = gfx_peer_open_2; pd = gfx_peer_dist_2; ps = gfx_peer_slot_2; pth = gfx_peer_thresh_2; pph = gfx_peer_phase_2);
+    pi == 3 ? (pt = gfx_peer_type_3; po = gfx_peer_open_3; pd = gfx_peer_dist_3; ps = gfx_peer_slot_3; pth = gfx_peer_thresh_3; pph = gfx_peer_phase_3);
+    pi == 4 ? (pt = gfx_peer_type_4; po = gfx_peer_open_4; pd = gfx_peer_dist_4; ps = gfx_peer_slot_4; pth = gfx_peer_thresh_4; pph = gfx_peer_phase_4);
+    pi == 5 ? (pt = gfx_peer_type_5; po = gfx_peer_open_5; pd = gfx_peer_dist_5; ps = gfx_peer_slot_5; pth = gfx_peer_thresh_5; pph = gfx_peer_phase_5);
+    pi == 6 ? (pt = gfx_peer_type_6; po = gfx_peer_open_6; pd = gfx_peer_dist_6; ps = gfx_peer_slot_6; pth = gfx_peer_thresh_6; pph = gfx_peer_phase_6);
+    pi == 7 ? (pt = gfx_peer_type_7; po = gfx_peer_open_7; pd = gfx_peer_dist_7; ps = gfx_peer_slot_7; pth = gfx_peer_thresh_7; pph = gfx_peer_phase_7);
 
     // Open/closed indicator
     po ? (
@@ -970,9 +1373,26 @@ mode == 1 ? (
       gfx_drawstr("TOM d=");
       gfx_drawnumber(pd, 0);
     );
+    pt == 3 ? gfx_drawstr("OH");
+
+    // Threshold readout
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_drawstr(" T:");
+    gfx_drawnumber(pth, 0);
+
+    // Phase indicator (close mics only: pt < 3)
+    pt < 3 ? (
+      pph > 0 ? (
+        // Aligned — green dot
+        gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+      ) : (
+        // No correction — dim gray dot
+        gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+      );
+      gfx_circle(c2x + col_w - floor(55 * S), py + floor(6 * S), floor(3 * S), 1);
+    );
 
     // State
-    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
     gfx_x = c2x + col_w - floor(45 * S); gfx_y = py;
     po ? (
       gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
@@ -982,8 +1402,120 @@ mode == 1 ? (
       gfx_drawstr("GATED");
     );
 
-    py += floor(16 * S);
+    // Right-click on peer row: open threshold popup
+    (mouse_cap & 2) && !(last_cap & 2) &&
+      mouse_x >= c2x && mouse_x < c2x + col_w &&
+      mouse_y >= py && mouse_y < py + peer_row_h ? (
+      tp_open = 1;
+      tp_peer_idx = pi;
+      tp_peer_slot = ps;
+      tp_x = min(mouse_x, gfx_w - floor(55 * S));
+      tp_y = max(0, min(mouse_y - floor(70 * S), gfx_h - floor(145 * S)));
+      tp_dragging = 0;
+    );
+
+    py += peer_row_h;
     pi += 1;
+  );
+);
+
+// --- THRESHOLD POPUP OVERLAY (right-click on peer) ---
+tp_open ? (
+  // Read current value from peer's gmem
+  tp_sb = BC_MY_REGION + tp_peer_slot * BC_SLOT_SIZE;
+  tp_cur_thresh = gmem[tp_sb + 200 + 5];  // ebase + 5 = threshold
+  tp_cur_thresh = max(0, min(100, tp_cur_thresh));
+
+  // Get peer type for label
+  tp_pt = gmem[tp_sb + 200 + 0];
+
+  // Popup background
+  tp_w = floor(55 * S);
+  tp_h = floor(140 * S);
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_rect(tp_x, tp_y, tp_w, tp_h);
+  gfx_a = 1;
+
+  // Border
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_rect(tp_x, tp_y, tp_w, 1);
+  gfx_rect(tp_x, tp_y + tp_h - 1, tp_w, 1);
+  gfx_rect(tp_x, tp_y, 1, tp_h);
+  gfx_rect(tp_x + tp_w - 1, tp_y, 1, tp_h);
+
+  // Label: peer type + threshold value
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_x = tp_x + floor(4 * S); gfx_y = tp_y + floor(4 * S);
+  tp_pt == 0 ? gfx_drawstr("KICK");
+  tp_pt == 1 ? gfx_drawstr("SNR");
+  tp_pt == 2 ? gfx_drawstr("TOM");
+  tp_pt == 3 ? gfx_drawstr("OH");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = tp_x + floor(4 * S); gfx_y = tp_y + floor(14 * S);
+  gfx_drawstr("T:");
+  gfx_drawnumber(tp_cur_thresh, 0);
+  gfx_drawstr("%");
+
+  // Vertical slider track
+  tp_sl_x = tp_x + floor(10 * S);
+  tp_sl_y = tp_y + floor(28 * S);
+  tp_sl_w = floor(35 * S);
+  tp_sl_h = floor(105 * S);
+
+  // Track background
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(tp_sl_x, tp_sl_y, tp_sl_w, tp_sl_h);
+
+  // Fill from bottom
+  tp_cur_thresh > 0 ? (
+    tp_fill_h = (tp_cur_thresh / 100) * tp_sl_h;
+    tp_bright = tp_cur_thresh / 100;
+    gfx_r = COL_ACCENT_R * tp_bright; gfx_g = COL_ACCENT_G * tp_bright; gfx_b = COL_ACCENT_B * tp_bright;
+    gfx_rect(tp_sl_x, tp_sl_y + tp_sl_h - tp_fill_h, tp_sl_w, tp_fill_h);
+  );
+
+  // Thumb line
+  tp_thumb_y = tp_sl_y + tp_sl_h - (tp_cur_thresh / 100) * tp_sl_h;
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gfx_rect(tp_sl_x, tp_thumb_y - 1, tp_sl_w, 3);
+
+  // Slider border
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(tp_sl_x, tp_sl_y, tp_sl_w, tp_sl_h, 0);
+
+  // Drag interaction
+  mouse_cap & 1 ? (
+    mouse_x >= tp_sl_x && mouse_x < tp_sl_x + tp_sl_w &&
+    mouse_y >= tp_sl_y && mouse_y < tp_sl_y + tp_sl_h ? (
+      tp_dragging = 1;
+    );
+    tp_dragging ? (
+      tp_new = ((tp_sl_y + tp_sl_h - mouse_y) / tp_sl_h) * 100;
+      tp_new = max(0, min(100, (tp_new + 0.5) | 0));
+      // Write to peer's remote threshold channel
+      tp_wsb = BC_MY_REGION + tp_peer_slot * BC_SLOT_SIZE + 200;
+      gmem[tp_wsb + 7] = tp_new;   // value
+      gmem[tp_wsb + 6] = 1;        // flag: pending write
+    );
+  ) : (
+    tp_dragging = 0;
+  );
+
+  // Close on left-click outside popup (not while dragging)
+  (mouse_cap & 1) && !(last_cap & 1) && !tp_dragging ? (
+    !(mouse_x >= tp_x && mouse_x < tp_x + tp_w &&
+      mouse_y >= tp_y && mouse_y < tp_y + tp_h) ? (
+      tp_open = 0;
+    );
+  );
+
+  // Close on right-click outside peer panel
+  (mouse_cap & 2) && !(last_cap & 2) ? (
+    !(mouse_x >= c2x && mouse_x < c2x + col_w &&
+      mouse_y >= peer_panel_y && mouse_y < peer_panel_y + peer_panel_h) ? (
+      tp_open = 0;
+    );
   );
 );
 
@@ -1236,6 +1768,233 @@ bc_panel_expanded ? (
   );
 );
 
+// ============================================================================
+//  PHASE VIEW OVERLAY (OH instances only)
+// ============================================================================
+pv_open && mode == 1 && drum_type == 3 ? (
+  // Semi-transparent background
+  gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05; gfx_a = 0.92;
+  gfx_rect(0, 0, gfx_w, gfx_h);
+  gfx_a = 1;
+
+  // Title
+  gfx_setfont(1, "Arial", F_TITLE);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+  gfx_drawstr("PHASE VIEW");
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = floor(15 * S); gfx_y = floor(32 * S);
+  gfx_drawstr("Circles show phase alignment of close mics to this overhead");
+
+  // Close button (X) top right
+  pv_close_x = gfx_w - floor(30 * S);
+  pv_close_y = floor(8 * S);
+  pv_close_sz = floor(18 * S);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = pv_close_x + floor(4 * S); gfx_y = pv_close_y + floor(2 * S);
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_drawstr("X");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= pv_close_x && mouse_x <= pv_close_x + pv_close_sz &&
+    mouse_y >= pv_close_y && mouse_y <= pv_close_y + pv_close_sz ? (
+    pv_open = 0;
+  );
+
+  // Read our own transient timestamp for live delta comparison
+  pv_my_ts = 0;
+  bc_my_slot >= 0 ? (
+    pv_my_ebase = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE + 200;
+    pv_my_ts = gmem[pv_my_ebase + 8];
+  );
+
+  // Count close mic peers (not other OHs) for layout
+  pv_close_count = 0;
+  pvi = 0;
+  loop(gfx_peer_count,
+    pvi == 0 ? pv_pt = gfx_peer_type_0;
+    pvi == 1 ? pv_pt = gfx_peer_type_1;
+    pvi == 2 ? pv_pt = gfx_peer_type_2;
+    pvi == 3 ? pv_pt = gfx_peer_type_3;
+    pvi == 4 ? pv_pt = gfx_peer_type_4;
+    pvi == 5 ? pv_pt = gfx_peer_type_5;
+    pvi == 6 ? pv_pt = gfx_peer_type_6;
+    pvi == 7 ? pv_pt = gfx_peer_type_7;
+    pv_pt < 3 ? pv_close_count += 1;
+    pvi += 1;
+  );
+
+  // Layout: arrange circles in a row, centered
+  pv_area_y = floor(55 * S);
+  pv_area_h = gfx_h - pv_area_y - floor(20 * S);
+  pv_max_r = min(floor(pv_area_h * 0.35), floor(gfx_w / max(1, pv_close_count) * 0.35));
+  pv_max_r = min(pv_max_r, floor(50 * S));
+  pv_spacing = gfx_w / max(1, pv_close_count + 1);
+  pv_center_y = pv_area_y + floor(pv_area_h * 0.4);
+
+  // Time reference for animation
+  pv_time = time_precise();
+
+  // Draw each close mic peer as a circle
+  pv_ci = 0;  // close mic index (for positioning)
+  pvi = 0;
+  loop(gfx_peer_count,
+    // Load peer data
+    pvi == 0 ? (pv_pt = gfx_peer_type_0; pv_ph = gfx_peer_phase_0; pv_ts = gfx_peer_ts_0; pv_sq = gfx_peer_seq_0);
+    pvi == 1 ? (pv_pt = gfx_peer_type_1; pv_ph = gfx_peer_phase_1; pv_ts = gfx_peer_ts_1; pv_sq = gfx_peer_seq_1);
+    pvi == 2 ? (pv_pt = gfx_peer_type_2; pv_ph = gfx_peer_phase_2; pv_ts = gfx_peer_ts_2; pv_sq = gfx_peer_seq_2);
+    pvi == 3 ? (pv_pt = gfx_peer_type_3; pv_ph = gfx_peer_phase_3; pv_ts = gfx_peer_ts_3; pv_sq = gfx_peer_seq_3);
+    pvi == 4 ? (pv_pt = gfx_peer_type_4; pv_ph = gfx_peer_phase_4; pv_ts = gfx_peer_ts_4; pv_sq = gfx_peer_seq_4);
+    pvi == 5 ? (pv_pt = gfx_peer_type_5; pv_ph = gfx_peer_phase_5; pv_ts = gfx_peer_ts_5; pv_sq = gfx_peer_seq_5);
+    pvi == 6 ? (pv_pt = gfx_peer_type_6; pv_ph = gfx_peer_phase_6; pv_ts = gfx_peer_ts_6; pv_sq = gfx_peer_seq_6);
+    pvi == 7 ? (pv_pt = gfx_peer_type_7; pv_ph = gfx_peer_phase_7; pv_ts = gfx_peer_ts_7; pv_sq = gfx_peer_seq_7);
+
+    pv_pt < 3 ? (
+      // This is a close mic — draw its circle
+      pv_cx = pv_spacing * (pv_ci + 1);
+
+      // Compute phase metric: how far off is this peer?
+      // pv_ph = peer's cal_offset (0 = uncalibrated, >0 = calibrated)
+      // We also look at raw timestamp delta for live feedback
+      pv_raw_delta = 0;
+      pv_ts > 0 && pv_my_ts > 0 ? (
+        pv_raw_delta = abs(pv_my_ts - pv_ts);
+        // Clamp to reasonable range (10ms max = PC_MAX)
+        pv_raw_delta = min(pv_raw_delta, PC_MAX);
+      );
+
+      // Phase quality: 0.0 = totally out of phase, 1.0 = perfectly aligned
+      pv_ph > 0 ? (
+        // Calibrated — quality is high, wobble is minimal
+        pv_quality = 1.0;
+      ) : (
+        // Uncalibrated — quality based on raw delta
+        pv_raw_delta > 0 ? (
+          // Normalize: 0 samples = perfect, PC_MAX samples = worst
+          pv_quality = max(0, 1.0 - (pv_raw_delta / PC_MAX));
+        ) : (
+          // No data yet — unknown, show as mid-wobble
+          pv_quality = 0.3;
+        );
+      );
+
+      // Smooth the wobble target (for animation)
+      pvi == 0 ? (pv_wobble_0 += (pv_quality - pv_wobble_0) * 0.08; pv_wob = pv_wobble_0);
+      pvi == 1 ? (pv_wobble_1 += (pv_quality - pv_wobble_1) * 0.08; pv_wob = pv_wobble_1);
+      pvi == 2 ? (pv_wobble_2 += (pv_quality - pv_wobble_2) * 0.08; pv_wob = pv_wobble_2);
+      pvi == 3 ? (pv_wobble_3 += (pv_quality - pv_wobble_3) * 0.08; pv_wob = pv_wobble_3);
+      pvi == 4 ? (pv_wobble_4 += (pv_quality - pv_wobble_4) * 0.08; pv_wob = pv_wobble_4);
+      pvi == 5 ? (pv_wobble_5 += (pv_quality - pv_wobble_5) * 0.08; pv_wob = pv_wobble_5);
+      pvi == 6 ? (pv_wobble_6 += (pv_quality - pv_wobble_6) * 0.08; pv_wob = pv_wobble_6);
+      pvi == 7 ? (pv_wobble_7 += (pv_quality - pv_wobble_7) * 0.08; pv_wob = pv_wobble_7);
+
+      // Wobble amplitude: 1.0 = smooth circle, 0.0 = max wobble
+      pv_wobble_amp = (1.0 - pv_wob) * 0.35;
+
+      // Color: red (out of phase) -> amber -> green (in phase)
+      pv_wob < 0.4 ? (
+        // Red zone
+        pv_cr = 0.9; pv_cg = 0.15; pv_cb = 0.15;
+      ) : pv_wob < 0.75 ? (
+        // Amber zone — blend red to amber
+        pv_blend = (pv_wob - 0.4) / 0.35;
+        pv_cr = 0.9; pv_cg = 0.15 + 0.55 * pv_blend; pv_cb = 0.1;
+      ) : (
+        // Green zone — blend amber to green
+        pv_blend = (pv_wob - 0.75) / 0.25;
+        pv_cr = 0.9 - 0.65 * pv_blend; pv_cg = 0.7 + 0.1 * pv_blend; pv_cb = 0.1 + 0.4 * pv_blend;
+      );
+
+      // Draw the wobbling circle using polygon segments
+      pv_segments = 48;
+      pv_seg_i = 0;
+      loop(pv_segments,
+        pv_angle = pv_seg_i / pv_segments * 2 * $pi;
+        pv_angle2 = (pv_seg_i + 1) / pv_segments * 2 * $pi;
+
+        // Wobble: perturb radius with multiple sine waves at different frequencies
+        pv_r_perturb1 = sin(pv_angle * 3 + pv_time * 4.5) * pv_wobble_amp;
+        pv_r_perturb2 = sin(pv_angle * 5 + pv_time * 7.2 + 1.3) * pv_wobble_amp * 0.6;
+        pv_r_perturb3 = sin(pv_angle * 7 + pv_time * 3.1 + 2.7) * pv_wobble_amp * 0.3;
+        pv_r1 = pv_max_r * (1.0 + pv_r_perturb1 + pv_r_perturb2 + pv_r_perturb3);
+
+        pv_r_perturb1b = sin(pv_angle2 * 3 + pv_time * 4.5) * pv_wobble_amp;
+        pv_r_perturb2b = sin(pv_angle2 * 5 + pv_time * 7.2 + 1.3) * pv_wobble_amp * 0.6;
+        pv_r_perturb3b = sin(pv_angle2 * 7 + pv_time * 3.1 + 2.7) * pv_wobble_amp * 0.3;
+        pv_r2 = pv_max_r * (1.0 + pv_r_perturb1b + pv_r_perturb2b + pv_r_perturb3b);
+
+        // Triangle from center to two edge points
+        pv_x1 = pv_cx + cos(pv_angle) * pv_r1;
+        pv_y1 = pv_center_y + sin(pv_angle) * pv_r1;
+        pv_x2 = pv_cx + cos(pv_angle2) * pv_r2;
+        pv_y2 = pv_center_y + sin(pv_angle2) * pv_r2;
+
+        gfx_r = pv_cr * 0.4; gfx_g = pv_cg * 0.4; gfx_b = pv_cb * 0.4; gfx_a = 0.7;
+        gfx_triangle(pv_cx, pv_center_y, pv_x1, pv_y1, pv_x2, pv_y2);
+
+        // Edge line (brighter)
+        gfx_r = pv_cr; gfx_g = pv_cg; gfx_b = pv_cb; gfx_a = 0.9;
+        gfx_line(pv_x1, pv_y1, pv_x2, pv_y2);
+
+        pv_seg_i += 1;
+      );
+      gfx_a = 1;
+
+      // Inner glow at center
+      gfx_r = pv_cr * 0.6; gfx_g = pv_cg * 0.6; gfx_b = pv_cb * 0.6; gfx_a = 0.5;
+      gfx_circle(pv_cx, pv_center_y, floor(pv_max_r * 0.3), 1);
+      gfx_a = 1;
+
+      // Label: drum type
+      gfx_setfont(1, "Arial", F_LABEL);
+      gfx_r = 1; gfx_g = 1; gfx_b = 1;
+      pv_pt == 0 ? (
+        gfx_x = pv_cx - floor(15 * S); gfx_y = pv_center_y - floor(F_LABEL / 2);
+        gfx_drawstr("KICK");
+      );
+      pv_pt == 1 ? (
+        gfx_x = pv_cx - floor(20 * S); gfx_y = pv_center_y - floor(F_LABEL / 2);
+        gfx_drawstr("SNARE");
+      );
+      pv_pt == 2 ? (
+        gfx_x = pv_cx - floor(12 * S); gfx_y = pv_center_y - floor(F_LABEL / 2);
+        gfx_drawstr("TOM");
+      );
+
+      // Offset text below circle
+      gfx_setfont(1, "Arial", F_SMALL);
+      pv_ph > 0 ? (
+        // Calibrated — show green "ALIGNED" + offset
+        gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+        pv_ms_disp = pv_ph / srate * 1000;
+        gfx_x = pv_cx - floor(25 * S); gfx_y = pv_center_y + pv_max_r + floor(12 * S);
+        gfx_drawstr("ALIGNED");
+        gfx_x = pv_cx - floor(22 * S); gfx_y = pv_center_y + pv_max_r + floor(25 * S);
+        gfx_drawnumber(pv_ms_disp, 1);
+        gfx_drawstr("ms offset");
+      ) : pv_raw_delta > 0 ? (
+        // Uncalibrated but have data — show amber with raw delta
+        gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.2;
+        pv_ms_disp = pv_raw_delta / srate * 1000;
+        gfx_x = pv_cx - floor(18 * S); gfx_y = pv_center_y + pv_max_r + floor(12 * S);
+        gfx_drawnumber(pv_ms_disp, 1);
+        gfx_drawstr("ms");
+        gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+        gfx_x = pv_cx - floor(25 * S); gfx_y = pv_center_y + pv_max_r + floor(25 * S);
+        gfx_drawstr("UNCORRECTED");
+      ) : (
+        // No data
+        gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+        gfx_x = pv_cx - floor(18 * S); gfx_y = pv_center_y + pv_max_r + floor(12 * S);
+        gfx_drawstr("NO DATA");
+      );
+
+      pv_ci += 1;
+    );
+    pvi += 1;
+  );
+);
+
 last_cap = mouse_cap;
 
 // --- BUY + NOTICE BUTTONS ---
@@ -1303,3 +2062,4 @@ notice_show ? (
 @serialize
 file_var(0, bc_following);
 file_var(0, bc_my_id);
+file_var(0, cal_offset);

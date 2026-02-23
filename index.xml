@@ -393,6 +393,10 @@
         <changelog><![CDATA[Initial release — Density-aware noise gate with two modes: Single (per-track gating with density-adaptive threshold) and Drum (cross-mic spatial inference for bleed rejection). Smooth S-curve gain transitions, look-ahead transient preservation, density-modulated hold time, per-band analysis, broadcast follow/steal.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Cross-instance drum command center. Remote threshold adjustment: right-click any peer row to adjust that drum's gate threshold from current instance. Phase correction system: OH (Overheads) drum type with independent gating, one-hit calibration measures sample-accurate offset between close mics and overheads, stereo OH averaging, persistent offset via serialize, CLR to reset. OH instances get CAL ALL button to arm every close mic simultaneously. Phase View: live visualization overlay with wobbling circles per close mic — red/wobbly when out of phase, green/smooth when aligned. Peer panel phase indicators (green dot = corrected). Plugin delay compensation for phase correction delay.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -703,11 +707,25 @@
         <changelog><![CDATA[Initial release — electronic demo session preset for LMS save/load system. DrumBanger + drone synths + effects chain.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/BLEEP_BOOP.lms</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Added Smart Gate as first FX on Bass and Guitar audio tracks.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/BLEEP_BOOP.lms</source>
+      </version>
     </reapack>
     <reapack name="YOUR_BAND.lms" type="data" desc="LMS: Demo Session — YOUR BAND (Band Template)">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
         <changelog><![CDATA[Initial release — band template demo session preset for LMS save/load system. Full band routing with LMS plugins.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/YOUR_BAND.lms</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Smart Gate already included on all audio tracks (added in initial release).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/YOUR_BAND.lms</source>
+      </version>
+    </reapack>
+    <reapack name="DEMO_TIME.lms" type="data" desc="LMS: Demo Session — DEMO TIME (Band + DrumBanger)">
+      <version name="1.0" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[Initial release — YOUR BAND template with DrumBanger replacing individual drum tracks. Smart Gate on all audio tracks, Density Limiter on master.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/DEMO_TIME.lms</source>
       </version>
     </reapack>
   </category>
