@@ -30,7 +30,6 @@ Free, open source mixing tools for REAPER. Channel strip, EQ, compressor, tube s
 | `lms_tape_echo.jsfx` | Tape delay with wow/flutter |
 | `lms_passive_eq.jsfx` | Passive-style parametric EQ |
 | `lms_distressor.jsfx` | FET compressor / distressor |
-| `lms_matchering.jsfx` | Reference-based matching EQ + comp |
 | `lms_moog_synth.jsfx` | Moog-style ladder filter synth |
 | `lms_drumbanger.jsfx` | Sample-based drum machine |
 | `lms_core.jsfx-inc` | Shared DSP kernel — **required by all of the above** |
@@ -47,7 +46,6 @@ All channel strips share a broadcast system: set one as LEADER and every other i
 3. Copy these files into that folder:
    - `lms_core.jsfx-inc` ← **required, do this first**
    - All `lms_*.jsfx` files
-   - `matchering_realtime.jsfx`
 4. Create a subfolder called `DRUMBANGER` inside Effects and copy into it:
    - `lms_drumbanger.jsfx`
    - `DrumbangerDroneFX.jsfx`
