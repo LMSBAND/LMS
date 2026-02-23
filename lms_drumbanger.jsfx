@@ -950,6 +950,18 @@ seq_mode && transport_playing && step_samples > 0 ? (
 // Track timeline position (must be set before MIDI for recording)
 seq_step = timeline_step;
 
+// ---- Read gmem trigger requests from Drum Trigger (gmem[140..155]) ----
+// Pattern: Drum Trigger writes velocity to gmem[140+pad], we consume by zeroing
+gm_trig_p = 0;
+loop(NUM_PADS,
+  gm_trig_vel = gmem[140 + gm_trig_p];
+  gm_trig_vel > 0 ? (
+    trigger_pad(gm_trig_p, gm_trig_vel);
+    gmem[140 + gm_trig_p] = 0;
+  );
+  gm_trig_p += 1;
+);
+
 // ---- Read incoming MIDI ----
 while(midirecv(offset, msg1, msg2, msg3)) (
   status = msg1 & 0xF0;

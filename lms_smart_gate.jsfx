@@ -1,56 +1,105 @@
-desc:LMS - Density Maximizer (Auto-Makeup Brick-Wall Limiter)
-//tags: limiter maximizer mastering density
+desc:LMS - Smart Gate (Density-Aware Noise Gate)
+//tags: gate noise drum density-aware spatial
 //author: LMS + Claude
 //version: 1.0
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
+// Core
 slider1:0<-12,12,0.1>-Input Gain (dB)
-slider2:-0.3<-3,0,0.1>-Ceiling (dBFS)
-slider3:0<0,24,0.1>-Target Loudness (dB)
-slider4:50<1,500,1>-Release (ms)
-slider5:0<-24,0,0.1>-Gain Reduction (dB)
-slider6:0<0,100,1>-Opto Pre-Limit (%)
-slider7:0<0,3,1{Off,Clean,Loud,Open}>-EQ Profile
-slider8:100<0,200,1>-EQ Intensity (%)
+slider2:0<0,1,1{Single,Drum}>-Mode
+slider3:50<0,100,1>-Gate Threshold (%)
+
+// Gate envelope
+slider4:1<0.1,20,0.1>-Attack (ms)
+slider5:50<10,500,1>-Hold (ms)
+slider6:200<20,2000,1>-Release (ms)
+slider7:-80<-80,0,1>-Range (dB)
+
+// Density tuning
+slider8:30<0,100,1>-Density Sensitivity (%)
+slider9:50<0,100,1>-Hysteresis (%)
+
+// Sidechain
+slider10:80<20,500,1>-Sidechain HPF (Hz)
+
+// Drum mode
+slider11:0<0,2,1{Kick,Snare,Tom}>-Drum Type
+slider12:1<1,8,1>-Tom Distance (1=near snare)
+slider13:60<0,100,1>-Bleed Reject (%)
+
+// Output
+slider14:0<-24,0,0.1>-Gate GR (dB)
+slider15:100<0,100,1>-Mix (%)
 
 @init
 
-  lim.lms_lim_init();
-  opto.lms_opto_init();
+  // Density tracker (4-band spectral analysis from lms_core.jsfx-inc)
+  hd.lms_opto_hd_init();
 
-  // Reactive EQ filter instances (4-band density-driven)
-  req_lo.lms_bq_init();     // low shelf 120 Hz — tighten bass
-  req_mid.lms_bq_init();    // peak EQ 3 kHz — control harshness
-  req_hi.lms_bq_init();     // peak EQ 5 kHz — presence/hi control
-  req_air.lms_bq_init();    // high shelf 10 kHz — restore sparkle
+  // Sidechain HPF (removes rumble from gate sidechain)
+  sc_hpf.lms_bq_init();
+  sc_hpf.lms_bq_set_hp(80, 0.707);
 
-  // Reactive EQ state
-  eq_profile = 0;
-  eq_intensity = 1.0;
-  req_lo_db = 0; req_mid_db = 0; req_hi_db = 0; req_air_db = 0;
-  req_lo_smooth = 0; req_mid_smooth = 0; req_hi_smooth = 0; req_air_smooth = 0;
-  adapted_release = 50;
+  // Gate state
+  gate_gain = 0.0;       // 0 = closed, 1 = open (smoothed)
+  gate_state = 0;        // 0=CLOSED, 1=ATTACK, 2=OPEN, 3=HOLD, 4=RELEASE
+  hold_counter = 0;
+  gate_env = 0;          // sidechain envelope
+  gate_should_open = 0;
+  gate_should_close = 0;
+
+  // Derived params
+  in_gain = 1.0;
+  mode = 0;
+  gate_thresh = 0.25;
+  att_coeff = 0;
+  rel_coeff = 0;
+  hold_samples = 0;
+  range_lin = 0.0001;
+  density_sens = 0.3;
+  hysteresis_pct = 0.5;
+  drum_type = 0;
+  tom_distance = 1;
+  bleed_reject = 0.6;
+  mix = 1.0;
+
+  // Drum mode peer state (populated in @block)
+  peer_count = 0;
+  peer_max_env = 0;
+  peer_owner_type = -1;
+  peer_owner_dist = 0;
+
+  // GFX display state
+  gfx_gate_gain = 0;
+  gfx_density = 1.0;
+  gfx_env = 0;
+  gfx_eff_thresh = 0;
+  gfx_smooth = 0.85;
+
+  // Peer display (up to 8 peers for GFX)
+  gfx_peer_type_0 = -1; gfx_peer_type_1 = -1; gfx_peer_type_2 = -1; gfx_peer_type_3 = -1;
+  gfx_peer_type_4 = -1; gfx_peer_type_5 = -1; gfx_peer_type_6 = -1; gfx_peer_type_7 = -1;
+  gfx_peer_open_0 = 0; gfx_peer_open_1 = 0; gfx_peer_open_2 = 0; gfx_peer_open_3 = 0;
+  gfx_peer_open_4 = 0; gfx_peer_open_5 = 0; gfx_peer_open_6 = 0; gfx_peer_open_7 = 0;
+  gfx_peer_dist_0 = 0; gfx_peer_dist_1 = 0; gfx_peer_dist_2 = 0; gfx_peer_dist_3 = 0;
+  gfx_peer_dist_4 = 0; gfx_peer_dist_5 = 0; gfx_peer_dist_6 = 0; gfx_peer_dist_7 = 0;
+  gfx_peer_count = 0;
 
   notice_show = 0;
   buy_show = 0;
-
-  // Local variables
-  in_gain = 1.0;
-  target_boost = 1.0;
-  opto_blend = 0;
 
   // ============================================================
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
   BC_BASE = 100000;
-  BC_MY_TYPE = 19;            // Density Maximizer
+  BC_MY_TYPE = 21;            // Smart Gate
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 7;         // sliders 1-4 + slider6-8 (slider5 is read-only GR meter)
+  BC_PARAM_COUNT = 13;        // sliders 1-13 (14 = read-only GR, 15 = mix applied locally)
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -64,8 +113,8 @@ slider8:100<0,200,1>-EQ Intensity (%)
   bc_steal_mode = 0;
   bc_instance_count = 0;
 
-  BC_STALE_HB = 820000;
-  BC_STALE_CT = 820032;
+  BC_STALE_HB = 840000;
+  BC_STALE_CT = 840032;
   i = 0;
   loop(BC_MAX_INST,
     BC_STALE_HB[i] = -1;
@@ -96,100 +145,41 @@ slider8:100<0,200,1>-EQ Intensity (%)
 
 @slider
   in_gain = lms_db2lin(slider1);
-  lim.lms_lim_set(slider2, slider4);
-  target_boost = lms_db2lin(slider3);
-  opto_blend = slider6 / 100;
-  opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
-  eq_profile = slider7;
-  eq_intensity = slider8 / 100;
+  mode = slider2;
+  gate_thresh = (slider3 / 100) * (slider3 / 100);
+  att_coeff = exp(-1 / (srate * slider4 / 1000));
+  hold_samples = floor(srate * slider5 / 1000);
+  rel_coeff = exp(-1 / (srate * slider6 / 1000));
+  range_lin = lms_db2lin(slider7);
+  density_sens = slider8 / 100;
+  hysteresis_pct = slider9 / 100;
+  sc_hpf.lms_bq_set_hp(slider10, 0.707);
+  drum_type = slider11;
+  tom_distance = slider12;
+  bleed_reject = slider13 / 100;
+  mix = slider15 / 100;
 
 // ============================================================
-// @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
+// @BLOCK — Recalc, drum peer scan, broadcast
 // ============================================================
 @block
-// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+// ---- Recalculate from sliders ----
 in_gain = lms_db2lin(slider1);
-lim.lms_lim_set(slider2, slider4);
-target_boost = lms_db2lin(slider3);
-opto_blend = slider6 / 100;
-opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
-eq_profile = slider7;
-eq_intensity = slider8 / 100;
+mode = slider2;
+gate_thresh = (slider3 / 100) * (slider3 / 100);
+att_coeff = exp(-1 / (srate * slider4 / 1000));
+hold_samples = floor(srate * slider5 / 1000);
+rel_coeff = exp(-1 / (srate * slider6 / 1000));
+range_lin = lms_db2lin(slider7);
+density_sens = slider8 / 100;
+hysteresis_pct = slider9 / 100;
+sc_hpf.lms_bq_set_hp(slider10, 0.707);
+drum_type = slider11;
+tom_distance = slider12;
+bleed_reject = slider13 / 100;
+mix = slider15 / 100;
 
-// ---- Reactive EQ coefficient update (4-band + intensity) ----
-eq_profile > 0 && opto_blend > 0.01 ? (
-  // Smooth density inputs to avoid jitter
-  req_sm = 0.85;
-  req_lo_smooth  = req_lo_smooth  * req_sm + min(1.0, max(0.0, (opto.hd.density - 1.0) / 1.5)) * (1 - req_sm);
-  req_mid_smooth = req_mid_smooth * req_sm + min(1.0, max(0.0, opto.hd.mid_density)) * (1 - req_sm);
-  req_hi_smooth  = req_hi_smooth  * req_sm + min(1.0, max(0.0, opto.hd.hi_density)) * (1 - req_sm);
-  req_air_smooth = req_air_smooth * req_sm + min(1.0, max(0.0, opto.hd.air_density)) * (1 - req_sm);
-
-  // Per-profile gain calculation (raw, before intensity)
-  eq_profile == 1 ? (  // CLEAN — subtle, transparency-focused
-    req_lo_db  = -req_lo_smooth * 1.5;
-    req_mid_db = -req_mid_smooth * 1.5;
-    req_hi_db  = -req_hi_smooth * 1.0;
-    req_air_db = (1.0 - req_air_smooth) * 1.5;
-  ) : eq_profile == 2 ? (  // LOUD — aggressive for max loudness
-    req_lo_db  = -req_lo_smooth * 3.0;
-    req_mid_db = -req_mid_smooth * 2.5;
-    req_hi_db  = -req_hi_smooth * 2.0;
-    req_air_db = (1.0 - req_air_smooth) * 2.0;
-  ) : eq_profile == 3 ? (  // OPEN — scooped + airy
-    req_lo_db  = -req_lo_smooth * 1.5;
-    req_mid_db = -req_mid_smooth * 3.0 - 0.5;
-    req_hi_db  = -req_hi_smooth * 1.5;
-    req_air_db = (1.0 - req_air_smooth) * 3.0 + 0.5;
-  );
-
-  // Apply intensity scaling (0% = off, 100% = normal, 200% = double)
-  req_lo_db  *= eq_intensity;
-  req_mid_db *= eq_intensity;
-  req_hi_db  *= eq_intensity;
-  req_air_db *= eq_intensity;
-
-  // Update biquad coefficients
-  abs(req_lo_db) > 0.05 ? (
-    req_lo.lms_bq_set_loshelf(120, req_lo_db, 0.707);
-  ) : (
-    req_lo.lms_bq_set_loshelf(120, 0, 0.707);
-  );
-  abs(req_mid_db) > 0.05 ? (
-    req_mid.lms_bq_set_peak(3000, req_mid_db, 1.2);
-  ) : (
-    req_mid.lms_bq_set_peak(3000, 0, 1.2);
-  );
-  abs(req_hi_db) > 0.05 ? (
-    req_hi.lms_bq_set_peak(5000, req_hi_db, 1.0);
-  ) : (
-    req_hi.lms_bq_set_peak(5000, 0, 1.0);
-  );
-  abs(req_air_db) > 0.05 ? (
-    req_air.lms_bq_set_hishelf(10000, req_air_db, 0.707);
-  ) : (
-    req_air.lms_bq_set_hishelf(10000, 0, 0.707);
-  );
-) : (
-  // Off or opto not active: passthrough
-  req_lo_db = 0; req_mid_db = 0; req_hi_db = 0; req_air_db = 0;
-  req_lo.lms_bq_set_loshelf(120, 0, 0.707);
-  req_mid.lms_bq_set_peak(3000, 0, 1.2);
-  req_hi.lms_bq_set_peak(5000, 0, 1.0);
-  req_air.lms_bq_set_hishelf(10000, 0, 0.707);
-);
-
-// ---- Program-dependent release ----
-// Dense material = faster release (less pumping), transient = slower (preserve dynamics)
-opto_blend > 0.01 ? (
-  density_rel_factor = max(0.3, min(1.0, 2.0 - opto.hd.density));
-  adapted_release = slider4 * density_rel_factor;
-  adapted_release = max(1, min(500, adapted_release));
-  lim.lms_lim_set(slider2, adapted_release);
-) : (
-  adapted_release = slider4;
-);
-
+// ---- Broadcast: slot ownership ----
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 1] != bc_my_id ? (
@@ -214,6 +204,7 @@ bc_my_slot >= 0 ? (
   );
 );
 
+// ---- Broadcast: follow ----
 bc_my_slot >= 0 && bc_following > 0 ? (
   bc_found_leader = 0;
   bc_scan = 0;
@@ -224,13 +215,19 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         bc_found_leader = 1;
         bc_follow_slot = bc_scan;
         lbase = lsb + 8;
-        slider1 = gmem[lbase + 0];
-        slider2 = gmem[lbase + 1];
-        slider3 = gmem[lbase + 2];
-        slider4 = gmem[lbase + 3];
-        slider6 = gmem[lbase + 4];
-        slider7 = gmem[lbase + 5];
-        slider8 = gmem[lbase + 6];
+        slider1  = gmem[lbase + 0];
+        slider2  = gmem[lbase + 1];
+        slider3  = gmem[lbase + 2];
+        slider4  = gmem[lbase + 3];
+        slider5  = gmem[lbase + 4];
+        slider6  = gmem[lbase + 5];
+        slider7  = gmem[lbase + 6];
+        slider8  = gmem[lbase + 7];
+        slider9  = gmem[lbase + 8];
+        slider10 = gmem[lbase + 9];
+        slider11 = gmem[lbase + 10];
+        slider12 = gmem[lbase + 11];
+        slider13 = gmem[lbase + 12];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -242,19 +239,26 @@ bc_my_slot >= 0 && bc_following > 0 ? (
   );
 );
 
+// ---- Broadcast: steal ----
 bc_my_slot >= 0 && bc_steal_pending ? (
   bc_scan = 0;
   loop(BC_MAX_INST,
     lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
     gmem[lsb + 1] == bc_steal_target ? (
       lbase = lsb + 8;
-      slider1 = gmem[lbase + 0];
-      slider2 = gmem[lbase + 1];
-      slider3 = gmem[lbase + 2];
-      slider4 = gmem[lbase + 3];
-      slider6 = gmem[lbase + 4];
-      slider7 = gmem[lbase + 5];
-      slider8 = gmem[lbase + 6];
+      slider1  = gmem[lbase + 0];
+      slider2  = gmem[lbase + 1];
+      slider3  = gmem[lbase + 2];
+      slider4  = gmem[lbase + 3];
+      slider5  = gmem[lbase + 4];
+      slider6  = gmem[lbase + 5];
+      slider7  = gmem[lbase + 6];
+      slider8  = gmem[lbase + 7];
+      slider9  = gmem[lbase + 8];
+      slider10 = gmem[lbase + 9];
+      slider11 = gmem[lbase + 10];
+      slider12 = gmem[lbase + 11];
+      slider13 = gmem[lbase + 12];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -264,20 +268,84 @@ bc_my_slot >= 0 && bc_steal_pending ? (
   bc_steal_mode = 0;
 );
 
+// ---- Broadcast: heartbeat + param write ----
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
   gmem[sb + 0] += 1;
   gmem[sb + 3] = bc_following;
   pbase = sb + 8;
-  gmem[pbase + 0] = slider1;
-  gmem[pbase + 1] = slider2;
-  gmem[pbase + 2] = slider3;
-  gmem[pbase + 3] = slider4;
-  gmem[pbase + 4] = slider6;
-  gmem[pbase + 5] = slider7;
-  gmem[pbase + 6] = slider8;
+  gmem[pbase + 0]  = slider1;
+  gmem[pbase + 1]  = slider2;
+  gmem[pbase + 2]  = slider3;
+  gmem[pbase + 3]  = slider4;
+  gmem[pbase + 4]  = slider5;
+  gmem[pbase + 5]  = slider6;
+  gmem[pbase + 6]  = slider7;
+  gmem[pbase + 7]  = slider8;
+  gmem[pbase + 8]  = slider9;
+  gmem[pbase + 9]  = slider10;
+  gmem[pbase + 10] = slider11;
+  gmem[pbase + 11] = slider12;
+  gmem[pbase + 12] = slider13;
 );
 
+// ---- Broadcast: drum mode state (always write so peers can see us) ----
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  ebase = sb + 200;
+  gmem[ebase + 0] = drum_type;
+  gmem[ebase + 1] = tom_distance;
+  gmem[ebase + 2] = hd.env_total;
+  gmem[ebase + 3] = hd.density;
+  gmem[ebase + 4] = gate_gain > 0.5 ? 1 : 0;
+);
+
+// ---- Drum mode: scan peers ----
+mode == 1 ? (
+  peer_count = 0;
+  peer_max_env = 0;
+  peer_owner_type = -1;
+  peer_owner_dist = 0;
+
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      psb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      pid = gmem[psb + 1];
+      pid > 0 ? (
+        pbase = psb + 200;
+        p_type = gmem[pbase + 0];
+        p_dist = gmem[pbase + 1];
+        p_env  = gmem[pbase + 2];
+        p_dens = gmem[pbase + 3];
+        p_open = gmem[pbase + 4];
+
+        // Track strongest peer
+        p_env > peer_max_env ? (
+          peer_max_env = p_env;
+          peer_owner_type = p_type;
+          peer_owner_dist = p_dist;
+        );
+
+        // Store for GFX (up to 8 peers)
+        peer_count == 0 ? (gfx_peer_type_0 = p_type; gfx_peer_open_0 = p_open; gfx_peer_dist_0 = p_dist);
+        peer_count == 1 ? (gfx_peer_type_1 = p_type; gfx_peer_open_1 = p_open; gfx_peer_dist_1 = p_dist);
+        peer_count == 2 ? (gfx_peer_type_2 = p_type; gfx_peer_open_2 = p_open; gfx_peer_dist_2 = p_dist);
+        peer_count == 3 ? (gfx_peer_type_3 = p_type; gfx_peer_open_3 = p_open; gfx_peer_dist_3 = p_dist);
+        peer_count == 4 ? (gfx_peer_type_4 = p_type; gfx_peer_open_4 = p_open; gfx_peer_dist_4 = p_dist);
+        peer_count == 5 ? (gfx_peer_type_5 = p_type; gfx_peer_open_5 = p_open; gfx_peer_dist_5 = p_dist);
+        peer_count == 6 ? (gfx_peer_type_6 = p_type; gfx_peer_open_6 = p_open; gfx_peer_dist_6 = p_dist);
+        peer_count == 7 ? (gfx_peer_type_7 = p_type; gfx_peer_open_7 = p_open; gfx_peer_dist_7 = p_dist);
+
+        peer_count += 1;
+      );
+    );
+    bc_scan += 1;
+  );
+  gfx_peer_count = min(8, peer_count);
+);
+
+// ---- Broadcast: stale detection ----
 bc_instance_count = 0;
 bc_scan = 0;
 loop(BC_MAX_INST,
@@ -304,54 +372,119 @@ loop(BC_MAX_INST,
   bc_scan += 1;
 );
 
+// ============================================================
+// @SAMPLE — Density gate + drum inference + state machine
+// ============================================================
 @sample
 
-  // Input gain — clean trim into the opto, doesn't affect limiter drive
+  dry_l = spl0; dry_r = spl1;
   l = spl0 * in_gain;
   r = spl1 * in_gain;
 
-  // Opto pre-limiter: smooth dynamics before the brick-wall
-  // Like running an LA-2A into an L2 — opto catches the big swings musically,
-  // brick-wall catches whatever's left. Less brick-wall work = fewer artifacts.
-  opto_blend > 0.01 ? (
-    opto.lms_opto_proc(l, r);
-    l = l * (1 - opto_blend) + (l * opto.gr) * opto_blend;
-    r = r * (1 - opto_blend) + (r * opto.gr) * opto_blend;
+  // Sidechain: mono sum → HPF → density tracker
+  sc_mono = (l + r) * 0.5;
+  sc_mono = sc_hpf.lms_bq_proc(sc_mono);
+  hd.lms_opto_hd_proc(sc_mono);
+
+  // Sidechain envelope (instant attack, smooth release)
+  sc_abs = abs(sc_mono);
+  sc_abs > gate_env ? (
+    gate_env = sc_abs;
+  ) : (
+    gate_env = rel_coeff * gate_env;
   );
 
-  // Reactive EQ: density-driven spectral shaping before brick-wall
-  // Compensates for the spectral distortion heavy limiting causes:
-  // bass mud, mid harshness, lost air
-  eq_profile > 0 && opto_blend > 0.01 ? (
-    l = req_lo.lms_bq_proc_l(l);   r = req_lo.lms_bq_proc_r(r);
-    l = req_mid.lms_bq_proc_l(l);  r = req_mid.lms_bq_proc_r(r);
-    l = req_hi.lms_bq_proc_l(l);   r = req_hi.lms_bq_proc_r(r);
-    l = req_air.lms_bq_proc_l(l);  r = req_air.lms_bq_proc_r(r);
+  // ---- GATE DECISION ----
+  mode == 0 ? (
+    // SINGLE MODE: density-weighted threshold
+    density_factor = (hd.density - 1.0) / 1.5;
+    density_factor = max(0, min(1, density_factor));
+    effective_thresh = gate_thresh * (1.0 - density_sens * density_factor);
+
+    gate_should_open = gate_env > effective_thresh;
+    gate_should_close = gate_env < effective_thresh * (1 - hysteresis_pct);
+  ) : (
+    // DRUM MODE: spatial inference
+    density_factor = (hd.density - 1.0) / 1.5;
+    density_factor = max(0, min(1, density_factor));
+    effective_thresh = gate_thresh * (1.0 - density_sens * density_factor);
+
+    has_transient = gate_env > effective_thresh;
+
+    // Cross-mic comparison
+    peer_count > 0 && has_transient ? (
+      my_env = max(0.0001, hd.env_total);
+      ratio = my_env / max(0.0001, peer_max_env);
+
+      // Distance weighting for toms
+      drum_type == 2 ? (
+        dist_factor = 1.0 / tom_distance;
+        rej = bleed_reject * (1.0 - dist_factor * 0.3);
+      ) : (
+        rej = bleed_reject;
+      );
+
+      // Decision thresholds
+      ratio > (1.0 - rej) ? (
+        // I'm at least as loud as peers → my hit → open
+        gate_should_open = 1;
+      ) : ratio > 0.5 * (1.0 - rej) ? (
+        // Ambiguous — roughly equal → probably intentional → open both
+        gate_should_open = 1;
+      ) : (
+        // Peer much louder → bleed → stay closed
+        gate_should_open = 0;
+      );
+    ) : (
+      gate_should_open = has_transient;
+    );
+    gate_should_close = !gate_should_open && gate_env < effective_thresh * (1 - hysteresis_pct);
   );
 
-  // Target loudness boost — drives into the brick-wall
-  l *= target_boost;
-  r *= target_boost;
+  // Store effective threshold for GFX
+  gfx_eff_thresh = effective_thresh;
 
-  // Brick-wall limiter (core function — lookahead + hard clip)
-  lim.lms_lim_proc(l, r);
+  // ---- GATE STATE MACHINE ----
+  // 0=CLOSED, 1=ATTACK, 2=OPEN, 3=HOLD, 4=RELEASE
+  gate_state == 0 ? (
+    gate_should_open ? gate_state = 1;
+  ) : gate_state == 1 ? (
+    gate_gain += (1.0 - gate_gain) * (1.0 - att_coeff);
+    gate_gain >= 0.999 ? (gate_gain = 1.0; gate_state = 2);
+  ) : gate_state == 2 ? (
+    gate_gain = 1.0;
+    gate_should_close ? (hold_counter = hold_samples; gate_state = 3);
+  ) : gate_state == 3 ? (
+    gate_gain = 1.0;
+    hold_counter -= 1;
+    gate_should_open ? gate_state = 2;
+    hold_counter <= 0 ? gate_state = 4;
+  ) : gate_state == 4 ? (
+    gate_gain = gate_gain * rel_coeff + range_lin * (1 - rel_coeff);
+    gate_should_open ? gate_state = 1;
+    gate_gain <= range_lin + 0.0001 ? (gate_gain = range_lin; gate_state = 0);
+  );
 
-  // Output from limiter (already gain-reduced and hard-clipped at ceiling)
-  spl0 = lim.out_l;
-  spl1 = lim.out_r;
+  // Apply gate
+  gated_l = l * gate_gain;
+  gated_r = r * gate_gain;
+
+  // Mix
+  spl0 = dry_l * (1 - mix) + gated_l * mix;
+  spl1 = dry_r * (1 - mix) + gated_r * mix;
 
   // Metering
-  slider5 = lim.gr_meter;
+  slider14 = gate_gain > 0.001 ? 20 * log10(gate_gain) : -80;
 
-  // Broadcast state (backward compatible with existing gmem slots)
-  gmem[50030] = lim.gr;            // current gain reduction (linear)
-  gmem[50031] = lim.gr_meter;      // GR in dB
-  gmem[50032] = lim.true_peak;     // what we're responding to
+  // Smooth GFX display
+  gfx_gate_gain = gfx_gate_gain * gfx_smooth + gate_gain * (1 - gfx_smooth);
+  gfx_density = gfx_density * gfx_smooth + hd.density * (1 - gfx_smooth);
+  gfx_env = gfx_env * gfx_smooth + gate_env * (1 - gfx_smooth);
 
 // ============================================================
 // @GFX
 // ============================================================
-@gfx 560 390
+@gfx 560 430
 
 // ============================================================================
 //  SCALING
@@ -483,7 +616,6 @@ pad = floor(4 * S);
 pad2 = pad * 2;
 body_y = floor(50 * S);
 
-// Two columns: controls left, metering right
 col_w = floor((gfx_w - margin * 2 - gap) / 2);
 c1x = margin;
 c2x = margin + col_w + gap;
@@ -505,16 +637,16 @@ logo_img_w > 0 ? (
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(6 * S);
-gfx_drawstr("DENSITY MAXIMIZER");
+gfx_drawstr("SMART GATE");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(26 * S);
-gfx_drawstr("Auto-Makeup Brick-Wall Limiter");
+gfx_drawstr("Density-Aware Noise Gate");
 
 // ============================================================================
 //  LEFT COLUMN: CONTROLS
 // ============================================================================
-ctrl_h = floor(196 * S);
+ctrl_h = mode == 1 ? floor(310 * S) : floor(265 * S);
 draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
 cy = body_y + floor(26 * S);
 
@@ -523,83 +655,135 @@ _old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, 
 slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
 
-// Target Loudness (the big knob — how loud do you want it)
-_old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, 0, 24, "Target dB", 1);
-slider3 != _old ? slider_automate(2^2);
-cy += bar_sp;
-
-// Ceiling
-_old = slider2; slider2 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider2, -3, 0, "Ceiling dBFS", 1);
-slider2 != _old ? slider_automate(2^1);
-cy += bar_sp;
-
-// Release
-_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 1, 500, "Release ms", 1);
-slider4 != _old ? slider_automate(2^3);
-cy += bar_sp;
-
-// Opto Pre-Limit
-_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Opto %", 1);
-slider6 != _old ? slider_automate(2^5);
-cy += bar_sp;
-
-// EQ Profile selector (click to cycle)
-eq_sel_w = col_w - pad2;
-eq_sel_h = bar_h;
+// Mode selector (Single/Drum, click to cycle)
+mode_sel_w = col_w - pad2;
+mode_sel_h = bar_h;
 gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-gfx_rect(c1x + pad, cy, eq_sel_w, eq_sel_h);
+gfx_rect(c1x + pad, cy, mode_sel_w, mode_sel_h);
 gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-gfx_rect(c1x + pad, cy, eq_sel_w, 1); gfx_rect(c1x + pad, cy + eq_sel_h - 1, eq_sel_w, 1);
-gfx_rect(c1x + pad, cy, 1, eq_sel_h); gfx_rect(c1x + pad + eq_sel_w - 1, cy, 1, eq_sel_h);
-// Highlight bar when active
-eq_profile > 0 && opto_blend > 0.01 ? (
+gfx_rect(c1x + pad, cy, mode_sel_w, 1); gfx_rect(c1x + pad, cy + mode_sel_h - 1, mode_sel_w, 1);
+gfx_rect(c1x + pad, cy, 1, mode_sel_h); gfx_rect(c1x + pad + mode_sel_w - 1, cy, 1, mode_sel_h);
+mode == 1 ? (
   gfx_r = COL_ACCENT_R * 0.25; gfx_g = COL_ACCENT_G * 0.25; gfx_b = COL_ACCENT_B * 0.15;
-  gfx_rect(c1x + pad + 1, cy + 1, eq_sel_w - 2, eq_sel_h - 2);
+  gfx_rect(c1x + pad + 1, cy + 1, mode_sel_w - 2, mode_sel_h - 2);
 );
 gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
 gfx_setfont(1, "Arial", F_LABEL);
-gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((eq_sel_h - F_LABEL) / 2);
-gfx_drawstr("EQ Profile");
-// Show current mode
+gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((mode_sel_h - F_LABEL) / 2);
+gfx_drawstr("Mode");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
 gfx_setfont(1, "Arial", F_SMALL);
-opto_blend > 0.01 ? (
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-) : (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-);
-gfx_x = c1x + pad + eq_sel_w - floor(50 * S); gfx_y = cy + floor((eq_sel_h - F_SMALL) / 2);
-slider7 == 0 ? gfx_drawstr("OFF");
-slider7 == 1 ? gfx_drawstr("CLEAN");
-slider7 == 2 ? gfx_drawstr("LOUD");
-slider7 == 3 ? gfx_drawstr("OPEN");
-// Left-click cycles forward, right-click cycles backward
+gfx_x = c1x + pad + mode_sel_w - floor(55 * S); gfx_y = cy + floor((mode_sel_h - F_SMALL) / 2);
+slider2 == 0 ? gfx_drawstr("SINGLE") : gfx_drawstr("DRUM");
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
-  mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
-  _old = slider7;
-  slider7 = (slider7 + 1) % 4;
-  slider7 != _old ? slider_automate(2^6);
-);
-(mouse_cap & 2) && !(last_cap & 2) &&
-  mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
-  mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
-  _old = slider7;
-  slider7 = slider7 - 1; slider7 < 0 ? slider7 = 3;
-  slider7 != _old ? slider_automate(2^6);
+  mouse_x >= c1x + pad && mouse_x <= c1x + pad + mode_sel_w &&
+  mouse_y >= cy && mouse_y <= cy + mode_sel_h ? (
+  _old = slider2;
+  slider2 = 1 - slider2;
+  slider2 != _old ? slider_automate(2^1);
 );
 cy += bar_sp;
 
-// EQ Intensity
-_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 200, "EQ Intens %", 1);
+// Gate Threshold
+_old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, 0, 100, "Threshold %", 1);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+
+// Attack
+_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 0.1, 20, "Attack ms", 1);
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+// Hold
+_old = slider5; slider5 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider5, 10, 500, "Hold ms", 1);
+slider5 != _old ? slider_automate(2^4);
+cy += bar_sp;
+
+// Release
+_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 20, 2000, "Release ms", 1);
+slider6 != _old ? slider_automate(2^5);
+cy += bar_sp;
+
+// Range
+_old = slider7; slider7 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider7, -80, 0, "Range dB", 1);
+slider7 != _old ? slider_automate(2^6);
+cy += bar_sp;
+
+// Density Sensitivity
+_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 100, "Density Sens %", 1);
 slider8 != _old ? slider_automate(2^7);
+cy += bar_sp;
+
+// Hysteresis
+_old = slider9; slider9 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider9, 0, 100, "Hysteresis %", 1);
+slider9 != _old ? slider_automate(2^8);
+cy += bar_sp;
+
+// Sidechain HPF
+_old = slider10; slider10 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider10, 20, 500, "SC HPF Hz", 1);
+slider10 != _old ? slider_automate(2^9);
+cy += bar_sp;
+
+// Mix
+_old = slider15; slider15 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider15, 0, 100, "Mix %", 1);
+slider15 != _old ? slider_automate(2^14);
+cy += bar_sp;
+
+// Drum mode controls (only when mode=Drum)
+mode == 1 ? (
+  // Drum Type selector (Kick/Snare/Tom)
+  dt_sel_w = col_w - pad2;
+  dt_sel_h = bar_h;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(c1x + pad, cy, dt_sel_w, dt_sel_h);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(c1x + pad, cy, dt_sel_w, 1); gfx_rect(c1x + pad, cy + dt_sel_h - 1, dt_sel_w, 1);
+  gfx_rect(c1x + pad, cy, 1, dt_sel_h); gfx_rect(c1x + pad + dt_sel_w - 1, cy, 1, dt_sel_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((dt_sel_h - F_LABEL) / 2);
+  gfx_drawstr("Drum Type");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = c1x + pad + dt_sel_w - floor(50 * S); gfx_y = cy + floor((dt_sel_h - F_SMALL) / 2);
+  slider11 == 0 ? gfx_drawstr("KICK");
+  slider11 == 1 ? gfx_drawstr("SNARE");
+  slider11 == 2 ? gfx_drawstr("TOM");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= c1x + pad && mouse_x <= c1x + pad + dt_sel_w &&
+    mouse_y >= cy && mouse_y <= cy + dt_sel_h ? (
+    _old = slider11;
+    slider11 = (slider11 + 1) % 3;
+    slider11 != _old ? slider_automate(2^10);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= c1x + pad && mouse_x <= c1x + pad + dt_sel_w &&
+    mouse_y >= cy && mouse_y <= cy + dt_sel_h ? (
+    _old = slider11;
+    slider11 = slider11 - 1; slider11 < 0 ? slider11 = 2;
+    slider11 != _old ? slider_automate(2^10);
+  );
+  cy += bar_sp;
+
+  // Tom Distance (only when drum_type == Tom)
+  slider11 == 2 ? (
+    _old = slider12; slider12 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider12, 1, 8, "Tom Distance", 1);
+    slider12 != _old ? (slider12 = floor(slider12 + 0.5); slider_automate(2^11));
+    cy += bar_sp;
+  );
+
+  // Bleed Reject
+  _old = slider13; slider13 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider13, 0, 100, "Bleed Rej %", 1);
+  slider13 != _old ? slider_automate(2^12);
+);
 
 // ============================================================================
-//  RIGHT COLUMN: METERING
+//  RIGHT COLUMN: STATE
 // ============================================================================
 
-// --- GR METER ---
-gr_panel_h = opto_blend > 0.01 ? floor(72 * S) : floor(60 * S);
-draw_panel(c2x, body_y, col_w, gr_panel_h, "GAIN REDUCTION");
+// --- GATE METER ---
+gate_meter_h = floor(60 * S);
+draw_panel(c2x, body_y, col_w, gate_meter_h, "GATE");
 
 meter_x = c2x + pad;
 meter_y = body_y + floor(26 * S);
@@ -610,103 +794,57 @@ meter_h = floor(28 * S);
 gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
 gfx_rect(meter_x, meter_y, meter_w, meter_h);
 
-// GR bar (right to left)
-gr_pct = min(1.0, abs(lim.gr_meter) / 24.0);
-bar_w_gr = gr_pct * meter_w;
-
-lim.gr_meter > -3 ? (
+// Gate bar
+gate_pct = gfx_gate_gain;
+bar_w_gate = gate_pct * meter_w;
+gate_pct > 0.8 ? (
   gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3; gfx_a = 0.8;
-) : lim.gr_meter > -6 ? (
+) : gate_pct > 0.3 ? (
   gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.1; gfx_a = 0.8;
 ) : (
   gfx_r = 0.9; gfx_g = 0.2; gfx_b = 0.2; gfx_a = 0.8;
 );
-gfx_rect(meter_x + meter_w - bar_w_gr, meter_y, bar_w_gr, meter_h);
+bar_w_gate > 0 ? (
+  gfx_rect(meter_x, meter_y, bar_w_gate, meter_h);
+);
 gfx_a = 1;
 
-// GR text
+// Gate state text
 gfx_r = 1; gfx_g = 1; gfx_b = 1;
 gfx_setfont(1, "Arial", F_LABEL);
-gfx_x = meter_x + meter_w / 2 - floor(25 * S);
+gfx_x = meter_x + floor(5 * S);
 gfx_y = meter_y + floor(8 * S);
-gfx_drawstr("GR: ");
-gfx_drawnumber(lim.gr_meter, 1);
+gate_state == 0 ? gfx_drawstr("CLOSED");
+gate_state == 1 ? gfx_drawstr("ATTACK");
+gate_state == 2 ? gfx_drawstr("OPEN");
+gate_state == 3 ? gfx_drawstr("HOLD");
+gate_state == 4 ? gfx_drawstr("RELEASE");
+
+// GR readout
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = meter_x + meter_w - floor(60 * S);
+gfx_y = meter_y + floor(8 * S);
+gfx_drawnumber(slider14, 1);
 gfx_drawstr(" dB");
 
 // Border
 gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
 gfx_rect(meter_x, meter_y, meter_w, meter_h, 0);
 
-// Opto GR indicator (only when opto is active)
-opto_blend > 0.01 ? (
-  gfx_setfont(1, "Arial", F_TINY);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = meter_x; gfx_y = meter_y + meter_h + floor(2 * S);
-  gfx_drawstr("Opto: ");
-  gfx_drawnumber(opto.gr_db, 1);
-  gfx_drawstr(" dB");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr("   Wall: ");
-  gfx_drawnumber(lim.gr_meter, 1);
-  gfx_drawstr(" dB");
-);
-
-// --- LEVELS INFO ---
-levels_y = body_y + gr_panel_h + gap;
-levels_h = floor(56 * S);
-draw_panel(c2x, levels_y, col_w, levels_h, "LEVELS");
-
-py = levels_y + floor(26 * S);
-gfx_setfont(1, "Arial", F_SMALL);
-
-// Target loudness indicator
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_x = c2x + pad + floor(4 * S); gfx_y = py;
-gfx_drawstr("Boost: +");
-gfx_drawnumber(slider3, 1);
-gfx_drawstr(" dB");
-
-// True peak display
-gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.9;
-gfx_x = c2x + col_w / 2; gfx_y = py;
-gfx_drawstr("Peak: ");
-tp_db = lim.true_peak > 0.00001 ? 20 * log10(lim.true_peak) : -100;
-gfx_drawnumber(tp_db, 1);
-
-py += floor(14 * S);
-// Ceiling display
-gfx_r = 1; gfx_g = 0.4; gfx_b = 0.4;
-gfx_x = c2x + pad + floor(4 * S); gfx_y = py;
-gfx_drawstr("Ceiling: ");
-gfx_drawnumber(slider2, 1);
-gfx_drawstr(" dBFS");
-
 // --- DENSITY STATE ---
-density_y = levels_y + levels_h + gap;
-density_h = floor(72 * S);
+density_panel_y = body_y + gate_meter_h + gap;
+density_panel_h = floor(80 * S);
+draw_panel(c2x, density_panel_y, col_w, density_panel_h, "DENSITY");
 
-// Density source: opto internal tracker (live)
-opto_blend > 0.01 ? (
-  // Opto's internal 4-band density tracker — these are live, always moving
-  // density is 1.0-2.5 overall; normalize to 0-1 for the bar
-  disp_lo = min(1, (opto.hd.density - 1.0) / 1.5);
-  disp_mid = opto.hd.mid_density;
-  disp_hi = opto.hd.hi_density;
-  disp_air = opto.hd.air_density;
-  draw_panel(c2x, density_y, col_w, density_h, "DENSITY (OPTO)");
-) : (
-  disp_lo = 0; disp_mid = 0; disp_hi = 0; disp_air = 0;
-  draw_panel(c2x, density_y, col_w, density_h, "DENSITY STATE");
-);
-
-dy = density_y + floor(26 * S);
+dy = density_panel_y + floor(26 * S);
 d_bar_w = floor(60 * S);
 d_bar_h = floor(10 * S);
 d_bx = c2x + pad + floor(30 * S);
 
 // Lo
 gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_lo), d_bar_h);
+disp_lo = min(1, (hd.density - 1.0) / 1.5);
+gfx_rect(d_bx, dy, d_bar_w * max(0, disp_lo), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
@@ -714,170 +852,139 @@ gfx_setfont(1, "Arial", F_TINY);
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("LO");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_mid), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, max(0, hd.mid_density)), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("MID");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_hi), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, max(0, hd.hi_density)), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("HI");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_air), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, max(0, hd.air_density)), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("AIR");
 
-// Status text on right side of density panel
+// Density readout on right side
 gfx_setfont(1, "Arial", F_TINY);
 status_x = d_bx + d_bar_w + floor(15 * S);
-status_y = density_y + floor(26 * S);
+status_y = density_panel_y + floor(26 * S);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y;
+gfx_drawstr("Density: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(gfx_density, 2);
 
-opto_blend > 0.01 ? (
-  // Show opto photocell state
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = status_x; gfx_y = status_y;
-  gfx_drawstr("OPTO ACTIVE");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y + floor(12 * S);
-  gfx_drawstr("Cell: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(opto.cell_r_display * 100, 0);
-  gfx_drawstr("%");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y + floor(24 * S);
-  gfx_drawstr("Mem: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(opto.memory_display * 100, 0);
-  gfx_drawstr("%");
-) : (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y;
-  gfx_drawstr("STANDARD");
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y + floor(13 * S);
+gfx_drawstr("Env: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(gfx_env * 100, 1);
+
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y + floor(26 * S);
+gfx_drawstr("Eff Thr: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(sqrt(gfx_eff_thresh) * 100, 1);
+gfx_drawstr("%");
+
+// --- SIDECHAIN ENVELOPE METER (mini) ---
+sc_meter_y = density_panel_y + density_panel_h + gap;
+sc_meter_h = floor(28 * S);
+draw_panel(c2x, sc_meter_y, col_w, sc_meter_h + floor(22 * S), "SIDECHAIN");
+gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+gfx_rect(c2x + pad, sc_meter_y + floor(22 * S), col_w - pad2, sc_meter_h);
+// Envelope bar
+sc_env_norm = min(1.0, gfx_env * 4);
+sc_env_fill = sc_env_norm * (col_w - pad2);
+sc_env_fill > 0 ? (
+  gfx_r = COL_CYAN_R * 0.5; gfx_g = COL_CYAN_G * 0.5; gfx_b = COL_CYAN_B * 0.5;
+  gfx_rect(c2x + pad, sc_meter_y + floor(22 * S), sc_env_fill, sc_meter_h);
 );
+// Threshold line
+t_norm = sqrt(gfx_eff_thresh);
+t_line_x = c2x + pad + floor(t_norm * 4 * (col_w - pad2));
+t_line_x = min(t_line_x, c2x + col_w - pad);
+gfx_r = 1.0; gfx_g = 0.3; gfx_b = 0.3;
+gfx_rect(t_line_x, sc_meter_y + floor(22 * S), max(1, floor(2 * S)), sc_meter_h);
+// Border
+gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_rect(c2x + pad, sc_meter_y + floor(22 * S), col_w - pad2, sc_meter_h, 0);
 
-// --- REACTIVE EQ STATUS (only when active) ---
-eq_profile > 0 && opto_blend > 0.01 ? (
-  eq_status_y = density_y + density_h + gap;
-  eq_status_h = floor(63 * S);
-  draw_panel(c2x, eq_status_y, col_w, eq_status_h, "REACTIVE EQ");
+// --- DRUM MODE PEERS (only when mode=Drum) ---
+mode == 1 ? (
+  peer_panel_y = sc_meter_y + sc_meter_h + floor(22 * S) + gap;
+  peer_rows = max(1, gfx_peer_count);
+  peer_panel_h = floor(22 * S) + peer_rows * floor(16 * S) + floor(8 * S);
+  draw_panel(c2x, peer_panel_y, col_w, peer_panel_h, "DRUM PEERS");
 
-  eqy = eq_status_y + floor(26 * S);
+  py = peer_panel_y + floor(26 * S);
   gfx_setfont(1, "Arial", F_TINY);
-  eq_bar_w = floor(50 * S);
-  eq_bx = c2x + pad + floor(30 * S);
-  eq_center = eq_bx + floor(eq_bar_w / 2);
 
-  // Lo shelf indicator (bidirectional from center)
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  lo_fill = floor((req_lo_db / 6.0) * (eq_bar_w / 2));
-  lo_fill < 0 ? (
-    gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-    gfx_rect(eq_center + lo_fill, eqy, -lo_fill, d_bar_h);
-  ) : lo_fill > 0 ? (
-    gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-    gfx_rect(eq_center, eqy, lo_fill, d_bar_h);
+  gfx_peer_count == 0 ? (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_x = c2x + pad + floor(4 * S); gfx_y = py;
+    gfx_drawstr("No peers found");
   );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("LO");
 
-  eqy += floor(11 * S);
-  // Mid peak indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  mid_fill = floor((req_mid_db / 6.0) * (eq_bar_w / 2));
-  mid_fill < 0 ? (
-    gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-    gfx_rect(eq_center + mid_fill, eqy, -mid_fill, d_bar_h);
-  ) : mid_fill > 0 ? (
-    gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-    gfx_rect(eq_center, eqy, mid_fill, d_bar_h);
+  // Draw each peer
+  pi = 0;
+  loop(gfx_peer_count,
+    pi == 0 ? (pt = gfx_peer_type_0; po = gfx_peer_open_0; pd = gfx_peer_dist_0);
+    pi == 1 ? (pt = gfx_peer_type_1; po = gfx_peer_open_1; pd = gfx_peer_dist_1);
+    pi == 2 ? (pt = gfx_peer_type_2; po = gfx_peer_open_2; pd = gfx_peer_dist_2);
+    pi == 3 ? (pt = gfx_peer_type_3; po = gfx_peer_open_3; pd = gfx_peer_dist_3);
+    pi == 4 ? (pt = gfx_peer_type_4; po = gfx_peer_open_4; pd = gfx_peer_dist_4);
+    pi == 5 ? (pt = gfx_peer_type_5; po = gfx_peer_open_5; pd = gfx_peer_dist_5);
+    pi == 6 ? (pt = gfx_peer_type_6; po = gfx_peer_open_6; pd = gfx_peer_dist_6);
+    pi == 7 ? (pt = gfx_peer_type_7; po = gfx_peer_open_7; pd = gfx_peer_dist_7);
+
+    // Open/closed indicator
+    po ? (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+    ) : (
+      gfx_r = 0.5; gfx_g = 0.15; gfx_b = 0.15;
+    );
+    gfx_circle(c2x + pad + floor(8 * S), py + floor(6 * S), floor(4 * S), 1);
+
+    // Type label
+    gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+    gfx_x = c2x + pad + floor(18 * S); gfx_y = py;
+    pt == 0 ? gfx_drawstr("KICK");
+    pt == 1 ? gfx_drawstr("SNARE");
+    pt == 2 ? (
+      gfx_drawstr("TOM d=");
+      gfx_drawnumber(pd, 0);
+    );
+
+    // State
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+    gfx_x = c2x + col_w - floor(45 * S); gfx_y = py;
+    po ? (
+      gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+      gfx_drawstr("OPEN");
+    ) : (
+      gfx_r = 0.5; gfx_g = 0.15; gfx_b = 0.15;
+      gfx_drawstr("GATED");
+    );
+
+    py += floor(16 * S);
+    pi += 1;
   );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("MID");
-
-  eqy += floor(11 * S);
-  // Hi presence indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  hi_fill = floor((req_hi_db / 6.0) * (eq_bar_w / 2));
-  hi_fill < 0 ? (
-    gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-    gfx_rect(eq_center + hi_fill, eqy, -hi_fill, d_bar_h);
-  ) : hi_fill > 0 ? (
-    gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-    gfx_rect(eq_center, eqy, hi_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("HI");
-
-  eqy += floor(11 * S);
-  // Air shelf indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  air_fill = floor((req_air_db / 6.0) * (eq_bar_w / 2));
-  air_fill < 0 ? (
-    gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-    gfx_rect(eq_center + air_fill, eqy, -air_fill, d_bar_h);
-  ) : air_fill > 0 ? (
-    gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-    gfx_rect(eq_center, eqy, air_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("AIR");
-
-  // Profile name + intensity + adapted release
-  gfx_setfont(1, "Arial", F_TINY);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = eq_bx + eq_bar_w + floor(8 * S); gfx_y = eq_status_y + floor(26 * S);
-  slider7 == 1 ? gfx_drawstr("CLEAN");
-  slider7 == 2 ? gfx_drawstr("LOUD");
-  slider7 == 3 ? gfx_drawstr("OPEN");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr(" ");
-  gfx_drawnumber(slider8, 0);
-  gfx_drawstr("%");
-
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = eq_bx + eq_bar_w + floor(8 * S); gfx_y = eq_status_y + floor(38 * S);
-  gfx_drawstr("Rel: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(adapted_release, 0);
-  gfx_drawstr("ms");
 );
 
 // ============================================================================
@@ -1174,54 +1281,25 @@ buy_show ? (
   gfx_x = floor(15 * S); gfx_y = floor(95 * S);
   gfx_drawstr("only get doper over time. We also offer 6 months installments. But if you");
   gfx_x = floor(15 * S); gfx_y = floor(110 * S);
-  gfx_drawstr("dont have the money, dont sweat it, you can use as much and as long as");
-  gfx_x = floor(15 * S); gfx_y = floor(125 * S);
-  gfx_drawstr("you like. Hail Satan. - LMS");
-  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
-  gfx_x = floor(15 * S); gfx_y = floor(150 * S);
-  gfx_drawstr("bryanleaf.gumroad.com/l/zzgmzx");
-  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
-  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
-  gfx_r = 0; gfx_g = 0; gfx_b = 0;
-  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
-  gfx_drawstr("BUY");
-  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
-  gfx_drawstr("NOTICE");
+  gfx_drawstr("cant afford it just use it. We love you. We are all gonna make it.");
 );
 notice_show ? (
   gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
   gfx_rect(0, 0, gfx_w, gfx_h); gfx_a = 1;
   gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
   gfx_x = floor(15 * S); gfx_y = floor(10 * S);
-  gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
-  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
-  gfx_x = floor(15 * S); gfx_y = floor(30 * S);
-  gfx_drawstr("The algorithms in our favorite software are decades old.");
-  gfx_x = floor(15 * S); gfx_y = floor(45 * S);
-  gfx_drawstr("A mathematical model is a truth about the world,");
-  gfx_x = floor(15 * S); gfx_y = floor(60 * S);
-  gfx_drawstr("not a copyrightable product. You do not have to stay");
-  gfx_x = floor(15 * S); gfx_y = floor(75 * S);
-  gfx_drawstr("a slave to subscription software. Install Linux.");
-  gfx_x = floor(15 * S); gfx_y = floor(90 * S);
-  gfx_drawstr("Build your own tools. Believe in yourself.");
-  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
-  gfx_x = floor(15 * S); gfx_y = floor(115 * S);
-  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
-  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
-  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
-  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
-  gfx_r = 0; gfx_g = 0; gfx_b = 0;
-  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
-  gfx_drawstr("BUY");
-  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
   gfx_drawstr("NOTICE");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = floor(15 * S); gfx_y = floor(35 * S);
+  gfx_drawstr("LMS plugins are made with assistance from Claude by Anthropic.");
+  gfx_x = floor(15 * S); gfx_y = floor(50 * S);
+  gfx_drawstr("All DSP algorithms, GFX layout, and broadcast system designed by");
+  gfx_x = floor(15 * S); gfx_y = floor(65 * S);
+  gfx_drawstr("Bryan (LMS) with Claude as a coding partner.");
+  gfx_x = floor(15 * S); gfx_y = floor(85 * S);
+  gfx_drawstr("This plugin is part of the LMS suite for REAPER.");
 );
 
-// ============================================================
-// @SERIALIZE — Persist follow state
-// ============================================================
 @serialize
 file_var(0, bc_following);
 file_var(0, bc_my_id);
