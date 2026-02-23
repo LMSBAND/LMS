@@ -74,9 +74,14 @@ end
 -- ============================================================
 
 local function main()
-  -- Require project to be saved
-  local proj_path = reaper.GetProjectPath("")
-  if not proj_path or proj_path == "" then
+  -- Require project to be saved — get directory of actual .rpp file
+  local _, proj_file = reaper.EnumProjects(-1)
+  if not proj_file or proj_file == "" then
+    reaper.ShowMessageBox("Save your project first.", "LMS Save Session", 0)
+    return
+  end
+  local proj_path = proj_file:match("(.+)[/\\]") or ""
+  if proj_path == "" then
     reaper.ShowMessageBox("Save your project first.", "LMS Save Session", 0)
     return
   end

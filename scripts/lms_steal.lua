@@ -149,8 +149,13 @@ end
 -- ============================================================
 
 local function main()
-  -- Pick the source .lms file
-  local retval, lms_path = reaper.GetUserFileNameForRead("", "Steal session from...", "*.lms")
+  -- Pick the source .lms file — start in project directory if available
+  local start_dir = ""
+  local _, proj_file = reaper.EnumProjects(-1)
+  if proj_file and proj_file ~= "" then
+    start_dir = proj_file:match("(.+)[/\\]") or ""
+  end
+  local retval, lms_path = reaper.GetUserFileNameForRead(start_dir, "Steal session from...", "*.lms")
   if not retval or lms_path == "" then return end
 
   local f = io.open(lms_path, "r")
