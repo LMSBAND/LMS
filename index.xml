@@ -210,38 +210,6 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_matchering.jsfx" type="effect" desc="LMS Matchering Realtime">
-      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
-        <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-      </version>
-      <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v2.0 — Full GUI overhaul, broadcast system.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-      </version>
-      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
-        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time. Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-      </version>
-      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
-        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-      </version>
-      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_matchering.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="matchering_realtime.jsfx" type="effect" desc="LMS Matchering Realtime (legacy name)">
-      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
-        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
-      </version>
-      <version name="4.0" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v4.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/matchering_realtime.jsfx</source>
-      </version>
-    </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Champ 5F1 amp sim. Two triode stages (V1a 12AX7 preamp + V2b power driver) with fixed asymmetric clipping and 4-band density tracker (Lo/Mid/Hi/Air) driving Miller LP, air shelf, drive boost, and NFB bandwidth — NOT the clipping curve. PSU sag (25% max droop, 80ms recovery). Simple tone control (LP sweep). 1x12 Greenback cab sim. Built-in spring reverb (4-stage allpass diffusion, pre-delay, feedback LP) and bias tremolo (sine LFO, 1-10Hz). Runs 16 instances at 2.5% CPU.]]></changelog>
@@ -730,7 +698,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, matchering, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. Density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Punk Idol v2 (JCM800), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

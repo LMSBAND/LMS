@@ -54,7 +54,6 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_channel_strip | 4 | 10000 | 10032 |
 | lms_distressor | 5 | 300000 | 300032 |
 | lms_passive_eq | 6 | 400000 | 400032 |
-| lms_matchering | 7 | 70000 | 70032 |
 | lms_moog_synth | 8 | 900000 | 900032 |
 | lms_chris_bedroom | 9 | 600000 | 600032 |
 | lms_amp_suite | 10 | 640000 | 640032 |
@@ -64,8 +63,11 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_ac15_v2 | 14 | 730000 | 730032 |
 | lms_mesa_v2 | 15 | 740000 | 740032 |
 | lms_twins_v2 | 16 | 750000 | 750032 |
-| lms_drawmer | 17 | 800000 | 800032 |
-| **your new plugin** | **18+** | **pick unused** | **HB + 32** |
+| lms_la2a | 18 | 810000 | 810032 |
+| lms_density_limiter | 19 | 820000 | 820032 |
+| lms_drum_trigger | 20 | 830000 | 830032 |
+| lms_smart_gate | 21 | 840000 | 840032 |
+| **your new plugin** | **22+** | **pick unused** | **HB + 32** |
 
 For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `810000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
@@ -257,18 +259,42 @@ out = lms_sat_cascade(x, drive1, bias1, drive2, bias2);
 // stage2 = lms_sat_warm(stage1, drive2, bias2)
 ```
 
-### Section 11: Opto Compressor
+### Section 10: Opto Compressor
 
-LA-2A T4B photocell model. Program-dependent release: fast initial discharge (~60ms) followed by slow tail (~500ms). Musical and forgiving.
+LA-2A T4B photocell model with density-aware circuit. The 4-band density tracker (same architecture as the v2 amp triode stages) drives the photocell's program-dependent behavior: denser signals = faster EL response, longer memory accumulation, more natural compression.
+
+Two-stage release: fast initial recovery (~60ms to 50%) then slow tail (1-5s depending on accumulated memory). Feedback topology (sidechain reads compressed output). Compress mode = pure feedback, Limit mode = blended input/output for higher ratios.
 
 ```jsfx
 opto.lms_opto_init();
-opto.lms_opto_set(-18, 4, 10);   // thresh_db, ratio, att_ms
+opto.lms_opto_set(0.5, 0, 0.5, 0.3);  // peak_red, mode, emphasis, warmth
+// peak_red: 0-1 (how much compression)
+// mode: 0=compress, 1=limit
+// emphasis: 0-1 (R37 sidechain HF sensitivity)
+// warmth: 0-1 (output tube saturation)
 // in @sample:
 opto.lms_opto_proc(spl0, spl1);
 spl0 *= opto.gr;
 spl1 *= opto.gr;
 // opto.gr = linear gain, opto.gr_db = dB reduction
+// opto.cell_r_display = photocell resistance (for metering)
+// opto.memory_display = accumulated memory (for metering)
+// opto.release_stage = 0 (idle), 1 (fast), 2 (slow)
+```
+
+### Section 11: Brick-Wall Limiter
+
+True-peak aware brick-wall limiter. 2x oversampled inter-sample peak detection catches DAC-clipping peaks. Soft-knee onset, instant attack, smooth release. Extracted from the density limiter for reuse.
+
+```jsfx
+lim.lms_lim_init();
+lim.lms_lim_set(-0.3, 50);    // ceiling_db, release_ms
+// in @sample:
+lim.lms_lim_proc(spl0, spl1);
+spl0 *= lim.gr;
+spl1 *= lim.gr;
+// lim.gr = linear gain, lim.gr_db = dB, lim.gr_meter = smoothed dB
+// lim.true_peak = detected true peak level
 ```
 
 ---
