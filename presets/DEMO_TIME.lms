@@ -1,0 +1,201 @@
+{
+  "lms_version": "1.0",
+  "created": "2026-02-23T00:00:00",
+  "session_name": "DEMO_TIME",
+  "tracks": [
+    {
+      "name": "DRUMBANGER",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_drumbanger.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Guitar L1",
+      "volume": 1.0,
+      "pan": -0.8,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_punk_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Guitar L2",
+      "volume": 1.0,
+      "pan": -0.6,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_punk_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Guitar R1",
+      "volume": 1.0,
+      "pan": 0.8,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_mesa_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Guitar R2",
+      "volume": 1.0,
+      "pan": 0.6,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_mesa_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Bass",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_fridge_v2.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Vox 1",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_tape_machine.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Vox 2",
+      "volume": 1.0,
+      "pan": -0.3,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_tape_machine.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "Vox 3",
+      "volume": 1.0,
+      "pan": 0.3,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_smart_gate.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_tape_machine.jsfx",
+          "params": []
+        },
+        {
+          "name": "JS: lms_channel_strip.jsfx",
+          "params": []
+        }
+      ]
+    },
+    {
+      "name": "MASTER",
+      "volume": 1.0,
+      "pan": 0.0,
+      "mute": false,
+      "solo": false,
+      "fx": [
+        {
+          "name": "JS: lms_density_limiter.jsfx",
+          "params": []
+        }
+      ]
+    }
+  ]
+}
