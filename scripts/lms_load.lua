@@ -151,14 +151,8 @@ end
 -- ============================================================
 
 local function main()
-  -- Get directory of actual .rpp file (not the media/recording path)
-  local _, proj_file = reaper.EnumProjects(-1)
-  if not proj_file or proj_file == "" then
-    reaper.ShowMessageBox("Save your project first.", "LMS Load Session", 0)
-    return
-  end
-  local proj_path = proj_file:match("(.+)[/\\]") or ""
-  if proj_path == "" then
+  local proj_path = reaper.GetProjectPath("")
+  if not proj_path or proj_path == "" then
     reaper.ShowMessageBox("Save your project first.", "LMS Load Session", 0)
     return
   end

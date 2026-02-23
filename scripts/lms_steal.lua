@@ -149,12 +149,8 @@ end
 -- ============================================================
 
 local function main()
-  -- Pick the source .lms file — start in project directory if available
-  local start_dir = ""
-  local _, proj_file = reaper.EnumProjects(-1)
-  if proj_file and proj_file ~= "" then
-    start_dir = proj_file:match("(.+)[/\\]") or ""
-  end
+  -- Pick the source .lms file — start in project directory
+  local start_dir = reaper.GetProjectPath("") or ""
   local retval, lms_path = reaper.GetUserFileNameForRead(start_dir, "Steal session from...", "*.lms")
   if not retval or lms_path == "" then return end
 
