@@ -1,5 +1,5 @@
 // ============================================================================
-//  LMS Core DSP Library v1.0
+//  LMS Core DSP Library v1.1
 //  Shared DSP building blocks for the LMS plugin suite
 //
 //  Usage: import lms_core.jsfx-inc
@@ -21,6 +21,9 @@
 //    6. Tone Filter              (stereo 1-pole LP, this.* state)
 //    7. Cubic Interpolation      (stateless)
 //    8. Spring Reverb Allpass    (stateless, buffer-based)
+//    9. GUI Helpers              (called from @gfx)
+//   10. Opto Compressor          (LA-2A T4B photocell, stereo, this.* state)
+//   11. Brick-Wall Limiter       (true-peak aware, stereo, this.* state)
 // ============================================================================
 
 @init
@@ -1025,5 +1028,423 @@ function lms_gfx_buy_btn(bc_panel_y) (
     gfx_setfont(1, "Arial", F_SMALL);
     gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
     gfx_drawstr("BUY");
+  );
+);
+
+
+// ============================================================================
+//  SECTION 10: Opto Compressor — LA-2A T4B Photocell Model
+//  (stereo, density-aware, this.* state)
+//
+//  Models the Teletronix LA-2A leveling amplifier's electro-optical
+//  gain reduction circuit. The T4B cell contains an EL panel (light source)
+//  driving a CdS photoresistor (variable attenuator). The photocell's
+//  power-law resistance curve creates a natural soft knee, and its
+//  persistent photoconductivity ("memory") creates program-dependent
+//  release — the defining characteristic of the LA-2A sound.
+//
+//  Density-aware: a 4-band harmonic density tracker (same architecture
+//  as the v2 amp triode stages) drives the photocell model. Denser
+//  signals = faster EL response, longer memory accumulation, more
+//  program-dependent behavior. This maps to real physics: the EL panel
+//  responds differently to different spectral content.
+//
+//  Feedback topology: the sidechain reads from the compressed OUTPUT,
+//  not the input. This self-regulating loop is what makes the LA-2A
+//  gentle and musical. Limit mode blends a small amount of input signal
+//  into the sidechain for higher effective ratios.
+//
+//  Usage:
+//    @init:   opto.lms_opto_init();
+//    @slider: opto.lms_opto_set(peak_red, mode, emphasis, warmth);
+//    @block:  opto.lms_opto_set(peak_red, mode, emphasis, warmth);
+//    @sample: opto.lms_opto_proc(l, r);
+//             l *= opto.gr;
+//             r *= opto.gr;
+//             // opto.gr_db has dB of gain reduction for metering
+// ============================================================================
+
+// ---- Opto internal: 4-band density tracker ----
+// Identical architecture to the v2 amp triode stages.
+// Tracks lo/mid/hi/air energy distribution to drive photocell behavior.
+function lms_opto_hd_init() (
+  this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(250, 0.7);
+  this.f_mid_lo.lms_bq_init(); this.f_mid_lo.lms_bq_set_lp(2000, 0.7);
+  this.f_mid_hi.lms_bq_init(); this.f_mid_hi.lms_bq_set_hp(250, 0.7);
+  this.f_hi.lms_bq_init(); this.f_hi.lms_bq_set_hp(2000, 0.7);
+  this.f_air.lms_bq_init(); this.f_air.lms_bq_set_hp(5000, 0.7);
+  this.env_lo = 0; this.env_mid = 0; this.env_hi = 0;
+  this.env_air = 0; this.env_total = 0;
+  this.att = exp(-1 / (srate * 0.002));
+  this.rel = exp(-1 / (srate * 0.080));
+  this.density = 1.0; this.mid_density = 0.0;
+  this.hi_density = 0.0; this.air_density = 0.0;
+  this.smooth = exp(-1 / (srate * 0.030));
+);
+
+function lms_opto_hd_proc(x)
+  local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total,
+        raw, raw_mid, raw_hi, raw_air)
+(
+  lo = this.f_lo.lms_bq_proc(x);
+  mid = this.f_mid_hi.lms_bq_proc(this.f_mid_lo.lms_bq_proc(x));
+  hi = this.f_hi.lms_bq_proc(x);
+  air = this.f_air.lms_bq_proc(x);
+  abs_lo = abs(lo); abs_mid = abs(mid); abs_hi = abs(hi);
+  abs_air = abs(air); abs_total = abs(x);
+  abs_lo > this.env_lo ? (
+    this.env_lo = this.att * this.env_lo + (1 - this.att) * abs_lo;
+  ) : (
+    this.env_lo = this.rel * this.env_lo + (1 - this.rel) * abs_lo;
+  );
+  abs_mid > this.env_mid ? (
+    this.env_mid = this.att * this.env_mid + (1 - this.att) * abs_mid;
+  ) : (
+    this.env_mid = this.rel * this.env_mid + (1 - this.rel) * abs_mid;
+  );
+  abs_hi > this.env_hi ? (
+    this.env_hi = this.att * this.env_hi + (1 - this.att) * abs_hi;
+  ) : (
+    this.env_hi = this.rel * this.env_hi + (1 - this.rel) * abs_hi;
+  );
+  abs_air > this.env_air ? (
+    this.env_air = this.att * this.env_air + (1 - this.att) * abs_air;
+  ) : (
+    this.env_air = this.rel * this.env_air + (1 - this.rel) * abs_air;
+  );
+  abs_total > this.env_total ? (
+    this.env_total = this.att * this.env_total + (1 - this.att) * abs_total;
+  ) : (
+    this.env_total = this.rel * this.env_total + (1 - this.rel) * abs_total;
+  );
+  this.env_lo > 0.0001 ? (
+    raw = this.env_total / this.env_lo;
+    raw = min(2.5, max(1.0, raw));
+  ) : ( raw = 1.0; );
+  this.env_total > 0.0001 ? (
+    raw_mid = this.env_mid / this.env_total; raw_mid = min(1.0, max(0.0, raw_mid));
+    raw_hi = this.env_hi / this.env_total; raw_hi = min(1.0, max(0.0, raw_hi));
+    raw_air = this.env_air / this.env_total; raw_air = min(1.0, max(0.0, raw_air));
+  ) : ( raw_mid = 0.0; raw_hi = 0.0; raw_air = 0.0; );
+  this.density = this.smooth * this.density + (1 - this.smooth) * raw;
+  this.mid_density = this.smooth * this.mid_density + (1 - this.smooth) * raw_mid;
+  this.hi_density = this.smooth * this.hi_density + (1 - this.smooth) * raw_hi;
+  this.air_density = this.smooth * this.air_density + (1 - this.smooth) * raw_air;
+);
+
+// ---- Opto init ----
+function lms_opto_init() (
+  // T4B Photocell state
+  this.cell_r = 1.0;          // normalized resistance: 1.0 = dark (no compression), 0.0 = full light
+  this.cell_target = 1.0;     // target resistance from current light level
+  this.light = 0.0;           // current EL panel brightness
+  this.memory = 0.0;          // accumulated light energy (CdS trap states)
+  this.memory_decay = exp(-1 / (srate * 2.0));  // ~2s half-life for memory
+
+  // Envelope coefficients
+  this.att_coeff = exp(-1 / (srate * 0.010));    // ~10ms attack
+  this.rel_fast = exp(-1 / (srate * 0.060));     // ~60ms stage 1 release
+  this.rel_slow = exp(-1 / (srate * 1.000));     // ~1s stage 2 base release
+  this.recovery_pct = 1.0;    // 0 = fully compressed, 1 = fully recovered
+
+  // Sidechain
+  this.sc_env = 0.0;          // sidechain envelope
+  this.sc_gain = 0.5;         // peak reduction amount (0-1)
+  this.sc_mode = 0;           // 0=compress, 1=limit
+  this.emphasis = 0.5;        // R37 pre-emphasis (0-1)
+  this.warmth = 0.0;          // output tube drive (0-1)
+  this.mix = 1.0;             // dry/wet
+
+  // Feedback state (1-sample delay for feedback topology)
+  this.prev_gr = 1.0;
+
+  // Sidechain pre-emphasis filter (R37 — hi-shelf in sidechain)
+  this.sc_shelf.lms_bq_init();
+  this.sc_shelf.lms_bq_set_hishelf(3500, 0.0, 0.7);
+  this.last_emph_db = 0.0;
+
+  // 4-band density tracker
+  this.hd.lms_opto_hd_init();
+
+  // Output tube saturation (very subtle — 12AX7 warmth)
+  this.sat_l.lms_sat_warm_init();
+  this.sat_r.lms_sat_warm_init();
+
+  // DC blocker
+  this.dc.lms_dc_init();
+
+  // Output
+  this.gr = 1.0;
+  this.gr_db = 0.0;
+
+  // Metering extras
+  this.cell_r_display = 1.0;
+  this.memory_display = 0.0;
+  this.release_stage = 0;     // 0=idle, 1=fast, 2=slow
+);
+
+// ---- Opto set parameters ----
+// peak_red: 0-1 (maps to sidechain amp gain — "how much compression")
+// mode: 0=compress, 1=limit
+// emphasis: 0-1 (R37 HF sidechain sensitivity)
+// warmth: 0-1 (output tube saturation amount)
+function lms_opto_set(peak_red, mode, emphasis, warmth) (
+  this.sc_gain = peak_red;
+  this.sc_mode = mode;
+  this.emphasis = emphasis;
+  this.warmth = warmth;
+
+  // Update sidechain emphasis filter if changed significantly
+  // Base: 0 dB at 0% emphasis, up to +12 dB at 100%
+  emph_db = emphasis * 12.0;
+  abs(emph_db - this.last_emph_db) > 0.5 ? (
+    this.sc_shelf.lms_bq_set_hishelf(3500, emph_db, 0.7);
+    this.last_emph_db = emph_db;
+  );
+);
+
+// ---- Opto process stereo pair ----
+// Updates this.gr (linear gain 0.01-1.0) and this.gr_db
+function lms_opto_proc(l, r)
+  local(mono, sc_input, sc_level, sc_db, el_voltage, gamma,
+        r_target, att_time, eff_att, rel_coeff, eff_rel_slow,
+        density_memory_boost, recovery_threshold)
+(
+  mono = (l + r) * 0.5;
+
+  // 1. Run density tracker on input signal
+  this.hd.lms_opto_hd_proc(mono);
+
+  // 2. Compute sidechain input (FEEDBACK topology)
+  //    Compress: sidechain = output level (using previous sample's GR)
+  //    Limit: sidechain = (1/25)*input + (24/25)*output
+  this.sc_mode == 0 ? (
+    // Compress mode: pure feedback
+    sc_input = abs(mono) * this.prev_gr;
+  ) : (
+    // Limit mode: blended — small input component for higher effective ratio
+    sc_input = abs(mono) * 0.04 + abs(mono) * this.prev_gr * 0.96;
+  );
+
+  // 3. Apply sidechain pre-emphasis (R37)
+  //    Density-aware: air content slightly boosts emphasis
+  sc_input = this.sc_shelf.lms_bq_proc(sc_input);
+
+  // 4. Sidechain amplifier (Peak Reduction control)
+  //    sc_gain maps 0-1 to effective sidechain sensitivity
+  //    At 0: no compression. At 1: very sensitive, heavy compression.
+  sc_level = sc_input * (0.5 + this.sc_gain * 4.0);
+
+  // 5. EL Panel → Light intensity
+  //    Real EL panel has a threshold below which it doesn't illuminate,
+  //    then brightness is approximately proportional to applied voltage.
+  //    Density-aware: denser signals produce slightly more consistent light
+  //    (real EL panels respond more consistently to harmonically rich content)
+  el_voltage = max(0.0, sc_level - 0.01);  // soft threshold
+  this.light = el_voltage * el_voltage;     // square law (EL panel is voltage-squared brightness)
+  this.light = min(1.0, this.light * (1.0 + this.hd.mid_density * 0.15));
+
+  // 6. CdS Photoresistor — power-law resistance from light
+  //    R = (L_ref / L)^gamma, gamma ~0.7
+  //    Normalized: 1.0 = dark (no compression), approaching 0 = full light (max compression)
+  gamma = 0.7;
+  this.light > 0.0001 ? (
+    r_target = (0.001 / max(0.001, this.light)) ^ gamma;
+    r_target = min(1.0, max(0.01, r_target));
+  ) : (
+    r_target = 1.0;  // dark — no compression
+  );
+
+  // 7. Two-stage release with density-driven memory
+  //    This IS the LA-2A. Without this it's just another compressor.
+
+  // Memory accumulation — integrate light exposure over time
+  // Denser signals contribute more to memory (more trapped carriers in CdS)
+  density_memory_boost = 1.0 + (this.hd.density - 1.0) * 0.3;
+  this.memory += this.light * density_memory_boost / srate;
+  this.memory *= this.memory_decay;
+  this.memory = min(2.0, this.memory);  // cap to prevent runaway
+
+  // Attack: ~10ms, slightly faster with denser signal
+  att_time = 0.010 * (1.0 - this.hd.mid_density * 0.15);
+  att_time = max(0.003, att_time);  // never faster than 3ms
+  eff_att = exp(-1 / (srate * att_time));
+
+  // Determine recovery percentage (where are we in the release cycle)
+  this.recovery_pct = (this.cell_r - 0.01) / 0.99;
+  this.recovery_pct = max(0.0, min(1.0, this.recovery_pct));
+
+  // Release: two-stage
+  recovery_threshold = 0.5;  // transition point between fast and slow
+  this.recovery_pct < recovery_threshold ? (
+    // Stage 1: fast initial recovery (~60ms)
+    rel_coeff = this.rel_fast;
+    this.release_stage = 1;
+  ) : (
+    // Stage 2: slow tail — memory stretches this
+    // More memory = more trapped carriers = slower recovery
+    eff_rel_slow = 1.0 + this.memory * 2.0;  // 1s base, up to 5s with heavy memory
+    rel_coeff = exp(-1 / (srate * eff_rel_slow));
+    this.release_stage = 2;
+  );
+
+  // Apply envelope: asymmetric attack/release on photocell resistance
+  r_target < this.cell_r ? (
+    // Attacking (resistance dropping = more compression)
+    this.cell_r = eff_att * this.cell_r + (1 - eff_att) * r_target;
+    this.release_stage = 0;
+  ) : (
+    // Releasing (resistance rising = less compression)
+    this.cell_r = rel_coeff * this.cell_r + (1 - rel_coeff) * r_target;
+  );
+
+  // Clamp
+  this.cell_r = max(0.01, min(1.0, this.cell_r));
+
+  // 8. Gain from voltage divider
+  //    gain = R_photocell / (R_series + R_photocell)
+  //    Normalized: cell_r IS the gain (1.0 = unity, 0.01 = -40dB)
+  this.gr = this.cell_r;
+  this.gr_db = 20 * log10(max(0.001, this.gr));
+
+  // Store for next sample's feedback
+  this.prev_gr = this.gr;
+
+  // Update display values (smoothed for GUI)
+  this.cell_r_display = this.cell_r_display * 0.95 + this.cell_r * 0.05;
+  this.memory_display = this.memory_display * 0.95 + this.memory * 0.05;
+);
+
+
+// ============================================================================
+//  SECTION 11: Brick-Wall Limiter (true-peak aware, stereo, this.* state)
+//
+//  Transparent brick-wall limiter with true peak detection via 2x
+//  oversampled inter-sample peak interpolation. Catches DAC-clipping
+//  peaks that sample-level detection misses.
+//
+//  Usage:
+//    @init:   lim.lms_lim_init();
+//    @slider: lim.lms_lim_set(ceiling_db, release_ms);
+//    @block:  lim.lms_lim_set(ceiling_db, release_ms);
+//    @sample: lim.lms_lim_proc(l, r);
+//             spl0 = lim.out_l;   // already limited + hard-clipped
+//             spl1 = lim.out_r;
+//             // lim.gr, lim.gr_db for metering, lim.true_peak for peak display
+//
+//  Lookahead: 1ms delay buffer lets the limiter see peaks before they
+//  hit the output. Hard clip safety catches anything residual.
+//  Nothing exceeds ceiling. Period.
+// ============================================================================
+
+function lms_lim_init() (
+  // State
+  this.gr = 1.0;
+  this.gr_db = 0.0;
+  this.gain_reduction = 1.0;
+  this.true_peak = 0.0;
+
+  // Envelope
+  this.env_fast = 0.0;
+  this.rel_coeff = exp(-1 / (srate * 0.003));
+
+  // Ceiling
+  this.ceiling = 1.0;
+  this.ceil_db = -0.3;
+
+  // Lookahead buffer (1ms — enough to catch transients before they hit output)
+  this.la_len = max(1, floor(srate * 0.001));
+  this.la_buf = 900000;  // memory offset for lookahead buffer (L+R interleaved)
+  this.la_pos = 0;
+  i = 0;
+  loop(this.la_len * 2,
+    this.la_buf[i] = 0;
+    i += 1;
+  );
+
+  // True peak detection (2x oversampled half-band interpolation)
+  this.hb_l.lms_bq_init();
+  this.hb_r.lms_bq_init();
+  this.hb_l.lms_bq_set_lp(srate * 0.25, 0.54);
+  this.hb_r.lms_bq_set_lp(srate * 0.25, 0.54);
+  this.prev_l = 0;
+  this.prev_r = 0;
+
+  // Metering
+  this.gr_meter = 0;
+  this.gr_meter_rel = exp(-1 / (srate * 0.100));
+);
+
+function lms_lim_set(ceiling_db, release_ms) (
+  this.ceil_db = ceiling_db;
+  this.ceiling = lms_db2lin(ceiling_db);
+  this.rel_coeff = exp(-1 / (srate * release_ms * 0.001));
+);
+
+function lms_lim_proc(l, r)
+  local(mid_l, mid_r, sample_peak, interp_peak, needed_gr,
+        out_l, out_r, out_peak, hard_gr)
+(
+  // True peak detection: interpolate between current and previous sample
+  mid_l = (l + this.prev_l) * 0.5;
+  mid_r = (r + this.prev_r) * 0.5;
+  mid_l = this.hb_l.lms_bq_proc_l(mid_l);
+  mid_r = this.hb_r.lms_bq_proc_r(mid_r);
+  this.prev_l = l;
+  this.prev_r = r;
+
+  sample_peak = max(abs(l), abs(r));
+  interp_peak = max(abs(mid_l), abs(mid_r));
+  this.true_peak = max(sample_peak, interp_peak);
+
+  // Calculate needed gain reduction for THIS sample (no knee — brick wall)
+  this.true_peak > this.ceiling ? (
+    needed_gr = this.ceiling / this.true_peak;
+  ) : (
+    needed_gr = 1.0;
+  );
+
+  // Instant attack: if we need more reduction, take it immediately
+  // Smooth release: let GR recover slowly
+  needed_gr < this.gain_reduction ? (
+    this.gain_reduction = needed_gr;
+  ) : (
+    this.gain_reduction = this.gain_reduction * this.rel_coeff
+                        + needed_gr * (1 - this.rel_coeff);
+  );
+
+  // Write current input into lookahead buffer, read delayed output
+  // This gives us 1ms to see peaks coming and reduce gain BEFORE they arrive
+  out_l = this.la_buf[this.la_pos * 2];
+  out_r = this.la_buf[this.la_pos * 2 + 1];
+  this.la_buf[this.la_pos * 2] = l;
+  this.la_buf[this.la_pos * 2 + 1] = r;
+  this.la_pos = (this.la_pos + 1) % this.la_len;
+
+  // Apply gain reduction to the delayed signal
+  this.gr = this.gain_reduction;
+
+  // Hard clip safety: absolutely nothing past ceiling (catches any residual)
+  out_l *= this.gr;
+  out_r *= this.gr;
+  out_peak = max(abs(out_l), abs(out_r));
+  out_peak > this.ceiling ? (
+    hard_gr = this.ceiling / out_peak;
+    out_l *= hard_gr;
+    out_r *= hard_gr;
+    this.gr *= hard_gr;
+  );
+
+  // Store clipped output for caller to read
+  this.out_l = out_l;
+  this.out_r = out_r;
+
+  this.gr_db = 20 * log10(max(0.001, this.gr));
+
+  // Metering (instant attack, 100ms release)
+  this.gr_db < this.gr_meter ? (
+    this.gr_meter = this.gr_db;
+  ) : (
+    this.gr_meter = this.gr_meter * this.gr_meter_rel + this.gr_db * (1 - this.gr_meter_rel);
   );
 );

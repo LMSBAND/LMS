@@ -1,56 +1,37 @@
-desc:LMS - Density Maximizer (Auto-Makeup Brick-Wall Limiter)
-//tags: limiter maximizer mastering density
+desc:LMS - Silver Sixty Nine (Density-Aware Opto Compressor)
+//tags: compressor leveling opto density-aware la2a
 //author: LMS + Claude
 //version: 1.0
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 slider1:0<-12,12,0.1>-Input Gain (dB)
-slider2:-0.3<-3,0,0.1>-Ceiling (dBFS)
-slider3:0<0,24,0.1>-Target Loudness (dB)
-slider4:50<1,500,1>-Release (ms)
-slider5:0<-24,0,0.1>-Gain Reduction (dB)
-slider6:0<0,100,1>-Opto Pre-Limit (%)
-slider7:0<0,3,1{Off,Clean,Loud,Open}>-EQ Profile
-slider8:100<0,200,1>-EQ Intensity (%)
+slider2:50<0,100,1>-Peak Reduction (%)
+slider3:0<-12,24,0.1>-Gain (dB)
+slider4:0<0,1,1{Compress,Limit}>-Mode
+slider5:50<0,100,1>-Emphasis (%)
+slider6:100<0,100,1>-Mix (%)
+slider7:0<0,100,1>-Warmth (%)
 
 @init
 
-  lim.lms_lim_init();
   opto.lms_opto_init();
-
-  // Reactive EQ filter instances (4-band density-driven)
-  req_lo.lms_bq_init();     // low shelf 120 Hz — tighten bass
-  req_mid.lms_bq_init();    // peak EQ 3 kHz — control harshness
-  req_hi.lms_bq_init();     // peak EQ 5 kHz — presence/hi control
-  req_air.lms_bq_init();    // high shelf 10 kHz — restore sparkle
-
-  // Reactive EQ state
-  eq_profile = 0;
-  eq_intensity = 1.0;
-  req_lo_db = 0; req_mid_db = 0; req_hi_db = 0; req_air_db = 0;
-  req_lo_smooth = 0; req_mid_smooth = 0; req_hi_smooth = 0; req_air_smooth = 0;
-  adapted_release = 50;
+  dc_out.lms_dc_init();
 
   notice_show = 0;
   buy_show = 0;
-
-  // Local variables
-  in_gain = 1.0;
-  target_boost = 1.0;
-  opto_blend = 0;
 
   // ============================================================
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
   BC_BASE = 100000;
-  BC_MY_TYPE = 19;            // Density Maximizer
+  BC_MY_TYPE = 18;            // Silver Sixty Nine (LA-2A)
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 7;         // sliders 1-4 + slider6-8 (slider5 is read-only GR meter)
+  BC_PARAM_COUNT = 7;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -64,8 +45,8 @@ slider8:100<0,200,1>-EQ Intensity (%)
   bc_steal_mode = 0;
   bc_instance_count = 0;
 
-  BC_STALE_HB = 820000;
-  BC_STALE_CT = 820032;
+  BC_STALE_HB = 810000;
+  BC_STALE_CT = 810032;
   i = 0;
   loop(BC_MAX_INST,
     BC_STALE_HB[i] = -1;
@@ -96,12 +77,14 @@ slider8:100<0,200,1>-EQ Intensity (%)
 
 @slider
   in_gain = lms_db2lin(slider1);
-  lim.lms_lim_set(slider2, slider4);
-  target_boost = lms_db2lin(slider3);
-  opto_blend = slider6 / 100;
-  opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
-  eq_profile = slider7;
-  eq_intensity = slider8 / 100;
+  peak_red = slider2 / 100;
+  makeup = lms_db2lin(slider3);
+  mode = slider4;
+  emphasis = slider5 / 100;
+  mix = slider6 / 100;
+  warmth = slider7 / 100;
+
+  opto.lms_opto_set(peak_red, mode, emphasis, warmth);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -109,86 +92,14 @@ slider8:100<0,200,1>-EQ Intensity (%)
 @block
 // ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
 in_gain = lms_db2lin(slider1);
-lim.lms_lim_set(slider2, slider4);
-target_boost = lms_db2lin(slider3);
-opto_blend = slider6 / 100;
-opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
-eq_profile = slider7;
-eq_intensity = slider8 / 100;
+peak_red = slider2 / 100;
+makeup = lms_db2lin(slider3);
+mode = slider4;
+emphasis = slider5 / 100;
+mix = slider6 / 100;
+warmth = slider7 / 100;
 
-// ---- Reactive EQ coefficient update (4-band + intensity) ----
-eq_profile > 0 && opto_blend > 0.01 ? (
-  // Smooth density inputs to avoid jitter
-  req_sm = 0.85;
-  req_lo_smooth  = req_lo_smooth  * req_sm + min(1.0, max(0.0, (opto.hd.density - 1.0) / 1.5)) * (1 - req_sm);
-  req_mid_smooth = req_mid_smooth * req_sm + min(1.0, max(0.0, opto.hd.mid_density)) * (1 - req_sm);
-  req_hi_smooth  = req_hi_smooth  * req_sm + min(1.0, max(0.0, opto.hd.hi_density)) * (1 - req_sm);
-  req_air_smooth = req_air_smooth * req_sm + min(1.0, max(0.0, opto.hd.air_density)) * (1 - req_sm);
-
-  // Per-profile gain calculation (raw, before intensity)
-  eq_profile == 1 ? (  // CLEAN — subtle, transparency-focused
-    req_lo_db  = -req_lo_smooth * 1.5;
-    req_mid_db = -req_mid_smooth * 1.5;
-    req_hi_db  = -req_hi_smooth * 1.0;
-    req_air_db = (1.0 - req_air_smooth) * 1.5;
-  ) : eq_profile == 2 ? (  // LOUD — aggressive for max loudness
-    req_lo_db  = -req_lo_smooth * 3.0;
-    req_mid_db = -req_mid_smooth * 2.5;
-    req_hi_db  = -req_hi_smooth * 2.0;
-    req_air_db = (1.0 - req_air_smooth) * 2.0;
-  ) : eq_profile == 3 ? (  // OPEN — scooped + airy
-    req_lo_db  = -req_lo_smooth * 1.5;
-    req_mid_db = -req_mid_smooth * 3.0 - 0.5;
-    req_hi_db  = -req_hi_smooth * 1.5;
-    req_air_db = (1.0 - req_air_smooth) * 3.0 + 0.5;
-  );
-
-  // Apply intensity scaling (0% = off, 100% = normal, 200% = double)
-  req_lo_db  *= eq_intensity;
-  req_mid_db *= eq_intensity;
-  req_hi_db  *= eq_intensity;
-  req_air_db *= eq_intensity;
-
-  // Update biquad coefficients
-  abs(req_lo_db) > 0.05 ? (
-    req_lo.lms_bq_set_loshelf(120, req_lo_db, 0.707);
-  ) : (
-    req_lo.lms_bq_set_loshelf(120, 0, 0.707);
-  );
-  abs(req_mid_db) > 0.05 ? (
-    req_mid.lms_bq_set_peak(3000, req_mid_db, 1.2);
-  ) : (
-    req_mid.lms_bq_set_peak(3000, 0, 1.2);
-  );
-  abs(req_hi_db) > 0.05 ? (
-    req_hi.lms_bq_set_peak(5000, req_hi_db, 1.0);
-  ) : (
-    req_hi.lms_bq_set_peak(5000, 0, 1.0);
-  );
-  abs(req_air_db) > 0.05 ? (
-    req_air.lms_bq_set_hishelf(10000, req_air_db, 0.707);
-  ) : (
-    req_air.lms_bq_set_hishelf(10000, 0, 0.707);
-  );
-) : (
-  // Off or opto not active: passthrough
-  req_lo_db = 0; req_mid_db = 0; req_hi_db = 0; req_air_db = 0;
-  req_lo.lms_bq_set_loshelf(120, 0, 0.707);
-  req_mid.lms_bq_set_peak(3000, 0, 1.2);
-  req_hi.lms_bq_set_peak(5000, 0, 1.0);
-  req_air.lms_bq_set_hishelf(10000, 0, 0.707);
-);
-
-// ---- Program-dependent release ----
-// Dense material = faster release (less pumping), transient = slower (preserve dynamics)
-opto_blend > 0.01 ? (
-  density_rel_factor = max(0.3, min(1.0, 2.0 - opto.hd.density));
-  adapted_release = slider4 * density_rel_factor;
-  adapted_release = max(1, min(500, adapted_release));
-  lim.lms_lim_set(slider2, adapted_release);
-) : (
-  adapted_release = slider4;
-);
+opto.lms_opto_set(peak_red, mode, emphasis, warmth);
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -228,9 +139,9 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         slider2 = gmem[lbase + 1];
         slider3 = gmem[lbase + 2];
         slider4 = gmem[lbase + 3];
-        slider6 = gmem[lbase + 4];
-        slider7 = gmem[lbase + 5];
-        slider8 = gmem[lbase + 6];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -252,9 +163,9 @@ bc_my_slot >= 0 && bc_steal_pending ? (
       slider2 = gmem[lbase + 1];
       slider3 = gmem[lbase + 2];
       slider4 = gmem[lbase + 3];
-      slider6 = gmem[lbase + 4];
-      slider7 = gmem[lbase + 5];
-      slider8 = gmem[lbase + 6];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -273,9 +184,9 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 1] = slider2;
   gmem[pbase + 2] = slider3;
   gmem[pbase + 3] = slider4;
-  gmem[pbase + 4] = slider6;
-  gmem[pbase + 5] = slider7;
-  gmem[pbase + 6] = slider8;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
 );
 
 bc_instance_count = 0;
@@ -305,53 +216,40 @@ loop(BC_MAX_INST,
 );
 
 @sample
+  dry_l = spl0;
+  dry_r = spl1;
 
-  // Input gain — clean trim into the opto, doesn't affect limiter drive
   l = spl0 * in_gain;
   r = spl1 * in_gain;
 
-  // Opto pre-limiter: smooth dynamics before the brick-wall
-  // Like running an LA-2A into an L2 — opto catches the big swings musically,
-  // brick-wall catches whatever's left. Less brick-wall work = fewer artifacts.
-  opto_blend > 0.01 ? (
-    opto.lms_opto_proc(l, r);
-    l = l * (1 - opto_blend) + (l * opto.gr) * opto_blend;
-    r = r * (1 - opto_blend) + (r * opto.gr) * opto_blend;
+  // Subtle tube coloration (always-on 12AX7 output stage character)
+  // Warmth slider controls drive amount: 0 = clean, 100 = noticeable warmth
+  warmth > 0.01 ? (
+    l = opto.sat_l.lms_sat_warm(l, warmth * 0.15, 0.0);
+    r = opto.sat_r.lms_sat_warm(r, warmth * 0.15, 0.0);
   );
 
-  // Reactive EQ: density-driven spectral shaping before brick-wall
-  // Compensates for the spectral distortion heavy limiting causes:
-  // bass mud, mid harshness, lost air
-  eq_profile > 0 && opto_blend > 0.01 ? (
-    l = req_lo.lms_bq_proc_l(l);   r = req_lo.lms_bq_proc_r(r);
-    l = req_mid.lms_bq_proc_l(l);  r = req_mid.lms_bq_proc_r(r);
-    l = req_hi.lms_bq_proc_l(l);   r = req_hi.lms_bq_proc_r(r);
-    l = req_air.lms_bq_proc_l(l);  r = req_air.lms_bq_proc_r(r);
-  );
+  // T4B optical compression
+  opto.lms_opto_proc(l, r);
+  l *= opto.gr;
+  r *= opto.gr;
 
-  // Target loudness boost — drives into the brick-wall
-  l *= target_boost;
-  r *= target_boost;
+  // Makeup gain
+  l *= makeup;
+  r *= makeup;
 
-  // Brick-wall limiter (core function — lookahead + hard clip)
-  lim.lms_lim_proc(l, r);
+  // DC blocker
+  l = dc_out.lms_dc_proc_l(l);
+  r = dc_out.lms_dc_proc_r(r);
 
-  // Output from limiter (already gain-reduced and hard-clipped at ceiling)
-  spl0 = lim.out_l;
-  spl1 = lim.out_r;
-
-  // Metering
-  slider5 = lim.gr_meter;
-
-  // Broadcast state (backward compatible with existing gmem slots)
-  gmem[50030] = lim.gr;            // current gain reduction (linear)
-  gmem[50031] = lim.gr_meter;      // GR in dB
-  gmem[50032] = lim.true_peak;     // what we're responding to
+  // Dry/wet mix
+  spl0 = dry_l * (1 - mix) + l * mix;
+  spl1 = dry_r * (1 - mix) + r * mix;
 
 // ============================================================
 // @GFX
 // ============================================================
-@gfx 560 390
+@gfx 560 400
 
 // ============================================================================
 //  SCALING
@@ -368,7 +266,7 @@ F_TINY  = max(7, floor(10 * S));
 // ============================================================================
 //  COLOR CONSTANTS
 // ============================================================================
-COL_BG_R = 0.04; COL_BG_G = 0.04; COL_BG_B = 0.06;
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
 COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
 COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
 COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
@@ -472,6 +370,33 @@ function draw_toggle(tx, ty, is_on, label) (
   is_on;
 );
 
+function draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(72 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr(v0);
+  val == 1 ? gfx_drawstr(v1);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % (vmax + 1);
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = vmax;
+  );
+  val;
+);
+
 // ============================================================================
 //  LAYOUT
 // ============================================================================
@@ -505,100 +430,52 @@ logo_img_w > 0 ? (
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(6 * S);
-gfx_drawstr("DENSITY MAXIMIZER");
+gfx_drawstr("SILVER SIXTY NINE");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(26 * S);
-gfx_drawstr("Auto-Makeup Brick-Wall Limiter");
+gfx_drawstr("Density-Aware Opto Compressor");
 
 // ============================================================================
 //  LEFT COLUMN: CONTROLS
 // ============================================================================
-ctrl_h = floor(196 * S);
+ctrl_h = floor(200 * S);
 draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
 cy = body_y + floor(26 * S);
 
-// Input Gain
+_old = slider2; slider2 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider2, 0, 100, "Peak Reduction", 1);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+
+_old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, -12, 24, "Gain dB", 1);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+
+_old = slider4; slider4 = draw_mode_sel(c1x + pad, cy, col_w - pad2, bar_h, slider4, 1, "Mode", "COMPRESS", "LIMIT");
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+_old = slider5; slider5 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider5, 0, 100, "Emphasis", 1);
+slider5 != _old ? slider_automate(2^4);
+cy += bar_sp;
+
 _old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, -12, 12, "Input dB", 1);
 slider1 != _old ? slider_automate(2^0);
 cy += bar_sp;
 
-// Target Loudness (the big knob — how loud do you want it)
-_old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, 0, 24, "Target dB", 1);
-slider3 != _old ? slider_automate(2^2);
+_old = slider7; slider7 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider7, 0, 100, "Warmth", 1);
+slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
 
-// Ceiling
-_old = slider2; slider2 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider2, -3, 0, "Ceiling dBFS", 1);
-slider2 != _old ? slider_automate(2^1);
-cy += bar_sp;
-
-// Release
-_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 1, 500, "Release ms", 1);
-slider4 != _old ? slider_automate(2^3);
-cy += bar_sp;
-
-// Opto Pre-Limit
-_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Opto %", 1);
+_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Mix", 1);
 slider6 != _old ? slider_automate(2^5);
-cy += bar_sp;
-
-// EQ Profile selector (click to cycle)
-eq_sel_w = col_w - pad2;
-eq_sel_h = bar_h;
-gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-gfx_rect(c1x + pad, cy, eq_sel_w, eq_sel_h);
-gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-gfx_rect(c1x + pad, cy, eq_sel_w, 1); gfx_rect(c1x + pad, cy + eq_sel_h - 1, eq_sel_w, 1);
-gfx_rect(c1x + pad, cy, 1, eq_sel_h); gfx_rect(c1x + pad + eq_sel_w - 1, cy, 1, eq_sel_h);
-// Highlight bar when active
-eq_profile > 0 && opto_blend > 0.01 ? (
-  gfx_r = COL_ACCENT_R * 0.25; gfx_g = COL_ACCENT_G * 0.25; gfx_b = COL_ACCENT_B * 0.15;
-  gfx_rect(c1x + pad + 1, cy + 1, eq_sel_w - 2, eq_sel_h - 2);
-);
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_setfont(1, "Arial", F_LABEL);
-gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((eq_sel_h - F_LABEL) / 2);
-gfx_drawstr("EQ Profile");
-// Show current mode
-gfx_setfont(1, "Arial", F_SMALL);
-opto_blend > 0.01 ? (
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-) : (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-);
-gfx_x = c1x + pad + eq_sel_w - floor(50 * S); gfx_y = cy + floor((eq_sel_h - F_SMALL) / 2);
-slider7 == 0 ? gfx_drawstr("OFF");
-slider7 == 1 ? gfx_drawstr("CLEAN");
-slider7 == 2 ? gfx_drawstr("LOUD");
-slider7 == 3 ? gfx_drawstr("OPEN");
-// Left-click cycles forward, right-click cycles backward
-(mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
-  mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
-  _old = slider7;
-  slider7 = (slider7 + 1) % 4;
-  slider7 != _old ? slider_automate(2^6);
-);
-(mouse_cap & 2) && !(last_cap & 2) &&
-  mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
-  mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
-  _old = slider7;
-  slider7 = slider7 - 1; slider7 < 0 ? slider7 = 3;
-  slider7 != _old ? slider_automate(2^6);
-);
-cy += bar_sp;
-
-// EQ Intensity
-_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 200, "EQ Intens %", 1);
-slider8 != _old ? slider_automate(2^7);
 
 // ============================================================================
 //  RIGHT COLUMN: METERING
 // ============================================================================
 
 // --- GR METER ---
-gr_panel_h = opto_blend > 0.01 ? floor(72 * S) : floor(60 * S);
+gr_panel_h = floor(60 * S);
 draw_panel(c2x, body_y, col_w, gr_panel_h, "GAIN REDUCTION");
 
 meter_x = c2x + pad;
@@ -611,12 +488,12 @@ gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
 gfx_rect(meter_x, meter_y, meter_w, meter_h);
 
 // GR bar (right to left)
-gr_pct = min(1.0, abs(lim.gr_meter) / 24.0);
+gr_pct = min(1.0, abs(opto.gr_db) / 24.0);
 bar_w_gr = gr_pct * meter_w;
 
-lim.gr_meter > -3 ? (
+opto.gr_db > -3 ? (
   gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3; gfx_a = 0.8;
-) : lim.gr_meter > -6 ? (
+) : opto.gr_db > -6 ? (
   gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.1; gfx_a = 0.8;
 ) : (
   gfx_r = 0.9; gfx_g = 0.2; gfx_b = 0.2; gfx_a = 0.8;
@@ -630,74 +507,17 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_x = meter_x + meter_w / 2 - floor(25 * S);
 gfx_y = meter_y + floor(8 * S);
 gfx_drawstr("GR: ");
-gfx_drawnumber(lim.gr_meter, 1);
+gfx_drawnumber(opto.gr_db, 1);
 gfx_drawstr(" dB");
 
 // Border
 gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
 gfx_rect(meter_x, meter_y, meter_w, meter_h, 0);
 
-// Opto GR indicator (only when opto is active)
-opto_blend > 0.01 ? (
-  gfx_setfont(1, "Arial", F_TINY);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = meter_x; gfx_y = meter_y + meter_h + floor(2 * S);
-  gfx_drawstr("Opto: ");
-  gfx_drawnumber(opto.gr_db, 1);
-  gfx_drawstr(" dB");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr("   Wall: ");
-  gfx_drawnumber(lim.gr_meter, 1);
-  gfx_drawstr(" dB");
-);
-
-// --- LEVELS INFO ---
-levels_y = body_y + gr_panel_h + gap;
-levels_h = floor(56 * S);
-draw_panel(c2x, levels_y, col_w, levels_h, "LEVELS");
-
-py = levels_y + floor(26 * S);
-gfx_setfont(1, "Arial", F_SMALL);
-
-// Target loudness indicator
-gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-gfx_x = c2x + pad + floor(4 * S); gfx_y = py;
-gfx_drawstr("Boost: +");
-gfx_drawnumber(slider3, 1);
-gfx_drawstr(" dB");
-
-// True peak display
-gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.9;
-gfx_x = c2x + col_w / 2; gfx_y = py;
-gfx_drawstr("Peak: ");
-tp_db = lim.true_peak > 0.00001 ? 20 * log10(lim.true_peak) : -100;
-gfx_drawnumber(tp_db, 1);
-
-py += floor(14 * S);
-// Ceiling display
-gfx_r = 1; gfx_g = 0.4; gfx_b = 0.4;
-gfx_x = c2x + pad + floor(4 * S); gfx_y = py;
-gfx_drawstr("Ceiling: ");
-gfx_drawnumber(slider2, 1);
-gfx_drawstr(" dBFS");
-
 // --- DENSITY STATE ---
-density_y = levels_y + levels_h + gap;
-density_h = floor(72 * S);
-
-// Density source: opto internal tracker (live)
-opto_blend > 0.01 ? (
-  // Opto's internal 4-band density tracker — these are live, always moving
-  // density is 1.0-2.5 overall; normalize to 0-1 for the bar
-  disp_lo = min(1, (opto.hd.density - 1.0) / 1.5);
-  disp_mid = opto.hd.mid_density;
-  disp_hi = opto.hd.hi_density;
-  disp_air = opto.hd.air_density;
-  draw_panel(c2x, density_y, col_w, density_h, "DENSITY (OPTO)");
-) : (
-  disp_lo = 0; disp_mid = 0; disp_hi = 0; disp_air = 0;
-  draw_panel(c2x, density_y, col_w, density_h, "DENSITY STATE");
-);
+density_y = body_y + gr_panel_h + gap;
+density_h = floor(80 * S);
+draw_panel(c2x, density_y, col_w, density_h, "DENSITY STATE");
 
 dy = density_y + floor(26 * S);
 d_bar_w = floor(60 * S);
@@ -706,7 +526,7 @@ d_bx = c2x + pad + floor(30 * S);
 
 // Lo
 gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_lo), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, opto.hd.density - 1.0), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
@@ -714,170 +534,74 @@ gfx_setfont(1, "Arial", F_TINY);
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("LO");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_mid), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, opto.hd.mid_density), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("MID");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_hi), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, opto.hd.hi_density), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("HI");
 
-dy += floor(11 * S);
+dy += floor(13 * S);
 gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-gfx_rect(d_bx, dy, d_bar_w * min(1, disp_air), d_bar_h);
+gfx_rect(d_bx, dy, d_bar_w * min(1, opto.hd.air_density), d_bar_h);
 gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 gfx_rect(d_bx, dy, d_bar_w, d_bar_h, 0);
 gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
 gfx_x = c2x + pad; gfx_y = dy;
 gfx_drawstr("AIR");
 
-// Status text on right side of density panel
+// Photocell status on right side of density panel
 gfx_setfont(1, "Arial", F_TINY);
 status_x = d_bx + d_bar_w + floor(15 * S);
 status_y = density_y + floor(26 * S);
 
-opto_blend > 0.01 ? (
-  // Show opto photocell state
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = status_x; gfx_y = status_y;
-  gfx_drawstr("OPTO ACTIVE");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y + floor(12 * S);
-  gfx_drawstr("Cell: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(opto.cell_r_display * 100, 0);
-  gfx_drawstr("%");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y + floor(24 * S);
-  gfx_drawstr("Mem: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(opto.memory_display * 100, 0);
-  gfx_drawstr("%");
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y;
+gfx_drawstr("Cell: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(opto.cell_r_display * 100, 0);
+gfx_drawstr("%");
+
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y + floor(13 * S);
+gfx_drawstr("Mem: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(opto.memory_display * 100, 0);
+gfx_drawstr("%");
+
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y + floor(26 * S);
+gfx_drawstr("Rel: ");
+opto.release_stage == 0 ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_drawstr("IDLE");
+) : opto.release_stage == 1 ? (
+  gfx_r = 0.9; gfx_g = 0.7; gfx_b = 0.1;
+  gfx_drawstr("FAST");
 ) : (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = status_x; gfx_y = status_y;
-  gfx_drawstr("STANDARD");
+  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.1;
+  gfx_drawstr("SLOW");
 );
 
-// --- REACTIVE EQ STATUS (only when active) ---
-eq_profile > 0 && opto_blend > 0.01 ? (
-  eq_status_y = density_y + density_h + gap;
-  eq_status_h = floor(63 * S);
-  draw_panel(c2x, eq_status_y, col_w, eq_status_h, "REACTIVE EQ");
-
-  eqy = eq_status_y + floor(26 * S);
-  gfx_setfont(1, "Arial", F_TINY);
-  eq_bar_w = floor(50 * S);
-  eq_bx = c2x + pad + floor(30 * S);
-  eq_center = eq_bx + floor(eq_bar_w / 2);
-
-  // Lo shelf indicator (bidirectional from center)
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  lo_fill = floor((req_lo_db / 6.0) * (eq_bar_w / 2));
-  lo_fill < 0 ? (
-    gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-    gfx_rect(eq_center + lo_fill, eqy, -lo_fill, d_bar_h);
-  ) : lo_fill > 0 ? (
-    gfx_r = 0.12; gfx_g = 0.31; gfx_b = 0.86;
-    gfx_rect(eq_center, eqy, lo_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("LO");
-
-  eqy += floor(11 * S);
-  // Mid peak indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  mid_fill = floor((req_mid_db / 6.0) * (eq_bar_w / 2));
-  mid_fill < 0 ? (
-    gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-    gfx_rect(eq_center + mid_fill, eqy, -mid_fill, d_bar_h);
-  ) : mid_fill > 0 ? (
-    gfx_r = 0.86; gfx_g = 0.63; gfx_b = 0.12;
-    gfx_rect(eq_center, eqy, mid_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("MID");
-
-  eqy += floor(11 * S);
-  // Hi presence indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  hi_fill = floor((req_hi_db / 6.0) * (eq_bar_w / 2));
-  hi_fill < 0 ? (
-    gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-    gfx_rect(eq_center + hi_fill, eqy, -hi_fill, d_bar_h);
-  ) : hi_fill > 0 ? (
-    gfx_r = 0.86; gfx_g = 0.24; gfx_b = 0.12;
-    gfx_rect(eq_center, eqy, hi_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("HI");
-
-  eqy += floor(11 * S);
-  // Air shelf indicator
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h);
-  gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.35;
-  gfx_rect(eq_center, eqy, 1, d_bar_h);
-  air_fill = floor((req_air_db / 6.0) * (eq_bar_w / 2));
-  air_fill < 0 ? (
-    gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-    gfx_rect(eq_center + air_fill, eqy, -air_fill, d_bar_h);
-  ) : air_fill > 0 ? (
-    gfx_r = 0.71; gfx_g = 0.16; gfx_b = 0.86;
-    gfx_rect(eq_center, eqy, air_fill, d_bar_h);
-  );
-  gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
-  gfx_rect(eq_bx, eqy, eq_bar_w, d_bar_h, 0);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = c2x + pad; gfx_y = eqy;
-  gfx_drawstr("AIR");
-
-  // Profile name + intensity + adapted release
-  gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = status_x; gfx_y = status_y + floor(39 * S);
+slider4 == 0 ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_drawstr("COMPRESS");
+) : (
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = eq_bx + eq_bar_w + floor(8 * S); gfx_y = eq_status_y + floor(26 * S);
-  slider7 == 1 ? gfx_drawstr("CLEAN");
-  slider7 == 2 ? gfx_drawstr("LOUD");
-  slider7 == 3 ? gfx_drawstr("OPEN");
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr(" ");
-  gfx_drawnumber(slider8, 0);
-  gfx_drawstr("%");
-
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_x = eq_bx + eq_bar_w + floor(8 * S); gfx_y = eq_status_y + floor(38 * S);
-  gfx_drawstr("Rel: ");
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_drawnumber(adapted_release, 0);
-  gfx_drawstr("ms");
+  gfx_drawstr("LIMIT");
 );
 
 // ============================================================================

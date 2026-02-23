@@ -358,13 +358,17 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Limiter — Predictive Mastering Limiter">
+    <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Maximizer — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
-        <changelog><![CDATA[Initial release — Density-aware master bus limiter. Reads harmonic density state from LMS amp plugins via gmem to predict peaks BEFORE they arrive. Gain reduction is proactive, not reactive — the signal never clips because the limiter already set the gain correctly. True peak detection with inter-sample peak interpolation. Soft knee with 3dB width. Tanh soft clip safety net. GR meter, density state display, measured vs predicted peak comparison. Works standalone (standard reactive limiting) or gmem-linked (predictive mode). "Dead things don't move when you poke them."]]></changelog>
+        <changelog><![CDATA[Initial release — Density-aware master bus limiter. Reads harmonic density state from LMS amp plugins via gmem to predict peaks BEFORE they arrive. Gain reduction is proactive, not reactive — the signal never clips because the limiter already set the gain correctly. True peak detection with inter-sample peak interpolation. Soft knee with 3dB width. Tanh soft clip safety net. GR meter, density state display, measured vs predicted peak comparison. Works standalone (standard reactive limiting) or gmem-linked (predictive mode).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
       </version>
       <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+      </version>
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[v1.0 — Renamed to Density Maximizer. Auto-makeup gain, brick-wall limiting, density-aware threshold modulation. Full rewrite of gain staging and metering.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
       </version>
     </reapack>
@@ -378,10 +382,28 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_drawmer.jsfx" type="effect" desc="LMS - Density Drawmer — 3-Band Stereo FET Compressor (Drawmer 1973)">
-      <version name="1.0" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[Initial release — Density-aware 3-band stereo FET compressor modeled on the Drawmer 1973. 6 dB/octave first-order crossover filters, soft-knee FET compression (4:1 fixed ratio), per-band parallel compression (mix), Drawmer-authentic attack presets (0.2/0.5/2/10/25/50 ms) and release presets (80/300/1000 ms), density-aware threshold and knee modulation via gmem, per-band GR metering, broadcast follow/steal.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drawmer.jsfx</source>
+    <reapack name="lms_la2a.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware opto compressor inspired by the LA-2A. T4 opto cell with dual light-dependent resistor model (fast/slow time constants), program-dependent attack/release, density-aware threshold modulation, peak/compress mode, mix (parallel compression), HF emphasis sidechain, GR metering, broadcast follow/steal.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_la2a.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_smart_gate.jsfx" type="effect" desc="LMS - Smart Gate — Density-Aware Noise Gate">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware noise gate with two modes: Single (per-track gating with density-adaptive threshold) and Drum (cross-mic spatial inference for bleed rejection). Smooth S-curve gain transitions, look-ahead transient preservation, density-modulated hold time, per-band analysis, broadcast follow/steal.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — 4-band transient detector that triggers DrumBanger pads from audio input. Per-band threshold/velocity/pad assignment, gmem direct sync to DrumBanger (no MIDI routing needed), DrumBanger heartbeat detection with LINKED/NOT SYNCED status display, MIDI output fallback.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_frenchie_dev.jsfx" type="effect" desc="LMS - The Frenchie v3 — Density-Aware Champ (Full Hog)">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — Frenchie v3 Full Hog. Everything from v2 plus: screen grid current (6V6 plate compression feeding back to PSU), 120Hz PSU ripple (scales with load), transformer core hysteresis (B-H memory blended at 5% on v2 saturation), speaker impedance interaction (80Hz resonance + voice coil + back-EMF), improved 5F1 tone circuit (source impedance mid-bump at 800Hz). All stages connected through shared power rail. 0.3% CPU.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_dev.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
@@ -672,6 +694,20 @@
       <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[Initial release — pull the mix from any .lms file into the current project. Existing tracks get their FX chain updated; tracks not in the current project are added at the end.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="LMS/Presets">
+    <reapack name="BLEEP_BOOP.lms" type="data" desc="LMS: Demo Session — BLEEP BOOP (Electronic)">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — electronic demo session preset for LMS save/load system. DrumBanger + drone synths + effects chain.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/BLEEP_BOOP.lms</source>
+      </version>
+    </reapack>
+    <reapack name="YOUR_BAND.lms" type="data" desc="LMS: Demo Session — YOUR BAND (Band Template)">
+      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
+        <changelog><![CDATA[Initial release — band template demo session preset for LMS save/load system. Full band routing with LMS plugins.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/presets/YOUR_BAND.lms</source>
       </version>
     </reapack>
   </category>
