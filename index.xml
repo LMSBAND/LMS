@@ -655,16 +655,28 @@
         <changelog><![CDATA[Initial release — snapshot all track names, fader state (vol/pan/mute/solo), and full FX chains to a named .lms file next to the project. All tracks must be named.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_save.lua</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[Fix: Save .lms files next to the .rpp project file instead of the media/recording folder.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_save.lua</source>
+      </version>
     </reapack>
     <reapack name="lms_load.lua" type="script" desc="LMS: Load Session">
       <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[Initial release — restore a .lms session file into the current project. Matches tracks by name, creates missing tracks. File picker opens in project folder.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_load.lua</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[Fix: File picker now opens in the actual project directory instead of the media folder.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_load.lua</source>
+      </version>
     </reapack>
     <reapack name="lms_steal.lua" type="script" desc="LMS: Steal Session">
       <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[Initial release — pull the mix from any .lms file into the current project. Existing tracks get their FX chain updated; tracks not in the current project are added at the end.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-23T00:00:00Z">
+        <changelog><![CDATA[Fix: File picker now starts in the project directory instead of REAPER default.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
       </version>
     </reapack>
