@@ -14,7 +14,7 @@ slider3:0<0,24,0.1>-Target Loudness (dB)
 slider4:50<1,500,1>-Release (ms)
 slider5:0<-24,0,0.1>-Gain Reduction (dB)
 slider6:0<0,100,1>-Opto Pre-Limit (%)
-slider7:0<0,3,1{Off,Clean,Loud,Open}>-EQ Profile
+slider7:0<0,7,1{Off,Clean,Loud,Open,Pop,Hardcore,Hip-Hop,Punk}>-EQ Profile
 slider8:100<0,200,1>-EQ Intensity (%)
 
 @init
@@ -141,6 +141,26 @@ eq_profile > 0 && opto_blend > 0.01 ? (
     req_mid_db = -req_mid_smooth * 3.0 - 0.5;
     req_hi_db  = -req_hi_smooth * 1.5;
     req_air_db = (1.0 - req_air_smooth) * 3.0 + 0.5;
+  ) : eq_profile == 4 ? (  // POP — polished, vocal clarity, shimmer
+    req_lo_db  = -req_lo_smooth * 2.0;
+    req_mid_db = -req_mid_smooth * 2.0;
+    req_hi_db  = -req_hi_smooth * 0.8;
+    req_air_db = (1.0 - req_air_smooth) * 2.5 + 0.3;
+  ) : eq_profile == 5 ? (  // HARDCORE — tight lows, aggressive mids, dark top
+    req_lo_db  = -req_lo_smooth * 3.5;
+    req_mid_db = -req_mid_smooth * 1.5 + 0.3;
+    req_hi_db  = -req_hi_smooth * 1.0 + 0.5;
+    req_air_db = (1.0 - req_air_smooth) * 1.0;
+  ) : eq_profile == 6 ? (  // HIP-HOP — heavy bass, scooped presence, crisp hats
+    req_lo_db  = -req_lo_smooth * 1.0;
+    req_mid_db = -req_mid_smooth * 2.5;
+    req_hi_db  = -req_hi_smooth * 2.0 - 0.3;
+    req_air_db = (1.0 - req_air_smooth) * 2.0 + 0.2;
+  ) : eq_profile == 7 ? (  // PUNK — raw bark, forward presence, gritty
+    req_lo_db  = -req_lo_smooth * 2.0;
+    req_mid_db = -req_mid_smooth * 1.0 + 0.5;
+    req_hi_db  = -req_hi_smooth * 0.5 + 0.5;
+    req_air_db = (1.0 - req_air_smooth) * 1.5;
   );
 
   // Apply intensity scaling (0% = off, 100% = normal, 200% = double)
@@ -567,24 +587,28 @@ opto_blend > 0.01 ? (
 ) : (
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 );
-gfx_x = c1x + pad + eq_sel_w - floor(50 * S); gfx_y = cy + floor((eq_sel_h - F_SMALL) / 2);
+gfx_x = c1x + pad + eq_sel_w - floor(70 * S); gfx_y = cy + floor((eq_sel_h - F_SMALL) / 2);
 slider7 == 0 ? gfx_drawstr("OFF");
 slider7 == 1 ? gfx_drawstr("CLEAN");
 slider7 == 2 ? gfx_drawstr("LOUD");
 slider7 == 3 ? gfx_drawstr("OPEN");
+slider7 == 4 ? gfx_drawstr("POP");
+slider7 == 5 ? gfx_drawstr("HARDCORE");
+slider7 == 6 ? gfx_drawstr("HIP-HOP");
+slider7 == 7 ? gfx_drawstr("PUNK");
 // Left-click cycles forward, right-click cycles backward
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
   mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
   _old = slider7;
-  slider7 = (slider7 + 1) % 4;
+  slider7 = (slider7 + 1) % 8;
   slider7 != _old ? slider_automate(2^6);
 );
 (mouse_cap & 2) && !(last_cap & 2) &&
   mouse_x >= c1x + pad && mouse_x <= c1x + pad + eq_sel_w &&
   mouse_y >= cy && mouse_y <= cy + eq_sel_h ? (
   _old = slider7;
-  slider7 = slider7 - 1; slider7 < 0 ? slider7 = 3;
+  slider7 = slider7 - 1; slider7 < 0 ? slider7 = 7;
   slider7 != _old ? slider_automate(2^6);
 );
 cy += bar_sp;
@@ -867,6 +891,10 @@ eq_profile > 0 && opto_blend > 0.01 ? (
   slider7 == 1 ? gfx_drawstr("CLEAN");
   slider7 == 2 ? gfx_drawstr("LOUD");
   slider7 == 3 ? gfx_drawstr("OPEN");
+  slider7 == 4 ? gfx_drawstr("POP");
+  slider7 == 5 ? gfx_drawstr("HARDCORE");
+  slider7 == 6 ? gfx_drawstr("HIP-HOP");
+  slider7 == 7 ? gfx_drawstr("PUNK");
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
   gfx_drawstr(" ");
   gfx_drawnumber(slider8, 0);

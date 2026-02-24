@@ -376,6 +376,7 @@ bc_my_slot >= 0 ? (
   gmem[ebase + 4] = gate_gain > 0.5 ? 1 : 0;
   gmem[ebase + 5] = slider3;   // broadcast our threshold so peers can display it
   gmem[ebase + 11] = cal_offset; // broadcast our phase offset for peers to display
+  gmem[ebase + 12] = mode;       // broadcast mode (0=single, 1=drum) so peers can filter
 
   // Check for remote threshold write from another instance
   // ebase+6 = flag (1 = pending write), ebase+7 = new threshold value
@@ -409,6 +410,8 @@ mode == 1 ? (
       pid = gmem[psb + 1];
       pid > 0 ? (
         pbase = psb + 200;
+        p_mode = gmem[pbase + 12];
+        p_mode == 1 ? (  // Only consider drum-mode peers (skip single-mode)
         p_type = gmem[pbase + 0];
         p_dist = gmem[pbase + 1];
         p_env  = gmem[pbase + 2];
@@ -467,6 +470,7 @@ mode == 1 ? (
         peer_count == 7 ? (gfx_peer_type_7 = p_type; gfx_peer_open_7 = p_open; gfx_peer_dist_7 = p_dist; gfx_peer_slot_7 = bc_scan; gfx_peer_thresh_7 = p_thresh; gfx_peer_phase_7 = p_phase; gfx_peer_ts_7 = p_ts; gfx_peer_seq_7 = p_seq);
 
         peer_count += 1;
+        ); // p_mode == 1
       );
     );
     bc_scan += 1;
