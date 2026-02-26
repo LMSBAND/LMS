@@ -1,0 +1,1780 @@
+desc:LMS Autotune
+//tags: pitch correction autotune vocal tuning
+//author: LMS
+filename:0,shakebot_logo.png
+
+
+import lms_core.jsfx-inc
+options:gmem=DrumBanger
+
+slider1:100<0,100,1>-Speed (%)
+slider2:100<0,100,1>-Dry/Wet (%)
+slider3:0<-12,12,0.1>-Output Gain (dB)
+slider4:50<0,100,1>-Vibrato Preserve (%)
+slider5:0<0,15,0.5>-Lookahead (ms)
+slider6:0.15<0.05,0.50,0.01>-Sensitivity
+slider7:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>-Key
+slider8:0<0,2,1{Chromatic,Major,Minor}>-Scale
+slider9:100<20,500,1>-Min Note (ms)
+
+@init
+  // ============================================================
+  // PITCH DETECTION INIT
+  // ============================================================
+  pd.lms_yin_init(5000);  // YIN buffer at memory 5000-9299
+  PITCH_BUS_BASE = 950000;  // still publish to gmem for vocoder compat
+
+  // Input envelope (for display/level tracking)
+  input_env = 0;
+  input_att = exp(-1 / (srate * 0.005));  // 5ms attack
+  input_rel = exp(-1 / (srate * 0.050));  // 50ms release
+
+  // Note hold/latch
+  held_note = -1;
+  held_freq = 0;
+  hold_timer = 0;
+  min_note_sec = 0.100;
+  hold_release = 0;
+  hold_release_max = 0.150;
+
+  // Density tracker (4-band harmonic distribution)
+  vi_hd.lms_opto_hd_init();
+
+  // Voiced/unvoiced state
+  vi_voiced = 0;
+  vi_voiced_smooth = 0;
+  vi_voiced_rise = 0.7;
+  vi_voiced_fall = 0.95;
+
+  // YIN decimation
+  vi_yin_skip_counter = 0;
+  vi_yin_skip_max = 2;
+  vi_locked = 0;
+
+  // Pitch velocity
+  vi_prev_midi = 0;
+  vi_pitch_vel = 0;
+  vi_pitch_vel_smooth = 0;
+  vi_pv_smooth = exp(-1 / 3);
+
+  // Onset detection
+  vi_onset_env = 0;
+  vi_onset_env_prev = 0;
+  vi_onset_flag = 0;
+  vi_onset_att = exp(-1 / (srate * 0.001));
+  vi_onset_rel = exp(-1 / (srate * 0.020));
+
+  // Vibrato detection (ring buffer at 9500)
+  VI_VIB_BUF = 9500;
+  VI_VIB_LEN = 32;
+  vi_vib_pos = 0;
+  vi_vib_rate = 0;
+  vi_vib_depth = 0;
+  vi_vib_cents_acc = 0;
+  vi_vib_cents_cnt = 0;
+  memset(VI_VIB_BUF, 0, VI_VIB_LEN);
+
+  // Auto-ranging
+  vi_ar_min = 0;
+  vi_ar_max = 0;
+  vi_ar_count = 0;
+  vi_ar_warmup = 20;
+  vi_ar_expand = 0.3;
+  vi_ar_contract = 0.998;
+  vi_ar_margin = 0.20;
+  vi_ar_active = 0;
+
+  // Scale selection
+  scale_root = 0;
+  scale_mask = LMS_SCALE_CHROMATIC;
+
+  // ============================================================
+  // DSP INIT
+  // ============================================================
+  // Pitch shifter — init with full 4096 buffer, then shrink for autotune.
+  // Autotune max ±3 semitones — 1024 buffer is plenty.
+  // Cuts internal delay from 2048 to 512 samples (~10ms vs ~42ms).
+  ps_l.lms_pshift_init(12000);
+  ps_r.lms_pshift_init(17000);
+
+  PSHIFT_BUF_LEN = 1024;
+  PSHIFT_DELAY = PSHIFT_BUF_LEN / 2;  // 512 samples ≈ 10ms at 48kHz
+
+  ps_l.buf_len = PSHIFT_BUF_LEN;
+  ps_l.buf_mask = PSHIFT_BUF_LEN - 1;
+  ps_l.read_a = 0;
+  ps_l.read_b = PSHIFT_DELAY;
+  ps_l.xfade_phase = 0;
+  ps_l.xfade_inc = 1.0 / PSHIFT_BUF_LEN;
+
+  ps_r.buf_len = PSHIFT_BUF_LEN;
+  ps_r.buf_mask = PSHIFT_BUF_LEN - 1;
+  ps_r.read_a = 0;
+  ps_r.read_b = PSHIFT_DELAY;
+  ps_r.xfade_phase = 0;
+  ps_r.xfade_inc = 1.0 / PSHIFT_BUF_LEN;
+
+  // Correction state
+  current_ratio = 1.0;
+  target_ratio = 1.0;
+  smooth_coeff = 0.001;
+
+  // ---- Lookahead Buffer (optional, default 0ms) ----
+  LA_BUF = 22000;
+  LA_MAX = ceil(srate * 0.015);
+  la_pos = 0;
+  la_samples = 0;
+  memset(LA_BUF, 0, LA_MAX * 2);
+
+  // ---- Signal Conditioning ----
+  in_hpf_l.lms_bq_init(); in_hpf_l.lms_bq_set_hp(80, 0.707);
+  in_hpf_r.lms_bq_init(); in_hpf_r.lms_bq_set_hp(80, 0.707);
+  out_dc.lms_dc_init();
+  out_tone.lms_tone_init(); out_tone.lms_tone_set(16000);
+
+  // ---- Velocity Modulation ----
+  vi_speed_mod = 1.0;
+
+  // ---- Onset Snap ----
+  vi_onset_snap = 0;
+  vi_onset_snap_decay = exp(-1 / (srate / samplesblock * 0.030)); // ~30ms decay in blocks
+
+  // Display state
+  disp_detected_note = 0;
+  disp_target_note = 0;
+  disp_correction = 0;
+  disp_smooth = 0.92;
+
+  notice_show = 0;
+  buy_show = 0;
+
+  // ============================================================
+  // PITCH TENDENCIES — Per-Note Bias Tracking
+  // ============================================================
+  PT_BASE = 24000;
+  PT_SUM  = PT_BASE;       // 24000-24011: cents sum per note class
+  PT_WGT  = PT_BASE + 12;  // 24012-24023: observation count per note class
+  PT_BIAS = PT_BASE + 24;  // 24024-24035: user-set correction bias in cents (-50 to +50)
+  PT_DISP = PT_BASE + 36;  // 24036-24047: smoothed display values
+
+  PT_CONF_GATE = 0.7;      // only accumulate when confidence > this
+  PT_LOCK_THRESH = 10;     // auto-lock a note after this many observations
+  PT_DISP_SMOOTH = 0.90;   // display smoothing coefficient
+
+  // NOTE: PT_SUM, PT_WGT, PT_BIAS data is NOT zeroed here.
+  // JSFX local memory starts at 0 on first instantiation.
+  // @serialize restores saved data after @init runs.
+  // Only the RESET button should clear this data.
+
+  // Bias editor UI state
+  pt_edit_open = 0;
+  pt_edit_nc = 0;
+  pt_edit_x = 0;
+  pt_edit_y = 0;
+  pt_edit_dragging = 0;
+
+  // ============================================================
+  // BROADCAST SYSTEM — Instance Registry
+  // ============================================================
+  BC_BASE = 100000;
+  BC_MY_TYPE = 23;
+  BC_SLOT_SIZE = 512;
+  BC_MAX_INST = 32;
+  BC_PARAM_COUNT = 9;
+  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
+  BC_STALE_TIMEOUT = 2;
+
+  bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
+  bc_my_slot = -1;
+  bc_follow_slot = -1;
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_panel_expanded = 0;
+  bc_page = 0;
+  bc_steal_mode = 0;
+  bc_instance_count = 0;
+
+  BC_STALE_HB = 860000;
+  BC_STALE_CT = 860032;
+  i = 0;
+  loop(BC_MAX_INST,
+    BC_STALE_HB[i] = -1;
+    BC_STALE_CT[i] = 0;
+    i += 1;
+  );
+
+  bc_i = 0;
+  loop(BC_MAX_INST,
+    bc_my_slot < 0 ? (
+      sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+      sid = gmem[sb + 1];
+      (sid == 0 || sid == bc_my_id) ? (
+        bc_my_slot = bc_i;
+      );
+    );
+    bc_i += 1;
+  );
+
+  bc_my_slot >= 0 ? (
+    sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+    gmem[sb + 0] = 0;
+    gmem[sb + 1] = bc_my_id;
+    gmem[sb + 2] = BC_MY_TYPE;
+    gmem[sb + 3] = 0;
+    gmem[sb + 4] = BC_PARAM_COUNT;
+  );
+
+@slider
+  speed_pct = slider1 / 100;
+  dry_wet = slider2 / 100;
+  out_gain = 10 ^ (slider3 / 20);
+  vi_vib_preserve = slider4 / 100;
+  la_samples = min(LA_MAX - 1, floor(srate * slider5 / 1000));
+  pdc_delay = la_samples + PSHIFT_DELAY; pdc_top_ch = 2;
+  // Detection sliders
+  pd.threshold = slider6;
+  pd.tau_min = ceil(srate / 1000);  // hardcoded max 1000 Hz
+  pd.tau_max = ceil(srate / 80);    // hardcoded min 80 Hz
+  scale_root = slider7;
+  slider8 == 0 ? scale_mask = LMS_SCALE_CHROMATIC;
+  slider8 == 1 ? scale_mask = LMS_SCALE_MAJOR;
+  slider8 == 2 ? scale_mask = LMS_SCALE_MINOR;
+  min_note_sec = slider9 / 1000;
+
+// ============================================================
+// @BLOCK
+// ============================================================
+@block
+// ---- Recalculate from sliders ----
+speed_pct = slider1 / 100;
+dry_wet = slider2 / 100;
+out_gain = 10 ^ (slider3 / 20);
+vi_vib_preserve = slider4 / 100;
+la_samples = min(LA_MAX - 1, floor(srate * slider5 / 1000));
+pdc_delay = la_samples; pdc_top_ch = 2;
+
+// ============================================================
+// INTERNAL PITCH DETECTION PIPELINE
+// ============================================================
+
+// ---- Recalculate detection sliders ----
+pd.threshold = slider6;
+pd.tau_min = ceil(srate / 1000);  // hardcoded max 1000 Hz
+pd.tau_max = ceil(srate / 80);    // hardcoded min 80 Hz
+scale_root = slider7;
+slider8 == 0 ? scale_mask = LMS_SCALE_CHROMATIC;
+slider8 == 1 ? scale_mask = LMS_SCALE_MAJOR;
+slider8 == 2 ? scale_mask = LMS_SCALE_MINOR;
+min_note_sec = slider9 / 1000;
+
+// ---- Auto-Ranging: Apply narrowed range BEFORE YIN runs ----
+vi_ar_active ? (
+  vi_eff_min = max(80, vi_ar_min * (1 - vi_ar_margin));
+  vi_eff_max = min(1000, vi_ar_max * (1 + vi_ar_margin));
+  vi_eff_max > vi_eff_min ? (
+    pd.tau_min = ceil(srate / vi_eff_max);
+    pd.tau_max = ceil(srate / vi_eff_min);
+  );
+);
+
+// ---- Voiced/Unvoiced Classification ----
+vi_mid_energy = vi_hd.env_mid;
+vi_total_energy = vi_hd.env_total;
+vi_raw_voiced = (vi_mid_energy > 0.01 && vi_total_energy > 0.0005) ? 1 : 0;
+vi_raw_voiced > vi_voiced_smooth ? (
+  vi_voiced_smooth = vi_voiced_rise * vi_raw_voiced + (1 - vi_voiced_rise) * vi_voiced_smooth;
+) : (
+  vi_voiced_smooth = vi_voiced_fall * vi_voiced_smooth + (1 - vi_voiced_fall) * vi_raw_voiced;
+);
+vi_voiced = vi_voiced_smooth > 0.3 ? 1 : 0;
+
+// ---- YIN Decimation Gate ----
+vi_run_yin = 1;
+!vi_voiced ? (
+  // Still run YIN every 4th block as safety net (recover from false unvoiced)
+  vi_yin_skip_counter += 1;
+  vi_yin_skip_counter > 3 ? (
+    vi_yin_skip_counter = 0;
+    vi_run_yin = 1;
+  ) : (
+    vi_run_yin = 0;
+  );
+  vi_locked = 0;
+) : (
+  vi_locked = (held_note >= 0 && pd.confidence > 0.75) ? 1 : 0;
+  vi_locked ? (
+    vi_yin_skip_counter += 1;
+    vi_yin_skip_counter > vi_yin_skip_max ? (
+      vi_yin_skip_counter = 0;
+      vi_run_yin = 1;
+    ) : (
+      vi_run_yin = 0;
+    );
+  ) : (
+    vi_yin_skip_counter = 0;
+    vi_run_yin = 1;
+  );
+);
+
+// ---- Conditionally run YIN ----
+vi_run_yin ? pd.lms_yin_detect();
+
+// ---- Auto-Ranging: Track detected frequencies ----
+pd.confidence > 0.5 && pd.freq > 50 ? (
+  vi_ar_count += 1;
+  vi_ar_count == 1 ? (
+    vi_ar_min = pd.freq;
+    vi_ar_max = pd.freq;
+  ) : (
+    pd.freq < vi_ar_min ? (
+      vi_ar_min = vi_ar_min + vi_ar_expand * (pd.freq - vi_ar_min);
+    ) : (
+      vi_ar_min = vi_ar_min + (1 - vi_ar_contract) * (pd.freq - vi_ar_min);
+    );
+    pd.freq > vi_ar_max ? (
+      vi_ar_max = vi_ar_max + vi_ar_expand * (pd.freq - vi_ar_max);
+    ) : (
+      vi_ar_max = vi_ar_max + (1 - vi_ar_contract) * (pd.freq - vi_ar_max);
+    );
+  );
+  vi_ar_count >= vi_ar_warmup ? vi_ar_active = 1;
+);
+
+// ---- Time-gated note latch ----
+block_sec = samplesblock / srate;
+hold_timer += block_sec;
+
+pd.confidence > 0.5 && pd.freq > 50 ? (
+  snap_freq = lms_snap_to_scale(pd.freq, scale_root, scale_mask);
+  snap_midi = floor(69 + 12 * log(snap_freq / 440) * LMS_INV_LOG2 + 0.5);
+  snap_midi != held_note && hold_timer >= min_note_sec ? (
+    held_note = snap_midi;
+    held_freq = snap_freq;
+    hold_timer = 0;
+  );
+  snap_midi == held_note ? (
+    held_freq = snap_freq;
+  );
+  hold_release = 0;
+) : (
+  hold_release += block_sec;
+  hold_release >= hold_release_max ? (
+    held_note = -1;
+    held_freq = 0;
+    hold_timer = min_note_sec;
+  );
+);
+
+// ---- Pitch Velocity ----
+pd.confidence > 0.5 && pd.freq > 50 ? (
+  vi_current_midi = pd.midi_note;
+  vi_prev_midi > 0 ? (
+    vi_pitch_vel = (vi_current_midi - vi_prev_midi) / block_sec;
+  ) : (
+    vi_pitch_vel = 0;
+  );
+  vi_prev_midi = vi_current_midi;
+) : (
+  vi_pitch_vel = 0;
+);
+vi_pitch_vel_smooth = vi_pv_smooth * vi_pitch_vel_smooth + (1 - vi_pv_smooth) * vi_pitch_vel;
+
+// ---- Onset Detection ----
+vi_onset_flag = 0;
+vi_onset_env > 0.000001 && vi_onset_env_prev > 0.000001 ? (
+  vi_onset_db_rise = 20 * log10(vi_onset_env / vi_onset_env_prev);
+  vi_onset_db_rise > 3.0 ? vi_onset_flag = 1;
+) : vi_onset_env > 0.0001 && vi_onset_env_prev < 0.000001 ? (
+  vi_onset_flag = 1;
+);
+vi_onset_env_prev = vi_onset_env;
+
+// ---- Vibrato Detection ----
+vi_pv_sign = vi_pitch_vel_smooth > 0.5 ? 1 : (vi_pitch_vel_smooth < -0.5 ? -1 : 0);
+VI_VIB_BUF[vi_vib_pos] = vi_pv_sign;
+vi_vib_pos = (vi_vib_pos + 1) % VI_VIB_LEN;
+vi_zc = 0;
+vi_prev_sign = 0;
+vi_scan = 0;
+loop(VI_VIB_LEN,
+  vi_s = VI_VIB_BUF[(vi_vib_pos + vi_scan) % VI_VIB_LEN];
+  vi_s != 0 ? (
+    vi_prev_sign != 0 && vi_s != vi_prev_sign ? vi_zc += 1;
+    vi_prev_sign = vi_s;
+  );
+  vi_scan += 1;
+);
+vi_window_sec = VI_VIB_LEN * block_sec;
+vi_window_sec > 0 ? (
+  vi_raw_vib_rate = vi_zc / (2 * vi_window_sec);
+) : (
+  vi_raw_vib_rate = 0;
+);
+(vi_raw_vib_rate >= 3.0 && vi_raw_vib_rate <= 12.0 && vi_zc >= 3) ? (
+  vi_vib_rate = vi_raw_vib_rate;
+  vi_vib_cents_acc += abs(pd.cents);
+  vi_vib_cents_cnt += 1;
+  vi_vib_cents_cnt > 0 ? (
+    vi_vib_depth = (vi_vib_cents_acc / vi_vib_cents_cnt) * 2;
+    vi_vib_depth = min(200, vi_vib_depth);
+  );
+  vi_vib_cents_cnt > 32 ? (
+    vi_vib_cents_acc *= 0.5;
+    vi_vib_cents_cnt = floor(vi_vib_cents_cnt * 0.5);
+  );
+) : (
+  vi_vib_rate = 0;
+  vi_vib_depth = 0;
+  vi_vib_cents_acc = 0;
+  vi_vib_cents_cnt = 0;
+);
+
+// ---- Publish to gmem pitch bus (for vocoder/standalone compat) ----
+gmem[PITCH_BUS_BASE + 0] = pd.freq;
+gmem[PITCH_BUS_BASE + 1] = pd.confidence;
+gmem[PITCH_BUS_BASE + 2] = pd.midi_note;
+gmem[PITCH_BUS_BASE + 3] = pd.midi_int;
+gmem[PITCH_BUS_BASE + 4] = pd.cents;
+gmem[PITCH_BUS_BASE + 5] = gmem[PITCH_BUS_BASE + 5] + 1;
+gmem[PITCH_BUS_BASE + 6] = held_freq;
+gmem[PITCH_BUS_BASE + 7] = held_note;
+gmem[PITCH_BUS_BASE + 8] = vi_pitch_vel_smooth;
+gmem[PITCH_BUS_BASE + 9] = vi_voiced;
+gmem[PITCH_BUS_BASE + 10] = vi_onset_flag;
+gmem[PITCH_BUS_BASE + 11] = vi_vib_rate;
+gmem[PITCH_BUS_BASE + 12] = vi_vib_depth;
+gmem[PITCH_BUS_BASE + 13] = vi_hd.density;
+gmem[PITCH_BUS_BASE + 14] = vi_hd.mid_density;
+gmem[PITCH_BUS_BASE + 15] = vi_hd.air_density;
+
+// ============================================================
+// CORRECTION PIPELINE (uses direct variables, not gmem)
+// ============================================================
+
+// Wire detection results to correction variables
+detected_freq = pd.freq;
+pitch_confidence = pd.confidence;
+detected_midi = pd.midi_note;
+detected_midi_int = pd.midi_int;
+detected_cents = pd.cents;
+target_freq = held_freq;
+target_midi_int = held_note;
+
+// ---- Intelligence-aware speed modulation ----
+// Pitch velocity: when singer transitions fast, reduce correction to avoid fighting
+vi_abs_vel = abs(vi_pitch_vel_smooth);
+vi_abs_vel > 50 ? (
+  // Linear ramp from 1.0 at 50 st/sec to 0.3 at 200 st/sec
+  vi_speed_mod = max(0.3, 1.0 - (vi_abs_vel - 50) / 150 * 0.7);
+) : (
+  vi_speed_mod = 1.0;
+);
+
+// Onset snap: on onset, temporarily boost speed toward 0.9+
+vi_onset_flag ? (
+  vi_onset_snap = 1.0;
+) : (
+  vi_onset_snap *= vi_onset_snap_decay;
+  vi_onset_snap < 0.01 ? vi_onset_snap = 0;
+);
+
+// Compute effective speed
+vi_effective_speed = speed_pct * vi_speed_mod;
+// Onset boost: blend toward user's speed setting (don't exceed what they asked for)
+vi_onset_snap > 0.01 ? (
+  vi_effective_speed = vi_effective_speed + vi_onset_snap * (speed_pct - vi_effective_speed);
+);
+
+// ---- Compute correction target ----
+// The pitch detector has already snapped to scale and locked the note.
+// We just shift from detected to the held target — clean, stable signal.
+detected_freq > 50 && detected_freq < 2000 && pitch_confidence > 0.5 && target_freq > 50 ? (
+  // Compute ideal shift ratio from raw detected to held target
+  ideal_ratio = target_freq / detected_freq;
+
+  // ---- Apply per-note pitch tendency bias ----
+  // Bias represents the singer's tendency (positive = sharp, negative = flat).
+  // We COMPENSATE by shifting the target the opposite direction.
+  pt_target_nc = target_midi_int % 12;
+  pt_bias_cents = PT_BIAS[pt_target_nc];
+  abs(pt_bias_cents) > 0.01 ? (
+    ideal_ratio *= 2 ^ (-pt_bias_cents / 1200);
+  );
+
+  // Clamp to safe range (max ~3 semitones)
+  ideal_ratio = min(max(ideal_ratio, 0.84), 1.19);
+
+  // ---- Vibrato preservation ----
+  // Add detected vibrato cents back as a ratio offset around the corrected center
+  (vi_vib_rate > 3.0 && vi_vib_preserve > 0.01) ? (
+    vi_cents_offset = detected_cents * vi_vib_preserve;
+    ideal_ratio *= 2 ^ (vi_cents_offset / 1200);
+    // Re-clamp after vibrato offset
+    ideal_ratio = min(max(ideal_ratio, 0.84), 1.19);
+  );
+
+  // Apply effective speed: blend between 1.0 (no correction) and ideal
+  target_ratio = 1.0 + vi_effective_speed * (ideal_ratio - 1.0);
+
+  // Display values
+  disp_target_note = disp_smooth * disp_target_note + (1 - disp_smooth) * target_midi_int;
+  disp_detected_note = disp_smooth * disp_detected_note + (1 - disp_smooth) * detected_midi;
+  disp_correction = disp_smooth * disp_correction + (1 - disp_smooth) * ((ideal_ratio - 1.0) * 12 * 100);
+
+  // ---- Pitch Tendency Accumulation ----
+  // Only measure when unlocked and note hasn't reached its observation threshold
+  !pt_locked && pitch_confidence > PT_CONF_GATE && detected_midi_int > 0 ? (
+    pt_nc = detected_midi_int % 12;
+    PT_WGT[pt_nc] < PT_LOCK_THRESH ? (
+      PT_SUM[pt_nc] += detected_cents;
+      PT_WGT[pt_nc] += 1;
+    );
+  );
+) : (
+  // No valid pitch or no held target — fade to unity (no shift)
+  target_ratio = 1.0;
+  disp_correction = disp_smooth * disp_correction;
+);
+
+// ---- Tell the pitch shifter the current pitch period ----
+// This enables pitch-synchronous grain sizing (PSOLA-style)
+detected_freq > 50 && detected_freq < 2000 && pitch_confidence > 0.5 ? (
+  pitch_period = srate / detected_freq;
+) : (
+  pitch_period = 0;
+);
+ps_l.lms_pshift_set_period(pitch_period);
+ps_r.lms_pshift_set_period(pitch_period);
+
+// ---- Smoothing coefficient from effective speed ----
+// speed=100%: correction_time ~1ms (instant snap)
+// speed=50%: ~250ms (smooth glide)
+// speed=0%: effectively infinite (no correction)
+vi_effective_speed > 0.01 ? (
+  vi_sp_inv = 1.0 - vi_effective_speed;
+  correction_time = 0.001 + 2.0 * vi_sp_inv * vi_sp_inv * vi_sp_inv;
+  smooth_coeff = 1.0 - exp(-1.0 / (correction_time * srate));
+) : (
+  smooth_coeff = 0;
+  target_ratio = 1.0;
+);
+
+// ---- Broadcast system ----
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 1] != bc_my_id ? (
+    bc_my_id = floor(rand() * 1073741824) + 1;
+    bc_my_slot = -1;
+    bc_i = 0;
+    loop(BC_MAX_INST,
+      bc_my_slot < 0 ? (
+        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
+        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
+      );
+      bc_i += 1;
+    );
+    bc_my_slot >= 0 ? (
+      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+      gmem[sb + 0] = 0;
+      gmem[sb + 1] = bc_my_id;
+      gmem[sb + 2] = BC_MY_TYPE;
+      gmem[sb + 3] = bc_following;
+      gmem[sb + 4] = BC_PARAM_COUNT;
+    );
+  );
+);
+
+bc_my_slot >= 0 && bc_following > 0 ? (
+  bc_found_leader = 0;
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    bc_scan != bc_my_slot ? (
+      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+      gmem[lsb + 1] == bc_following ? (
+        bc_found_leader = 1;
+        bc_follow_slot = bc_scan;
+        lbase = lsb + 8;
+        slider1 = gmem[lbase + 0];
+        slider2 = gmem[lbase + 1];
+        slider3 = gmem[lbase + 2];
+        slider4 = gmem[lbase + 3];
+        slider5 = gmem[lbase + 4];
+        slider6 = gmem[lbase + 5];
+        slider7 = gmem[lbase + 6];
+        slider8 = gmem[lbase + 7];
+        slider9 = gmem[lbase + 8];
+        bc_scan = BC_MAX_INST;
+      );
+    );
+    bc_scan += 1;
+  );
+  !bc_found_leader ? (
+    bc_following = 0;
+    bc_follow_slot = -1;
+  );
+);
+
+bc_my_slot >= 0 && bc_steal_pending ? (
+  bc_scan = 0;
+  loop(BC_MAX_INST,
+    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+    gmem[lsb + 1] == bc_steal_target ? (
+      lbase = lsb + 8;
+      slider1 = gmem[lbase + 0];
+      slider2 = gmem[lbase + 1];
+      slider3 = gmem[lbase + 2];
+      slider4 = gmem[lbase + 3];
+      slider5 = gmem[lbase + 4];
+      slider6 = gmem[lbase + 5];
+      slider7 = gmem[lbase + 6];
+      slider8 = gmem[lbase + 7];
+      slider9 = gmem[lbase + 8];
+      bc_scan = BC_MAX_INST;
+    );
+    bc_scan += 1;
+  );
+  bc_steal_pending = 0;
+  bc_steal_target = 0;
+  bc_steal_mode = 0;
+);
+
+bc_my_slot >= 0 ? (
+  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 3] = bc_following;
+  pbase = sb + 8;
+  gmem[pbase + 0] = slider1;
+  gmem[pbase + 1] = slider2;
+  gmem[pbase + 2] = slider3;
+  gmem[pbase + 3] = slider4;
+  gmem[pbase + 4] = slider5;
+  gmem[pbase + 5] = slider6;
+  gmem[pbase + 6] = slider7;
+  gmem[pbase + 7] = slider8;
+  gmem[pbase + 8] = slider9;
+);
+
+bc_instance_count = 0;
+bc_scan = 0;
+loop(BC_MAX_INST,
+  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
+  tsid = gmem[tsb + 1];
+  tsid > 0 ? (
+    bc_scan == bc_my_slot ? (
+      bc_instance_count += 1;
+    ) : (
+      tshb = gmem[tsb + 0];
+      tshb == BC_STALE_HB[bc_scan] ? (
+        BC_STALE_CT[bc_scan] += samplesblock / srate;
+        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
+          gmem[tsb + 1] = 0;
+          BC_STALE_CT[bc_scan] = 0;
+        );
+      ) : (
+        BC_STALE_HB[bc_scan] = tshb;
+        BC_STALE_CT[bc_scan] = 0;
+        bc_instance_count += 1;
+      );
+    );
+  );
+  bc_scan += 1;
+);
+
+@sample
+  // ---- Pitch detection per-sample (on raw input, before HPF) ----
+  pd_mono = (spl0 + spl1) * 0.5;
+  pd.lms_yin_write(pd_mono);
+  vi_hd.lms_opto_hd_proc(pd_mono);
+
+  // Onset envelope follower
+  vi_abs_mono = abs(pd_mono);
+  vi_abs_mono > vi_onset_env ? (
+    vi_onset_env = vi_onset_att * vi_onset_env + (1 - vi_onset_att) * vi_abs_mono;
+  ) : (
+    vi_onset_env = vi_onset_rel * vi_onset_env + (1 - vi_onset_rel) * vi_abs_mono;
+  );
+
+  // Input level tracking
+  vi_abs_mono > input_env ? (
+    input_env = input_att * input_env + (1 - input_att) * vi_abs_mono;
+  ) : (
+    input_env = input_rel * input_env + (1 - input_rel) * vi_abs_mono;
+  );
+
+  // ---- Input HPF (80Hz, removes rumble before pitch shifting) ----
+  hpf_l = in_hpf_l.lms_bq_proc_l(spl0);
+  hpf_r = in_hpf_r.lms_bq_proc_r(spl1);
+
+  // ---- Lookahead delay (optional, default 0ms) ----
+  LA_BUF[la_pos] = hpf_l;
+  LA_BUF[LA_MAX + la_pos] = hpf_r;
+  la_read_pos = (la_pos - la_samples + LA_MAX) % LA_MAX;
+  delayed_l = LA_BUF[la_read_pos];
+  delayed_r = LA_BUF[LA_MAX + la_read_pos];
+  la_pos = (la_pos + 1) % LA_MAX;
+
+  // ---- Smooth correction ratio ----
+  current_ratio += smooth_coeff * (target_ratio - current_ratio);
+
+  // ---- Fold dry/wet into the ratio ----
+  // Instead of mixing two time-misaligned signals (comb filter city),
+  // blend the correction AMOUNT. dry_wet=0% → ratio 1.0 (passthrough),
+  // dry_wet=100% → full correction. Everything goes through one path.
+  mix_ratio = 1.0 + dry_wet * (current_ratio - 1.0);
+
+  // ---- Pitch shifter ----
+  spl0 = ps_l.lms_pshift_proc(delayed_l, mix_ratio);
+  spl1 = ps_r.lms_pshift_proc(delayed_r, mix_ratio);
+
+  // ---- Output conditioning ----
+  spl0 = out_dc.lms_dc_proc_l(spl0);
+  spl1 = out_dc.lms_dc_proc_r(spl1);
+  spl0 = out_tone.lms_tone_proc_l(spl0);
+  spl1 = out_tone.lms_tone_proc_r(spl1);
+
+  // ---- Output gain ----
+  spl0 *= out_gain;
+  spl1 *= out_gain;
+
+@gfx 520 570
+
+// ============================================================================
+//  SCALING
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 520;
+S < 0.5 ? S = 0.5;
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+F_BIG   = max(14, floor(36 * S));
+F_MED   = max(10, floor(18 * S));
+
+// ============================================================================
+//  COLOR CONSTANTS
+// ============================================================================
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+hdr_h = floor(44 * S);
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ============================================================================
+//  HELPERS
+// ============================================================================
+function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(bx, by, bw, bh);
+  norm = (val - vmin) / (vmax - vmin);
+  norm = max(0, min(1, norm));
+  fill_w = norm * bw;
+  fill_w > 0 ? (
+    gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6;
+    gfx_rect(bx, by, fill_w, bh);
+    gfx_r = COL_CYAN_R * 0.8; gfx_g = COL_CYAN_G * 0.8; gfx_b = COL_CYAN_B * 0.8;
+    gfx_rect(bx, by, fill_w, floor(bh / 2));
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+    gfx_rect(bx, by, fill_w, 1);
+  );
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(bx, by, bw, 1); gfx_rect(bx, by + bh - 1, bw, 1);
+  gfx_rect(bx, by, 1, bh); gfx_rect(bx + bw - 1, by, 1, bh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = bx + floor(5 * S); gfx_y = by + floor((bh - F_LABEL) / 2);
+  gfx_drawstr(label);
+  show_val ? (
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
+    gfx_drawnumber(val, val == floor(val) ? 0 : 1);
+  );
+  mouse_cap & 1 ? (
+    mouse_x >= bx && mouse_x <= bx + bw &&
+    mouse_y >= by && mouse_y <= by + bh ? (
+      new_norm = (mouse_x - bx) / bw;
+      new_norm = max(0, min(1, new_norm));
+      val = vmin + new_norm * (vmax - vmin);
+    );
+  );
+  val;
+);
+
+function draw_panel(px, py, pw, ph, title) (
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  gfx_rect(px, py, pw, ph);
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  gfx_rect(px, py, pw, floor(22 * S));
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(px, py + floor(22 * S), pw, 1);
+  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
+  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
+  gfx_drawstr(title);
+);
+
+// Note name helper — draws note name from MIDI note number
+function draw_note_name(nx, ny, midi_int) (
+  nc = midi_int % 12;
+  gfx_x = nx; gfx_y = ny;
+  nc == 0 ? gfx_drawstr("C");
+  nc == 1 ? gfx_drawstr("C#");
+  nc == 2 ? gfx_drawstr("D");
+  nc == 3 ? gfx_drawstr("D#");
+  nc == 4 ? gfx_drawstr("E");
+  nc == 5 ? gfx_drawstr("F");
+  nc == 6 ? gfx_drawstr("F#");
+  nc == 7 ? gfx_drawstr("G");
+  nc == 8 ? gfx_drawstr("G#");
+  nc == 9 ? gfx_drawstr("A");
+  nc == 10 ? gfx_drawstr("A#");
+  nc == 11 ? gfx_drawstr("B");
+  gfx_drawnumber(floor(midi_int / 12) - 1, 0);
+);
+
+// Note class name helper — draws just note name (no octave) from class 0-11
+function draw_nc_name(nx, ny, nc) (
+  gfx_x = nx; gfx_y = ny;
+  nc == 0 ? gfx_drawstr("C");
+  nc == 1 ? gfx_drawstr("C#");
+  nc == 2 ? gfx_drawstr("D");
+  nc == 3 ? gfx_drawstr("D#");
+  nc == 4 ? gfx_drawstr("E");
+  nc == 5 ? gfx_drawstr("F");
+  nc == 6 ? gfx_drawstr("F#");
+  nc == 7 ? gfx_drawstr("G");
+  nc == 8 ? gfx_drawstr("G#");
+  nc == 9 ? gfx_drawstr("A");
+  nc == 10 ? gfx_drawstr("A#");
+  nc == 11 ? gfx_drawstr("B");
+);
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = floor(8 * S);
+gap = floor(6 * S);
+bar_h = floor(18 * S);
+bar_sp = floor(21 * S);
+pad = floor(4 * S);
+pad2 = pad * 2;
+body_y = floor(50 * S);
+col_w = floor(200 * S);
+
+// ============================================================================
+//  LOGO + TITLE
+// ============================================================================
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
+gfx_drawstr("LMS AUTOTUNE");
+
+// ============================================================================
+//  LEFT COLUMN: CORRECTION CONTROLS
+// ============================================================================
+c1x = margin;
+corr_panel_h = floor(152 * S);
+draw_panel(c1x, body_y, col_w, corr_panel_h, "CORRECTION");
+cy = body_y + floor(26 * S);
+
+_old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, 0, 100, "Speed", 1);
+slider1 != _old ? slider_automate(2^0);
+cy += bar_sp;
+
+_old = slider2; slider2 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider2, 0, 100, "Dry/Wet", 1);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+
+_old = slider3; slider3 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider3, -12, 12, "Output dB", 1);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+
+_old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 0, 100, "Vib Preserve", 1);
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+_old = slider5; slider5 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider5, 0, 15, "Lookahead ms", 1);
+slider5 != _old ? slider_automate(2^4);
+
+// ============================================================================
+//  LEFT COLUMN: DETECTION CONTROLS
+// ============================================================================
+det_panel_y = body_y + corr_panel_h + gap;
+det_panel_h = floor(132 * S);
+draw_panel(c1x, det_panel_y, col_w, det_panel_h, "DETECTION");
+cy = det_panel_y + floor(26 * S);
+
+_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0.05, 0.50, "Sensitivity", 1);
+slider6 != _old ? slider_automate(2^5);
+cy += bar_sp;
+
+// Key selector (draw_bar with note name overlay)
+_old = slider7; slider7 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider7, 0, 11, "Key", 0);
+slider7 != _old ? (slider7 = floor(slider7 + 0.5); slider_automate(2^6));
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+draw_nc_name(c1x + col_w - pad - floor(40 * S), cy + floor((bar_h - F_SMALL) / 2), floor(slider7 + 0.5));
+cy += bar_sp;
+
+// Scale selector (draw_bar with mode name overlay)
+_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 2, "Scale", 0);
+slider8 != _old ? (slider8 = floor(slider8 + 0.5); slider_automate(2^7));
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = c1x + col_w - pad - floor(60 * S); gfx_y = cy + floor((bar_h - F_SMALL) / 2);
+floor(slider8 + 0.5) == 0 ? gfx_drawstr("Chromatic");
+floor(slider8 + 0.5) == 1 ? gfx_drawstr("Major");
+floor(slider8 + 0.5) == 2 ? gfx_drawstr("Minor");
+cy += bar_sp;
+
+_old = slider9; slider9 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider9, 20, 500, "Min Note ms", 1);
+slider9 != _old ? (slider9 = floor(slider9); slider_automate(2^8));
+cy += bar_sp;
+
+// Auto-range readout
+vi_ar_active ? (
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = c1x + pad; gfx_y = cy;
+  gfx_drawstr("RANGE ");
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_drawnumber(vi_ar_min, 0);
+  gfx_drawstr("-");
+  gfx_drawnumber(vi_ar_max, 0);
+  gfx_drawstr(" Hz");
+);
+
+left_panel_h = corr_panel_h + gap + det_panel_h;
+
+// ============================================================================
+//  RIGHT PANEL: PITCH DISPLAY
+// ============================================================================
+pd_x = margin + col_w + gap;
+pd_w = gfx_w - pd_x - margin;
+pd_h = left_panel_h;
+draw_panel(pd_x, body_y, pd_w, pd_h, "PITCH");
+
+// Detection is internal — always alive
+det_alive = (input_env > 0.0001);
+
+// Detected note (direct internal variables)
+det_midi_int = pd.midi_int;
+det_conf = pd.confidence;
+
+// Target note (from internal note latch)
+tgt_midi_int = held_note;
+tgt_midi_int < 0 ? tgt_midi_int = 0;
+
+// ---- "IN" label + detected note ----
+row1_y = body_y + floor(30 * S);
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = pd_x + floor(10 * S); gfx_y = row1_y;
+gfx_drawstr("IN  ");
+
+det_alive && det_conf > 0.3 && det_midi_int > 0 ? (
+  gfx_setfont(1, "Arial", F_MED);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  draw_note_name(gfx_x, row1_y - floor(2 * S), det_midi_int);
+) : (
+  gfx_setfont(1, "Arial", F_MED);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = pd_x + floor(36 * S); gfx_y = row1_y - floor(2 * S);
+  gfx_drawstr("--");
+);
+
+// ---- Arrow ----
+arrow_y = body_y + floor(55 * S);
+gfx_setfont(1, "Arial", F_MED);
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = pd_x + floor(pd_w / 2) - floor(8 * S); gfx_y = arrow_y;
+gfx_drawstr(">>>");
+
+// ---- "OUT" label + target note ----
+row2_y = body_y + floor(30 * S);
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = pd_x + pd_w - floor(80 * S); gfx_y = row2_y;
+gfx_drawstr("OUT ");
+
+tgt_midi_int > 0 ? (
+  gfx_setfont(1, "Arial", F_MED);
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  draw_note_name(gfx_x, row2_y - floor(2 * S), tgt_midi_int);
+) : (
+  gfx_setfont(1, "Arial", F_MED);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = pd_x + pd_w - floor(44 * S); gfx_y = row2_y - floor(2 * S);
+  gfx_drawstr("--");
+);
+
+// ---- Correction amount bar ----
+corr_y = body_y + floor(80 * S);
+corr_w = pd_w - floor(20 * S);
+corr_x = pd_x + floor(10 * S);
+corr_h = floor(14 * S);
+
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = corr_x; gfx_y = corr_y - floor(12 * S);
+gfx_drawstr("CORRECTION");
+
+// Background
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(corr_x, corr_y, corr_w, corr_h);
+
+// Center line
+corr_center = corr_x + corr_w / 2;
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(corr_center, corr_y, 1, corr_h);
+
+// Correction indicator (disp_correction is in cents)
+abs(disp_correction) > 0.5 ? (
+  corr_norm = disp_correction / 100;  // normalize to +/-1 for +/-100 cents
+  corr_norm = max(-1, min(1, corr_norm));
+  abs(corr_norm) < 0.1 ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  ) : abs(corr_norm) < 0.5 ? (
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  ) : (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  );
+  ind_px = corr_center;
+  ind_pw = corr_norm * (corr_w / 2);
+  ind_pw > 0 ? (
+    gfx_rect(ind_px, corr_y + 1, ind_pw, corr_h - 2);
+  ) : (
+    gfx_rect(ind_px + ind_pw, corr_y + 1, -ind_pw, corr_h - 2);
+  );
+);
+
+// Shift ratio readout
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = corr_x; gfx_y = corr_y + corr_h + floor(4 * S);
+gfx_drawstr("Ratio: ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(current_ratio, 4);
+
+// Speed indicator
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = corr_x + floor(corr_w * 0.6); gfx_y = corr_y + corr_h + floor(4 * S);
+speed_pct >= 0.95 ? (
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_drawstr("HARD TUNE");
+) : speed_pct < 0.05 ? (
+  gfx_drawstr("BYPASS");
+) : (
+  gfx_drawstr("SMOOTH");
+);
+
+// ---- Detection state readouts (lower portion of PITCH panel) ----
+info_y = body_y + floor(120 * S);
+info_x = pd_x + floor(10 * S);
+info_sp = floor(16 * S);
+
+// Input level bar
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = info_x; gfx_y = info_y;
+gfx_drawstr("INPUT");
+lvl_bar_x = info_x + floor(40 * S);
+lvl_bar_w = pd_w - floor(60 * S);
+lvl_bar_h = floor(8 * S);
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(lvl_bar_x, info_y + floor(2 * S), lvl_bar_w, lvl_bar_h);
+lvl_db = input_env > 0.00001 ? 20 * log10(input_env) : -100;
+lvl_norm = max(0, min(1, (lvl_db + 60) / 60));
+lvl_norm > 0 ? (
+  lvl_norm < 0.5 ? (
+    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  ) : lvl_norm < 0.8 ? (
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  ) : (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  );
+  gfx_rect(lvl_bar_x, info_y + floor(2 * S), lvl_norm * lvl_bar_w, lvl_bar_h);
+);
+info_y += info_sp;
+
+// Voiced / Density
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = info_x; gfx_y = info_y;
+gfx_drawstr("VOICE ");
+vi_voiced ? (
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+  gfx_drawstr("ON ");
+) : (
+  gfx_r = 0.4; gfx_g = 0.2; gfx_b = 0.2;
+  gfx_drawstr("OFF");
+);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_drawstr("  DNS ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(vi_hd.density * 100, 0);
+gfx_drawstr("%");
+info_y += info_sp;
+
+// Vibrato
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = info_x; gfx_y = info_y;
+gfx_drawstr("VIBR  ");
+vi_vib_rate > 0.5 ? (
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  gfx_drawnumber(vi_vib_rate, 1);
+  gfx_drawstr("Hz ");
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawnumber(vi_vib_depth, 1);
+  gfx_drawstr("c");
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawstr("--");
+);
+info_y += info_sp;
+
+// Pitch velocity
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = info_x; gfx_y = info_y;
+gfx_drawstr("VEL   ");
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_drawnumber(vi_pitch_vel_smooth, 1);
+gfx_drawstr(" st/s");
+
+// ============================================================================
+//  PITCH TENDENCIES PANEL
+// ============================================================================
+pt_edit_handled = 0;  // reset per-frame flag
+pt_panel_y = body_y + left_panel_h + gap;
+pt_panel_w = gfx_w - margin * 2;
+pt_panel_h = floor(80 * S);
+draw_panel(margin, pt_panel_y, pt_panel_w, pt_panel_h, "PITCH TENDENCIES");
+
+// ---- Compute display values (direct, no smoothing) ----
+pt_di = 0;
+loop(12,
+  PT_WGT[pt_di] > 0.5 ? (
+    PT_DISP[pt_di] = PT_SUM[pt_di] / PT_WGT[pt_di];
+  ) : (
+    PT_DISP[pt_di] = 0;
+  );
+  pt_di += 1;
+);
+
+// ---- Bar layout ----
+pt_label_h = floor(12 * S);
+pt_bar_area_x = margin + pad;
+pt_bar_area_y = pt_panel_y + floor(24 * S);
+pt_bar_area_w = pt_panel_w - pad2 - floor(28 * S);  // leave room for scale labels
+pt_bar_area_h = pt_panel_h - floor(24 * S) - pad - pt_label_h;
+
+pt_bar_w = floor(pt_bar_area_w / 12);
+pt_bar_center_y = pt_bar_area_y + floor(pt_bar_area_h / 2);
+pt_bar_max_h = floor(pt_bar_area_h / 2) - 1;
+
+// ---- LOCK button (top-right of panel header) ----
+pt_btn_h = floor(14 * S);
+pt_btn_y = pt_panel_y + floor(4 * S);
+
+pt_lock_w = floor(36 * S);
+pt_lock_x = margin + pt_panel_w - pt_lock_w - pad;
+pt_locked ? (
+  gfx_r = 0.15; gfx_g = 0.35; gfx_b = 0.15;
+) : (
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+);
+gfx_rect(pt_lock_x, pt_btn_y, pt_lock_w, pt_btn_h);
+gfx_setfont(1, "Arial", F_TINY);
+pt_locked ? (
+  gfx_r = 0.4; gfx_g = 0.9; gfx_b = 0.4;
+) : (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+);
+gfx_x = pt_lock_x + floor(3 * S); gfx_y = pt_btn_y + floor(2 * S);
+gfx_drawstr("LOCK");
+
+// Lock click handler
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= pt_lock_x && mouse_x < pt_lock_x + pt_lock_w &&
+  mouse_y >= pt_btn_y && mouse_y < pt_btn_y + pt_btn_h ? (
+  pt_locked = !pt_locked;
+);
+
+// ---- RESET button (left of LOCK) ----
+pt_reset_w = floor(40 * S);
+pt_reset_x = pt_lock_x - pt_reset_w - floor(4 * S);
+gfx_r = 0.18; gfx_g = 0.10; gfx_b = 0.10;
+gfx_rect(pt_reset_x, pt_btn_y, pt_reset_w, pt_btn_h);
+gfx_r = 0.7; gfx_g = 0.35; gfx_b = 0.25;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = pt_reset_x + floor(4 * S); gfx_y = pt_btn_y + floor(2 * S);
+gfx_drawstr("RESET");
+
+// Reset click handler — clears tracking data AND unlocks
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= pt_reset_x && mouse_x < pt_reset_x + pt_reset_w &&
+  mouse_y >= pt_btn_y && mouse_y < pt_btn_y + pt_btn_h ? (
+  pt_ri = 0;
+  loop(12,
+    PT_SUM[pt_ri] = 0;
+    PT_WGT[pt_ri] = 0;
+    PT_DISP[pt_ri] = 0;
+    pt_ri += 1;
+  );
+  pt_locked = 0;
+);
+
+// ---- Center line (zero cents) ----
+gfx_r = COL_BORDER_R * 0.5; gfx_g = COL_BORDER_G * 0.5; gfx_b = COL_BORDER_B * 0.5;
+gfx_rect(pt_bar_area_x, pt_bar_center_y, pt_bar_area_w, 1);
+
+// ---- Draw 12 note bars ----
+pt_active_nc = -1;
+det_alive && det_conf > 0.3 && det_midi_int > 0 ? pt_active_nc = det_midi_int % 12;
+
+pt_ni = 0;
+loop(12,
+  pt_bx = pt_bar_area_x + pt_ni * pt_bar_w;
+  pt_tendency = PT_DISP[pt_ni];
+  pt_bias_val = PT_BIAS[pt_ni];
+
+  // Bar background
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(pt_bx + 1, pt_bar_area_y, pt_bar_w - 2, pt_bar_area_h);
+
+  // Active note highlight
+  pt_ni == pt_active_nc ? (
+    gfx_r = COL_CYAN_R * 0.15; gfx_g = COL_CYAN_G * 0.15; gfx_b = COL_CYAN_B * 0.15;
+    gfx_rect(pt_bx + 1, pt_bar_area_y, pt_bar_w - 2, pt_bar_area_h);
+  );
+
+  // Tendency bar (up = sharp, down = flat)
+  abs(pt_tendency) > 0.3 ? (
+    pt_norm = pt_tendency / 50;
+    pt_norm = max(-1, min(1, pt_norm));
+    pt_fill_h = abs(pt_norm) * pt_bar_max_h;
+
+    // Severity color
+    abs(pt_tendency) < 10 ? (
+      gfx_r = 0.25; gfx_g = 0.75; gfx_b = 0.40;
+    ) : abs(pt_tendency) < 25 ? (
+      gfx_r = 0.85; gfx_g = 0.75; gfx_b = 0.20;
+    ) : (
+      gfx_r = 0.90; gfx_g = 0.30; gfx_b = 0.20;
+    );
+
+    pt_norm > 0 ? (
+      gfx_rect(pt_bx + 2, pt_bar_center_y - pt_fill_h, pt_bar_w - 4, pt_fill_h);
+    ) : (
+      gfx_rect(pt_bx + 2, pt_bar_center_y, pt_bar_w - 4, pt_fill_h);
+    );
+  );
+
+  // User bias indicator (thin accent line)
+  abs(pt_bias_val) > 0.01 ? (
+    pt_bias_norm = pt_bias_val / 50;
+    pt_bias_norm = max(-1, min(1, pt_bias_norm));
+    pt_bias_y = pt_bar_center_y - pt_bias_norm * pt_bar_max_h;
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+    gfx_rect(pt_bx + 1, pt_bias_y - 1, pt_bar_w - 2, 3);
+  );
+
+  // Note label
+  gfx_setfont(1, "Arial", F_TINY);
+  pt_ni == pt_active_nc ? (
+    gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  ) : (
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  );
+  draw_nc_name(pt_bx + floor(2 * S), pt_bar_area_y + pt_bar_area_h + floor(1 * S), pt_ni);
+
+  // Right-click to open/switch bias editor
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= pt_bx && mouse_x < pt_bx + pt_bar_w &&
+    mouse_y >= pt_bar_area_y && mouse_y < pt_bar_area_y + pt_bar_area_h + pt_label_h ? (
+    pt_edit_open && pt_edit_nc == pt_ni ? (
+      // Right-click same note: close
+      pt_edit_open = 0;
+    ) : (
+      // Right-click new note (or first open): open
+      pt_edit_open = 1;
+      pt_edit_nc = pt_ni;
+      pt_edit_x = min(mouse_x, gfx_w - 65);
+      pt_edit_y = max(0, min(mouse_y - 70, gfx_h - 155));
+      pt_edit_dragging = 0;
+    );
+    pt_edit_handled = 1;  // prevent close logic from firing this frame
+  );
+
+  pt_ni += 1;
+);
+
+// ---- Scale labels (right side) ----
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
+pt_label_x = pt_bar_area_x + pt_bar_area_w + floor(3 * S);
+gfx_x = pt_label_x; gfx_y = pt_bar_area_y;
+gfx_drawstr("+50");
+gfx_x = pt_label_x; gfx_y = pt_bar_center_y - floor(F_TINY / 2);
+gfx_drawstr("0");
+gfx_x = pt_label_x; gfx_y = pt_bar_area_y + pt_bar_area_h - F_TINY;
+gfx_drawstr("-50");
+
+// ============================================================================
+//  BIAS EDITOR POPUP OVERLAY
+// ============================================================================
+pt_edit_open ? (
+  pt_cur_bias = PT_BIAS[pt_edit_nc];
+
+  // Overlay background
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_rect(pt_edit_x, pt_edit_y, 60, 150);
+  gfx_a = 1;
+
+  // Border
+  gfx_r = COL_ACCENT_R * 0.6; gfx_g = COL_ACCENT_G * 0.6; gfx_b = COL_ACCENT_B * 0.6;
+  gfx_rect(pt_edit_x, pt_edit_y, 60, 1);
+  gfx_rect(pt_edit_x, pt_edit_y + 149, 60, 1);
+  gfx_rect(pt_edit_x, pt_edit_y, 1, 150);
+  gfx_rect(pt_edit_x + 59, pt_edit_y, 1, 150);
+
+  // Header: note name + bias value
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  draw_nc_name(pt_edit_x + 5, pt_edit_y + 4, pt_edit_nc);
+  gfx_drawstr(": ");
+  pt_cur_bias >= 0 ? gfx_drawstr("+");
+  gfx_drawnumber(pt_cur_bias, 1);
+  gfx_drawstr("c");
+
+  // Slider track
+  pt_vs_x = pt_edit_x + 10;
+  pt_vs_y = pt_edit_y + 24;
+  pt_vs_w = 40;
+  pt_vs_h = 116;
+  pt_vs_center_y = pt_vs_y + pt_vs_h / 2;
+
+  // Track background
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(pt_vs_x, pt_vs_y, pt_vs_w, pt_vs_h);
+
+  // Center line (0 cents)
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(pt_vs_x, pt_vs_center_y, pt_vs_w, 1);
+
+  // Fill from center
+  abs(pt_cur_bias) > 0.1 ? (
+    pt_fill_norm = pt_cur_bias / 50;
+    pt_fill_norm = max(-1, min(1, pt_fill_norm));
+    pt_fill_h = abs(pt_fill_norm) * (pt_vs_h / 2);
+    gfx_r = COL_ACCENT_R * 0.7; gfx_g = COL_ACCENT_G * 0.7; gfx_b = COL_ACCENT_B * 0.7;
+    pt_fill_norm > 0 ? (
+      gfx_rect(pt_vs_x, pt_vs_center_y - pt_fill_h, pt_vs_w, pt_fill_h);
+    ) : (
+      gfx_rect(pt_vs_x, pt_vs_center_y, pt_vs_w, pt_fill_h);
+    );
+  );
+
+  // Thumb line
+  pt_thumb_y = pt_vs_center_y - (pt_cur_bias / 50) * (pt_vs_h / 2);
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gfx_rect(pt_vs_x, pt_thumb_y - 1, pt_vs_w, 3);
+
+  // Drag interaction
+  mouse_cap & 1 ? (
+    mouse_x >= pt_vs_x && mouse_x < pt_vs_x + pt_vs_w &&
+    mouse_y >= pt_vs_y && mouse_y < pt_vs_y + pt_vs_h ? (
+      pt_edit_dragging = 1;
+    );
+    pt_edit_dragging ? (
+      pt_new_bias = ((pt_vs_center_y - mouse_y) / (pt_vs_h / 2)) * 50;
+      pt_new_bias = max(-50, min(50, pt_new_bias));
+      abs(pt_new_bias) < 2 ? pt_new_bias = 0;
+      PT_BIAS[pt_edit_nc] = pt_new_bias;
+    );
+  ) : (
+    pt_edit_dragging = 0;
+  );
+
+  // Close on left-click outside overlay (not while dragging)
+  (mouse_cap & 1) && !(last_cap & 1) && !pt_edit_dragging ? (
+    !(mouse_x >= pt_edit_x && mouse_x < pt_edit_x + 60 &&
+      mouse_y >= pt_edit_y && mouse_y < pt_edit_y + 150) ? (
+      pt_edit_open = 0;
+    );
+  );
+
+  // Close on right-click outside the note bars (but not on the frame that opened it)
+  !pt_edit_handled && (mouse_cap & 2) && !(last_cap & 2) ? (
+    !(mouse_x >= pt_bar_area_x && mouse_x < pt_bar_area_x + pt_bar_area_w &&
+      mouse_y >= pt_bar_area_y && mouse_y < pt_bar_area_y + pt_bar_area_h + pt_label_h) ? (
+      pt_edit_open = 0;
+    );
+  );
+);
+
+  // ============================================================
+  // INSTANCE MANAGER PANEL
+  // ============================================================
+  bc_rows_per_page = 5;
+  bc_row_h = floor(14 * S);
+  bc_bar_h = floor(30 * S);
+  bc_btn_h = floor(20 * S);
+  bc_panel_h = bc_panel_expanded ? (bc_bar_h + bc_rows_per_page * bc_row_h + floor(18 * S)) : bc_bar_h;
+  bc_panel_y = gfx_h - bc_panel_h;
+
+  gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
+  gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(0, bc_panel_y, gfx_w, 1);
+
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+  gfx_x = floor(8 * S); gfx_y = bc_panel_y + floor(8 * S);
+  bc_my_slot >= 0 ? (
+    gfx_drawstr("I");
+    gfx_drawnumber(bc_my_slot + 1, 0);
+    gfx_drawstr("/");
+    gfx_drawnumber(bc_instance_count, 0);
+  ) : (
+    gfx_drawstr("--");
+  );
+
+  bc_following > 0 ? (
+    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
+    gfx_drawstr("  Following: I");
+    bc_fs = 0;
+    loop(BC_MAX_INST,
+      fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
+      gmem[fsb + 1] == bc_following ? (
+        gfx_drawnumber(bc_fs + 1, 0);
+        bc_fs = BC_MAX_INST;
+      );
+      bc_fs += 1;
+    );
+  ) : (
+    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
+    gfx_drawstr("  Following: --");
+  );
+
+  exp_x = gfx_w - floor(200 * S);
+  exp_y = bc_panel_y + floor(4 * S);
+  exp_w = floor(65 * S);
+  exp_h = floor(20 * S);
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+  gfx_rect(exp_x, exp_y, exp_w, exp_h);
+  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
+  gfx_x = exp_x + floor(5 * S); gfx_y = exp_y + floor(4 * S);
+  bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
+    mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
+    bc_panel_expanded = !bc_panel_expanded;
+    bc_steal_mode = 0;
+  );
+
+  stl_x = gfx_w - floor(125 * S);
+  stl_y = bc_panel_y + floor(4 * S);
+  stl_w = floor(50 * S);
+  stl_h = floor(20 * S);
+  bc_steal_mode ? (
+    gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
+  ) : (
+    gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
+  );
+  gfx_rect(stl_x, stl_y, stl_w, stl_h);
+  gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
+  gfx_x = stl_x + floor(6 * S); gfx_y = stl_y + floor(4 * S);
+  gfx_drawstr("STEAL");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
+    mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
+    bc_steal_mode = !bc_steal_mode;
+    !bc_panel_expanded ? bc_panel_expanded = 1;
+  );
+
+  bc_following > 0 ? (
+    unf_x = gfx_w - floor(65 * S);
+    unf_y = bc_panel_y + floor(4 * S);
+    unf_w = floor(55 * S);
+    unf_h = floor(20 * S);
+    gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
+    gfx_rect(unf_x, unf_y, unf_w, unf_h);
+    gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
+    gfx_x = unf_x + floor(4 * S); gfx_y = unf_y + floor(4 * S);
+    gfx_drawstr("UNFLW");
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
+      mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
+      bc_following = 0;
+      bc_follow_slot = -1;
+    );
+  );
+
+  bc_panel_expanded ? (
+    row_y = bc_panel_y + bc_bar_h;
+    row_h = bc_row_h;
+    bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
+    bc_page < 0 ? bc_page = 0;
+    bc_active_slots = 0;
+    bc_si = 0;
+    loop(BC_MAX_INST,
+      gmem[BC_MY_REGION + bc_si * BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
+      bc_si += 1;
+    );
+    bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
+    bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
+    pg_btn_w = floor(18 * S); pg_btn_h = floor(14 * S);
+    pg_prev_x = floor(8 * S); pg_prev_y = bc_panel_y + bc_bar_h + bc_rows_per_page * row_h + floor(2 * S);
+    bc_total_pages > 1 ? (
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + floor(4 * S); gfx_y = pg_prev_y + floor(2 * S);
+      gfx_drawstr("<");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page > 0 ? bc_page -= 1;
+      );
+      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
+      gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
+      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+      gfx_x = pg_prev_x + pg_btn_w + floor(6 * S); gfx_y = pg_prev_y + floor(2 * S);
+      gfx_drawstr(">");
+      (mouse_cap & 1) && !(last_cap & 1) &&
+        mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
+        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+        bc_page < bc_total_pages - 1 ? bc_page += 1;
+      );
+      gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
+      gfx_x = pg_prev_x + pg_btn_w * 2 + floor(8 * S); gfx_y = pg_prev_y + floor(2 * S);
+      gfx_drawnumber(bc_page + 1, 0);
+      gfx_drawstr("/");
+      gfx_drawnumber(bc_total_pages, 0);
+      bc_page != bc_my_page ? (
+        you_x = pg_prev_x + pg_btn_w * 2 + floor(40 * S);
+        gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+        gfx_rect(you_x, pg_prev_y, floor(30 * S), pg_btn_h);
+        gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+        gfx_x = you_x + floor(3 * S); gfx_y = pg_prev_y + floor(2 * S);
+        gfx_drawstr("YOU");
+        (mouse_cap & 1) && !(last_cap & 1) &&
+          mouse_x >= you_x && mouse_x < you_x + floor(30 * S) &&
+          mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
+          bc_page = bc_my_page;
+        );
+      );
+    );
+    bc_page_start = bc_page * bc_rows_per_page;
+    bc_page_end = bc_page_start + bc_rows_per_page - 1;
+    bc_visible = 0;
+    bc_s = 0;
+    loop(BC_MAX_INST,
+      isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
+      isid = gmem[isb + 1];
+      isid > 0 ? (
+        bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
+          draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
+          mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+            mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) &&
+            bc_s != bc_my_slot ? (
+            gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+            gfx_rect(floor(4 * S), draw_row_y, gfx_w - floor(8 * S), row_h);
+          );
+          gfx_setfont(1, "Arial", F_TINY);
+          bc_s == bc_my_slot ? (
+            gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
+          ) : (
+            gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
+          );
+          gfx_x = floor(12 * S); gfx_y = draw_row_y + floor(1 * S);
+          gfx_drawstr("I");
+          gfx_drawnumber(bc_s + 1, 0);
+          gfx_drawstr("  ");
+          bc_s == bc_my_slot ? (
+            gfx_drawstr("[YOU]");
+          ) : (
+            iwho = gmem[isb + 3];
+            bc_has_follower = 0;
+            bc_fsc = 0;
+            loop(BC_MAX_INST,
+              fsb2 = BC_MY_REGION + bc_fsc * BC_SLOT_SIZE;
+              gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
+              bc_fsc += 1;
+            );
+            iwho > 0 ? (
+              gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
+              gfx_drawstr("[FOLLOWER]");
+            ) : bc_has_follower ? (
+              gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
+              gfx_drawstr("[LEADER]");
+            ) : (
+              gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
+              gfx_drawstr("[UNASSIGNED]");
+            );
+            gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
+            bc_steal_mode ? (
+              gfx_drawstr("  click: steal");
+            ) : (
+              gfx_drawstr("  click: follow");
+            );
+            (mouse_cap & 1) && !(last_cap & 1) &&
+              mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
+              mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) ? (
+              bc_steal_mode ? (
+                bc_steal_target = isid;
+                bc_steal_pending = 1;
+                bc_steal_mode = 0;
+              ) : (
+                bc_can_follow = 1;
+                bc_cursor = isid;
+                bc_hops = 0;
+                while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
+                  bc_cursor == bc_my_id ? (
+                    bc_can_follow = 0;
+                    bc_cursor = 0;
+                  ) : (
+                    bc_next = 0;
+                    bc_cs = 0;
+                    loop(BC_MAX_INST,
+                      csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
+                      gmem[csb + 1] == bc_cursor ? (
+                        bc_next = gmem[csb + 3];
+                        bc_cs = BC_MAX_INST;
+                      );
+                      bc_cs += 1;
+                    );
+                    bc_cursor = bc_next;
+                  );
+                  bc_hops += 1;
+                );
+                bc_can_follow ? (
+                  bc_following = isid;
+                );
+              );
+            );
+          );
+        );
+        bc_visible += 1;
+      );
+      bc_s += 1;
+    );
+  );
+
+  last_cap = mouse_cap;
+
+  // --- BUY + NOTICE BUTTONS ---
+  notice_btn_x = gfx_w - floor(60 * S);
+  notice_btn_y = bc_panel_y - floor(18 * S);
+  buy_btn_x = notice_btn_x - floor(50 * S);
+  buy_btn_y = notice_btn_y;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+  gfx_drawstr("BUY");
+  (mouse_cap & 1) && mouse_x >= buy_btn_x && mouse_x <= buy_btn_x + floor(45 * S) && mouse_y >= buy_btn_y && mouse_y <= buy_btn_y + floor(15 * S) && !buy_clicked ? (
+    buy_show = !buy_show; buy_show ? notice_show = 0;
+    buy_clicked = 1;
+  );
+  !(mouse_cap & 1) ? buy_clicked = 0;
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+  gfx_drawstr("NOTICE");
+  (mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
+    notice_show = !notice_show; notice_show ? buy_show = 0;
+    notice_clicked = 1;
+  );
+  !(mouse_cap & 1) ? notice_clicked = 0;
+  buy_show ? lms_gfx_buy();
+  notice_show ? lms_gfx_notice();
+
+@serialize
+
+// ---- Format detection via magic number ----
+PT_SERIAL_MAGIC = 1347568964;
+pt_serial_magic_val = PT_SERIAL_MAGIC;
+file_var(0, pt_serial_magic_val);
+
+pt_serial_magic_val == PT_SERIAL_MAGIC ? (
+  // ---- New format (v1+) ----
+  pt_serial_version = 2;
+  file_var(0, pt_serial_version);
+
+  file_var(0, bc_following);
+  file_var(0, bc_my_id);
+
+  // v1: Pitch Tendencies data
+  pt_serial_version >= 1 ? (
+    pt_si = 0;
+    loop(12, file_var(0, PT_SUM[pt_si]); pt_si += 1);
+    pt_si = 0;
+    loop(12, file_var(0, PT_WGT[pt_si]); pt_si += 1);
+    pt_si = 0;
+    loop(12, file_var(0, PT_BIAS[pt_si]); pt_si += 1);
+    file_var(0, pt_locked);
+  );
+
+  // v2: Detection state (auto-range + note latch)
+  pt_serial_version >= 2 ? (
+    file_var(0, scale_root);
+    file_var(0, scale_mask);
+    file_var(0, min_note_sec);
+    file_var(0, vi_ar_min);
+    file_var(0, vi_ar_max);
+    file_var(0, vi_ar_count);
+    file_var(0, vi_ar_active);
+    file_var(0, held_note);
+    file_var(0, held_freq);
+  );
+) : (
+  // ---- Legacy format (pre-tendencies) ----
+  // pt_serial_magic_val consumed the old bc_following value
+  bc_following = pt_serial_magic_val;
+  file_var(0, bc_my_id);
+
+  // Initialize tendency data to defaults
+  pt_si = 0;
+  loop(12,
+    PT_SUM[pt_si] = 0;
+    PT_WGT[pt_si] = 0;
+    PT_BIAS[pt_si] = 0;
+    pt_si += 1;
+  );
+);

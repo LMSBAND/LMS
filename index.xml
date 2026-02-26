@@ -23,6 +23,16 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="4.0" author="LMS" time="2026-02-23T12:00:00Z">
+        <changelog><![CDATA[v4.0 — Section 12: Pitch Detection & Correction. YIN pitch detector (lms_yin_init/write/detect — monophonic vocal pitch tracking with cumulative mean normalized difference, parabolic interpolation, built-in confidence). Dual-tap pitch shifter (lms_pshift_init/proc — sin^2 crossfaded variable delay for click-free pitch shifting, uses lms_interp_cubic). Scale snap helper (lms_snap_to_scale — bitmask-based scale lookup). Scale mask constants (LMS_SCALE_CHROMATIC/MAJOR/MINOR). Powers the new LMS Pitch Detector and LMS Autotune plugins.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+      <version name="4.1" author="LMS" time="2026-02-25T12:00:00Z">
+        <changelog><![CDATA[v4.1 — Opto density tracker (lms_opto_hd_init/proc) exposed as standalone 4-band voiced/unvoiced classifier for pitch detection intelligence. Used by both LMS Pitch Detector and LMS Autotune for density-gated YIN decimation. No API changes to existing functions.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -364,6 +374,26 @@
       <version name="2.0" author="LMS" time="2026-02-23T00:00:00Z">
         <changelog><![CDATA[v2.0 — Cross-instance drum command center. Remote threshold adjustment: right-click any peer row to adjust that drum's gate threshold from current instance. Phase correction system: OH (Overheads) drum type with independent gating, one-hit calibration measures sample-accurate offset between close mics and overheads, stereo OH averaging, persistent offset via serialize, CLR to reset. OH instances get CAL ALL button to arm every close mic simultaneously. Phase View: live visualization overlay with wobbling circles per close mic — red/wobbly when out of phase, green/smooth when aligned. Peer panel phase indicators (green dot = corrected). Plugin delay compensation for phase correction delay.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
+      <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
+        <changelog><![CDATA[Initial release — YIN pitch detection algorithm for monophonic vocals (80Hz-1kHz). Publishes detected frequency, confidence, MIDI note, and cents offset to shared pitch bus (gmem 950000). MIDI note-on/off output for vocoder and synth triggering. Adjustable sensitivity threshold, frequency range, and MIDI channel. Real-time pitch display with note name, cents meter, and confidence bar. Broadcast follow/steal.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-02-25T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Vocal Intelligence upgrade. 4-band density tracker for voiced/unvoiced classification (skips YIN when unvoiced, ~60% CPU savings on speech). YIN decimation gate (skip redundant detections when locked on confident note). Pitch velocity tracking (semitones/sec, smoothed). Onset detection (3dB rise threshold for note attacks). Vibrato detection (ring buffer zero-crossing rate + depth estimation, 3-12Hz). Auto-ranging (learns singer's frequency range, narrows YIN search bounds with asymmetric smoothing). Publishes all intelligence data to pitch bus slots 8-15. Fixed voiced threshold for reliable detection across input levels. Safety net: YIN runs every 4th block even when unvoiced to prevent stale lockups.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_autotune.jsfx" type="effect" desc="LMS - Autotune — Intelligent Pitch Correction">
+      <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
+        <changelog><![CDATA[Initial release — Real-time pitch correction reading from LMS Pitch Detector via shared memory (zero detection overhead). Dual-tap variable delay with sin^2 crossfade for click-free pitch shifting. Speed control: 0% = bypass, 50% = smooth natural correction, 100% = hard tune (T-Pain). Key selection (C-B) with Chromatic, Major, and Minor scale modes. Bitmask scale snapping. Dry/wet mix. Output gain. IN/OUT pitch display with correction amount visualization. Broadcast follow/steal.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_autotune.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-02-25T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Embedded pitch detection + Vocal Intelligence. No longer requires standalone pitch detector — detects and corrects in one plugin. Full YIN detector with 4-band density tracker, voiced/unvoiced classification, YIN decimation, auto-ranging. Lookahead buffer (0-15ms) lets detection results arrive before audio hits the pitch shifter for cleaner note transitions. Signal conditioning: input HPF (80Hz), output DC blocker, tone filter (16kHz). Velocity-aware speed modulation (backs off during fast transitions). Onset snap (tighter correction on note attacks). Vibrato preservation (reduces correction during detected vibrato). Pitch Tendencies: per-note bias tracking learns singer's pitch habits (auto-locks after 10 observations per note), right-click bias editor for manual adjustment, LOCK/RESET buttons. Dry/wet as ratio fold (eliminates comb filtering). Compact PSOLA buffer (1024 samples, ~10ms delay). Still publishes to gmem pitch bus for vocoder compatibility. Serialization v2 with backward compat.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_autotune.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">

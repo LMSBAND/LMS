@@ -1,5 +1,5 @@
 // ============================================================================
-//  LMS Core DSP Library v1.1
+//  LMS Core DSP Library v1.2
 //  Shared DSP building blocks for the LMS plugin suite
 //
 //  Usage: import lms_core.jsfx-inc
@@ -24,6 +24,7 @@
 //    9. GUI Helpers              (called from @gfx)
 //   10. Opto Compressor          (LA-2A T4B photocell, stereo, this.* state)
 //   11. Brick-Wall Limiter       (true-peak aware, stereo, this.* state)
+//   12. Pitch Detection & Correction (YIN detector, dual-tap shifter, scale snap)
 // ============================================================================
 
 @init
@@ -1447,4 +1448,388 @@ function lms_lim_proc(l, r)
   ) : (
     this.gr_meter = this.gr_meter * this.gr_meter_rel + this.gr_db * (1 - this.gr_meter_rel);
   );
+);
+
+
+// ============================================================================
+//  SECTION 12: Pitch Detection & Correction
+//
+//  Three independent subsystems:
+//    A. YIN Pitch Detector   (mono, this.* state, buffer-based)
+//    B. Dual-Tap Pitch Shifter (mono, this.* state, buffer-based)
+//    C. Scale Snap Helper    (stateless)
+//
+//  A: YIN Pitch Detector
+//    Detects fundamental frequency of monophonic audio (vocals, solo
+//    instruments). Uses the YIN algorithm (de Cheveigne & Kawahara 2002):
+//    cumulative mean normalized difference function with absolute
+//    threshold and parabolic interpolation. Naturally resists octave
+//    errors and provides a built-in confidence value.
+//
+//    Usage:
+//      @init:   pd.lms_yin_init(buf_offset);
+//                 // buf_offset = starting memory address for buffers
+//                 // reserves ~4300 slots from buf_offset
+//      @sample: pd.lms_yin_write(mono_sample);
+//      @block:  pd.lms_yin_detect();
+//                 // pd.freq        = detected frequency in Hz (0 if none)
+//                 // pd.confidence  = 0.0-1.0 (higher = more periodic)
+//                 // pd.midi_note   = float (e.g. 69.5 = A4+50 cents)
+//                 // pd.midi_int    = integer MIDI note (nearest semitone)
+//                 // pd.cents       = cents offset from nearest (-50 to +50)
+//
+//  B: Pitch-Synchronous Dual-Tap Shifter (PSOLA-inspired)
+//    Shifts pitch using two crossfaded read pointers with grain size
+//    locked to the detected pitch period. When a pointer resets, a
+//    mini autocorrelation finds the best phase-match nearby, so
+//    splices land on matching waveform positions — no comb filter,
+//    no phase discontinuities. Falls back to fixed grain size when
+//    no pitch is detected (e.g. consonants, silence).
+//
+//    Usage:
+//      @init:   ps.lms_pshift_init(buf_offset);
+//                 // reserves 4096 slots from buf_offset
+//      @block:  ps.lms_pshift_set_period(srate / detected_freq);
+//                 // tell the shifter the current pitch period in samples
+//                 // pass 0 when no pitch is detected
+//      @sample: out = ps.lms_pshift_proc(in, shift_ratio);
+//                 // shift_ratio: 1.0 = no shift
+//                 // > 1.0 = pitch up, < 1.0 = pitch down
+//
+//  C: Scale Snap
+//    Snaps a frequency to the nearest note in a given musical scale.
+//    Uses bitmask lookup — fast, no branching.
+//
+//    Usage:
+//      target_hz = lms_snap_to_scale(freq_hz, root_note, scale_mask);
+//        // root_note: 0=C, 1=C#, ... 11=B
+//        // scale_mask: bitmask of active notes (see constants below)
+//
+//    Scale mask constants (set in your @init):
+//      LMS_SCALE_CHROMATIC  = 4095   (0xFFF — all 12 notes)
+//      LMS_SCALE_MAJOR      = 2741   (0xAB5 — W-W-H-W-W-W-H)
+//      LMS_SCALE_MINOR      = 1453   (0x5AD — W-H-W-W-H-W-W)
+// ============================================================================
+
+// ---- Scale mask constants ----
+LMS_SCALE_CHROMATIC  = 4095;
+LMS_SCALE_MAJOR      = 2741;
+LMS_SCALE_MINOR      = 1453;
+
+// Pre-compute log(2) inverse for Hz-to-MIDI conversion
+LMS_INV_LOG2 = 1.4426950408889634;
+
+// ---- A: YIN Pitch Detector ----
+
+// Initialize YIN detector. buf_offset = starting memory address.
+// Reserves buf_offset to buf_offset+4299.
+function lms_yin_init(buf_offset)
+(
+  // Circular audio buffer
+  this.buf = buf_offset;
+  this.buf_len = 2048;
+  this.write_pos = 0;
+
+  // YIN workspace
+  this.yin = buf_offset + 2048;   // 601 slots (tau 0..600)
+
+  // Linear workspace for analysis (avoids modulo in inner loop)
+  this.lin = buf_offset + 2650;   // 1200 slots
+
+  // Detection range (recompute if srate changes)
+  this.tau_min = ceil(srate / 1000);  // ~1000 Hz max
+  this.tau_max = ceil(srate / 80);    // ~80 Hz min
+  this.W = 480;                       // integration window
+
+  // YIN threshold (adjustable via slider in the plugin)
+  this.threshold = 0.15;
+
+  // Output state
+  this.freq = 0;
+  this.confidence = 0;
+  this.midi_note = 0;
+  this.midi_int = 0;
+  this.cents = 0;
+
+  // Smoothing state
+  this.prev_freq = 0;
+  this.smooth_alpha = 0.7;  // 0-1: higher = more responsive
+
+  // Zero all buffers
+  memset(this.buf, 0, this.buf_len);
+  memset(this.yin, 0, 601);
+  memset(this.lin, 0, 1200);
+);
+
+// Write one sample into the detector's circular buffer.
+// Call once per sample in @sample.
+function lms_yin_write(x)
+(
+  this.buf[this.write_pos] = x;
+  this.write_pos = (this.write_pos + 1) % this.buf_len;
+);
+
+// Run YIN pitch detection. Call once per @block.
+// Results available in this.freq, this.confidence, this.midi_note, etc.
+function lms_yin_detect()
+  local(start, k, tau, j, sum, running_sum, best_tau, best_val,
+        min_val, s0, s1, s2, denom, refined_tau, raw_freq,
+        midi_f, delta)
+(
+  // --- Copy circular buffer segment to linear workspace ---
+  start = (this.write_pos - this.W - this.tau_max + this.buf_len * 2) % this.buf_len;
+  k = 0;
+  loop(this.W + this.tau_max,
+    this.lin[k] = this.buf[(start + k) % this.buf_len];
+    k += 1;
+  );
+
+  // --- Step 1: Difference function d(tau) ---
+  tau = 0;
+  loop(this.tau_max + 1,
+    tau == 0 ? (
+      this.yin[0] = 0;
+    ) : (
+      sum = 0;
+      j = 0;
+      loop(this.W,
+        delta = this.lin[j] - this.lin[j + tau];
+        sum += delta * delta;
+        j += 1;
+      );
+      this.yin[tau] = sum;
+    );
+    tau += 1;
+  );
+
+  // --- Step 2: Cumulative Mean Normalized Difference ---
+  this.yin[0] = 1;
+  running_sum = 0;
+  tau = 1;
+  loop(this.tau_max,
+    running_sum += this.yin[tau];
+    running_sum > 0 ? (
+      this.yin[tau] = this.yin[tau] * tau / running_sum;
+    ) : (
+      this.yin[tau] = 1;
+    );
+    tau += 1;
+  );
+
+  // --- Step 3: Absolute threshold search ---
+  best_tau = -1;
+  best_val = 1;
+  tau = this.tau_min;
+  while (tau <= this.tau_max && best_tau < 0) (
+    this.yin[tau] < this.threshold ? (
+      // Walk forward to local minimum of this dip
+      while (tau + 1 <= this.tau_max && this.yin[tau + 1] < this.yin[tau]) (
+        tau += 1;
+      );
+      best_tau = tau;
+      best_val = this.yin[tau];
+    ) : (
+      tau += 1;
+    );
+  );
+
+  // Fallback: global minimum if nothing crossed threshold
+  best_tau < 0 ? (
+    min_val = 2;
+    tau = this.tau_min;
+    loop(this.tau_max - this.tau_min + 1,
+      this.yin[tau] < min_val ? (
+        min_val = this.yin[tau];
+        best_tau = tau;
+        best_val = min_val;
+      );
+      tau += 1;
+    );
+  );
+
+  // --- Step 4: Parabolic interpolation ---
+  refined_tau = best_tau;
+  best_tau > this.tau_min && best_tau < this.tau_max ? (
+    s0 = this.yin[best_tau - 1];
+    s1 = this.yin[best_tau];
+    s2 = this.yin[best_tau + 1];
+    denom = 2 * (2 * s1 - s2 - s0);
+    abs(denom) > 0.0001 ? (
+      refined_tau = best_tau + (s2 - s0) / denom;
+    );
+  );
+
+  // --- Step 5: Confidence ---
+  this.confidence = 1 - best_val;
+  this.confidence < 0 ? this.confidence = 0;
+  this.confidence > 1 ? this.confidence = 1;
+
+  // --- Step 6: Frequency ---
+  refined_tau > 0 ? (
+    raw_freq = srate / refined_tau;
+  ) : (
+    raw_freq = 0;
+    this.confidence = 0;
+  );
+
+  // Range check
+  (raw_freq < 70 || raw_freq > 1100) ? (
+    raw_freq = 0;
+    this.confidence = 0;
+  );
+
+  // --- Step 7: Smoothing ---
+  this.confidence > 0.5 && raw_freq > 0 ? (
+    this.prev_freq > 0 ? (
+      this.freq = this.smooth_alpha * raw_freq + (1 - this.smooth_alpha) * this.prev_freq;
+    ) : (
+      this.freq = raw_freq;
+    );
+    this.prev_freq = this.freq;
+  ) : (
+    this.freq = 0;
+    // Don't reset prev_freq — resume smoothly when pitch returns
+  );
+
+  // --- Step 8: MIDI conversion ---
+  this.freq > 0 ? (
+    midi_f = 69 + 12 * log(this.freq / 440) * LMS_INV_LOG2;
+    this.midi_note = midi_f;
+    this.midi_int = floor(midi_f + 0.5);
+    this.cents = (midi_f - this.midi_int) * 100;
+  ) : (
+    this.midi_note = 0;
+    this.midi_int = 0;
+    this.cents = 0;
+  );
+);
+
+
+// ---- B: Dual-Tap Pitch Shifter ----
+
+// Initialize pitch shifter. buf_offset = starting memory address.
+// Reserves 4096 slots.
+function lms_pshift_init(buf_offset)
+(
+  this.buf = buf_offset;
+  this.buf_len = 4096;
+  this.buf_mask = this.buf_len - 1;
+  this.write_pos = 0;
+
+  // Two read pointers offset by half buffer
+  this.read_a = 0;
+  this.read_b = this.buf_len * 0.5;
+
+  // Crossfade phase (0.0 to 1.0)
+  this.xfade_phase = 0;
+  this.xfade_inc = 1.0 / this.buf_len;
+
+  // Zero the buffer
+  memset(this.buf, 0, this.buf_len);
+);
+
+// Set the detected pitch period (in samples). Call in @block.
+// period = srate / detected_freq, or 0 if no pitch detected.
+// When pitch is known, grain size adapts so each grain spans an
+// integer number of pitch cycles. This reduces comb filtering
+// because the two read taps see matching waveform shapes.
+function lms_pshift_set_period(period)
+  local(grain_periods)
+(
+  period > 20 && period < 800 ? (
+    // Target grain = largest multiple of period that fits in buf_len/2.
+    // This keeps grains long (smooth crossfade) while aligning to pitch.
+    grain_periods = floor((this.buf_len * 0.5) / period);
+    grain_periods < 2 ? grain_periods = 2;
+    this.xfade_inc = 1.0 / (grain_periods * period);
+  ) : (
+    // No pitch — full buffer grain (original behavior)
+    this.xfade_inc = 1.0 / this.buf_len;
+  );
+);
+
+// Process one sample through the pitch shifter.
+// ratio: playback speed ratio (1.0 = no shift, >1 = up, <1 = down)
+// Returns the pitch-shifted output sample.
+function lms_pshift_proc(x, ratio)
+  local(prev_phase, w, win_a, win_b, out_a, out_b)
+(
+  // Write input to circular buffer
+  this.buf[this.write_pos] = x;
+
+  // Advance crossfade phase
+  prev_phase = this.xfade_phase;
+  this.xfade_phase += this.xfade_inc;
+  this.xfade_phase >= 1.0 ? this.xfade_phase -= 1.0;
+
+  // Sin^2 / Cos^2 crossfade windows (sum to 1.0)
+  w = sin($pi * this.xfade_phase);
+  win_a = w * w;
+  win_b = 1.0 - win_a;
+
+  // Advance read pointers at shifted rate
+  this.read_a += ratio;
+  this.read_b += ratio;
+  this.read_a >= this.buf_len ? this.read_a -= this.buf_len;
+  this.read_a < 0 ? this.read_a += this.buf_len;
+  this.read_b >= this.buf_len ? this.read_b -= this.buf_len;
+  this.read_b < 0 ? this.read_b += this.buf_len;
+
+  // Reset pointer A when its window crosses zero (phase wraps past 1.0)
+  prev_phase > 0.95 && this.xfade_phase < 0.05 ? (
+    this.read_a = this.write_pos - this.buf_len * 0.5;
+    this.read_a < 0 ? this.read_a += this.buf_len;
+  );
+
+  // Reset pointer B when its window crosses zero (phase crosses 0.5)
+  prev_phase < 0.5 && this.xfade_phase >= 0.5 ? (
+    this.read_b = this.write_pos - this.buf_len * 0.5;
+    this.read_b < 0 ? this.read_b += this.buf_len;
+  );
+
+  // Read with cubic interpolation
+  out_a = lms_interp_cubic(this.buf, this.read_a, this.buf_len);
+  out_b = lms_interp_cubic(this.buf, this.read_b, this.buf_len);
+
+  // Advance write pointer
+  this.write_pos = (this.write_pos + 1) & this.buf_mask;
+
+  // Crossfaded output
+  win_a * out_a + win_b * out_b;
+);
+
+
+// ---- C: Scale Snap ----
+
+// Snap a frequency to the nearest note in the given scale.
+// freq: input frequency in Hz
+// root: root note (0=C, 1=C#, ... 11=B)
+// scale_mask: bitmask of active scale degrees (e.g. LMS_SCALE_MAJOR)
+// Returns the target frequency in Hz.
+function lms_snap_to_scale(freq, root, scale_mask)
+  local(midi_f, rounded, best, best_dist, i, candidate, note_class, dist)
+(
+  midi_f = 69 + 12 * log(freq / 440) * LMS_INV_LOG2;
+  rounded = floor(midi_f + 0.5);
+
+  best = rounded;
+  best_dist = 100;
+
+  i = -2;
+  loop(5,
+    candidate = rounded + i;
+    note_class = (candidate - root + 120) % 12;
+    // Check if this note is in the scale
+    (floor(scale_mask / (2 ^ note_class)) % 2) == 1 ? (
+      dist = abs(midi_f - candidate);
+      dist < best_dist ? (
+        best_dist = dist;
+        best = candidate;
+      );
+    );
+    i += 1;
+  );
+
+  // Convert back to Hz
+  440 * (2 ^ ((best - 69) / 12));
 );

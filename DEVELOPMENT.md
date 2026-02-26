@@ -67,9 +67,40 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_density_limiter | 19 | 820000 | 820032 |
 | lms_drum_trigger | 20 | 830000 | 830032 |
 | lms_smart_gate | 21 | 840000 | 840032 |
-| **your new plugin** | **22+** | **pick unused** | **HB + 32** |
+| lms_pitch_detector | 22 | 850000 | 850032 |
+| lms_autotune | 23 | 860000 | 860032 |
+| **your new plugin** | **24+** | **pick unused** | **HB + 32** |
 
-For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `810000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
+For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `870000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
+
+### Pitch Bus (shared gmem region)
+
+The pitch detector publishes pitch data to a dedicated gmem region that any plugin can read. This is separate from the per-plugin broadcast regions.
+
+```
+PITCH_BUS_BASE = 950000
+
+gmem[950000] = detected frequency (Hz), 0 if no pitch
+gmem[950001] = confidence (0.0 - 1.0)
+gmem[950002] = MIDI note float (e.g. 69.5 = A4 + 50 cents)
+gmem[950003] = MIDI note integer (nearest semitone)
+gmem[950004] = cents offset (-50 to +50)
+gmem[950005] = detector heartbeat (increments each @block)
+gmem[950006] = target frequency (scale-snapped, held with permanence)
+gmem[950007] = target MIDI note integer (scale-snapped, held), -1 if no lock
+gmem[950008] = pitch velocity (semitones/sec, ~-200 to +200)
+gmem[950009] = voiced flag (0 or 1)
+gmem[950010] = onset flag (0 or 1, fires once per block on transient)
+gmem[950011] = vibrato rate (Hz, 0-12, only reports 3-12 Hz with confidence)
+gmem[950012] = vibrato depth (cents peak-to-peak, 0-200)
+gmem[950013] = density total (1.0-2.5, from 4-band opto density tracker)
+gmem[950014] = mid density (0.0-1.0, vocal formant energy ratio)
+gmem[950015] = air density (0.0-1.0, high frequency energy ratio)
+```
+
+The pitch detector owns key/scale selection and note hold logic. It publishes both the raw detection (950000-950004) and the clean, quantized target (950006-950007). Slots 8-15 ("Vocal Intelligence") provide signal classification data — voiced/unvoiced, onsets, vibrato, pitch velocity, and spectral density. The autotune uses this to gate correction during unvoiced segments, modulate speed during transitions, snap on onsets, and preserve natural vibrato.
+
+Any plugin that wants pitch data just reads from these addresses. The autotune plugin reads from here. Future plugins (harmonizer, adaptive EQ, visualizer) can too.
 
 ### 3. Update the slider broadcast arrays
 
