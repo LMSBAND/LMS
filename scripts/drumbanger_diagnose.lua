@@ -1,10 +1,44 @@
 -- DRUMBANGER: Diagnose Pool
 -- --------------------------
--- Reports everything in the DRUMBANGER directory. Changes NOTHING.
--- Run this and paste the console output so we can see what's going on.
+-- Searches the ENTIRE Effects tree to find where lms_drumbanger.jsfx
+-- actually lives and where the stock kits are. Changes NOTHING.
+-- Run this and paste the console output.
 
-local function scan_tree(dir, prefix, depth)
+local function find_file(dir, target, depth, results)
   if depth > 6 then return end
+  local i = 0
+  while true do
+    local fname = reaper.EnumerateFiles(dir, i)
+    if not fname then break end
+    if fname == target then
+      results[#results + 1] = dir .. "/" .. fname
+    end
+    i = i + 1
+  end
+  local j = 0
+  while true do
+    local dirname = reaper.EnumerateSubdirectories(dir, j)
+    if not dirname then break end
+    find_file(dir .. "/" .. dirname, target, depth + 1, results)
+    j = j + 1
+  end
+end
+
+local function find_dir(dir, target, depth, results)
+  if depth > 6 then return end
+  local j = 0
+  while true do
+    local dirname = reaper.EnumerateSubdirectories(dir, j)
+    if not dirname then break end
+    if dirname == target then
+      results[#results + 1] = dir .. "/" .. dirname
+    end
+    find_dir(dir .. "/" .. dirname, target, depth + 1, results)
+    j = j + 1
+  end
+end
+
+local function list_dir(dir, prefix)
   local i = 0
   while true do
     local fname = reaper.EnumerateFiles(dir, i)
@@ -17,78 +51,82 @@ local function scan_tree(dir, prefix, depth)
     local dirname = reaper.EnumerateSubdirectories(dir, j)
     if not dirname then break end
     reaper.ShowConsoleMsg("  " .. prefix .. dirname .. "/\n")
-    scan_tree(dir .. "/" .. dirname, prefix .. dirname .. "/", depth + 1)
     j = j + 1
   end
 end
 
 local function main()
   local rp = reaper.GetResourcePath()
-  local db = rp .. "/Effects/DRUMBANGER"
+  local fx = rp .. "/Effects"
 
-  reaper.ShowConsoleMsg("\n========== DRUMBANGER DIAGNOSIS ==========\n")
+  reaper.ShowConsoleMsg("\n============ DRUMBANGER DIAGNOSIS v2 ============\n")
   reaper.ShowConsoleMsg("Resource path: " .. rp .. "\n")
-  reaper.ShowConsoleMsg("DRUMBANGER dir: " .. db .. "\n")
   reaper.ShowConsoleMsg("OS: " .. reaper.GetOS() .. "\n\n")
 
-  reaper.ShowConsoleMsg("--- Everything under DRUMBANGER/ ---\n")
-  scan_tree(db, "", 0)
-
-  reaper.ShowConsoleMsg("\n--- Pool specifically ---\n")
-  local pool = db .. "/pool"
-  local pf = reaper.EnumerateFiles(pool, 0)
-  if pf then
-    reaper.ShowConsoleMsg("pool/ EXISTS, contents:\n")
-    scan_tree(pool, "pool/", 0)
+  -- 1. Find EVERY copy of lms_drumbanger.jsfx
+  reaper.ShowConsoleMsg("--- SEARCH: lms_drumbanger.jsfx ---\n")
+  local jsfx_locations = {}
+  find_file(fx, "lms_drumbanger.jsfx", 0, jsfx_locations)
+  if #jsfx_locations == 0 then
+    reaper.ShowConsoleMsg("  NOT FOUND anywhere under Effects/!\n")
   else
-    reaper.ShowConsoleMsg("pool/ EMPTY or MISSING\n")
-  end
-
-  -- Check for nested pool/pool
-  local pp = pool .. "/pool"
-  local ppf = reaper.EnumerateFiles(pp, 0)
-  local ppd = reaper.EnumerateSubdirectories(pp, 0)
-  if ppf or ppd then
-    reaper.ShowConsoleMsg("\n*** PROBLEM: pool/pool/ EXISTS (nested!) ***\n")
-    scan_tree(pp, "pool/pool/", 0)
-  end
-
-  -- Check for legacy kits/
-  local kits = db .. "/kits"
-  local kf = reaper.EnumerateSubdirectories(kits, 0)
-  if kf then
-    reaper.ShowConsoleMsg("\n*** PROBLEM: kits/ EXISTS (legacy!) ***\n")
-    scan_tree(kits, "kits/", 0)
-  end
-
-  -- Check manifest
-  local mf = io.open(pool .. "/manifest.txt", "r")
-  if mf then
-    local content = mf:read("*a")
-    mf:close()
-    local lines = 0
-    for _ in content:gmatch("[^\n]+") do lines = lines + 1 end
-    reaper.ShowConsoleMsg("\nmanifest.txt: " .. lines .. " entries\n")
-    if lines > 0 then
-      reaper.ShowConsoleMsg(content)
+    for _, path in ipairs(jsfx_locations) do
+      reaper.ShowConsoleMsg("  FOUND: " .. path .. "\n")
     end
-  else
-    reaper.ShowConsoleMsg("\nmanifest.txt: MISSING\n")
   end
 
-  -- Test write ability
-  local test_path = pool .. "/_diagnose_test.tmp"
-  local tf = io.open(test_path, "w")
-  if tf then
-    tf:write("test")
-    tf:close()
-    os.remove(test_path)
-    reaper.ShowConsoleMsg("\nWrite test: OK (can write to pool/)\n")
+  -- 2. Find EVERY Kit1-808 directory
+  reaper.ShowConsoleMsg("\n--- SEARCH: Kit1-808 directory ---\n")
+  local kit_locations = {}
+  find_dir(fx, "Kit1-808", 0, kit_locations)
+  if #kit_locations == 0 then
+    reaper.ShowConsoleMsg("  NOT FOUND anywhere under Effects/!\n")
   else
-    reaper.ShowConsoleMsg("\nWrite test: FAILED (cannot write to pool/!)\n")
+    for _, path in ipairs(kit_locations) do
+      reaper.ShowConsoleMsg("  FOUND: " .. path .. "\n")
+    end
   end
 
-  reaper.ShowConsoleMsg("\n========== END DIAGNOSIS ==========\n")
+  -- 3. Find EVERY pool directory
+  reaper.ShowConsoleMsg("\n--- SEARCH: pool directories ---\n")
+  local pool_locations = {}
+  find_dir(fx, "pool", 0, pool_locations)
+  if #pool_locations == 0 then
+    reaper.ShowConsoleMsg("  NOT FOUND anywhere under Effects/!\n")
+  else
+    for _, path in ipairs(pool_locations) do
+      reaper.ShowConsoleMsg("  FOUND: " .. path .. "\n")
+      list_dir(path, "    ")
+    end
+  end
+
+  -- 4. Show what's directly in Effects/DRUMBANGER/
+  reaper.ShowConsoleMsg("\n--- Effects/DRUMBANGER/ contents ---\n")
+  local db = fx .. "/DRUMBANGER"
+  list_dir(db, "  ")
+
+  -- 5. Show what's directly in Effects/ root (first 30 files)
+  reaper.ShowConsoleMsg("\n--- Effects/ root (files only) ---\n")
+  local i = 0
+  while i < 50 do
+    local fname = reaper.EnumerateFiles(fx, i)
+    if not fname then break end
+    if fname:match("drumbanger") or fname:match("lms_") or fname:match("%.jsfx") then
+      reaper.ShowConsoleMsg("  " .. fname .. "\n")
+    end
+    i = i + 1
+  end
+  -- Also check subdirs
+  reaper.ShowConsoleMsg("\n--- Effects/ subdirectories ---\n")
+  local j = 0
+  while true do
+    local dirname = reaper.EnumerateSubdirectories(fx, j)
+    if not dirname then break end
+    reaper.ShowConsoleMsg("  " .. dirname .. "/\n")
+    j = j + 1
+  end
+
+  reaper.ShowConsoleMsg("\n============ END DIAGNOSIS v2 ============\n")
 end
 
 main()
