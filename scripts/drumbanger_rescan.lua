@@ -4,19 +4,36 @@
 -- Subfolders in pool/ become kits — drop a folder of .wav files to add a kit.
 -- Run this after adding .wav files or folders to pool/.
 --
--- Pool folder: Effects/DRUMBANGER/pool/
---   Drop .wav files at root for loose samples.
---   Drop a FOLDER of .wav files to create a kit.
---   First 16 .wav files (alphabetical) per folder map to pads 1-16.
---
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 -- Assign a keyboard shortcut for quick rescanning.
 
 local GMEM_NAME = "DrumBanger"
-local POOL_DIR = reaper.GetResourcePath() .. "/Effects/DRUMBANGER/pool"
+
+-- Find pool/ by locating the JSFX (works regardless of ReaPack index name)
+local function find_pool()
+  local fx = reaper.GetResourcePath() .. "/Effects"
+  local function search(dir, depth)
+    if depth > 4 then return nil end
+    local i = 0
+    while true do
+      local f = reaper.EnumerateFiles(dir, i)
+      if not f then break end
+      if f == "lms_drumbanger.jsfx" then return dir .. "/pool" end
+      i = i + 1
+    end
+    local j = 0
+    while true do
+      local d = reaper.EnumerateSubdirectories(dir, j)
+      if not d then break end
+      local r = search(dir .. "/" .. d, depth + 1)
+      if r then return r end
+      j = j + 1
+    end
+  end
+  return search(fx, 0) or (fx .. "/DRUMBANGER/pool")
+end
 
 local function scan_dir(base_dir, rel_prefix, results)
-  -- Scan .wav files in this directory
   local i = 0
   while true do
     local fname = reaper.EnumerateFiles(base_dir, i)
@@ -30,8 +47,6 @@ local function scan_dir(base_dir, rel_prefix, results)
     end
     i = i + 1
   end
-
-  -- Recurse into subdirectories
   local j = 0
   while true do
     local dirname = reaper.EnumerateSubdirectories(base_dir, j)
@@ -43,14 +58,14 @@ local function scan_dir(base_dir, rel_prefix, results)
 end
 
 local function main()
-  reaper.RecursiveCreateDirectory(POOL_DIR, 0)
+  local pool_dir = find_pool()
+  reaper.RecursiveCreateDirectory(pool_dir, 0)
 
-  -- Pool scan (includes subfolders = kits)
   local results = {}
-  scan_dir(POOL_DIR, "", results)
+  scan_dir(pool_dir, "", results)
   table.sort(results)
 
-  local f = io.open(POOL_DIR .. "/manifest.txt", "w")
+  local f = io.open(pool_dir .. "/manifest.txt", "w")
   if f then
     for _, entry in ipairs(results) do
       f:write(entry .. "\n")
@@ -58,7 +73,6 @@ local function main()
     f:close()
   end
 
-  -- Count folders (= kits)
   local folders = {}
   for _, entry in ipairs(results) do
     local folder = entry:match("^(.+)/")
@@ -69,14 +83,13 @@ local function main()
   local kit_count = 0
   for _ in pairs(folders) do kit_count = kit_count + 1 end
 
-  -- Signal JSFX to reload
   reaper.gmem_attach(GMEM_NAME)
-  reaper.gmem_write(0, 1)  -- pool rescan signal (also rebuilds kit list)
+  reaper.gmem_write(0, 1)
 
   reaper.ShowConsoleMsg(
     string.format("DRUMBANGER: Pool rescanned — %d samples, %d kits (folders)\n",
       #results, kit_count))
-  reaper.ShowConsoleMsg("  Pool folder: " .. POOL_DIR .. "\n")
+  reaper.ShowConsoleMsg("  Pool folder: " .. pool_dir .. "\n")
 
   if #results == 0 then
     reaper.ShowConsoleMsg(

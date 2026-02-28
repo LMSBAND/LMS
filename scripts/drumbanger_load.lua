@@ -8,8 +8,28 @@
 
 local GMEM_NAME = "DrumBanger"
 
+-- Find pool/ by locating the JSFX (works regardless of ReaPack index name)
 local function get_pool_dir()
-  return reaper.GetResourcePath() .. "/Effects/DRUMBANGER/pool"
+  local fx = reaper.GetResourcePath() .. "/Effects"
+  local function search(dir, depth)
+    if depth > 4 then return nil end
+    local i = 0
+    while true do
+      local f = reaper.EnumerateFiles(dir, i)
+      if not f then break end
+      if f == "lms_drumbanger.jsfx" then return dir .. "/pool" end
+      i = i + 1
+    end
+    local j = 0
+    while true do
+      local d = reaper.EnumerateSubdirectories(dir, j)
+      if not d then break end
+      local r = search(dir .. "/" .. d, depth + 1)
+      if r then return r end
+      j = j + 1
+    end
+  end
+  return search(fx, 0) or (fx .. "/DRUMBANGER/pool")
 end
 
 local function update_manifest(pool_dir)

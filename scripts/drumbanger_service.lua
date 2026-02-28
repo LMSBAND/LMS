@@ -24,6 +24,30 @@ local SAMPLE_RATE     = 48000
 local NUM_CHANNELS    = 2
 local MAX_WAIT_CYCLES = 300       -- ~5 seconds at 60fps defer rate
 
+-- Find pool/ by locating the JSFX (works regardless of ReaPack index name)
+local function find_pool()
+  local fx = reaper.GetResourcePath() .. "/Effects"
+  local function search(dir, depth)
+    if depth > 4 then return nil end
+    local i = 0
+    while true do
+      local f = reaper.EnumerateFiles(dir, i)
+      if not f then break end
+      if f == "lms_drumbanger.jsfx" then return dir .. "/pool" end
+      i = i + 1
+    end
+    local j = 0
+    while true do
+      local d = reaper.EnumerateSubdirectories(dir, j)
+      if not d then break end
+      local r = search(dir .. "/" .. d, depth + 1)
+      if r then return r end
+      j = j + 1
+    end
+  end
+  return search(fx, 0) or (fx .. "/DRUMBANGER/pool")
+end
+
 -- ---- WAV helpers (little-endian) ----
 
 local function write_u16(f, val)
@@ -249,9 +273,8 @@ local function start_sampling()
     track_name = "Master"
   end
 
-  -- Determine pool path
-  local resource_path = reaper.GetResourcePath()
-  local pool_dir = resource_path .. "/Effects/DRUMBANGER/pool"
+  -- Determine pool path (find the JSFX, pool/ is next to it)
+  local pool_dir = find_pool()
   local sampled_dir = pool_dir .. "/sampled"
   reaper.RecursiveCreateDirectory(sampled_dir, 0)
 

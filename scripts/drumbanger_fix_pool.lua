@@ -52,19 +52,47 @@ local function find_wavs(dir, depth, results)
 end
 
 local function main()
-  local resource_path = reaper.GetResourcePath()
-  local db_dir = resource_path .. "/Effects/DRUMBANGER"
+  -- Find the JSFX to determine the correct DRUMBANGER directory
+  local fx_root = reaper.GetResourcePath() .. "/Effects"
+  local db_dir = nil
+  local function find_jsfx(dir, depth)
+    if depth > 4 or db_dir then return end
+    local i = 0
+    while true do
+      local f = reaper.EnumerateFiles(dir, i)
+      if not f then break end
+      if f == "lms_drumbanger.jsfx" then db_dir = dir; return end
+      i = i + 1
+    end
+    local j = 0
+    while true do
+      local d = reaper.EnumerateSubdirectories(dir, j)
+      if not d then break end
+      find_jsfx(dir .. "/" .. d, depth + 1)
+      j = j + 1
+    end
+  end
+  find_jsfx(fx_root, 0)
+  if not db_dir then
+    db_dir = fx_root .. "/DRUMBANGER"
+  end
   local pool_dir = db_dir .. "/pool"
 
   reaper.ShowConsoleMsg("\n====================================\n")
   reaper.ShowConsoleMsg("DRUMBANGER FIX: Rebuilding pool...\n")
   reaper.ShowConsoleMsg("====================================\n")
-  reaper.ShowConsoleMsg("  DRUMBANGER: " .. db_dir .. "\n")
+  reaper.ShowConsoleMsg("  JSFX dir: " .. db_dir .. "\n")
   reaper.ShowConsoleMsg("  Pool target: " .. pool_dir .. "\n\n")
 
-  -- Step 1: Find every .wav file under DRUMBANGER/
+  -- Step 1: Find every .wav file under the JSFX directory
+  -- Also search the entire Effects tree in case wavs are scattered
   local wavs = {}
   find_wavs(db_dir, 0, wavs)
+  -- Also check Effects/DRUMBANGER/ and Effects/DrumBox16/ (legacy paths)
+  local alt_dirs = {fx_root .. "/DRUMBANGER", fx_root .. "/DrumBox16"}
+  for _, alt in ipairs(alt_dirs) do
+    if alt ~= db_dir then find_wavs(alt, 0, wavs) end
+  end
 
   reaper.ShowConsoleMsg("STEP 1: Found " .. #wavs .. " wav files total\n")
 
