@@ -830,6 +830,12 @@
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
       </version>
     </reapack>
+    <reapack name="drumbanger_diagnose.lua" type="script" desc="DRUMBANGER: Diagnose Pool">
+      <version name="1.0" author="LMS" time="2026-02-28T23:55:00Z">
+        <changelog><![CDATA[Initial release — reports everything in the DRUMBANGER directory. Changes nothing. Run this and paste the console output for debugging.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_diagnose.lua</source>
+      </version>
+    </reapack>
     <reapack name="drumbanger_fix_pool.lua" type="script" desc="DRUMBANGER: Fix Pool Directory">
       <version name="1.0" author="LMS" time="2026-02-28T23:50:00Z">
         <changelog><![CDATA[Initial release — nukes and rebuilds the pool directory. Finds all wav files anywhere under DRUMBANGER/ (nested pool/pool/, legacy kits/, wrong paths), reads them into memory, deletes everything, writes them back to the correct location in pool/. Rebuilds manifest and signals JSFX to reload. Run this if your kits don't show up.]]></changelog>
