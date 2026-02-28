@@ -1833,3 +1833,548 @@ function lms_snap_to_scale(freq, root, scale_mask)
   // Convert back to Hz
   440 * (2 ^ ((best - 69) / 12));
 );
+
+
+// ============================================================================
+//  SECTION 13: Cabinet Simulation (density-aware speaker + mic sim)
+//
+//  Provides: preset table, preset loading, speaker breakup, cab bypass.
+//  Each cab instance maintains up to 8 biquad bands + breakup state.
+//
+//  7 real-world cabinet models extracted from LMS amp sims, now shared
+//  and selectable from any amp. Speaker breakup is density-driven:
+//  harder playing compresses the cone, darkens the top end, and excites
+//  cabinet resonance — exactly like a real speaker under load.
+//
+//  Usage:
+//    @init:
+//      lms_cab_table_init();                    // once — populates preset table
+//      cab.lms_cab_init();                      // per-instance
+//    @slider / @block:
+//      cab.lms_cab_set(preset_id);              // 0-7 (0=off)
+//    @sample:
+//      x = cab.lms_cab_proc(x, density);        // density from triode tracker
+// ============================================================================
+
+// ---- Cab constants ----
+CAB_MAX_BANDS    = 8;    // Mesa V30 uses all 8
+CAB_BAND_STRIDE  = 4;    // (type, freq, param1, param2)
+CAB_PRESET_SIZE  = 34;   // 2 header + 8*4 band data
+CAB_PRESET_COUNT = 8;    // 0=Off + 7 cabs
+CAB_TABLE_BASE   = 800000;
+
+// Band types
+CAB_BT_NONE = 0;
+CAB_BT_HP   = 1;
+CAB_BT_LP   = 2;
+CAB_BT_PK   = 3;
+
+// ---- Populate the global cab preset table in memory. Call once per @init. ----
+function lms_cab_table_init()
+  local(p, b)
+(
+  // ---- Preset 0: OFF (bypass) ----
+  p = CAB_TABLE_BASE + 0 * CAB_PRESET_SIZE;
+  p[0] = 0;     // band_count = 0
+  p[1] = 0;     // breakup_freq = 0
+
+  // ---- Preset 1: 1x12 Greenback Open (Frenchie) ----
+  p = CAB_TABLE_BASE + 1 * CAB_PRESET_SIZE;
+  p[0] = 6; p[1] = 3000;
+  b = p + 2;
+  b[0]=1; b[1]=100;  b[2]=0.50; b[3]=0;       // HP 100Hz
+  b[4]=3; b[5]=700;  b[6]=2.0;  b[7]=1.2;     // PK 700Hz +2dB
+  b[8]=3; b[9]=1600; b[10]=-3.0; b[11]=0.8;   // PK 1600Hz -3dB
+  b[12]=3; b[13]=3000; b[14]=4.0; b[15]=1.5;  // PK 3000Hz +4dB (cone breakup)
+  b[16]=2; b[17]=5500; b[18]=0.60; b[19]=0;   // LP 5500Hz
+  b[20]=3; b[21]=90; b[22]=2.0; b[23]=2.5;    // RES 90Hz +2dB (open-back)
+
+  // ---- Preset 2: 1x12 Jensen C12N Open (Deluxe) ----
+  p = CAB_TABLE_BASE + 2 * CAB_PRESET_SIZE;
+  p[0] = 6; p[1] = 2500;
+  b = p + 2;
+  b[0]=1; b[1]=65;   b[2]=0.75; b[3]=0;       // HP 65Hz
+  b[4]=3; b[5]=95;   b[6]=2.2;  b[7]=1.9;     // PK 95Hz +2.2dB
+  b[8]=3; b[9]=650;  b[10]=-2.5; b[11]=0.75;  // PK 650Hz -2.5dB
+  b[12]=3; b[13]=2500; b[14]=2.5; b[15]=1.2;  // PK 2500Hz +2.5dB (cone breakup)
+  b[16]=2; b[17]=5500; b[18]=0.65; b[19]=0;   // LP 5500Hz
+  b[20]=3; b[21]=100; b[22]=1.8; b[23]=1.8;   // RES 100Hz +1.8dB (open-back)
+
+  // ---- Preset 3: 1x12 Alnico Blue Open (AC15) ----
+  p = CAB_TABLE_BASE + 3 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 2500;
+  b = p + 2;
+  b[0]=1; b[1]=100;  b[2]=0.50; b[3]=0;       // HP 100Hz
+  b[4]=3; b[5]=200;  b[6]=2.0;  b[7]=1.0;     // PK 200Hz +2dB
+  b[8]=3; b[9]=800;  b[10]=-2.0; b[11]=1.2;   // PK 800Hz -2dB
+  b[12]=3; b[13]=2500; b[14]=4.0; b[15]=1.8;  // PK 2500Hz +4dB (cone breakup)
+  b[16]=3; b[17]=4500; b[18]=-3.0; b[19]=1.0; // PK 4500Hz -3dB
+  b[20]=2; b[21]=5500; b[22]=0.55; b[23]=0;   // LP 5500Hz
+  b[24]=3; b[25]=180; b[26]=1.5; b[27]=2.0;   // RES 180Hz +1.5dB (open-back)
+
+  // ---- Preset 4: 2x12 Jensen C12N Open (Twin) ----
+  p = CAB_TABLE_BASE + 4 * CAB_PRESET_SIZE;
+  p[0] = 6; p[1] = 2800;
+  b = p + 2;
+  b[0]=1; b[1]=60;   b[2]=0.70; b[3]=0;       // HP 60Hz
+  b[4]=3; b[5]=90;   b[6]=2.5;  b[7]=2.0;     // PK 90Hz +2.5dB
+  b[8]=3; b[9]=600;  b[10]=-2.0; b[11]=0.8;   // PK 600Hz -2dB
+  b[12]=3; b[13]=2800; b[14]=3.0; b[15]=1.3;  // PK 2800Hz +3dB (cone breakup)
+  b[16]=2; b[17]=6000; b[18]=0.65; b[19]=0;   // LP 6000Hz
+  b[20]=3; b[21]=90; b[22]=2.0; b[23]=2.0;    // RES 90Hz +2dB (open-back)
+
+  // ---- Preset 5: 4x12 G12T-75 Closed (Marshall) ----
+  p = CAB_TABLE_BASE + 5 * CAB_PRESET_SIZE;
+  p[0] = 6; p[1] = 3500;
+  b = p + 2;
+  b[0]=1; b[1]=80;   b[2]=0.55; b[3]=0;       // HP 80Hz
+  b[4]=3; b[5]=100;  b[6]=3.0;  b[7]=1.8;     // PK 100Hz +3dB
+  b[8]=3; b[9]=1200; b[10]=-4.0; b[11]=0.9;   // PK 1200Hz -4dB (mid scoop)
+  b[12]=3; b[13]=3500; b[14]=5.0; b[15]=1.4;  // PK 3500Hz +5dB (cone breakup)
+  b[16]=2; b[17]=6500; b[18]=0.65; b[19]=0;   // LP 6500Hz
+  b[20]=3; b[21]=110; b[22]=1.5; b[23]=3.0;   // RES 110Hz +1.5dB (closed-back)
+
+  // ---- Preset 6: 4x12 V30 Closed (Mesa) ----
+  p = CAB_TABLE_BASE + 6 * CAB_PRESET_SIZE;
+  p[0] = 8; p[1] = 4000;
+  b = p + 2;
+  b[0]=1; b[1]=85;   b[2]=0.58; b[3]=0;       // HP 85Hz
+  b[4]=3; b[5]=105;  b[6]=2.5;  b[7]=2.2;     // PK 105Hz +2.5dB
+  b[8]=3; b[9]=350;  b[10]=-2.0; b[11]=0.8;   // PK 350Hz -2dB (closed-back scoop)
+  b[12]=3; b[13]=800; b[14]=-3.0; b[15]=0.7;  // PK 800Hz -3dB (V30 voice coil dip)
+  b[16]=3; b[17]=2200; b[18]=2.0; b[19]=1.5;  // PK 2200Hz +2dB (Mesa bark)
+  b[20]=3; b[21]=4000; b[22]=6.0; b[23]=1.6;  // PK 4000Hz +6dB (V30 cone breakup)
+  b[24]=2; b[25]=7000; b[26]=0.68; b[27]=0;   // LP 7000Hz
+  b[28]=3; b[29]=120; b[30]=1.5; b[31]=3.0;   // RES 120Hz +1.5dB (closed-back)
+
+  // ---- Preset 7: 8x10 Sealed (Ampeg SVT) ----
+  p = CAB_TABLE_BASE + 7 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 1800;
+  b = p + 2;
+  b[0]=1; b[1]=40;   b[2]=0.45; b[3]=0;       // HP 40Hz (deep extension)
+  b[4]=3; b[5]=80;   b[6]=4.0;  b[7]=1.2;     // PK 80Hz +4dB (low-end thump)
+  b[8]=3; b[9]=400;  b[10]=-3.0; b[11]=0.8;   // PK 400Hz -3dB (SVT mid scoop)
+  b[12]=3; b[13]=1800; b[14]=3.0; b[15]=1.5;  // PK 1800Hz +3dB (upper-mid grind)
+  b[16]=3; b[17]=2800; b[18]=-2.0; b[19]=1.0; // PK 2800Hz -2dB (presence dip)
+  b[20]=2; b[21]=4000; b[22]=0.55; b[23]=0;   // LP 4000Hz (early rolloff)
+  b[24]=3; b[25]=60; b[26]=1.5; b[27]=3.0;    // RES 60Hz +1.5dB (sealed air spring)
+);
+
+
+// ---- Initialize a cab instance — zero all biquad state, set to bypass. ----
+function lms_cab_init()
+(
+  // 8 static EQ biquads
+  this.b1.lms_bq_init(); this.b2.lms_bq_init();
+  this.b3.lms_bq_init(); this.b4.lms_bq_init();
+  this.b5.lms_bq_init(); this.b6.lms_bq_init();
+  this.b7.lms_bq_init(); this.b8.lms_bq_init();
+
+  // Breakup: bandpass extractor + dynamic LP + dynamic resonance
+  this.brk_bp.lms_bq_init();
+  this.brk_lp.lms_bq_init();
+  this.brk_res.lms_bq_init();
+
+  // Mic position: hi-shelf (off-axis darkening) + lo-shelf (proximity rolloff)
+  this.mic_hi.lms_bq_init();
+  this.mic_lo.lms_bq_init();
+  this.cab_mic_pos = -1;  // force first set
+
+  // Breakup envelope state
+  this.brk_env = 0;
+  this.brk_att = exp(-1 / (srate * 0.001));   // 1ms attack
+  this.brk_rel = exp(-1 / (srate * 0.030));   // 30ms release
+
+  // Tracking state
+  this.cab_current_preset = -1;  // force first set
+  this.cab_band_count = 0;
+  this.cab_breakup_freq = 0;
+  this.cab_lp_base_freq = 6000;
+  this.cab_lp_base_q = 0.65;
+  this.cab_res_base_freq = 100;
+  this.cab_res_base_gain = 1.5;
+  this.cab_res_base_q = 2.0;
+  this.last_dyn_lp_freq = 0;
+  this.last_dyn_res_gain = 0;
+);
+
+
+// ---- Internal: configure one biquad from preset band data ----
+function lms_cab_set_band(btype, freq, param1, param2)
+(
+  btype == CAB_BT_HP ? (
+    this.lms_bq_set_hp(freq, param1);
+  ) : btype == CAB_BT_LP ? (
+    this.lms_bq_set_lp(freq, param1);
+  ) : btype == CAB_BT_PK ? (
+    this.lms_bq_set_peak(freq, param1, param2);
+  ) : (
+    // passthrough (CAB_BT_NONE or unknown)
+    this.b0 = 1; this.b1 = 0; this.b2 = 0;
+    this.a1 = 0; this.a2 = 0;
+  );
+);
+
+
+// ---- Load preset into this instance's biquads. ----
+// preset_id: 0=bypass, 1-7=cab voicing
+function lms_cab_set(preset_id)
+  local(p, b, bc, btype, freq, param1, param2, i, lp_found)
+(
+  preset_id != this.cab_current_preset ? (
+    this.cab_current_preset = preset_id;
+
+    // Reset to passthrough
+    this.b1.lms_bq_init(); this.b2.lms_bq_init();
+    this.b3.lms_bq_init(); this.b4.lms_bq_init();
+    this.b5.lms_bq_init(); this.b6.lms_bq_init();
+    this.b7.lms_bq_init(); this.b8.lms_bq_init();
+    this.cab_band_count = 0;
+    this.cab_breakup_freq = 0;
+
+    preset_id > 0 && preset_id < CAB_PRESET_COUNT ? (
+      p = CAB_TABLE_BASE + preset_id * CAB_PRESET_SIZE;
+      bc = p[0];
+      this.cab_band_count = bc;
+      this.cab_breakup_freq = p[1];
+      b = p + 2;
+      lp_found = 0;
+
+      // Band 1
+      bc >= 1 ? (
+        btype = b[0]; freq = b[1]; param1 = b[2]; param2 = b[3];
+        this.b1.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 2
+      bc >= 2 ? (
+        btype = b[4]; freq = b[5]; param1 = b[6]; param2 = b[7];
+        this.b2.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 3
+      bc >= 3 ? (
+        btype = b[8]; freq = b[9]; param1 = b[10]; param2 = b[11];
+        this.b3.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 4
+      bc >= 4 ? (
+        btype = b[12]; freq = b[13]; param1 = b[14]; param2 = b[15];
+        this.b4.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 5
+      bc >= 5 ? (
+        btype = b[16]; freq = b[17]; param1 = b[18]; param2 = b[19];
+        this.b5.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 6
+      bc >= 6 ? (
+        btype = b[20]; freq = b[21]; param1 = b[22]; param2 = b[23];
+        this.b6.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 7
+      bc >= 7 ? (
+        btype = b[24]; freq = b[25]; param1 = b[26]; param2 = b[27];
+        this.b7.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+      // Band 8
+      bc >= 8 ? (
+        btype = b[28]; freq = b[29]; param1 = b[30]; param2 = b[31];
+        this.b8.lms_cab_set_band(btype, freq, param1, param2);
+        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+      );
+
+      // Find the last PK band for resonance tracking (always last band)
+      // Scan backwards for first PK
+      bc >= 1 ? (
+        i = bc - 1;
+        btype = b[i * CAB_BAND_STRIDE];
+        btype == CAB_BT_PK ? (
+          this.cab_res_base_freq = b[i * CAB_BAND_STRIDE + 1];
+          this.cab_res_base_gain = b[i * CAB_BAND_STRIDE + 2];
+          this.cab_res_base_q = b[i * CAB_BAND_STRIDE + 3];
+        );
+      );
+
+      // Configure breakup bandpass
+      this.cab_breakup_freq > 0 ? (
+        this.brk_bp.lms_bq_set_bp(this.cab_breakup_freq, 1.5);
+      );
+
+      // Init dynamic filters at base values
+      lp_found ? (
+        this.brk_lp.lms_bq_set_lp(this.cab_lp_base_freq, this.cab_lp_base_q);
+        this.last_dyn_lp_freq = this.cab_lp_base_freq;
+      );
+      this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, 0, this.cab_res_base_q);
+      this.last_dyn_res_gain = 0;
+    );
+  );
+);
+
+
+// ---- Set mic position. 0=on-axis (bright), 100=off-axis (dark, distant). ----
+// Off-axis: presence rolls off, proximity bass thins out.
+// Zero latency — just recalculates two biquad coefficients.
+function lms_cab_set_mic(mic_pos)
+  local(norm, hi_cut, lo_cut)
+(
+  mic_pos != this.cab_mic_pos ? (
+    this.cab_mic_pos = mic_pos;
+    norm = mic_pos / 100;  // 0.0 to 1.0
+
+    // Hi-shelf: 0dB on-axis, up to -6dB at 3kHz off-axis
+    hi_cut = -norm * 6.0;
+    hi_cut < -0.1 ? (
+      this.mic_hi.lms_bq_set_hishelf(3000, hi_cut, 0.7);
+    ) : (
+      this.mic_hi.lms_bq_init();  // passthrough
+    );
+
+    // Lo-shelf: 0dB close, up to -3dB at 200Hz distant (proximity effect reversal)
+    lo_cut = -norm * 3.0;
+    lo_cut < -0.1 ? (
+      this.mic_lo.lms_bq_set_loshelf(200, lo_cut, 0.7);
+    ) : (
+      this.mic_lo.lms_bq_init();  // passthrough
+    );
+  );
+);
+
+
+// ---- Process one sample through cab + speaker breakup. ----
+// density: from the amp's triode density tracker (1.0-2.5 range)
+// Returns processed sample, or passthrough if preset==0.
+function lms_cab_proc(x, density)
+  local(out, brk_band, brk_ax, brk_drive, brk_sat,
+        dyn_lp_freq, dyn_res_gain)
+(
+  this.cab_band_count == 0 ? x : (
+    out = x;
+
+    // --- Speaker breakup: parallel saturation in cone breakup band ---
+    this.cab_breakup_freq > 0 ? (
+      brk_band = this.brk_bp.lms_bq_proc(out);
+
+      // Envelope follower on breakup band
+      brk_ax = abs(brk_band);
+      brk_ax > this.brk_env ? (
+        this.brk_env = this.brk_att * this.brk_env + (1 - this.brk_att) * brk_ax;
+      ) : (
+        this.brk_env = this.brk_rel * this.brk_env + (1 - this.brk_rel) * brk_ax;
+      );
+
+      // Density-scaled breakup drive
+      brk_drive = 1.0 + (density - 1.0) * 2.0;
+      brk_drive = max(1.0, min(4.0, brk_drive));
+
+      // Soft saturate the breakup band, mix back as parallel harmonics
+      brk_sat = lms_tanh(brk_band * brk_drive) - brk_band;
+      out += brk_sat * 0.15;
+    );
+
+    // --- Static EQ chain (preset bands) ---
+    this.cab_band_count >= 1 ? out = this.b1.lms_bq_proc(out);
+    this.cab_band_count >= 2 ? out = this.b2.lms_bq_proc(out);
+    this.cab_band_count >= 3 ? out = this.b3.lms_bq_proc(out);
+    this.cab_band_count >= 4 ? out = this.b4.lms_bq_proc(out);
+    this.cab_band_count >= 5 ? out = this.b5.lms_bq_proc(out);
+    this.cab_band_count >= 6 ? out = this.b6.lms_bq_proc(out);
+    this.cab_band_count >= 7 ? out = this.b7.lms_bq_proc(out);
+    this.cab_band_count >= 8 ? out = this.b8.lms_bq_proc(out);
+
+    // --- Dynamic LP: speaker gets darker when pushed ---
+    dyn_lp_freq = this.cab_lp_base_freq - (density - 1.0) * this.cab_lp_base_freq * 0.25;
+    dyn_lp_freq = max(this.cab_lp_base_freq * 0.60, min(this.cab_lp_base_freq, dyn_lp_freq));
+    abs(dyn_lp_freq - this.last_dyn_lp_freq) > 20 ? (
+      this.brk_lp.lms_bq_set_lp(dyn_lp_freq, this.cab_lp_base_q);
+      this.last_dyn_lp_freq = dyn_lp_freq;
+    );
+    out = this.brk_lp.lms_bq_proc(out);
+
+    // --- Dynamic resonance: cab resonance excited by excursion ---
+    dyn_res_gain = (density - 1.0) * 2.0;
+    dyn_res_gain = max(0, min(3.0, dyn_res_gain));
+    abs(dyn_res_gain - this.last_dyn_res_gain) > 0.2 ? (
+      this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, dyn_res_gain, this.cab_res_base_q);
+      this.last_dyn_res_gain = dyn_res_gain;
+    );
+    out = this.brk_res.lms_bq_proc(out);
+
+    // --- Mic position: off-axis darkening + proximity rolloff ---
+    out = this.mic_hi.lms_bq_proc(out);
+    out = this.mic_lo.lms_bq_proc(out);
+
+    out;
+  );
+);
+
+
+// ---- GUI: Cab selector widget (8 options: Off + 7 cabs) ----
+// Returns new value. Left-click cycles forward, right-click cycles back.
+function lms_draw_cab_sel(mx, my, mw, mh, val)
+(
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr("Cabinet");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(90 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr("Off");
+  val == 1 ? gfx_drawstr("1x12 Greenback");
+  val == 2 ? gfx_drawstr("1x12 Jensen");
+  val == 3 ? gfx_drawstr("1x12 Blue");
+  val == 4 ? gfx_drawstr("2x12 Jensen");
+  val == 5 ? gfx_drawstr("4x12 G12T-75");
+  val == 6 ? gfx_drawstr("4x12 V30");
+  val == 7 ? gfx_drawstr("8x10 Sealed");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % CAB_PRESET_COUNT;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = CAB_PRESET_COUNT - 1;
+  );
+  val;
+);
+
+
+// ---- GUI: Compact chromatic tuner strip ----
+// Draws note name + cents bar + frequency. Call from @gfx.
+// freq, conf, midi_int, cents = smoothed display values from YIN detector.
+// S = scale factor (from gfx_w / nominal_width).
+function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
+  local(note_class, octave, active, acc_abs, nr, ng, nb,
+        cm_x, cm_w, cm_h, cm_cy, bar_frac, bar_x, bar_w,
+        f_note, f_small, f_tiny, tick_x)
+(
+  f_note = max(10, floor(18 * S));
+  f_small = max(7, floor(11 * S));
+  f_tiny = max(7, floor(9 * S));
+
+  // Background
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(tx, ty, tw, th);
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(tx, ty + th - 1, tw, 1);
+
+  active = freq > 20 && conf > 0.3;
+
+  // --- Note name (left side) ---
+  note_class = midi_int % 12;
+  octave = floor(midi_int / 12) - 1;
+
+  active ? (
+    acc_abs = abs(cents);
+    acc_abs < 10 ? (
+      nr = 0.25; ng = 0.80; nb = 0.50;  // green — in tune
+    ) : acc_abs < 25 ? (
+      nr = 0.95; ng = 0.78; nb = 0.35;  // gold — close
+    ) : (
+      nr = 0.95; ng = 0.45; nb = 0.15;  // orange — off
+    );
+  ) : (
+    nr = 0.25; ng = 0.25; nb = 0.30;  // dim
+  );
+
+  gfx_r = nr; gfx_g = ng; gfx_b = nb;
+  gfx_setfont(1, "Arial", f_note);
+  gfx_x = tx + floor(6 * S); gfx_y = ty + floor((th - f_note) / 2);
+
+  active ? (
+    note_class == 0  ? gfx_drawstr("C");
+    note_class == 1  ? gfx_drawstr("C#");
+    note_class == 2  ? gfx_drawstr("D");
+    note_class == 3  ? gfx_drawstr("D#");
+    note_class == 4  ? gfx_drawstr("E");
+    note_class == 5  ? gfx_drawstr("F");
+    note_class == 6  ? gfx_drawstr("F#");
+    note_class == 7  ? gfx_drawstr("G");
+    note_class == 8  ? gfx_drawstr("G#");
+    note_class == 9  ? gfx_drawstr("A");
+    note_class == 10 ? gfx_drawstr("A#");
+    note_class == 11 ? gfx_drawstr("B");
+    gfx_setfont(1, "Arial", f_small);
+    gfx_drawnumber(octave, 0);
+  ) : (
+    gfx_drawstr("--");
+  );
+
+  // --- Cents meter (center) ---
+  cm_x = tx + floor(60 * S);
+  cm_w = tw - floor(130 * S);
+  cm_h = max(4, floor(8 * S));
+  cm_cy = ty + floor((th - cm_h) / 2);
+
+  // Meter background
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+  gfx_rect(cm_x, cm_cy, cm_w, cm_h);
+
+  // Center tick
+  tick_x = cm_x + floor(cm_w / 2);
+  gfx_r = 0.30; gfx_g = 0.30; gfx_b = 0.35;
+  gfx_rect(tick_x, cm_cy, 1, cm_h);
+
+  // Indicator bar
+  active ? (
+    bar_frac = cents / 50;  // -1 to +1
+    bar_frac = max(-1, min(1, bar_frac));
+    bar_frac >= 0 ? (
+      bar_x = tick_x;
+      bar_w = floor(bar_frac * cm_w / 2);
+    ) : (
+      bar_w = floor(-bar_frac * cm_w / 2);
+      bar_x = tick_x - bar_w;
+    );
+    bar_w = max(1, bar_w);
+    gfx_r = nr; gfx_g = ng; gfx_b = nb;
+    gfx_rect(bar_x, cm_cy, bar_w, cm_h);
+
+    // Bright center line when near zero
+    acc_abs < 5 ? (
+      gfx_r = 0.25; gfx_g = 0.95; gfx_b = 0.50;
+      gfx_rect(tick_x - 1, cm_cy - 1, 3, cm_h + 2);
+    );
+  );
+
+  // Cents labels
+  gfx_setfont(1, "Arial", f_tiny);
+  gfx_r = 0.30; gfx_g = 0.30; gfx_b = 0.35;
+  gfx_x = cm_x; gfx_y = cm_cy - f_tiny - floor(1 * S);
+  gfx_drawstr("-50");
+  gfx_x = cm_x + cm_w - floor(16 * S); gfx_y = cm_cy - f_tiny - floor(1 * S);
+  gfx_drawstr("+50");
+
+  // --- Frequency readout (right side) ---
+  gfx_setfont(1, "Arial", f_small);
+  active ? (
+    gfx_r = 0.50; gfx_g = 0.50; gfx_b = 0.55;
+    gfx_x = tx + tw - floor(60 * S); gfx_y = ty + floor((th - f_small) / 2);
+    gfx_drawnumber(freq, 1);
+    gfx_drawstr(" Hz");
+  ) : (
+    gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.30;
+    gfx_x = tx + tw - floor(48 * S); gfx_y = ty + floor((th - f_small) / 2);
+    gfx_drawstr("--- Hz");
+  );
+
+  // "TUNER" label
+  gfx_setfont(1, "Arial", f_tiny);
+  gfx_r = 0.35; gfx_g = 0.35; gfx_b = 0.40;
+  gfx_x = cm_x + floor(cm_w / 2) - floor(12 * S);
+  gfx_y = cm_cy + cm_h + floor(1 * S);
+  gfx_drawstr("TUNER");
+);

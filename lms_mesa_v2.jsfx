@@ -27,8 +27,20 @@ slider15:0<0,1,1{Off,On}>-Noise Gate
 slider16:0<0,100,1>-Tape Echo Mix (%)
 slider17:50<0,100,1>-Echo Time (%)
 slider18:40<0,100,1>-Echo Feedback (%)
+// --- CABINET ---
+slider19:6<0,7,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed}>-Cabinet
+slider20:1<0,1,1{Off,On}>-Cab Sim
+slider21:0<0,100,1>-Mic Distance (%)
 
 @init
+
+// === TUNER ===
+tuner.lms_yin_init(20000);
+tuner_disp_freq = 0;
+tuner_disp_conf = 0;
+tuner_disp_cents = 0;
+tuner_disp_note = -1;
+tuner_smooth = 0;
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -474,16 +486,12 @@ gate.sgate_init();
 // Tape echo
 echo.tape_echo_init();
 
-// Mesa Recto 4x12 V30 cabinet
-// HP → low resonance → low-mid scoop → V30 dip → upper-mid bark → V30 cone breakup → LP → closed-back resonance
-cab1.bq_init(); cab1.bq_set_hp(85, 0.58);
-cab2.bq_init(); cab2.bq_set_peak(105, 2.5, 2.2);     // cabinet resonance
-cab3.bq_init(); cab3.bq_set_peak(350, -2.0, 0.8);     // low-mid scoop (closed-back)
-cab4.bq_init(); cab4.bq_set_peak(800, -3.0, 0.7);     // V30 voice coil dip
-cab5.bq_init(); cab5.bq_set_peak(2200, 2.0, 1.5);     // upper-mid "bark" (Mesa Recto signature)
-cab6.bq_init(); cab6.bq_set_peak(4000, 6.0, 1.6);     // V30 cone breakup peak (THE V30 sound)
-cab7.bq_init(); cab7.bq_set_lp(7000, 0.68);            // air rolloff
-cab_res.bq_init(); cab_res.bq_set_peak(120, 1.5, 3.0); // closed-back chest punch
+// Cabinet simulation (shared presets from core)
+lms_cab_table_init();
+cab.lms_cab_init();
+cab.lms_cab_set(6);  // default: 4x12 V30
+cab_type = 6;
+cab_on = 1;
 
 gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
 input_intensity = 0.5; sag_depth = 0.5;
@@ -508,7 +516,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
   BC_MY_TYPE = 15;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 18;
+  BC_PARAM_COUNT = 21;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -570,6 +578,11 @@ gate_on = slider15;
 echo_mix = slider16 / 100;
 echo_time = slider17 / 100;
 echo_feedback = slider18 / 100;
+cab_type = slider19;
+cab_on = slider20;
+cab.lms_cab_set(cab_on ? cab_type : 0);
+cab_mic = slider21;
+cab.lms_cab_set_mic(cab_mic);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -592,6 +605,23 @@ gate_on = slider15;
 echo_mix = slider16 / 100;
 echo_time = slider17 / 100;
 echo_feedback = slider18 / 100;
+cab_type = slider19;
+cab_on = slider20;
+cab.lms_cab_set(cab_on ? cab_type : 0);
+cab_mic = slider21;
+cab.lms_cab_set_mic(cab_mic);
+
+// ---- Tuner: run pitch detection + smooth display ----
+tuner.lms_yin_detect();
+tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
+tuner.freq > 20 && tuner.confidence > 0.3 ? (
+  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
+  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
+  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
+  tuner_disp_note = tuner.midi_int;
+) : (
+  tuner_disp_conf *= 0.9;
+);
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -645,6 +675,9 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         slider16 = gmem[lbase + 15];
         slider17 = gmem[lbase + 16];
         slider18 = gmem[lbase + 17];
+        slider19 = gmem[lbase + 18];
+        slider20 = gmem[lbase + 19];
+        slider21 = gmem[lbase + 20];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -680,6 +713,9 @@ bc_my_slot >= 0 && bc_steal_pending ? (
       slider16 = gmem[lbase + 15];
       slider17 = gmem[lbase + 16];
       slider18 = gmem[lbase + 17];
+      slider19 = gmem[lbase + 18];
+      slider20 = gmem[lbase + 19];
+      slider21 = gmem[lbase + 20];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -712,6 +748,9 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 15] = slider16;
   gmem[pbase + 16] = slider17;
   gmem[pbase + 17] = slider18;
+  gmem[pbase + 18] = slider19;
+  gmem[pbase + 19] = slider20;
+  gmem[pbase + 20] = slider21;
 );
 
 bc_instance_count = 0;
@@ -744,6 +783,9 @@ loop(BC_MAX_INST,
 mono = (spl0 + spl1) * 0.5 * in_level;
 // Input clamp — catches record-arm spikes before the amp sees them
 mono = max(-1.0, min(1.0, mono));
+
+// Tuner — feed dry input for best pitch detection
+tuner.lms_yin_write(mono);
 
 // 0. RF filter (removes ultrasonic content before gain stages)
 mono = rf_filter.bq_proc(mono);
@@ -859,15 +901,12 @@ gate_on == 1 ? (
   amp_out = gate.sgate_proc(amp_out);
 );
 
-// === CABINET (Mesa Recto 4x12 V30) ===
-amp_out = cab1.bq_proc(amp_out);
-amp_out = cab2.bq_proc(amp_out);
-amp_out = cab3.bq_proc(amp_out);
-amp_out = cab4.bq_proc(amp_out);
-amp_out = cab5.bq_proc(amp_out);
-amp_out = cab6.bq_proc(amp_out);
-amp_out = cab7.bq_proc(amp_out);
-amp_out = cab_res.bq_proc(amp_out);
+// === CABINET (density-aware speaker sim) ===
+channel == 0 ? (
+  amp_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
+) : (
+  amp_out = cab.lms_cab_proc(amp_out, v2b.hd.density);
+);
 
 amp_out *= out_level;
 // Brickwall output limiter — transparent safety ceiling
@@ -896,7 +935,7 @@ channel == 0 ? (
 d_bplus = bplus;
 
 
-@gfx 600 480
+@gfx 600 564
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -1067,7 +1106,7 @@ col_w = 190;
 pad = floor(4 * S);
 pad2 = pad * 2;
 gr_bar_h = max(2, floor(6 * S));
-body_y = floor(50 * S);
+body_y = floor(50 * S) + floor(28 * S);  // offset for tuner strip
 
 // ============================================================================
 //  LOGO + TITLE
@@ -1092,6 +1131,12 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_measurestr("Density-Aware Triple Rectifier", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("Density-Aware Triple Rectifier");
+
+// ============================================================================
+//  TUNER STRIP
+// ============================================================================
+tuner_h = floor(28 * S);
+lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
 
 // ============================================================================
 //  COL 1: PREAMP
@@ -1174,13 +1219,27 @@ _old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider1
 slider18 != _old ? slider_automate(2^17);
 
 // ============================================================================
+//  CABINET PANEL
+// ============================================================================
+  p1h = 26 + 9 * bar_sp;  // PREAMP height (tallest)
+  cab_panel_y = body_y + p1h + gap;
+  cab_panel_w = col_w * 3 + gap * 2;
+  cab_panel_x = margin;
+  cab_panel_h = floor(70 * S);
+  draw_panel(cab_panel_x, cab_panel_y, cab_panel_w, cab_panel_h, "CABINET");
+  cab_cy = cab_panel_y + floor(26 * S);
+  cab_cw = floor(cab_panel_w * 0.60);
+  _old = slider19; slider19 = lms_draw_cab_sel(cab_panel_x + 4, cab_cy, cab_cw - 8, bar_h, slider19);
+  slider19 != _old ? slider_automate(2^18);
+  _old = slider20; slider20 = draw_toggle(cab_panel_x + cab_cw + floor(8 * S), cab_cy, slider20, "Cab Sim");
+  slider20 != _old ? slider_automate(2^19);
+  _old = slider21; slider21 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider21, 0, 100, "Mic Distance", 1);
+  slider21 != _old ? slider_automate(2^20);
+
+// ============================================================================
 //  DENSITY AWARENESS PANEL
 // ============================================================================
-  // Panel position: below tallest column, spanning full width
-  p1h = 26 + 9 * bar_sp;  // PREAMP height (tallest)
-  p2h = 26 + 8 * bar_sp;  // TONE height
-  p3h = 26 + 7 * bar_sp;  // EFFECTS height
-  dm_panel_y = body_y + p1h + gap;
+  dm_panel_y = cab_panel_y + cab_panel_h + gap;
   dm_panel_w = col_w * 3 + gap * 2;
   dm_panel_x = margin;
 

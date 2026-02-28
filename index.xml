@@ -33,6 +33,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="5.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v5.0 — Section 13: Cabinet Simulation. 7 real-world cabinet models (1x12 Greenback, 1x12 Jensen C12N, 1x12 Alnico Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 SVT Sealed) as shared table-driven presets — any amp can load any cab. Density-aware speaker breakup: bandpass-extracted cone breakup band → envelope follower → density-scaled tanh saturation mixed as parallel harmonics. Dynamic LP darkens top end under load (real cone stiffening). Dynamic resonance excites cabinet body proportional to excursion. Mic position simulation: off-axis hi-shelf rolloff + proximity effect bass reversal. GUI: clickable cab selector widget (lms_draw_cab_sel), chromatic tuner strip (lms_draw_tuner — note name, cents meter with color-coded accuracy, frequency readout). All 6 density-aware amp sims now share the cab system.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -241,6 +246,10 @@
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 1x12 Greenback cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). BC_PARAM_COUNT bumped to 14.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -263,6 +272,10 @@
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 4x12 Greenback cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). BC_PARAM_COUNT bumped to 18.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -279,6 +292,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 8x10 sealed cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
     </reapack>
@@ -303,6 +320,10 @@
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 1x12 Alnico Blue cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). BC_PARAM_COUNT bumped to 18.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -321,6 +342,10 @@
         <changelog><![CDATA[v1.3 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 2x12 Jensen cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). Twin/Deluxe channel selector now also switches default cab (2x12 Jensen for Twin, 1x12 Jensen for Deluxe).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -335,6 +360,10 @@
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
+        <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 4x12 V30 closed-back cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Maximizer — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -347,6 +376,10 @@
       </version>
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
         <changelog><![CDATA[v1.0 — Renamed to Density Maximizer. Auto-makeup gain, brick-wall limiting, density-aware threshold modulation. Full rewrite of gain staging and metering.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-02-24T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Add Pop, Hardcore, Hip-Hop, Punk EQ profiles (8 total). Genre-targeted reactive EQ curves with dedicated filter coefficients.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
       </version>
     </reapack>
