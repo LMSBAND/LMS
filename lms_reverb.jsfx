@@ -51,6 +51,12 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   fdn_buf6 = buf_pos; buf_pos += 8192;
   fdn_buf7 = buf_pos; buf_pos += 8192;
 
+  // Output diffusion allpass (2 stages × stereo)
+  od_buf_l0 = buf_pos; buf_pos += 2048;
+  od_buf_l1 = buf_pos; buf_pos += 2048;
+  od_buf_r0 = buf_pos; buf_pos += 2048;
+  od_buf_r1 = buf_pos; buf_pos += 2048;
+
   // ER tap tables
   er_tap_count = 12;
   er_delays_ms = buf_pos; buf_pos += 12;
@@ -66,24 +72,33 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   memset(fdn_buf2, 0, 8192); memset(fdn_buf3, 0, 8192);
   memset(fdn_buf4, 0, 8192); memset(fdn_buf5, 0, 8192);
   memset(fdn_buf6, 0, 8192); memset(fdn_buf7, 0, 8192);
+  memset(od_buf_l0, 0, 2048); memset(od_buf_l1, 0, 2048);
+  memset(od_buf_r0, 0, 2048); memset(od_buf_r1, 0, 2048);
 
   // Write positions
   pd_pos = 0;
   dif_pos0 = 0; dif_pos1 = 0; dif_pos2 = 0; dif_pos3 = 0;
+  od_pos_l0 = 0; od_pos_l1 = 0; od_pos_r0 = 0; od_pos_r1 = 0;
   er_pos = 0;
   fdn_pos0 = 0; fdn_pos1 = 0; fdn_pos2 = 0; fdn_pos3 = 0;
   fdn_pos4 = 0; fdn_pos5 = 0; fdn_pos6 = 0; fdn_pos7 = 0;
 
-  // FDN LP states
+  // FDN LP states (two-stage cascade = room's "Miller filter")
   fdn_lp0 = 0; fdn_lp1 = 0; fdn_lp2 = 0; fdn_lp3 = 0;
   fdn_lp4 = 0; fdn_lp5 = 0; fdn_lp6 = 0; fdn_lp7 = 0;
+  fdn_lp0b = 0; fdn_lp1b = 0; fdn_lp2b = 0; fdn_lp3b = 0;
+  fdn_lp4b = 0; fdn_lp5b = 0; fdn_lp6b = 0; fdn_lp7b = 0;
 
   // FDN base delays (mutually prime)
   fdn_base0 = 1087; fdn_base1 = 1283; fdn_base2 = 1499; fdn_base3 = 1693;
   fdn_base4 = 1877; fdn_base5 = 2081; fdn_base6 = 2293; fdn_base7 = 2477;
 
-  // Input diffusion base delays (from Dattorro)
-  dif_base0 = 142; dif_base1 = 107; dif_base2 = 379; dif_base3 = 277;
+  // Input diffusion base delays (at 44100Hz reference, longer for proper smearing)
+  dif_base0 = 211; dif_base1 = 349; dif_base2 = 547; dif_base3 = 709;
+
+  // Output diffusion base delays (mutually prime, ~5-13ms)
+  od_base_l0 = 241; od_base_l1 = 563;
+  od_base_r0 = 337; od_base_r1 = 467;
 
   // Early reflection taps (delays/gains/pans — from drum room)
   er_delays_ms[0]=2.3;  er_gains[0]=0.85; er_pans[0]=0.3;
@@ -220,7 +235,7 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   dif_len2 = max(1, (dif_base2 * scale * srate_scale)|0);
   dif_len3 = max(1, (dif_base3 * scale * srate_scale)|0);
 
-  dif_coeff_base = 0.3 + diffusion * 0.45;
+  dif_coeff_base = 0.5 + diffusion * 0.3;
 
   fdn_len0 = min(8191, (fdn_base0 * scale * srate_scale)|0);
   fdn_len1 = min(8191, (fdn_base1 * scale * srate_scale)|0);
@@ -231,8 +246,13 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   fdn_len6 = min(8191, (fdn_base6 * scale * srate_scale)|0);
   fdn_len7 = min(8191, (fdn_base7 * scale * srate_scale)|0);
 
+  od_len_l0 = max(1, min(2047, (od_base_l0 * scale * srate_scale)|0));
+  od_len_l1 = max(1, min(2047, (od_base_l1 * scale * srate_scale)|0));
+  od_len_r0 = max(1, min(2047, (od_base_r0 * scale * srate_scale)|0));
+  od_len_r1 = max(1, min(2047, (od_base_r1 * scale * srate_scale)|0));
+
   fdn_fb_base = 0.55 + decay * 0.4;
-  fdn_damp_base = tone * 0.5;
+  fdn_damp_base = 0.15 + tone * 0.55;
 
   // Room modes: L = 3 + room_size * 27 meters
   room_length_m = 3.0 + room_size * 27.0;
@@ -268,7 +288,7 @@ dif_len0 = max(1, (dif_base0 * scale * srate_scale)|0);
 dif_len1 = max(1, (dif_base1 * scale * srate_scale)|0);
 dif_len2 = max(1, (dif_base2 * scale * srate_scale)|0);
 dif_len3 = max(1, (dif_base3 * scale * srate_scale)|0);
-dif_coeff_base = 0.3 + diffusion * 0.45;
+dif_coeff_base = 0.5 + diffusion * 0.3;
 fdn_len0 = min(8191, (fdn_base0 * scale * srate_scale)|0);
 fdn_len1 = min(8191, (fdn_base1 * scale * srate_scale)|0);
 fdn_len2 = min(8191, (fdn_base2 * scale * srate_scale)|0);
@@ -277,8 +297,12 @@ fdn_len4 = min(8191, (fdn_base4 * scale * srate_scale)|0);
 fdn_len5 = min(8191, (fdn_base5 * scale * srate_scale)|0);
 fdn_len6 = min(8191, (fdn_base6 * scale * srate_scale)|0);
 fdn_len7 = min(8191, (fdn_base7 * scale * srate_scale)|0);
+od_len_l0 = max(1, min(2047, (od_base_l0 * scale * srate_scale)|0));
+od_len_l1 = max(1, min(2047, (od_base_l1 * scale * srate_scale)|0));
+od_len_r0 = max(1, min(2047, (od_base_r0 * scale * srate_scale)|0));
+od_len_r1 = max(1, min(2047, (od_base_r1 * scale * srate_scale)|0));
 fdn_fb_base = 0.55 + decay * 0.4;
-fdn_damp_base = tone * 0.5;
+fdn_damp_base = 0.15 + tone * 0.55;
 room_length_m = 3.0 + room_size * 27.0;
 modal_f1 = max(20, min(srate * 0.25, 343.0 / (2.0 * room_length_m)));
 modal_f2 = max(20, min(srate * 0.25, 2.0 * modal_f1));
@@ -445,14 +469,14 @@ loop(BC_MAX_INST,
   // ==== DENSITY-MODULATED ROOM PHYSICS ====
   dd = density_drive;
 
-  // 1. Air Absorption: air density darkens feedback LP
+  // 1. Air Absorption LP (room's "Miller filter" — cutoff drops with density)
   fdn_damp1 = fdn_damp_base + hd_air_density * dd * 0.2;
-  fdn_damp1 = max(0.0, min(0.7, fdn_damp1));
+  fdn_damp1 = max(0.05, min(0.85, fdn_damp1));
   fdn_damp2 = 1.0 - fdn_damp1;
 
-  // 2. Modal Resonance: lo density excites room modes
-  modal_boost_db = (hd_density - 1.0) * dd * 4.0;
-  modal_boost_db = max(0.0, min(6.0, modal_boost_db));
+  // 2. Modal Resonance: lo density excites room modes (gentle — max 3dB)
+  modal_boost_db = (hd_density - 1.0) * dd * 2.0;
+  modal_boost_db = max(0.0, min(3.0, modal_boost_db));
   abs(modal_boost_db - last_modal_boost) > 0.2 ? (
     modal_q = 2.0 + room_size * 6.0;
     modal0.lms_bq_set_peak(modal_f1, modal_boost_db, modal_q);
@@ -461,9 +485,9 @@ loop(BC_MAX_INST,
     last_modal_boost = modal_boost_db;
   );
 
-  // 3. Surface Saturation drive
-  surf_sat = (hd_density - 1.0) * dd * 0.2;
-  surf_sat = max(0.0, min(0.3, surf_sat));
+  // 3. Surface Saturation drive (gentle)
+  surf_sat = (hd_density - 1.0) * dd * 0.15;
+  surf_sat = max(0.0, min(0.15, surf_sat));
 
   // 4. Diffusion: mid density increases allpass coefficients
   dif_coeff = dif_coeff_base + hd_mid_density * dd * 0.2;
@@ -481,16 +505,33 @@ loop(BC_MAX_INST,
   pd_r = pd_buf_r[pd_read];
   pd_pos = (pd_pos + 1) % 4800;
 
-  // ==== INPUT DIFFUSION (4 allpass stages) ====
+  // ==== INPUT DIFFUSION (4 allpass stages with proper delay lengths) ====
   dif_in = (pd_l + pd_r) * 0.5;
-  dif_in = lms_spring_ap(dif_buf0, dif_pos0, dif_len0, dif_in, dif_coeff);
-  dif_pos0 = (dif_pos0 + 1) % 2048;
-  dif_in = lms_spring_ap(dif_buf1, dif_pos1, dif_len1, dif_in, dif_coeff);
-  dif_pos1 = (dif_pos1 + 1) % 2048;
-  dif_in = lms_spring_ap(dif_buf2, dif_pos2, dif_len2, dif_in, dif_coeff * 0.9);
-  dif_pos2 = (dif_pos2 + 1) % 2048;
-  dif_in = lms_spring_ap(dif_buf3, dif_pos3, dif_len3, dif_in, dif_coeff * 0.9);
-  dif_pos3 = (dif_pos3 + 1) % 2048;
+
+  // Stage 0
+  dif_rd = dif_buf0[(dif_pos0 - dif_len0 + 2048) & 2047];
+  dif_buf0[dif_pos0] = dif_in + dif_rd * dif_coeff;
+  dif_in = -dif_in * dif_coeff + dif_rd;
+  dif_pos0 = (dif_pos0 + 1) & 2047;
+
+  // Stage 1
+  dif_rd = dif_buf1[(dif_pos1 - dif_len1 + 2048) & 2047];
+  dif_buf1[dif_pos1] = dif_in + dif_rd * dif_coeff;
+  dif_in = -dif_in * dif_coeff + dif_rd;
+  dif_pos1 = (dif_pos1 + 1) & 2047;
+
+  // Stage 2 (slightly lower coefficient for stability)
+  dif_c2 = dif_coeff * 0.85;
+  dif_rd = dif_buf2[(dif_pos2 - dif_len2 + 2048) & 2047];
+  dif_buf2[dif_pos2] = dif_in + dif_rd * dif_c2;
+  dif_in = -dif_in * dif_c2 + dif_rd;
+  dif_pos2 = (dif_pos2 + 1) & 2047;
+
+  // Stage 3
+  dif_rd = dif_buf3[(dif_pos3 - dif_len3 + 2048) & 2047];
+  dif_buf3[dif_pos3] = dif_in + dif_rd * dif_c2;
+  dif_in = -dif_in * dif_c2 + dif_rd;
+  dif_pos3 = (dif_pos3 + 1) & 2047;
 
   // ==== EARLY REFLECTIONS (12 taps, density-modulated air absorption) ====
   er_buf_l[er_pos] = pd_l;
@@ -524,7 +565,8 @@ loop(BC_MAX_INST,
   d6 = fdn_buf6[(fdn_pos6 - fdn_len6 + 8192) & 8191];
   d7 = fdn_buf7[(fdn_pos7 - fdn_len7 + 8192) & 8191];
 
-  // Air Absorption: one-pole LP damping per line (density-modulated)
+  // Two-stage cascaded LP damping — the room's "Miller filter"
+  // Stage 1: gentle rolloff
   fdn_lp0 = d0 * fdn_damp2 + fdn_lp0 * fdn_damp1;
   fdn_lp1 = d1 * fdn_damp2 + fdn_lp1 * fdn_damp1;
   fdn_lp2 = d2 * fdn_damp2 + fdn_lp2 * fdn_damp1;
@@ -533,33 +575,35 @@ loop(BC_MAX_INST,
   fdn_lp5 = d5 * fdn_damp2 + fdn_lp5 * fdn_damp1;
   fdn_lp6 = d6 * fdn_damp2 + fdn_lp6 * fdn_damp1;
   fdn_lp7 = d7 * fdn_damp2 + fdn_lp7 * fdn_damp1;
-
-  // Modal Resonance: peak filters on lines 0/2/4 (density-excited room modes)
-  modal_boost_db > 0.1 ? (
-    fdn_lp0 = modal0.lms_bq_proc(fdn_lp0);
-    fdn_lp2 = modal1.lms_bq_proc(fdn_lp2);
-    fdn_lp4 = modal2.lms_bq_proc(fdn_lp4);
-  );
+  // Stage 2: -12dB/oct total — smooth, natural room absorption
+  fdn_lp0b = fdn_lp0 * fdn_damp2 + fdn_lp0b * fdn_damp1;
+  fdn_lp1b = fdn_lp1 * fdn_damp2 + fdn_lp1b * fdn_damp1;
+  fdn_lp2b = fdn_lp2 * fdn_damp2 + fdn_lp2b * fdn_damp1;
+  fdn_lp3b = fdn_lp3 * fdn_damp2 + fdn_lp3b * fdn_damp1;
+  fdn_lp4b = fdn_lp4 * fdn_damp2 + fdn_lp4b * fdn_damp1;
+  fdn_lp5b = fdn_lp5 * fdn_damp2 + fdn_lp5b * fdn_damp1;
+  fdn_lp6b = fdn_lp6 * fdn_damp2 + fdn_lp6b * fdn_damp1;
+  fdn_lp7b = fdn_lp7 * fdn_damp2 + fdn_lp7b * fdn_damp1;
 
   // Surface Saturation: walls buzz under density pressure
   surf_sat > 0.01 ? (
-    ss_g = 1.0 + surf_sat * 3.0;
+    ss_g = 1.0 + surf_sat * 2.0;
     ss_inv = 1.0 / ss_g;
-    fdn_lp0 = lms_tanh(fdn_lp0 * ss_g) * ss_inv;
-    fdn_lp1 = lms_tanh(fdn_lp1 * ss_g) * ss_inv;
-    fdn_lp2 = lms_tanh(fdn_lp2 * ss_g) * ss_inv;
-    fdn_lp3 = lms_tanh(fdn_lp3 * ss_g) * ss_inv;
-    fdn_lp4 = lms_tanh(fdn_lp4 * ss_g) * ss_inv;
-    fdn_lp5 = lms_tanh(fdn_lp5 * ss_g) * ss_inv;
-    fdn_lp6 = lms_tanh(fdn_lp6 * ss_g) * ss_inv;
-    fdn_lp7 = lms_tanh(fdn_lp7 * ss_g) * ss_inv;
+    fdn_lp0b = lms_tanh(fdn_lp0b * ss_g) * ss_inv;
+    fdn_lp1b = lms_tanh(fdn_lp1b * ss_g) * ss_inv;
+    fdn_lp2b = lms_tanh(fdn_lp2b * ss_g) * ss_inv;
+    fdn_lp3b = lms_tanh(fdn_lp3b * ss_g) * ss_inv;
+    fdn_lp4b = lms_tanh(fdn_lp4b * ss_g) * ss_inv;
+    fdn_lp5b = lms_tanh(fdn_lp5b * ss_g) * ss_inv;
+    fdn_lp6b = lms_tanh(fdn_lp6b * ss_g) * ss_inv;
+    fdn_lp7b = lms_tanh(fdn_lp7b * ss_g) * ss_inv;
   );
 
   // Hadamard mixing (3-stage butterfly, energy-preserving)
-  s0 = fdn_lp0 + fdn_lp1; s1 = fdn_lp0 - fdn_lp1;
-  s2 = fdn_lp2 + fdn_lp3; s3 = fdn_lp2 - fdn_lp3;
-  s4 = fdn_lp4 + fdn_lp5; s5 = fdn_lp4 - fdn_lp5;
-  s6 = fdn_lp6 + fdn_lp7; s7 = fdn_lp6 - fdn_lp7;
+  s0 = fdn_lp0b + fdn_lp1b; s1 = fdn_lp0b - fdn_lp1b;
+  s2 = fdn_lp2b + fdn_lp3b; s3 = fdn_lp2b - fdn_lp3b;
+  s4 = fdn_lp4b + fdn_lp5b; s5 = fdn_lp4b - fdn_lp5b;
+  s6 = fdn_lp6b + fdn_lp7b; s7 = fdn_lp6b - fdn_lp7b;
   t0 = s0 + s2; t1 = s1 + s3;
   t2 = s0 - s2; t3 = s1 - s3;
   t4 = s4 + s6; t5 = s5 + s7;
@@ -570,15 +614,16 @@ loop(BC_MAX_INST,
   m4 = (t0 - t4) * h_n; m5 = (t1 - t5) * h_n;
   m6 = (t2 - t6) * h_n; m7 = (t3 - t7) * h_n;
 
-  // Write back to delay lines (diffused input + density-modulated feedback)
-  fdn_buf0[fdn_pos0] = dif_in + m0 * fdn_fb;
-  fdn_buf1[fdn_pos1] = dif_in + m1 * fdn_fb;
-  fdn_buf2[fdn_pos2] = dif_in + m2 * fdn_fb;
-  fdn_buf3[fdn_pos3] = dif_in + m3 * fdn_fb;
-  fdn_buf4[fdn_pos4] = dif_in + m4 * fdn_fb;
-  fdn_buf5[fdn_pos5] = dif_in + m5 * fdn_fb;
-  fdn_buf6[fdn_pos6] = dif_in + m6 * fdn_fb;
-  fdn_buf7[fdn_pos7] = dif_in + m7 * fdn_fb;
+  // Write back (decorrelated input at 1/sqrt(8) with alternating polarity)
+  fdn_inp = dif_in * 0.354;
+  fdn_buf0[fdn_pos0] =  fdn_inp + m0 * fdn_fb;
+  fdn_buf1[fdn_pos1] = -fdn_inp + m1 * fdn_fb;
+  fdn_buf2[fdn_pos2] =  fdn_inp + m2 * fdn_fb;
+  fdn_buf3[fdn_pos3] = -fdn_inp + m3 * fdn_fb;
+  fdn_buf4[fdn_pos4] =  fdn_inp + m4 * fdn_fb;
+  fdn_buf5[fdn_pos5] = -fdn_inp + m5 * fdn_fb;
+  fdn_buf6[fdn_pos6] =  fdn_inp + m6 * fdn_fb;
+  fdn_buf7[fdn_pos7] = -fdn_inp + m7 * fdn_fb;
   fdn_pos0 = (fdn_pos0 + 1) & 8191;
   fdn_pos1 = (fdn_pos1 + 1) & 8191;
   fdn_pos2 = (fdn_pos2 + 1) & 8191;
@@ -591,6 +636,37 @@ loop(BC_MAX_INST,
   // Late reverb output (even lines → L, odd → R)
   late_l = (d0 + d2 + d4 + d6) * 0.25;
   late_r = (d1 + d3 + d5 + d7) * 0.25;
+
+  // Output diffusion (2 allpass stages per channel — smears discrete FDN taps)
+  od_rd = od_buf_l0[(od_pos_l0 - od_len_l0 + 2048) & 2047];
+  od_buf_l0[od_pos_l0] = late_l + od_rd * 0.6;
+  late_l = -late_l * 0.6 + od_rd;
+  od_pos_l0 = (od_pos_l0 + 1) & 2047;
+
+  od_rd = od_buf_l1[(od_pos_l1 - od_len_l1 + 2048) & 2047];
+  od_buf_l1[od_pos_l1] = late_l + od_rd * 0.6;
+  late_l = -late_l * 0.6 + od_rd;
+  od_pos_l1 = (od_pos_l1 + 1) & 2047;
+
+  od_rd = od_buf_r0[(od_pos_r0 - od_len_r0 + 2048) & 2047];
+  od_buf_r0[od_pos_r0] = late_r + od_rd * 0.6;
+  late_r = -late_r * 0.6 + od_rd;
+  od_pos_r0 = (od_pos_r0 + 1) & 2047;
+
+  od_rd = od_buf_r1[(od_pos_r1 - od_len_r1 + 2048) & 2047];
+  od_buf_r1[od_pos_r1] = late_r + od_rd * 0.6;
+  late_r = -late_r * 0.6 + od_rd;
+  od_pos_r1 = (od_pos_r1 + 1) & 2047;
+
+  // Modal Resonance: room modes color output (NOT in feedback loop — no compounding)
+  modal_boost_db > 0.1 ? (
+    late_l = modal0.lms_bq_proc_l(late_l);
+    late_l = modal1.lms_bq_proc_l(late_l);
+    late_l = modal2.lms_bq_proc_l(late_l);
+    late_r = modal0.lms_bq_proc_r(late_r);
+    late_r = modal1.lms_bq_proc_r(late_r);
+    late_r = modal2.lms_bq_proc_r(late_r);
+  );
 
   // ==== COMBINE ER + LATE ====
   wet_l = er_l * 0.3 + late_l * 0.7;
