@@ -22,7 +22,7 @@ slider8:0<0,100,1>-Spring Reverb (%)
 slider10:0<0,100,1>-Tremolo Depth (%)
 slider11:50<0,100,1>-Tremolo Speed (%)
 // --- CABINET ---
-slider12:1<0,7,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed}>-Cabinet
+slider12:1<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider13:1<0,1,1{Off,On}>-Cab Sim
 slider14:0<0,100,1>-Mic Distance (%)
 
