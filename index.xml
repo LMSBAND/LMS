@@ -761,6 +761,10 @@
         <changelog><![CDATA[v1.1 — Fixed pool path (DRUMBANGER instead of DrumBox16).]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-02-28T23:00:00Z">
+        <changelog><![CDATA[v1.2 — Resolves symlinks to find the real pool/ directory. Fixes mismatch where Lua scripts and JSFX were reading from different pool folders on symlinked installs. Works for any install method (symlink, copy, ReaPack).]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_sample.lua" type="script" desc="DRUMBANGER: Sample from Project">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
@@ -775,8 +779,8 @@
       </version>
     </reapack>
     <reapack name="drumbanger_open_pool.lua" type="script" desc="DRUMBANGER: Open Pool Folder">
-      <version name="1.0" author="LMS" time="2026-02-28T22:00:00Z">
-        <changelog><![CDATA[Initial release — opens the DRUMBANGER pool folder in your system file manager. Drop .wav files or folders of .wav files in there, then run Rescan. Works on Linux, Mac, and Windows.]]></changelog>
+      <version name="1.0" author="LMS" time="2026-02-28T23:00:00Z">
+        <changelog><![CDATA[Initial release — opens the DRUMBANGER pool folder in your system file manager. Resolves symlinks to find the real pool/ directory (same one the JSFX reads from). Drop .wav files or folders of .wav files in there, then run Rescan. Works on Linux, Mac, and Windows.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
       </version>
     </reapack>
