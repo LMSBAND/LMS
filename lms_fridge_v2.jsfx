@@ -33,7 +33,7 @@ slider20:0<0,100,1>-Tape Echo Mix (%)
 slider21:50<0,100,1>-Echo Time (%)
 slider22:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
-slider23:7<0,7,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed}>-Cabinet
+slider23:7<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider24:1<0,1,1{Off,On}>-Cab Sim
 slider25:0<0,100,1>-Mic Distance (%)
 

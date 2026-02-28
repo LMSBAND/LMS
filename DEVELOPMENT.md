@@ -69,7 +69,10 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_smart_gate | 21 | 840000 | 840032 |
 | lms_pitch_detector | 22 | 850000 | 850032 |
 | lms_autotune | 23 | 860000 | 860032 |
-| **your new plugin** | **24+** | **pick unused** | **HB + 32** |
+| lms_basswoman_v2 | 24 | 870000 | 870032 |
+| lms_nightmare_v2 | 25 | 880000 | 880032 |
+| lms_oj99_v2 | 26 | 890000 | 890032 |
+| **your new plugin** | **27+** | **pick unused** | **HB + 32** |
 
 For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `870000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 

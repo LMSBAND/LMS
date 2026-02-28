@@ -1860,7 +1860,7 @@ function lms_snap_to_scale(freq, root, scale_mask)
 CAB_MAX_BANDS    = 8;    // Mesa V30 uses all 8
 CAB_BAND_STRIDE  = 4;    // (type, freq, param1, param2)
 CAB_PRESET_SIZE  = 34;   // 2 header + 8*4 band data
-CAB_PRESET_COUNT = 8;    // 0=Off + 7 cabs
+CAB_PRESET_COUNT = 12;   // 0=Off + 11 cabs
 CAB_TABLE_BASE   = 800000;
 
 // Band types
@@ -1958,6 +1958,59 @@ function lms_cab_table_init()
   b[16]=3; b[17]=2800; b[18]=-2.0; b[19]=1.0; // PK 2800Hz -2dB (presence dip)
   b[20]=2; b[21]=4000; b[22]=0.55; b[23]=0;   // LP 4000Hz (early rolloff)
   b[24]=3; b[25]=60; b[26]=1.5; b[27]=3.0;    // RES 60Hz +1.5dB (sealed air spring)
+
+  // ---- Preset 8: 4x12 Sheffield 1200 Closed (5150) ----
+  p = CAB_TABLE_BASE + 8 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 3200;
+  b = p + 2;
+  b[0]=1; b[1]=75;   b[2]=0.55; b[3]=0;       // HP 75Hz (tight closed-back)
+  b[4]=3; b[5]=100;  b[6]=2.8;  b[7]=2.0;     // PK 100Hz +2.8dB (cab thump)
+  b[8]=3; b[9]=500;  b[10]=-2.5; b[11]=0.9;   // PK 500Hz -2.5dB (boxiness scoop)
+  b[12]=3; b[13]=1500; b[14]=-1.5; b[15]=1.0;  // PK 1500Hz -1.5dB (honk reduction)
+  b[16]=3; b[17]=3200; b[18]=4.5; b[19]=1.5;  // PK 3200Hz +4.5dB (cone breakup bite)
+  b[20]=2; b[21]=6000; b[22]=0.60; b[23]=0;   // LP 6000Hz (smooth top)
+  b[24]=3; b[25]=100; b[26]=1.8; b[27]=3.0;   // RES 100Hz +1.8dB (closed-back, tight)
+
+  // ---- Preset 9: 1x15 Open (Bassman) ----
+  p = CAB_TABLE_BASE + 9 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 1200;
+  b = p + 2;
+  b[0]=1; b[1]=35;   b[2]=0.45; b[3]=0;       // HP 35Hz (deep 15" extension)
+  b[4]=3; b[5]=80;   b[6]=3.5;  b[7]=1.5;     // PK 80Hz +3.5dB (fundamental thump)
+  b[8]=3; b[9]=250;  b[10]=-2.0; b[11]=0.8;   // PK 250Hz -2dB (boxiness scoop)
+  b[12]=3; b[13]=600; b[14]=-1.5; b[15]=1.0;  // PK 600Hz -1.5dB (mid scoop, 15" character)
+  b[16]=3; b[17]=1200; b[18]=2.5; b[19]=1.5;  // PK 1200Hz +2.5dB (cone breakup, lower than 10"/12")
+  b[20]=2; b[21]=3500; b[22]=0.50; b[23]=0;   // LP 3500Hz (early rolloff, big cone)
+  b[24]=3; b[25]=70; b[26]=2.5; b[27]=2.0;    // RES 70Hz +2.5dB (open-back bloom)
+
+  // ---- Preset 10: 4x10 Sealed (Orange OBC410 / bass cab) ----
+  // Sealed 4x10: punchy, focused, fast transients. 10" speakers roll off early.
+  // Classic bass cab tone — tight low end, midrange punch, no flub.
+  p = CAB_TABLE_BASE + 10 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 1200;
+  b = p + 2;
+  b[0]=1; b[1]=50;   b[2]=0.50; b[3]=0;       // HP 50Hz (sealed cab, tighter than ported)
+  b[4]=3; b[5]=100;  b[6]=3.0;  b[7]=1.2;     // PK 100Hz +3dB (fundamental punch)
+  b[8]=3; b[9]=250;  b[10]=2.0; b[11]=0.8;    // PK 250Hz +2dB (midrange body, 10" character)
+  b[12]=3; b[13]=800; b[14]=-1.5; b[15]=1.0;  // PK 800Hz -1.5dB (slight boxiness scoop)
+  b[16]=3; b[17]=2000; b[18]=2.0; b[19]=1.5;  // PK 2kHz +2dB (attack/presence from 10" cones)
+  b[20]=2; b[21]=4500; b[22]=0.55; b[23]=0;   // LP 4500Hz (10" speakers roll off early)
+  b[24]=3; b[25]=90; b[26]=3.0; b[27]=2.5;    // RES 90Hz +3dB (sealed cab resonance, tight)
+
+  // ---- Preset 11: Orange PPC412 (closed-back 4x12, V30s, Orange voicing) ----
+  // THE Orange cabinet. Closed-back birch ply, Celestion V30s.
+  // Compared to generic V30 cab: more low-mid focus, pronounced 1-2kHz bark,
+  // tighter bass from closed back, warmer top end. The Orange "voice".
+  p = CAB_TABLE_BASE + 11 * CAB_PRESET_SIZE;
+  p[0] = 7; p[1] = 1200;
+  b = p + 2;
+  b[0]=1; b[1]=70;   b[2]=0.55; b[3]=0;       // HP 70Hz (closed-back, tight)
+  b[4]=3; b[5]=120;  b[6]=2.5;  b[7]=1.5;     // PK 120Hz +2.5dB (closed-back low-end punch)
+  b[8]=3; b[9]=350;  b[10]=2.0; b[11]=0.7;    // PK 350Hz +2dB (Orange low-mid thickness)
+  b[12]=3; b[13]=700; b[14]=-1.0; b[15]=1.0;  // PK 700Hz -1dB (mild boxiness scoop)
+  b[16]=3; b[17]=1500; b[18]=3.0; b[19]=1.8;  // PK 1.5kHz +3dB (the Orange BARK — V30 cone breakup in birch ply)
+  b[20]=2; b[21]=5500; b[22]=0.55; b[23]=0;   // LP 5500Hz (V30 rolloff, slightly warmer than open-back)
+  b[24]=3; b[25]=110; b[26]=2.0; b[27]=2.0;   // RES 110Hz +2dB (closed-back resonance, focused)
 );
 
 
@@ -2238,6 +2291,10 @@ function lms_draw_cab_sel(mx, my, mw, mh, val)
   val == 5 ? gfx_drawstr("4x12 G12T-75");
   val == 6 ? gfx_drawstr("4x12 V30");
   val == 7 ? gfx_drawstr("8x10 Sealed");
+  val == 8 ? gfx_drawstr("4x12 Sheffield");
+  val == 9 ? gfx_drawstr("1x15 Open");
+  val == 10 ? gfx_drawstr("4x10 Sealed");
+  val == 11 ? gfx_drawstr("Orange PPC412");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= mx && mouse_x <= mx + mw &&
     mouse_y >= my && mouse_y <= my + mh ? (

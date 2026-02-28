@@ -1,7 +1,7 @@
-desc:LMS - Top Boost v2 (Density-Aware AC15)
-//tags: amp guitar vox ac15 density-aware
+desc:LMS - OJ 99 v2 (Density-Aware Orange OR100)
+//tags: amp guitar orange or100 rockerverb density-aware
 //author: LMS
-//version: 1.1
+//version: 1.0
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
@@ -10,24 +10,29 @@ options:gmem=DrumBagger
 
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
-slider3:0<0,1,1{Normal,Top Boost}>-Channel
+slider3:1<0,1,1{Clean,Dirty}>-Channel
 slider4:50<0,100,1>-Bass (%)
-slider5:50<0,100,1>-Treble (%)
-slider6:50<0,100,1>-Tone Cut (%)
+slider5:50<0,100,1>-Mid (%)
+slider6:50<0,100,1>-Treble (%)
 slider7:50<0,100,1>-Master (%)
 slider8:50<0,100,1>-Input Stage (%)
 slider9:50<0,100,1>-PSU Sag (%)
 slider10:-12<-24,24,0.1>-Output Level (dB)
 slider11:0<0,1,1{Off,On}>-FX Bypass
-// --- TREMOLO (bias wobble on EL84s) ---
-slider12:0<0,100,1>-Tremolo Depth (%)
-slider13:50<0,100,1>-Tremolo Speed (%)
 // --- SPRING REVERB ---
-slider14:0<0,100,1>-Spring Reverb (%)
+slider12:0<0,100,1>-Spring Reverb (%)
+// slider13 removed (dwell)
+// --- TREMOLO ---
+slider14:0<0,100,1>-Tremolo Depth (%)
+slider15:50<0,100,1>-Tremolo Speed (%)
+// --- TAPE ECHO ---
+slider16:0<0,100,1>-Tape Echo Mix (%)
+slider17:50<0,100,1>-Echo Time (%)
+slider18:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
-slider15:3<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
-slider16:1<0,1,1{Off,On}>-Cab Sim
-slider17:0<0,100,1>-Mic Distance (%)
+slider19:11<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
+slider20:1<0,1,1{Off,On}>-Cab Sim
+slider21:0<0,100,1>-Mic Distance (%)
 
 @init
 
@@ -52,15 +57,19 @@ function bq_proc(x) local(o) ( o=this.b0*x + this.b1*this.x1 + this.b2*this.x2 -
 function dc_init() ( this.xp=0; this.yp=0; this.r=1-(20/srate); );
 function dc_proc(x) ( this.yp=x-this.xp+this.r*this.yp; this.xp=x; this.yp; );
 
-// === INPUT STAGE (EF86 pentode grid physics) ===
+// === INPUT STAGE (Orange 12AX7 grid physics — no bright cap, no treble peaking) ===
+// Orange OR100/Rockerverb: NO bright cap across volume pot.
+// NO treble peaking. Large cathode bypass caps = full gain at all frequencies.
+// Small coupling caps between stages = tight bass, no flub.
+// Result: warm, full, mid-forward character.
 function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
   this.input_lp.bq_init();
-  this.input_lp.bq_set_lp(4500, 0.6);
+  this.input_lp.bq_set_lp(4000, 0.55);  // warmer than Marshall (no treble peaking)
   this.cathode_shelf.bq_init();
-  this.cathode_shelf.bq_set_hishelf(1200, -2.0, 0.5);
+  this.cathode_shelf.bq_set_hishelf(700, -2.0, 0.5);  // larger bypass cap = lower shelf
   this.peak_env = 0;
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
@@ -93,10 +102,13 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG ===
+// === PSU SAG (Orange OR100 — fixed bias EL34, moderate sag) ===
+// OR100 runs EL34s hot (~90% max dissipation). Fixed bias.
+// Less stiff supply than Marshall = more sag under load.
+// Low NFB means sag is MORE audible (less correction).
 function psu_init() (
   this.voltage = 1.0;
-  this.att = exp(-1/(srate * 0.001));
+  this.att = exp(-1/(srate * 0.002));
   this.rel = exp(-1/(srate * 0.100));
   this.droop_amount = 0.0;
 );
@@ -107,6 +119,7 @@ function psu_proc(signal_level, sag_depth) local(draw) (
   ) : (
     this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
   );
+  // More sag than Marshall (lower NFB = sag more audible)
   this.voltage = 1.0 - this.droop_amount * 0.20 * sag_depth;
   this.voltage = max(0.65, min(1.0, this.voltage));
   this.voltage;
@@ -147,32 +160,60 @@ function hd_proc(x) local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, ab
   this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
 );
 
+// =========================================================================
 // === DENSITY-AWARE TRIODE STAGE (v2b) ===
+// LESSON LEARNED: density must drive filters and drive levels, NOT the
+// clipping curve shape. Time-varying waveshaper = intermod artifacts on
+// decaying notes. The Miller test proved this: fixed tanh curves +
+// density-driven filters = great sound.
+//
+// So: each triode has FIXED asymmetric tanh clipping (like Miller test),
+// and density drives:
+//   - Miller LP cutoff (more harmonics = darker interstage = "browner")
+//   - Miller LP Q (more hi content = slight resonance = "presence")
+//   - Air shelf (more air density = cut fizz)
+//   - Drive boost (more mid density = push into clipping harder)
+//   - Grid conduction threshold uses PEAK ENVELOPE, not density
+// =========================================================================
 function triode_init(hp_freq, lp_freq) (
+  // Coupling cap HP (removes DC between stages)
   this.hp.bq_init();
   this.hp.bq_set_hp(hp_freq, 0.7);
+  // Grid leak bias shift
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
+  // Interstage Miller LP (density-driven cutoff, NOT clipping)
   this.miller.bq_init();
   this.miller.bq_set_lp(lp_freq, 0.6);
   this.miller_base_freq = lp_freq;
   this.last_miller_freq = lp_freq;
   this.last_miller_q = 0.6;
+  // Air shelf (density-driven fizz control)
   this.air_shelf.bq_init();
   this.air_shelf.bq_set_hishelf(5000, 0.0, 0.7);
   this.last_air_cut = 0.0;
+  // Own density tracker (each stage sees its own harmonic picture)
   this.hd.hd_init();
+  // DC block
   this.dc.dc_init();
+  // Peak envelope for grid conduction (smooth, no density jitter)
   this.peak_env = 0;
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
+// pos_hard/neg_hard: FIXED clipping hardness (never changes per-sample)
+// pos_ceil/neg_ceil: FIXED output ceiling (only PSU bplus scales this)
+// gc_thresh: grid conduction onset (uses peak envelope, not density)
+// gc_amount: how much grid conduction squashes
 function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
   local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
 (
+  // 1. Coupling cap HP
   b = this.hp.bq_proc(x);
+
+  // 2. Grid leak bias shift (coupling cap charges on peaks)
   b > 0.1 ? (
     this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
   ) : (
@@ -180,17 +221,32 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   );
   bias_shift = this.cap_charge;
   b = b - bias_shift;
+
+  // 3. Apply drive — density boosts drive (mid density = push harder into clip)
+  //    This is safe because it changes the INPUT level, not the curve shape.
+  //    More mids = tube is working harder = more saturation. Natural.
   drive_boost = 1.0 + this.hd.mid_density * 0.4;
   gain = (1.0 + drive * 4.0) * drive_boost;
   b = b * gain;
+
+  // 4. Run density tracker on pre-clip signal
   this.hd.hd_proc(b);
+
+  // 5. FIXED CLIPPING CURVES — same shape every sample
+  //    Only bplus (PSU sag) scales the ceiling. The hardness is constant.
+  //    This is exactly how the Miller test does it, and it sounds great.
   p_ceil = pos_ceil * bplus;
   n_ceil = neg_ceil * bplus;
+
   b >= 0 ? (
     b = tanh_approx(b * pos_hard) * p_ceil;
   ) : (
     b = tanh_approx(b * neg_hard) * n_ceil;
   );
+
+  // 6. Grid conduction — uses PEAK ENVELOPE (smooth, level-based)
+  //    NOT density. Peak envelope is a simple, stable signal.
+  //    When signal peaks are loud, grid conducts and squashes tops.
   ax = abs(b);
   ax > this.peak_env ? (
     this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
@@ -201,6 +257,9 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
     gc_out = gc_thresh + tanh_approx((b - gc_thresh) * 3.0) * gc_amount;
     b = gc_out;
   );
+
+  // 7. Miller LP — density drives cutoff and Q (AFTER clipping, on output)
+  //    This is the proven approach from the Miller test.
   lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
   lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
   lp_q = 0.6 + this.hd.hi_density * 0.35;
@@ -211,6 +270,8 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
     this.last_miller_q = lp_q;
   );
   b = this.miller.bq_proc(b);
+
+  // 8. Air shelf — density-driven (safe: it's a filter, not a waveshaper)
   air_cut = -this.hd.air_density * 3.0;
   air_cut = max(-3.0, min(0.0, air_cut));
   abs(air_cut - this.last_air_cut) > 0.1 ? (
@@ -218,103 +279,174 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
     this.last_air_cut = air_cut;
   );
   b = this.air_shelf.bq_proc(b);
+
+  // 9. DC block
   b = this.dc.dc_proc(b);
+
   b;
 );
 
-// === VOX TOP BOOST EQ ===
-function topboost_init() (
-  this.f_bass.bq_init();
-  this.f_treb.bq_init();
-  this.f_mid.bq_init();
-  this.f_mid.bq_set_peak(1000, 2.0, 0.8);
+// === TONE STACK (Orange FMV — 39k slope, mid-forward, 470pF treble cap) ===
+// Rockerverb/OR100: FMV (Fender/Marshall/Vox) type with Orange component values.
+// 39k slope resistor (between Marshall's 33k and 56k) = less mid scoop.
+// 470pF treble cap, 22nF mid cap, 22nF bass cap.
+// Clean channel: fixed mid resistor (no mid pot). Dirty: full TMB.
+// No cathode follower driving it — higher source impedance shifts response.
+// Result: thicker, more mid-present than Marshall at same knob positions.
+function tonestack_init() (
+  this.f_bass.bq_init(); this.f_mid.bq_init(); this.f_treb.bq_init();
 );
-function topboost_set(bass, treble) local(bass_db, treb_db) (
-  bass_db = (bass - 0.5) * -16;
-  this.f_bass.bq_set_loshelf(120, bass_db, 0.6);
+function tonestack_set(bass, mid, treble) local(bass_db, mid_db, treb_db, bass_freq, mid_freq, treb_freq, mid_q, bass_mid_xcouple, treb_mid_xcouple) (
+  // Bass: 55-180Hz shelf (similar to Marshall but slightly different rolloff)
+  bass_freq = 55 + bass * 125;
+  bass_db = (bass - 0.5) * 16;
+  // Mid: 700Hz center — higher than Marshall (370Hz), less aggressive scoop
+  // 39k slope resistor = scoop is ~10-15dB (vs Marshall's up to 20dB)
+  mid_freq = 700;
+  mid_q = 0.9 + mid * 1.3;
+  mid_db = (0.5 - mid) * 10;  // LESS scoop — THE Orange "mid-forward" character
+  // Cross-coupling — controls interact slightly (FMV physics)
+  bass_mid_xcouple = (bass - 0.5) * 2.0;
+  treb_mid_xcouple = (treble - 0.5) * 1.5;
+  mid_db -= bass_mid_xcouple + treb_mid_xcouple;
+  // Treble: 900-4000Hz (470pF cap, similar to Marshall but higher source Z)
+  // Higher source impedance (no CF) shifts treble response down slightly
+  treb_freq = 900 + treble * 3100;
   treb_db = (treble - 0.5) * 14;
-  this.f_treb.bq_set_hishelf(3000, treb_db, 0.7);
+  this.f_bass.bq_set_loshelf(bass_freq, bass_db, 0.55);
+  this.f_mid.bq_set_peak(mid_freq, mid_db, mid_q);
+  this.f_treb.bq_set_hishelf(treb_freq, treb_db, 0.70);
 );
-function topboost_proc(x) local(b) (
+function tonestack_proc(x) local(b) (
   b = this.f_bass.bq_proc(x);
   b = this.f_mid.bq_proc(b);
   b = this.f_treb.bq_proc(b);
   b;
 );
 
-// === POWER AMP (EL84 cathode-biased push-pull, NO NFB) ===
-// v1.1: Added output transformer saturation + winding resonance
+// === POST-TONE-STACK RECOVERY (12AX7 — Orange has NO cathode follower) ===
+// Orange amps do NOT have a cathode follower before the tone stack.
+// The tone stack is driven from the plate directly (high source impedance).
+// This stage recovers signal after passive tone stack insertion loss.
+// The higher driving impedance into the tone stack changes its response
+// and is a key part of the Orange "voice".
+function cathode_follower_init() (
+  this.hp.bq_init();
+  this.hp.bq_set_hp(15, 0.7);
+  this.dc.dc_init();
+  this.bias_env = 0;
+  this.bias_att = exp(-1/(srate * 0.002));
+  this.bias_rel = exp(-1/(srate * 0.060));
+  this.cf_lp.bq_init();
+  this.cf_lp.bq_set_lp(15000, 0.5);
+);
+function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
+  b = this.hp.bq_proc(x);
+  ax = abs(b);
+  ax > this.bias_env ? (
+    this.bias_env = this.bias_att * this.bias_env + (1-this.bias_att) * ax;
+  ) : (
+    this.bias_env = this.bias_rel * this.bias_env + (1-this.bias_rel) * ax;
+  );
+  bias_shift = this.bias_env * 0.20;  // up to 20% gain reduction (less than Mesa)
+  b > 0.7 * bplus ? (
+    b = 0.7 * bplus + tanh_approx((b - 0.7 * bplus) * 2.0) * 0.25 * bplus;
+  );
+  b < -0.85 * bplus ? (
+    b = -0.85 * bplus;
+  );
+  b = b * (1.0 - bias_shift);
+  b = this.cf_lp.bq_proc(b);
+  b = this.dc.dc_proc(b);
+  b * 0.95;
+);
+
+// === POWER AMP (4×EL34 push-pull, 100W, LOW NFB, NO presence control) ===
+// Orange OR100: fixed bias EL34s running HOT (~90% max dissipation).
+// Key differences from Marshall:
+// - LESS NFB (~6dB vs Marshall's moderate) = more "alive", more sag feel
+// - NO presence control (no meaningful NFB to reduce at HF)
+// - "Voice of the World" output transformer (Dagnall UK)
+// - Higher output impedance (low NFB) = speaker resonance shows through
+// - The low NFB is what gives Orange the "spongy", "saggy" feel even with
+//   fixed bias. Less correction = more dynamic compression from the tubes.
 function poweramp_init() (
   this.hd.hd_init();
   this.dc.dc_init();
-  this.tonecut.bq_init();
-  this.tonecut.bq_set_lp(20000, 0.5);
-  this.alias_lp.bq_init();
-  this.alias_lp.bq_set_lp(12000, 0.4);
+  this.nfb_lp.bq_init();
+  this.nfb_lp.bq_set_lp(4500, 0.5);  // lower NFB bandwidth than Marshall
+  this.last_nfb_freq = 4500;
   this.drive = 0;
-  // Cathode bias shift
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.010));
-  this.cathode_rel = exp(-1/(srate * 0.200));
-  // v1.1: Output transformer saturation state
   this.xfmr_lp = 0;
-  // v1.1: Transformer winding resonance (4kHz — Vox shimmer)
+  // Winding resonance: 3.0kHz +2.0dB (Orange OT — warm, less bright than Marshall)
   this.xfmr_res.bq_init();
-  this.xfmr_res.bq_set_peak(4000, 2.0, 2.0);
+  this.xfmr_res.bq_set_peak(3000, 2.0, 1.8);
+  // Cathode (Class AB crossover) — EL34 running hot = less crossover distortion
+  this.cathode_charge = 0;
+  this.cathode_att = exp(-1/(srate * 0.003));
+  this.cathode_rel = exp(-1/(srate * 0.080));
 );
-function poweramp_set(drive, tonecut) local(tc_freq) (
+function poweramp_set(drive, presence) (
   this.drive = drive;
-  tc_freq = 20000 - tonecut * 18000;
-  tc_freq = max(2000, tc_freq);
-  this.tonecut.bq_set_lp(tc_freq, 0.5);
+  // NO presence control — Orange amps don't have one.
+  // The treble ceiling is fixed by the circuit. This is part of the character.
 );
-function poweramp_proc(x, bplus)
-  local(b, push, pull, out, cathode_shift, signal_level, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 3.0);
+function poweramp_proc(x, bplus) local(b, push, pull, out, cathode_shift, signal_level, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
+  b = x * (1.0 + this.drive * 2.2);
 
-  // Density tracker
   this.hd.hd_proc(b);
 
-  // Cathode bias shift — EL84 cathode cap charges with signal
+  // Cathode shift — EL34 running hot, moderate compression
   signal_level = abs(b);
   signal_level > this.cathode_charge ? (
     this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
   ) : (
     this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
   );
-  cathode_shift = this.cathode_charge * 0.15;
+  cathode_shift = this.cathode_charge * 0.12;  // moderate compression
   b = b * (1.0 - cathode_shift);
 
-  // EL84 push-pull — clips EARLIER than EL34
+  // EL34 push-pull — slightly softer than Marshall (running hotter)
   push = b > 0 ? b : 0;
-  push = tanh_approx(push * 1.6) * bplus;
+  push = tanh_approx(push * 1.35) * bplus;  // softer than Marshall (1.4)
+
   pull = b < 0 ? -b : 0;
-  pull = tanh_approx(pull * 1.5) * bplus;
+  pull = tanh_approx(pull * 1.30) * bplus;  // more mismatch (hot bias drift)
 
   out = push - pull;
 
-  // v1.1: Output transformer saturation — EL84 + small 15W OT = creamy breakup
-  // Extraction at ~90Hz (between Champ's 80Hz and Marshall's 120Hz)
-  // Sensitivity ×3.5 — most sensitive guitar amp OT in the suite
+  // Output transformer saturation — "Voice of the World" Dagnall OT
+  // 100W, similar size to Marshall but different winding — saturates slightly earlier
   xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 3.5);
+  xfmr_sat = min(1.0, xfmr_sat * 2.8);  // slightly more sensitive than Marshall
   xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.986 + out * 0.014;
+    this.xfmr_lp = this.xfmr_lp * 0.984 + out * 0.016;
     lo_content = this.xfmr_lp;
     hi_content = out - lo_content;
-    lo_saturated = tanh_approx(lo_content * (1.0 + xfmr_sat * 1.2))
-                   / (1.0 + xfmr_sat * 0.25);
+    lo_saturated = tanh_approx(lo_content * (1.0 + xfmr_sat * 1.1))
+                   / (1.0 + xfmr_sat * 0.22);
     lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
     out = lo_final + hi_content;
   );
 
-  // v1.1: Transformer winding resonance — Vox shimmer (4kHz peak)
+  // Transformer winding resonance (3kHz — warm Orange character)
   out = this.xfmr_res.bq_proc(out);
 
-  // NO NFB — just alias LP + tone cut
-  out = this.alias_lp.bq_proc(out);
-  out = this.tonecut.bq_proc(out);
+  // NFB: Orange has MUCH LESS NFB than Marshall (~6dB vs Marshall's moderate)
+  // This is THE key to the Orange power amp sound:
+  // - More dynamic, more "alive"
+  // - Speaker impedance curve shows through (resonant peaks audible)
+  // - More harmonic complexity from power section
+  // - Feels "spongier" even with fixed bias
+  nfb_freq = 4500 - (this.hd.density - 1.0) * 600;
+  nfb_freq = max(2800, min(5500, nfb_freq));
+  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
+    this.nfb_lp.bq_set_lp(nfb_freq, 0.5);
+    this.last_nfb_freq = nfb_freq;
+  );
+  out = this.nfb_lp.bq_proc(out);
+
+  // NO presence control — treble ceiling is fixed (Orange character)
   out = this.dc.dc_proc(out);
   out * 0.85;
 );
@@ -341,18 +473,10 @@ function sgate_proc(x) local(ax, gate_gain) (
   x * gate_gain;
 );
 
-// === TREMOLO (EL84 bias wobble) ===
-function trem_init() ( this.phase = 0; );
-function trem_proc(x, depth, speed) local(rate, lfo) (
-  rate = 1.0 + speed * 9.0;
-  this.phase += rate / srate;
-  this.phase >= 1.0 ? this.phase -= 1.0;
-  lfo = sin(this.phase * 2.0 * $pi);
-  x * (1.0 - depth * 0.8 * (0.5 + lfo * 0.5));
-);
-
-// === SPRING REVERB ===
+// === SPRING REVERB (allpass diffusion network) ===
 function spring_init() (
+  // Buffer layout: contiguous, no overlaps
+  // PD(337)@0 | AP1(1087)@400 | AP2(1483)@1500 | AP3(1801)@3000 | AP4(2213)@4900 | FB(3571)@7200
   this.buf_base = 50000;
   this.pd_off = 0;       this.pd_len = 337;    this.pd_pos = 0;
   this.ap1_off = 400;    this.ap1_len = 1087;  this.ap1_pos = 0;
@@ -370,9 +494,11 @@ function spring_init() (
 function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   input = this.in_lp.bq_proc(x);
   coeff = 0.28;
+  // Pre-delay (spring transit time)
   delayed = (this.buf_base + this.pd_off)[this.pd_pos];
   (this.buf_base + this.pd_off)[this.pd_pos] = input + this.fb_val * coeff;
   this.pd_pos += 1; this.pd_pos >= this.pd_len ? this.pd_pos = 0;
+  // 4 allpass stages (spring diffusion)
   ap_out = delayed;
   fb = (this.buf_base + this.ap1_off)[this.ap1_pos];
   (this.buf_base + this.ap1_off)[this.ap1_pos] = ap_out + fb * 0.5;
@@ -390,8 +516,10 @@ function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   (this.buf_base + this.ap4_off)[this.ap4_pos] = ap_out + fb * 0.4;
   ap_out = fb - ap_out * 0.4;
   this.ap4_pos += 1; this.ap4_pos >= this.ap4_len ? this.ap4_pos = 0;
+  // Feedback path (through LP — springs eat highs)
   this.fb_val = this.fb_lp.bq_proc(ap_out);
   this.fb_val = max(-0.9, min(0.9, this.fb_val));
+  // Feedback delay (longer sustain)
   wet = (this.buf_base + this.fb_off)[this.fb_pos];
   (this.buf_base + this.fb_off)[this.fb_pos] = ap_out;
   this.fb_pos += 1; this.fb_pos >= this.fb_len ? this.fb_pos = 0;
@@ -399,51 +527,115 @@ function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   x + wet * mix;
 );
 
+// === TREMOLO (bias tremolo) ===
+function trem_init() ( this.phase = 0; );
+function trem_proc(x, depth, speed) local(rate, lfo) (
+  rate = 1.0 + speed * 9.0;
+  this.phase += rate / srate;
+  this.phase >= 1.0 ? this.phase -= 1.0;
+  lfo = sin(this.phase * 2.0 * $pi);
+  x * (1.0 - depth * 0.8 * (0.5 + lfo * 0.5));
+);
+
+// === TAPE ECHO (warm analog delay with LP rolloff and wow) ===
+// Each repeat gets darker (tape head loses HF).
+// Slight pitch wobble from motor flutter.
+function tape_echo_init() (
+  this.buf_base = 200000;  // separate memory from reverb
+  this.buf_len = (srate * 1.0)|0;  // max 1 second delay
+  this.buf_len = min(this.buf_len, 48000);
+  this.write_pos = 0;
+  this.fb_lp.bq_init();
+  this.fb_lp.bq_set_lp(3000, 0.5);  // tape head HF rolloff
+  this.fb_val = 0;
+  this.wow_phase = 0;
+  memset(this.buf_base, 0, 50000);
+);
+function tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos, wow, delayed, wet, frac, idx, s0, s1) (
+  // Time: 0-100% → 50ms to 600ms
+  delay_samps = (0.050 + time * 0.550) * srate;
+  delay_samps = min(delay_samps, this.buf_len - 2);
+  // Wow/flutter: subtle pitch wobble (tape motor irregularity)
+  this.wow_phase += 0.7 / srate;  // ~0.7Hz flutter
+  this.wow_phase >= 1.0 ? this.wow_phase -= 1.0;
+  wow = sin(this.wow_phase * 2.0 * $pi) * 0.002 * srate;  // ±2ms wobble
+  // Read position with wow
+  read_pos = this.write_pos - delay_samps + wow;
+  read_pos < 0 ? read_pos += this.buf_len;
+  // Linear interpolation for fractional delay
+  idx = floor(read_pos);
+  frac = read_pos - idx;
+  idx < 0 ? idx += this.buf_len;
+  s0 = (this.buf_base)[idx % this.buf_len];
+  s1 = (this.buf_base)[(idx + 1) % this.buf_len];
+  delayed = s0 + frac * (s1 - s0);
+  // Feed back through LP (each repeat gets darker)
+  this.fb_val = this.fb_lp.bq_proc(delayed);
+  // Write input + feedback to buffer
+  (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
+  this.write_pos += 1;
+  this.write_pos >= this.buf_len ? this.write_pos = 0;
+  // Output: dry + wet
+  x + delayed * mix;
+);
+
 // === INIT ===
 inp.input_stage_init();
 input_hp.bq_init();
-input_hp.bq_set_hp(80, 0.7);
+input_hp.bq_set_hp(60, 0.7);  // small coupling caps between stages (tight bass, no flub)
 
-// EF86 pentode preamp — THE DEFINING STAGE of the AC15
-// Miller at 9kHz — EF86 has less Miller capacitance than 12AX7
-ef86.triode_init(30, 9000);
+// Bright cap on gain pot — 120pF across 1M pot
+// At low gain: treble bypasses the pot = preserves pick attack
+// At high gain: pot resistance is low = cap shorted = no effect
+// Orange: NO bright cap. Flat volume taper, no treble bypass.
+bright_cap.bq_init();
+bright_cap.bq_set_hishelf(3000, 0.0, 0.7);
 
-// 12AX7 second stage (Top Boost channel only)
-v1.triode_init(30, 7500);
+// V1B: softer stage (unbypassed cathode). HP at 35Hz, Miller LP at 8kHz
+// pos_hard=1.2, neg_hard=1.5 (neg clips harder = Orange common-cathode (symmetric))
+// pos_ceil=0.85, neg_ceil=1.0 (asymmetric output)
+// gc_thresh=0.3, gc_amount=0.15
+// V1: 12AX7 input gain stage (Orange — no treble peaking, warmer Miller)
+v1b.triode_init(60, 7000);  // small coupling cap HP + warmer Miller LP
 
-// v1.1: Cathodyne (concertina) phase inverter
-// Wider bandwidth than LTP (Marshall), more HF = Vox shimmer
-// The cathodyne inherently clips asymmetrically: plate clips harder than cathode
-pi.triode_init(20, 9000);
+// V1A: harder stage (bypassed cathode). HP at 35Hz, Miller LP at 7500Hz
+// pos_hard=1.8, neg_hard=1.4 (pos clips harder = Orange cascaded gain (symmetric))
+// pos_ceil=0.75, neg_ceil=0.95 (more ceiling compression)
+// gc_thresh=0.25, gc_amount=0.18
+// V2: cascaded gain (Dirty channel — all common-cathode, no cold clipper)
+v1a.triode_init(60, 6500);
 
-// v1.1: Interstage coupling cap HP — 0.01uF × 100k = 160Hz
-// Real AC15 has SMALLER coupling caps than Marshall (0.01uF vs 0.022uF)
-// This is THE reason AC15s have tight bass despite open-back cab
-coupling_hp.bq_init();
-coupling_hp.bq_set_hp(160, 0.7);
+// Cathode follower — buffers preamp output before tone stack
+cf.cathode_follower_init();
+
+// Phase inverter — 12AX7 long-tail pair drives EL34 grids
+// Soft, round — pre-compresses signal before power tubes at high master
+// 12AX7 LTP phase inverter — warmer than Marshall, rounder clip
+// Phase inverter (12AX7 LTP — slightly warmer than Marshall)
+pi.triode_init(15, 8000);
 
 psu.psu_init();
-tb.topboost_init();
-tb.topboost_set(0.5, 0.5);
+ts.tonestack_init();
+ts.tonestack_set(0.5, 0.5, 0.5);
 pa.poweramp_init();
 pa.poweramp_set(0.5, 0.5);
 gate.sgate_init();
-trem.trem_init();
 spring.spring_init();
-trem_depth = 0; trem_speed = 0.5;
+trem.trem_init();
+echo.tape_echo_init();
 spring_mix = 0;
-screen_compress = 0;
+trem_depth = 0; trem_speed = 0.5;
+echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 
 // Cabinet simulation (shared presets from core)
 lms_cab_table_init();
 cab.lms_cab_init();
-cab.lms_cab_set(3);  // default: 1x12 Alnico Blue
-cab_type = 3;
+cab.lms_cab_set(11);  // default: Orange PPC412
+cab_type = 11;
 cab_on = 1;
 
 gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
-channel = 0; input_intensity = 0.5; sag_depth = 0.5;
-tonecut = 0.5;
+channel = 1; input_intensity = 0.5; sag_depth = 0.5;
 fx_bypass = 0;
 
 // Density matrix animation state (128 cells for 16x8 grid)
@@ -452,17 +644,17 @@ memset(DM_CELLS, 0, 128);
 dm_frame = 0;
 d_env_lo = 0; d_env_mid = 0; d_env_hi = 0; d_env_air = 0;
 d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
-d_miller_freq = 9000; d_miller_q = 0.6; d_grid_cond = 0;
+d_miller_freq = 7000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
   // ============================================================
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
   BC_BASE = 100000;
-  BC_MY_TYPE = 14;
+  BC_MY_TYPE = 26;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 18;
+  BC_PARAM_COUNT = 21;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -477,8 +669,8 @@ d_drive_boost = 1.0; d_bplus = 1.0;
   bc_instance_count = 0;
   notice_show = 0;
 
-  BC_STALE_HB = 730000;
-  BC_STALE_CT = 730032;
+  BC_STALE_HB = 890000;
+  BC_STALE_CT = 890032;
   i = 0;
   loop(BC_MAX_INST,
     BC_STALE_HB[i] = -1;
@@ -511,21 +703,23 @@ d_drive_boost = 1.0; d_bplus = 1.0;
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
 channel = slider3;
-tb.topboost_set(slider4/100, slider5/100);
-tonecut = slider6 / 100;
+ts.tonestack_set(slider4/100, slider5/100, slider6/100);
 master = slider7 / 100;
-pa.poweramp_set(master, tonecut);
+pa.poweramp_set(master, 0.5);
 input_intensity = slider8 / 100;
 sag_depth = slider9 / 100;
 out_level = 10 ^ (slider10 / 20);
 fx_bypass = slider11;
-trem_depth = slider12 / 100;
-trem_speed = slider13 / 100;
-spring_mix = slider14 / 100;
-cab_type = slider15;
-cab_on = slider16;
+spring_mix = slider12 / 100;
+trem_depth = slider14 / 100;
+trem_speed = slider15 / 100;
+echo_mix = slider16 / 100;
+echo_time = slider17 / 100;
+echo_feedback = slider18 / 100;
+cab_type = slider19;
+cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
-cab_mic = slider17;
+cab_mic = slider21;
 cab.lms_cab_set_mic(cab_mic);
 
 // ============================================================
@@ -536,21 +730,23 @@ cab.lms_cab_set_mic(cab_mic);
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
 channel = slider3;
-tb.topboost_set(slider4/100, slider5/100);
-tonecut = slider6 / 100;
+ts.tonestack_set(slider4/100, slider5/100, slider6/100);
 master = slider7 / 100;
-pa.poweramp_set(master, tonecut);
+pa.poweramp_set(master, 0.5);
 input_intensity = slider8 / 100;
 sag_depth = slider9 / 100;
 out_level = 10 ^ (slider10 / 20);
 fx_bypass = slider11;
-trem_depth = slider12 / 100;
-trem_speed = slider13 / 100;
-spring_mix = slider14 / 100;
-cab_type = slider15;
-cab_on = slider16;
+spring_mix = slider12 / 100;
+trem_depth = slider14 / 100;
+trem_speed = slider15 / 100;
+echo_mix = slider16 / 100;
+echo_time = slider17 / 100;
+echo_feedback = slider18 / 100;
+cab_type = slider19;
+cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
-cab_mic = slider17;
+cab_mic = slider21;
 cab.lms_cab_set_mic(cab_mic);
 
 // ---- Tuner: run pitch detection + smooth display ----
@@ -611,11 +807,14 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         slider10 = gmem[lbase + 9];
         slider11 = gmem[lbase + 10];
         slider12 = gmem[lbase + 11];
-        slider13 = gmem[lbase + 12];
         slider14 = gmem[lbase + 13];
         slider15 = gmem[lbase + 14];
         slider16 = gmem[lbase + 15];
         slider17 = gmem[lbase + 16];
+        slider18 = gmem[lbase + 17];
+        slider19 = gmem[lbase + 18];
+        slider20 = gmem[lbase + 19];
+        slider21 = gmem[lbase + 20];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -645,11 +844,14 @@ bc_my_slot >= 0 && bc_steal_pending ? (
       slider10 = gmem[lbase + 9];
       slider11 = gmem[lbase + 10];
       slider12 = gmem[lbase + 11];
-      slider13 = gmem[lbase + 12];
       slider14 = gmem[lbase + 13];
       slider15 = gmem[lbase + 14];
       slider16 = gmem[lbase + 15];
       slider17 = gmem[lbase + 16];
+      slider18 = gmem[lbase + 17];
+      slider19 = gmem[lbase + 18];
+      slider20 = gmem[lbase + 19];
+      slider21 = gmem[lbase + 20];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -676,11 +878,14 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 9] = slider10;
   gmem[pbase + 10] = slider11;
   gmem[pbase + 11] = slider12;
-  gmem[pbase + 12] = slider13;
   gmem[pbase + 13] = slider14;
   gmem[pbase + 14] = slider15;
   gmem[pbase + 15] = slider16;
   gmem[pbase + 16] = slider17;
+  gmem[pbase + 17] = slider18;
+  gmem[pbase + 18] = slider19;
+  gmem[pbase + 19] = slider20;
+  gmem[pbase + 20] = slider21;
 );
 
 bc_instance_count = 0;
@@ -717,7 +922,7 @@ mono = max(-1.0, min(1.0, mono));
 // Tuner — feed dry input for best pitch detection
 tuner.lms_yin_write(mono);
 
-// 1. Input stage (EF86 pentode grid physics)
+// 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
   mono = inp.input_stage_proc(mono, input_intensity);
 );
@@ -728,52 +933,48 @@ mono = input_hp.bq_proc(mono);
 // 3. PSU sag (shared rail)
 bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth);
 
-// 3b. v1.1: EF86 screen grid compression — pentode positive peak soft knee
-// Screen grid current increases as signal approaches plate saturation
-// Creates the "glassy" ceiling that's different from triode grid conduction
-// Applied BEFORE ef86.triode_proc — shapes what the EF86 sees
-ef86_drive = gain * 0.65;
-ef86_in = mono;
-screen_compress = 0;
-ef86_in > 0.6 * bplus ? (
-  screen_compress = ef86_in - (0.6 * bplus + tanh_approx((ef86_in - 0.6 * bplus) * 3.0) * 0.15 * bplus);
-  ef86_in = 0.6 * bplus + tanh_approx((ef86_in - 0.6 * bplus) * 3.0) * 0.15 * bplus;
-);
+// 3b. NO bright cap — Orange has no treble bypass across volume pot.
+// This is part of why Orange sounds warmer and less "fizzy" than Marshall.
 
-// 4. EF86 pentode preamp — the defining sound
-ef86_out = ef86.triode_proc(ef86_in, ef86_drive, bplus,
-  0.9,   // pos_hard: soft positive (screen current limiting)
-  2.0,   // neg_hard: HARD negative (pentode cutoff — the AC15 signature)
-  0.90,  // pos_ceil
-  0.65,  // neg_ceil: LOW — pentode cuts off early on negative
-  0.40,  // gc_thresh
-  0.10   // gc_amount
-);
+// 4. V1 (first 12AX7 triode — common-cathode, NOT a cold clipper)
+// Clean: 2 gain stages total. Dirty: 4 cascaded gain stages.
+// Orange uses all common-cathode stages (no cold clipper like JCM800).
+// All stages produce more SYMMETRIC clipping = mixed even/odd harmonics.
+channel == 0 ? ( v1b_drive = gain * 0.35; )   // Clean (2-stage)
+: ( v1b_drive = gain * 0.70; );                // Dirty (4-stage cascade)
 
-// 4b. v1.1: Interstage coupling cap — 0.01uF × 100k = 160Hz HP
-// Tighter bass than Marshall (0.022uF). Applied to both channels.
-ef86_out = coupling_hp.bq_proc(ef86_out);
+// Common-cathode: more symmetric clipping than JCM800's cold clipper
+// pos_hard≈neg_hard (symmetric), moderate ceiling
+v1b_out = v1b.triode_proc(mono, v1b_drive, bplus, 1.3, 1.3, 0.85, 0.90, 0.30, 0.12);
 
-// 5. Top Boost channel: 12AX7 second stage
+// 5. V2/V3 (cascaded gain stages — Dirty channel only)
+// On Clean: bypassed. On Dirty: 2 more cascaded stages for heavy saturation.
+// No cold clipper — all common-cathode. More symmetric than Marshall.
 channel == 1 ? (
-  v1_drive = gain * 0.45;
-  amp_out = v1.triode_proc(ef86_out, v1_drive, bplus, 1.3, 1.1, 0.80, 0.95, 0.30, 0.15);
-  amp_out = tb.topboost_proc(amp_out);
+  v1a_drive = gain * 0.55;
+  amp_out = v1a.triode_proc(v1b_out, v1a_drive, bplus, 1.4, 1.4, 0.80, 0.85, 0.25, 0.15);
 ) : (
-  amp_out = ef86_out;
+  amp_out = v1b_out;
 );
 
-amp_out *= 6.0;
+// 5b. Post-tone-stack recovery (Orange: NO cathode follower before tone stack)
+// The tone stack sees high source impedance from the plate directly.
+// This changes the tone stack's actual frequency response.
+amp_out = cf.cathode_follower_proc(amp_out, bplus);
 
-// 5b. v1.1: Cathodyne phase inverter — THE Vox bloom
-// At low master: transparent. At high master: asymmetric clipping = harmonic bloom
-// Cathodyne: plate clips harder (1.0) than cathode (0.85) = inherent asymmetry
-pi_drive = master * 0.40;
-amp_out = pi.triode_proc(amp_out, pi_drive, bplus, 1.0, 0.85, 0.85, 0.90, 0.45, 0.08);
+// 6. Tone stack (Orange FMV — 39k slope, mid-forward)
+amp_out = ts.tonestack_proc(amp_out);
+amp_out *= 7.0;  // slightly less loss recovery (Orange tone stack scoops less)
 
-// 6. Effects loop (pre-power-amp — signal returns through EL84s + cab)
+// 6b. Phase inverter — 12AX7 LTP (warmer than Marshall)
+// Orange LTP: slightly lower bandwidth, rounder clipping character.
+// "Swirling harmonics" under drive.
+pi_drive = master * 0.38;
+amp_out = pi.triode_proc(amp_out, pi_drive, bplus, 0.85, 0.80, 0.85, 0.90, 0.45, 0.08);
+
+// 7. Effects loop (pre-power-amp — signal returns through power tubes + cab)
 fx_bypass == 0 ? (
-  // Tremolo (bias wobble)
+  // Tremolo
   trem_depth > 0 ? (
     amp_out = trem.trem_proc(amp_out, trem_depth, trem_speed);
   );
@@ -781,20 +982,23 @@ fx_bypass == 0 ? (
   spring_mix > 0 ? (
     amp_out = spring.spring_proc(amp_out, spring_mix);
   );
+  // Tape echo
+  echo_mix > 0 ? (
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+  );
   // Safety clamp — catches runaway feedback before it hits power tubes
   amp_out = max(-0.95, min(0.95, amp_out));
 );
 
-// 7. Power amp (EL84 cathode-biased push-pull, NO NFB)
-//    v1.1: Now includes output transformer saturation + winding resonance
+// 8. Power amp (4×EL34 push-pull, low NFB, no presence — the Orange bark)
 amp_out *= master;
 amp_out = pa.poweramp_proc(amp_out, bplus);
 
-// 8. Soft gate
+// 9. Soft gate
 amp_out = gate.sgate_proc(amp_out);
 
-// 9. Cabinet (density-aware speaker sim)
-amp_out = cab.lms_cab_proc(amp_out, ef86.hd.density);
+// 10. Cabinet (density-aware speaker sim)
+amp_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
 
 amp_out *= out_level;
 // Brickwall output limiter — transparent safety ceiling
@@ -802,27 +1006,27 @@ amp_out = max(-0.95, min(0.95, amp_out));
 spl0 = amp_out;
 spl1 = amp_out;
 
-// Density state for GFX — use ef86 (primary preamp), v1 for top boost channel
+// Density state for GFX — use v1a (Dirty), v1b for Clean
 channel == 1 ? (
-  d_env_lo  = v1.hd.env_lo;  d_env_mid = v1.hd.env_mid;
-  d_env_hi  = v1.hd.env_hi;  d_env_air = v1.hd.env_air;
-  d_density = v1.hd.density;
-  d_mid_d   = v1.hd.mid_density;  d_hi_d = v1.hd.hi_density;  d_air_d = v1.hd.air_density;
-  d_miller_freq = v1.last_miller_freq;  d_miller_q = v1.last_miller_q;
-  d_drive_boost = 1.0 + v1.hd.mid_density * 0.4;
-  d_grid_cond   = v1.peak_env;
+  d_env_lo  = v1a.hd.env_lo;  d_env_mid = v1a.hd.env_mid;
+  d_env_hi  = v1a.hd.env_hi;  d_env_air = v1a.hd.env_air;
+  d_density = v1a.hd.density;
+  d_mid_d   = v1a.hd.mid_density;  d_hi_d = v1a.hd.hi_density;  d_air_d = v1a.hd.air_density;
+  d_miller_freq = v1a.last_miller_freq;  d_miller_q = v1a.last_miller_q;
+  d_drive_boost = 1.0 + v1a.hd.mid_density * 0.4;
+  d_grid_cond   = v1a.peak_env;
 ) : (
-  d_env_lo  = ef86.hd.env_lo;  d_env_mid = ef86.hd.env_mid;
-  d_env_hi  = ef86.hd.env_hi;  d_env_air = ef86.hd.env_air;
-  d_density = ef86.hd.density;
-  d_mid_d   = ef86.hd.mid_density;  d_hi_d = ef86.hd.hi_density;  d_air_d = ef86.hd.air_density;
-  d_miller_freq = ef86.last_miller_freq;  d_miller_q = ef86.last_miller_q;
-  d_drive_boost = 1.0 + ef86.hd.mid_density * 0.4;
-  d_grid_cond   = ef86.peak_env;
+  d_env_lo  = v1b.hd.env_lo;  d_env_mid = v1b.hd.env_mid;
+  d_env_hi  = v1b.hd.env_hi;  d_env_air = v1b.hd.env_air;
+  d_density = v1b.hd.density;
+  d_mid_d   = v1b.hd.mid_density;  d_hi_d = v1b.hd.hi_density;  d_air_d = v1b.hd.air_density;
+  d_miller_freq = v1b.last_miller_freq;  d_miller_q = v1b.last_miller_q;
+  d_drive_boost = 1.0 + v1b.hd.mid_density * 0.4;
+  d_grid_cond   = v1b.peak_env;
 );
 d_bplus = bplus;
 
-@gfx 600 544
+@gfx 600 564
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -993,7 +1197,7 @@ col_w = 190;
 pad = floor(4 * S);
 pad2 = pad * 2;
 gr_bar_h = max(2, floor(6 * S));
-body_y = floor(50 * S) + floor(28 * S);  // offset for tuner strip
+body_y = floor(50 * S) + floor(28 * S);
 
 // ============================================================================
 //  LOGO + TITLE
@@ -1012,12 +1216,12 @@ logo_img_w > 0 ? (
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
-gfx_drawstr("TOP BOOST v2");
+gfx_drawstr("OJ 99 v2");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_LABEL);
-gfx_measurestr("Density-Aware AC15", sub_w, sub_h);
+gfx_measurestr("Density-Aware Orange OR100", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
-gfx_drawstr("Density-Aware AC15");
+gfx_drawstr("Density-Aware Orange OR100");
 
 // ============================================================================
 //  TUNER STRIP
@@ -1037,7 +1241,7 @@ cy += bar_sp;
 _old = slider2; slider2 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider2, 0, 100, "Gain", 1);
 slider2 != _old ? slider_automate(2^1);
 cy += bar_sp;
-_old = slider3; slider3 = draw_mode_sel(c1x + pad, cy, col_w - pad2, bar_h, slider3, 1, "Channel", "Normal", "Top Boost", "", "", "");
+_old = slider3; slider3 = draw_mode_sel(c1x + pad, cy, col_w - pad2, bar_h, slider3, 1, "Channel", "Clean", "Dirty", "", "", "");
 slider3 != _old ? slider_automate(2^2);
 cy += bar_sp;
 _old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 100, "Input Stg", 1);
@@ -1055,10 +1259,10 @@ cy = body_y + floor(26 * S);
 _old = slider4; slider4 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider4, 0, 100, "Bass", 1);
 slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-_old = slider5; slider5 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider5, 0, 100, "Treble", 1);
+_old = slider5; slider5 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider5, 0, 100, "Mid", 1);
 slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-_old = slider6; slider6 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Tone Cut", 1);
+_old = slider6; slider6 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Treble", 1);
 slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
 _old = slider7; slider7 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider7, 0, 100, "Master", 1);
@@ -1071,37 +1275,46 @@ slider10 != _old ? slider_automate(2^9);
 //  COL 3: EFFECTS
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
-draw_panel(c3x, body_y, col_w, 26 + 5 * bar_sp, "EFFECTS");
+draw_panel(c3x, body_y, col_w, 26 + 7 * bar_sp, "EFFECTS");
 cy = body_y + floor(26 * S);
 _old = slider11; slider11 = draw_toggle(c3x + pad, cy + 2, slider11, "FX Bypass");
 slider11 != _old ? slider_automate(2^10);
 cy += bar_sp;
-_old = slider12; slider12 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider12, 0, 100, "Trem Depth", 1);
+_old = slider12; slider12 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider12, 0, 100, "Reverb", 1);
 slider12 != _old ? slider_automate(2^11);
 cy += bar_sp;
-_old = slider13; slider13 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider13, 0, 100, "Trem Speed", 1);
-slider13 != _old ? slider_automate(2^12);
-cy += bar_sp;
-_old = slider14; slider14 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider14, 0, 100, "Reverb", 1);
+_old = slider14; slider14 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider14, 0, 100, "Trem Depth", 1);
 slider14 != _old ? slider_automate(2^13);
+cy += bar_sp;
+_old = slider15; slider15 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider15, 0, 100, "Trem Speed", 1);
+slider15 != _old ? slider_automate(2^14);
+cy += bar_sp;
+_old = slider16; slider16 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider16, 0, 100, "Echo Mix", 1);
+slider16 != _old ? slider_automate(2^15);
+cy += bar_sp;
+_old = slider17; slider17 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider17, 0, 100, "Echo Time", 1);
+slider17 != _old ? slider_automate(2^16);
+cy += bar_sp;
+_old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, 0, 100, "Echo FB", 1);
+slider18 != _old ? slider_automate(2^17);
 
 // ============================================================================
 //  CABINET PANEL (full width, between controls and density)
 // ============================================================================
-  p1h = 26 + 5 * bar_sp;
-  cab_panel_y = body_y + p1h + gap;
-  cab_panel_w = col_w * 3 + gap * 2;
+  p3h = 26 + 7 * bar_sp;  // EFFECTS is tallest
+  cab_panel_y = body_y + p3h + gap;
+  cab_panel_w = col_w * 2 + gap;
   cab_panel_x = margin;
   cab_panel_h = floor(70 * S);
   draw_panel(cab_panel_x, cab_panel_y, cab_panel_w, cab_panel_h, "CABINET");
   cab_cy = cab_panel_y + floor(26 * S);
   cab_cw = floor(cab_panel_w * 0.60);
-  _old = slider15; slider15 = lms_draw_cab_sel(cab_panel_x + 4, cab_cy, cab_cw - 8, bar_h, slider15);
-  slider15 != _old ? slider_automate(2^14);
-  _old = slider16; slider16 = draw_toggle(cab_panel_x + cab_cw + floor(8 * S), cab_cy, slider16, "Cab Sim");
-  slider16 != _old ? slider_automate(2^15);
-  _old = slider17; slider17 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider17, 0, 100, "Mic Distance", 1);
-  slider17 != _old ? slider_automate(2^16);
+  _old = slider19; slider19 = lms_draw_cab_sel(cab_panel_x + 4, cab_cy, cab_cw - 8, bar_h, slider19);
+  slider19 != _old ? slider_automate(2^18);
+  _old = slider20; slider20 = draw_toggle(cab_panel_x + cab_cw + floor(8 * S), cab_cy, slider20, "Cab Sim");
+  slider20 != _old ? slider_automate(2^19);
+  _old = slider21; slider21 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider21, 0, 100, "Mic Distance", 1);
+  slider21 != _old ? slider_automate(2^20);
 
 // ============================================================================
 //  DENSITY AWARENESS PANEL
@@ -1185,75 +1398,35 @@ slider14 != _old ? slider_automate(2^13);
   dm_meter_count = 5;
   dm_mw = floor((dm_panel_w - dm_pad * 2 - (dm_meter_count - 1) * dm_meter_gap) / dm_meter_count);
   dm_mx = dm_panel_x + dm_pad;
-  // Meter 1: MILLER LP
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, (d_miller_freq - 5000) / 3500));
-  dm_mfill_w = dm_mfill * dm_mw;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_miller_freq - 5000) / 3500)); dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
-  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
-  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("MLR LP");
-  // Meter 2: MILLER Q
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("MLR LP");
   dm_mx += dm_mw + dm_meter_gap;
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, (d_miller_q - 0.6) / 0.35));
-  dm_mfill_w = dm_mfill * dm_mw;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_miller_q - 0.6) / 0.35)); dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
-  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
-  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("MLR Q");
-  // Meter 3: GRID COND
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("MLR Q");
   dm_mx += dm_mw + dm_meter_gap;
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, d_grid_cond / 0.35));
-  dm_mfill_w = dm_mfill * dm_mw;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, d_grid_cond / 0.35)); dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
-  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
-  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("GRID");
-  // Meter 4: DRIVE
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("GRID");
   dm_mx += dm_mw + dm_meter_gap;
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, (d_drive_boost - 1.0) / 0.4));
-  dm_mfill_w = dm_mfill * dm_mw;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_drive_boost - 1.0) / 0.4)); dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
-  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
-  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("DRIVE");
-  // Meter 5: B+ RAIL
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("DRIVE");
   dm_mx += dm_mw + dm_meter_gap;
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, (d_bplus - 0.75) / 0.25));
-  dm_mfill_w = dm_mfill * dm_mw;
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+  dm_mfill = max(0, min(1, (d_bplus - 0.75) / 0.25)); dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1);
-  gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", max(7, floor(9 * S)));
-  gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("B+");
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("B+");
 
 // ============================================================================
 //  INSTANCE MANAGER PANEL
