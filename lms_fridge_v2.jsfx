@@ -32,8 +32,20 @@ slider19:50<0,100,1>-Crush High (%)
 slider20:0<0,100,1>-Tape Echo Mix (%)
 slider21:50<0,100,1>-Echo Time (%)
 slider22:40<0,100,1>-Echo Feedback (%)
+// --- CABINET ---
+slider23:7<0,7,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed}>-Cabinet
+slider24:1<0,1,1{Off,On}>-Cab Sim
+slider25:0<0,100,1>-Mic Distance (%)
 
 @init
+
+// === TUNER ===
+tuner.lms_yin_init(20000);
+tuner_disp_freq = 0;
+tuner_disp_conf = 0;
+tuner_disp_cents = 0;
+tuner_disp_note = -1;
+tuner_smooth = 0;
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -528,18 +540,12 @@ crush_on = 0; crush_drive = 0.5; crush_blend = 0.5;
 echo.tape_echo_init();
 echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 
-// Ampeg 8x10 cabinet
-// Deep low end (40Hz HP), aggressive mid scoop, early HF rolloff
-// The 8x10 has a distinctive "thump + grind" character
-cab1.bq_init(); cab1.bq_set_hp(40, 0.45);        // Sealed cab, deep extension
-cab2.bq_init(); cab2.bq_set_peak(80, 4.0, 1.2);  // Low-end thump
-cab3.bq_init(); cab3.bq_set_peak(400, -3.0, 0.8); // Mid scoop (SVT character)
-cab4.bq_init(); cab4.bq_set_peak(1800, 3.0, 1.5); // Upper-mid grind
-cab5.bq_init(); cab5.bq_set_peak(2800, -2.0, 1.0);// Presence dip
-cab6.bq_init(); cab6.bq_set_lp(4000, 0.55);       // Early rolloff (sealed 10" speakers)
-// Sealed box resonance — 8x10 air spring resonates with cone mass at ~60Hz
-// This is the "chest punch" — that physical impact on the low E
-cab_res.bq_init(); cab_res.bq_set_peak(60, 1.5, 3.0);
+// Cabinet simulation (shared presets from core)
+lms_cab_table_init();
+cab.lms_cab_init();
+cab.lms_cab_set(7);  // default: 8x10 Sealed
+cab_type = 7;
+cab_on = 1;
 
 gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
 input_intensity = 0.5; sag_depth = 0.5;
@@ -561,7 +567,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
   BC_MY_TYPE = 13;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 22;
+  BC_PARAM_COUNT = 25;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -624,6 +630,11 @@ crush.crush_set(slider17/100, slider18/100, slider19/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
+cab_type = slider23;
+cab_on = slider24;
+cab.lms_cab_set(cab_on ? cab_type : 0);
+cab_mic = slider25;
+cab.lms_cab_set_mic(cab_mic);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -646,6 +657,23 @@ crush.crush_set(slider17/100, slider18/100, slider19/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
+cab_type = slider23;
+cab_on = slider24;
+cab.lms_cab_set(cab_on ? cab_type : 0);
+cab_mic = slider25;
+cab.lms_cab_set_mic(cab_mic);
+
+// ---- Tuner: run pitch detection + smooth display ----
+tuner.lms_yin_detect();
+tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
+tuner.freq > 20 && tuner.confidence > 0.3 ? (
+  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
+  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
+  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
+  tuner_disp_note = tuner.midi_int;
+) : (
+  tuner_disp_conf *= 0.9;
+);
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -703,6 +731,9 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         slider20 = gmem[lbase + 19];
         slider21 = gmem[lbase + 20];
         slider22 = gmem[lbase + 21];
+        slider23 = gmem[lbase + 22];
+        slider24 = gmem[lbase + 23];
+        slider25 = gmem[lbase + 24];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -742,6 +773,9 @@ bc_my_slot >= 0 && bc_steal_pending ? (
       slider20 = gmem[lbase + 19];
       slider21 = gmem[lbase + 20];
       slider22 = gmem[lbase + 21];
+      slider23 = gmem[lbase + 22];
+      slider24 = gmem[lbase + 23];
+      slider25 = gmem[lbase + 24];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -778,6 +812,9 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 19] = slider20;
   gmem[pbase + 20] = slider21;
   gmem[pbase + 21] = slider22;
+  gmem[pbase + 22] = slider23;
+  gmem[pbase + 23] = slider24;
+  gmem[pbase + 24] = slider25;
 );
 
 bc_instance_count = 0;
@@ -810,6 +847,9 @@ loop(BC_MAX_INST,
 mono = (spl0 + spl1) * 0.5 * in_level;
 // Input clamp — catches record-arm spikes before the amp sees them
 mono = max(-1.0, min(1.0, mono));
+
+// Tuner — feed dry input for best pitch detection
+tuner.lms_yin_write(mono);
 
 // 0a. RF filter (first thing in the chain, like the real circuit)
 // Removes ultrasonic content that would alias through gain stages
@@ -874,14 +914,8 @@ amp_out = pa.poweramp_proc(amp_out, bplus);
 // 8. Soft gate
 amp_out = gate.sgate_proc(amp_out);
 
-// 9. Cabinet (Ampeg 8x10)
-amp_out = cab1.bq_proc(amp_out);
-amp_out = cab2.bq_proc(amp_out);
-amp_out = cab3.bq_proc(amp_out);
-amp_out = cab4.bq_proc(amp_out);
-amp_out = cab5.bq_proc(amp_out);
-amp_out = cab6.bq_proc(amp_out);
-amp_out = cab_res.bq_proc(amp_out);  // sealed box resonance — chest punch
+// 9. Cabinet (density-aware speaker sim)
+amp_out = cab.lms_cab_proc(amp_out, v1b.hd.density);
 
 amp_out *= out_level;
 // Brickwall output limiter — transparent safety ceiling
@@ -899,7 +933,7 @@ d_drive_boost = 1.0 + v1b.hd.mid_density * 0.4;
 d_grid_cond   = v1b.peak_env;
 d_bplus = bplus;
 
-@gfx 640 520
+@gfx 640 604
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -1070,7 +1104,7 @@ col_w = 200;
 pad = floor(4 * S);
 pad2 = pad * 2;
 gr_bar_h = max(2, floor(6 * S));
-body_y = floor(50 * S);
+body_y = floor(50 * S) + floor(28 * S);  // offset for tuner strip
 
 // ============================================================================
 //  LOGO + TITLE
@@ -1095,6 +1129,12 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_measurestr("Density-Aware SVT", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("Density-Aware SVT");
+
+// ============================================================================
+//  TUNER STRIP
+// ============================================================================
+tuner_h = floor(28 * S);
+lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
 
 // ============================================================================
 //  COL 1: PREAMP
@@ -1181,10 +1221,27 @@ _old = slider22; slider22 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider2
 slider22 != _old ? slider_automate(2^21);
 
 // ============================================================================
-//  DENSITY AWARENESS PANEL
+//  CABINET PANEL (full width, between controls and density)
 // ============================================================================
   p3h = 26 + 20 + bar_sp * 8;  // EFFECTS is tallest
-  dm_panel_y = body_y + p3h + gap;
+  cab_panel_y = body_y + p3h + gap;
+  cab_panel_w = col_w * 3 + gap * 2;
+  cab_panel_x = margin;
+  cab_panel_h = floor(70 * S);
+  draw_panel(cab_panel_x, cab_panel_y, cab_panel_w, cab_panel_h, "CABINET");
+  cab_cy = cab_panel_y + floor(26 * S);
+  cab_cw = floor(cab_panel_w * 0.60);
+  _old = slider23; slider23 = lms_draw_cab_sel(cab_panel_x + 4, cab_cy, cab_cw - 8, bar_h, slider23);
+  slider23 != _old ? slider_automate(2^22);
+  _old = slider24; slider24 = draw_toggle(cab_panel_x + cab_cw + floor(8 * S), cab_cy, slider24, "Cab Sim");
+  slider24 != _old ? slider_automate(2^23);
+  _old = slider25; slider25 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider25, 0, 100, "Mic Distance", 1);
+  slider25 != _old ? slider_automate(2^24);
+
+// ============================================================================
+//  DENSITY AWARENESS PANEL
+// ============================================================================
+  dm_panel_y = cab_panel_y + cab_panel_h + gap;
   dm_panel_w = col_w * 3 + gap * 2;
   dm_panel_x = margin;
   dm_cell = max(3, floor(7 * S));
