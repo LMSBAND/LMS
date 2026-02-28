@@ -816,6 +816,25 @@ pool_load_pad >= 0 ? (
   pool_load_pad = -1;
 );
 
+// ---- gmem: ReaScript signals pool rescan (works even without GUI open) ----
+gmem[0] > 0 ? (
+  scan_pool();
+  scan_kits();
+  gmem[2] > 0 && gmem[1] >= 0 && gmem[1] < pool_count ? (
+    pool_load_idx = gmem[1];
+    pool_load_pad = ui_selected_pad;
+  );
+  gmem[0] = 0;
+  gmem[1] = 0;
+  gmem[2] = 0;
+);
+gmem[7] > 0 ? (
+  scan_pool();
+  scan_kits();
+  loaded_kit_num = -1;
+  gmem[7] = 0;
+);
+
 // ---- Sequencer on/off (MIDI always triggers pads regardless) ----
 seq_mode = (slider5 == 1);
 
@@ -2429,27 +2448,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
   );
 );
 
-// -- gmem: ReaScript signals pool rescan (e.g. after sampling from arrange) --
-// gmem[0] = 1: rescan pool, gmem[1] = new sample index, gmem[2] = 1: auto-load
-gmem[0] > 0 ? (
-  scan_pool();
-  scan_kits();  // kits derived from pool folders
-  gmem[2] > 0 && gmem[1] >= 0 && gmem[1] < pool_count ? (
-    pool_load_idx = gmem[1];
-    pool_load_pad = ui_selected_pad;
-  );
-  gmem[0] = 0;
-  gmem[1] = 0;
-  gmem[2] = 0;
-);
-
-// -- gmem[7]: ReaScript signals kit rescan (pool folders changed) --
-gmem[7] > 0 ? (
-  scan_pool();
-  scan_kits();
-  loaded_kit_num = -1; // force reload on next @block
-  gmem[7] = 0;
-);
+// gmem rescan checks moved to @block (runs even without GUI open)
 
 // -- Helper: find next/prev pool sample respecting folder filter --
 function pool_nav_filtered(from_idx, direction) local(idx, attempts) (

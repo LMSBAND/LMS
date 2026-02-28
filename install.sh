@@ -19,7 +19,6 @@ echo ""
 
 # Create destination
 mkdir -p "$DEST"
-mkdir -p "$DEST/scripts"
 
 # Symlink plugin files (edits in repo are instantly live — no re-install)
 for f in "$SCRIPT_DIR"/lms_drumbanger.jsfx \
@@ -60,21 +59,20 @@ for f in "$SCRIPT_DIR"/lms_*.jsfx "$SCRIPT_DIR"/matchering_*.jsfx; do
     echo "  Linked $base → Effects/"
 done
 
-# Copy service/rescan scripts (all scripts → DRUMBANGER/scripts/)
-for f in "$SCRIPT_DIR"/scripts/*; do
-    if [ -f "$f" ]; then
-        cp "$f" "$DEST/scripts/"
-        echo "  Copied scripts/$(basename "$f")"
-    fi
-done
+# Symlink scripts (git pull updates them instantly — no re-install)
+rm -rf "$DEST/scripts"
+ln -s "$SCRIPT_DIR/scripts" "$DEST/scripts"
+echo "  Linked scripts/ → $SCRIPT_DIR/scripts/"
 
-# Copy LMS ReaScripts to REAPER Scripts directory (shows up in Action list)
+# Symlink LMS ReaScripts to REAPER Scripts directory (shows up in Action list)
 LMS_SCRIPTS_DEST="$HOME/.config/REAPER/Scripts/LMS"
 mkdir -p "$LMS_SCRIPTS_DEST"
 for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
     [ -f "$f" ] || continue
-    cp "$f" "$LMS_SCRIPTS_DEST/"
-    echo "  Copied $(basename "$f") → Scripts/LMS/"
+    base=$(basename "$f")
+    rm -f "$LMS_SCRIPTS_DEST/$base"
+    ln -s "$f" "$LMS_SCRIPTS_DEST/$base"
+    echo "  Linked $base → Scripts/LMS/"
 done
 
 # pool/ is already symlinked above — no copy needed
