@@ -520,6 +520,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_reverb.jsfx" type="effect" desc="LMS - Density Reverb — Harmonic Room Physics">
+      <version name="1.0" author="LMS" time="2026-02-28T20:00:00Z">
+        <changelog><![CDATA[Initial release — Density-aware algorithmic reverb with harmonic room physics. 8-line Hadamard FDN with 5 density-driven room behaviors: Air Absorption (HF dies faster with dense content — real air physics), Modal Resonance (bass density excites standing waves at calculated room-mode frequencies), Surface Saturation (walls buzz under density pressure via tanh), Diffusion Density (complex midrange gets denser echo wash), Decay Breathing (dense content shortens tail, sparse lets it extend). Local 4-band density tracker (Lo/Mid/Hi/Air). 12-tap early reflections with density-modulated per-tap absorption. 4-stage Dattorro input diffusion. 8 built-in presets: Plate, Spring, Pop Ambient, Basement, Studio Live, Studio Dampened, Cathedral, Garage. Room Size, Decay, Tone, Pre-Delay, Diffusion, Density Drive (0%=static room, 100%=fully reactive), Width, Mix, Low Cut, Output Gain. Room Physics density monitor showing Lo→Modes, Mid→Diffuse, Hi→Walls, Air→Absorb. Broadcast system (follow/steal). Works standalone or after any LMS amp sim.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
+    </reapack>
   </category>
   <category name="DRUMBANGER">
     <reapack name="lms_drumbanger.jsfx" type="effect" desc="LMS DRUMBANGER - 16-Pad Drum Machine">
@@ -818,7 +824,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 10 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100). 12 shared cabinet models. Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 10 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100). 12 shared cabinet models. Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

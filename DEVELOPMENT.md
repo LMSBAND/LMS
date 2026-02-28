@@ -72,7 +72,8 @@ Each plugin must have a unique type number AND unique local memory addresses for
 | lms_basswoman_v2 | 24 | 870000 | 870032 |
 | lms_nightmare_v2 | 25 | 880000 | 880032 |
 | lms_oj99_v2 | 26 | 890000 | 890032 |
-| **your new plugin** | **27+** | **pick unused** | **HB + 32** |
+| lms_reverb | 27 | 910000 | 910032 |
+| **your new plugin** | **28+** | **pick unused** | **HB + 32** |
 
 For new plugins: pick the next `BC_MY_TYPE` integer, pick a round memory address not in the table (e.g. `870000`), set `BC_STALE_CT = BC_STALE_HB + 32`.
 
