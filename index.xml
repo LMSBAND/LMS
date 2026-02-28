@@ -525,6 +525,10 @@
         <changelog><![CDATA[Initial release — Density-aware algorithmic reverb with harmonic room physics. 8-line Hadamard FDN with 5 density-driven room behaviors: Air Absorption (HF dies faster with dense content — real air physics), Modal Resonance (bass density excites standing waves at calculated room-mode frequencies), Surface Saturation (walls buzz under density pressure via tanh), Diffusion Density (complex midrange gets denser echo wash), Decay Breathing (dense content shortens tail, sparse lets it extend). Local 4-band density tracker (Lo/Mid/Hi/Air). 12-tap early reflections with density-modulated per-tap absorption. 4-stage Dattorro input diffusion. 8 built-in presets: Plate, Spring, Pop Ambient, Basement, Studio Live, Studio Dampened, Cathedral, Garage. Room Size, Decay, Tone, Pre-Delay, Diffusion, Density Drive (0%=static room, 100%=fully reactive), Width, Mix, Low Cut, Output Gain. Room Physics density monitor showing Lo→Modes, Mid→Diffuse, Hi→Walls, Air→Absorb. Broadcast system (follow/steal). Works standalone or after any LMS amp sim.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-02-28T22:00:00Z">
+        <changelog><![CDATA[v1.1 — Major sound quality overhaul. Fixed coherent FDN input (was a delay, not a reverb): input scaled to 1/sqrt(8) with alternating polarity. Two-stage cascaded LP in feedback path — the room's "Miller filter" (-12dB/oct air absorption). Inline allpass input diffusion with proper delay lengths. Output diffusion (2 allpass stages per channel). Modal resonance moved from feedback loop to output path (no more pitched drone). Stronger damping range, higher diffusion coefficients, gentler saturation.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER">
@@ -768,6 +772,12 @@
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — background service for DrumBanger sampling integration via gmem]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
+      </version>
+    </reapack>
+    <reapack name="drumbanger_open_pool.lua" type="script" desc="DRUMBANGER: Open Pool Folder">
+      <version name="1.0" author="LMS" time="2026-02-28T22:00:00Z">
+        <changelog><![CDATA[Initial release — opens the DRUMBANGER pool folder in your system file manager. Drop .wav files or folders of .wav files in there, then run Rescan. Works on Linux, Mac, and Windows.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
       </version>
     </reapack>
   </category>
