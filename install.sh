@@ -3,8 +3,8 @@
 #
 # Usage: ./install.sh
 #
-# Copies all plugin files, scripts, kits, and pool into
-# ~/.config/REAPER/Effects/DRUMBANGER/
+# Symlinks plugin files and pool/ into ~/.config/REAPER/Effects/DRUMBANGER/
+# Edits in the repo are instantly live in REAPER — no re-install needed.
 # Run this after cloning or pulling the repo.
 
 set -e
@@ -20,19 +20,29 @@ echo ""
 # Create destination
 mkdir -p "$DEST"
 mkdir -p "$DEST/scripts"
-mkdir -p "$DEST/kits"
-mkdir -p "$DEST/pool"
 
-# Copy plugin files
+# Symlink plugin files (edits in repo are instantly live — no re-install)
 for f in "$SCRIPT_DIR"/lms_drumbanger.jsfx \
          "$SCRIPT_DIR"/DrumbangerDroneFX.jsfx \
-         "$SCRIPT_DIR"/DrumbangerDroneMIDI2.jsfx \
-         "$SCRIPT_DIR"/NOTICE.TXT; do
+         "$SCRIPT_DIR"/DrumbangerDroneMIDI2.jsfx; do
     if [ -f "$f" ]; then
-        cp "$f" "$DEST/"
-        echo "  Copied $(basename "$f")"
+        base=$(basename "$f")
+        rm -f "$DEST/$base"
+        ln -s "$f" "$DEST/$base"
+        echo "  Linked $base"
     fi
 done
+[ -f "$SCRIPT_DIR/NOTICE.TXT" ] && cp "$SCRIPT_DIR/NOTICE.TXT" "$DEST/" && echo "  Copied NOTICE.TXT"
+
+# Symlink pool/ — ONE shared sample library between repo and REAPER
+# The JSFX resolves pool/ relative to itself. Symlink ensures the Lua scripts,
+# the file manager, and the JSFX all see the same directory.
+rm -rf "$DEST/pool"
+ln -s "$SCRIPT_DIR/pool" "$DEST/pool"
+echo "  Linked pool/ → $SCRIPT_DIR/pool/"
+
+# Clean up legacy kits/ directory (kits are now subfolders inside pool/)
+[ -d "$DEST/kits" ] && rm -rf "$DEST/kits" && echo "  Removed legacy kits/ (kits live in pool/ now)"
 
 # Symlink shared DSP kernel (required by all LMS plugins)
 # Symlinks mean edits in ~/LMS/ are instantly live in REAPER — no re-install needed
@@ -44,7 +54,7 @@ echo "  Linked lms_core.jsfx-inc → Effects/"
 for f in "$SCRIPT_DIR"/lms_*.jsfx "$SCRIPT_DIR"/matchering_*.jsfx; do
     [ -f "$f" ] || continue
     base=$(basename "$f")
-    [ "$base" = "lms_drumbanger.jsfx" ] && continue  # already linked above
+    [ "$base" = "lms_drumbanger.jsfx" ] && continue  # already linked into DRUMBANGER/
     rm -f "$HOME/.config/REAPER/Effects/$base"
     ln -s "$f" "$HOME/.config/REAPER/Effects/$base"
     echo "  Linked $base → Effects/"
@@ -67,12 +77,7 @@ for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
     echo "  Copied $(basename "$f") → Scripts/LMS/"
 done
 
-# Copy pool samples (kits are subfolders in pool/)
-if [ -d "$SCRIPT_DIR/pool" ]; then
-    mkdir -p "$DEST/pool"
-    cp -r "$SCRIPT_DIR/pool/"* "$DEST/pool/" 2>/dev/null && \
-        echo "  Copied pool/ (kits + samples)" || echo "  No pool samples to copy (add your own!)"
-fi
+# pool/ is already symlinked above — no copy needed
 
 echo ""
 echo "Done! Open REAPER and look for DRUMBANGER in the FX browser."
