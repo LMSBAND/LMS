@@ -8,6 +8,11 @@ filename:0,shakebot_logo.png
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
 slider3:50<0,100,1>-Tone (%)
@@ -21,6 +26,10 @@ slider8:0<0,100,1>-Spring Reverb (%)
 // --- TREMOLO ---
 slider10:0<0,100,1>-Tremolo Depth (%)
 slider11:50<0,100,1>-Tremolo Speed (%)
+// --- TAPE ECHO ---
+slider18:0<0,100,1>-Tape Echo Mix (%)
+slider19:50<0,100,1>-Echo Time (%)
+slider20:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
 slider12:1<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider13:1<0,1,1{Off,On}>-Cab Sim
@@ -34,12 +43,7 @@ slider17:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 @init
 
 // === TUNER ===
-tuner.lms_yin_init(20000);
-tuner_disp_freq = 0;
-tuner_disp_conf = 0;
-tuner_disp_cents = 0;
-tuner_disp_note = -1;
-tuner_smooth = 0;
+tuner.lms_tuner_init(20000);
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -383,6 +387,39 @@ function trem_proc(x, depth, speed) local(rate, lfo) (
   x * (1.0 - depth * 0.8 * (0.5 + lfo * 0.5));
 );
 
+// === TAPE ECHO (warm analog delay with LP rolloff and wow) ===
+function tape_echo_init() (
+  this.buf_base = 200000;
+  this.buf_len = (srate * 1.0)|0;
+  this.buf_len = min(this.buf_len, 48000);
+  this.write_pos = 0;
+  this.fb_lp.bq_init();
+  this.fb_lp.bq_set_lp(3000, 0.5);
+  this.fb_val = 0;
+  this.wow_phase = 0;
+  memset(this.buf_base, 0, 50000);
+);
+function tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos, wow, delayed, wet, frac, idx, s0, s1) (
+  delay_samps = (0.050 + time * 0.550) * srate;
+  delay_samps = min(delay_samps, this.buf_len - 2);
+  this.wow_phase += 0.7 / srate;
+  this.wow_phase >= 1.0 ? this.wow_phase -= 1.0;
+  wow = sin(this.wow_phase * 2.0 * $pi) * 0.002 * srate;
+  read_pos = this.write_pos - delay_samps + wow;
+  read_pos < 0 ? read_pos += this.buf_len;
+  idx = floor(read_pos);
+  frac = read_pos - idx;
+  idx < 0 ? idx += this.buf_len;
+  s0 = (this.buf_base)[idx % this.buf_len];
+  s1 = (this.buf_base)[(idx + 1) % this.buf_len];
+  delayed = s0 + frac * (s1 - s0);
+  this.fb_val = this.fb_lp.bq_proc(delayed);
+  (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
+  this.write_pos += 1;
+  this.write_pos >= this.buf_len ? this.write_pos = 0;
+  x + delayed * mix;
+);
+
 // === SOFT GATE ===
 function sgate_init() (
   this.env = 0;
@@ -422,6 +459,7 @@ psu.psu_init();
 gate.sgate_init();
 spring.spring_init();
 trem.trem_init();
+echo.tape_echo_init();
 
 // Single-ended 6V6 Class A power amp (replaces V2b triode_proc)
 pa.se_poweramp_init();
@@ -455,8 +493,8 @@ gain = 0.5; in_level = 1; out_level = 1;
 input_intensity = 0.5; sag_depth = 0.5;
 spring_mix = 0;
 trem_depth = 0; trem_speed = 0.5;
+echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 fx_bypass = 0;
-
 // Density matrix animation state (128 cells for 16x8 grid)
 DM_CELLS = 90000;
 memset(DM_CELLS, 0, 128);
@@ -530,6 +568,9 @@ fx_bypass = slider7;
 spring_mix = slider8 / 100;
 trem_depth = slider10 / 100;
 trem_speed = slider11 / 100;
+echo_mix = slider18 / 100;
+echo_time = slider19 / 100;
+echo_feedback = slider20 / 100;
 cab_type = slider12;
 cab_on = slider13;
 cab.lms_cab_set(cab_on ? cab_type : 0);
@@ -582,6 +623,9 @@ fx_bypass = slider7;
 spring_mix = slider8 / 100;
 trem_depth = slider10 / 100;
 trem_speed = slider11 / 100;
+echo_mix = slider18 / 100;
+echo_time = slider19 / 100;
+echo_feedback = slider20 / 100;
 cab_type = slider12;
 cab_on = slider13;
 cab.lms_cab_set(cab_on ? cab_type : 0);
@@ -620,16 +664,7 @@ cab_load_ohms > 0 ? (
 );
 
 // ---- Tuner: run pitch detection + smooth display ----
-tuner.lms_yin_detect();
-tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
-tuner.freq > 20 && tuner.confidence > 0.3 ? (
-  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
-  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
-  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
-  tuner_disp_note = tuner.midi_int;
-) : (
-  tuner_disp_conf *= 0.9;
-);
+tuner.lms_tuner_block();
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -778,7 +813,7 @@ mono = (spl0 + spl1) * 0.5 * in_level;
 mono = max(-1.0, min(1.0, mono));
 
 // Tuner — feed dry input for best pitch detection
-tuner.lms_yin_write(mono);
+tuner.lms_tuner_write(mono);
 
 // 0. RF filter (68k grid stopper — softens input)
 mono = rf_filter.bq_proc(mono);
@@ -810,6 +845,10 @@ fx_bypass == 0 ? (
   // Tremolo
   trem_depth > 0 ? (
     v1a_out = trem.trem_proc(v1a_out, trem_depth, trem_speed);
+  );
+  // Tape echo
+  echo_mix > 0 ? (
+    v1a_out = echo.tape_echo_proc(v1a_out, echo_mix, echo_time, echo_feedback);
   );
   // Safety clamp — catches runaway feedback before it hits power tubes
   v1a_out = max(-0.95, min(0.95, v1a_out));
@@ -1056,7 +1095,7 @@ gfx_drawstr("Density-Aware Champ 5F1");
 //  TUNER STRIP
 // ============================================================================
 tuner_h = floor(28 * S);
-lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
+tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  LEFT COLUMN: PREAMP
@@ -1090,7 +1129,7 @@ slider6 != _old ? slider_automate(2^5);
 //  RIGHT COLUMN: EFFECTS
 // ============================================================================
 c2x = margin + col_w + gap;
-draw_panel(c2x, body_y, col_w, floor(139 * S), "EFFECTS");
+draw_panel(c2x, body_y, col_w, 26 + 12 * bar_sp, "EFFECTS");
 cy = body_y + floor(26 * S);
 cx = c2x;
 cw = col_w;
@@ -1106,11 +1145,20 @@ slider10 != _old ? slider_automate(2^9);
 cy += bar_sp;
 _old = slider11; slider11 = draw_bar(cx + 4, cy, cw - 8, bar_h, slider11, 0, 100, "Trem Speed", 1);
 slider11 != _old ? slider_automate(2^10);
+cy += bar_sp;
+_old = slider18; slider18 = draw_bar(cx + 4, cy, cw - 8, bar_h, slider18, 0, 100, "Echo Mix", 1);
+slider18 != _old ? slider_automate(2^17);
+cy += bar_sp;
+_old = slider19; slider19 = draw_bar(cx + 4, cy, cw - 8, bar_h, slider19, 0, 100, "Echo Time", 1);
+slider19 != _old ? slider_automate(2^18);
+cy += bar_sp;
+_old = slider20; slider20 = draw_bar(cx + 4, cy, cw - 8, bar_h, slider20, 0, 100, "Echo FB", 1);
+slider20 != _old ? slider_automate(2^19);
 
   // ============================================================
   // CABINET PANEL (full width, between controls and density)
   // ============================================================
-  p1h = floor(160 * S);  // PREAMP is tallest
+  p1h = 26 + 12 * bar_sp;  // EFFECTS is tallest
   cab_panel_y = body_y + p1h + gap;
   cab_panel_w = col_w * 2 + gap;
   cab_panel_x = margin;
