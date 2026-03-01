@@ -89,6 +89,12 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   fdn_lp0b = 0; fdn_lp1b = 0; fdn_lp2b = 0; fdn_lp3b = 0;
   fdn_lp4b = 0; fdn_lp5b = 0; fdn_lp6b = 0; fdn_lp7b = 0;
 
+  // FDN delay line modulation LFOs (irrational ratios — never sync)
+  lfo_phase0 = 0; lfo_phase1 = 0; lfo_phase2 = 0; lfo_phase3 = 0;
+  lfo_phase4 = 0; lfo_phase5 = 0; lfo_phase6 = 0; lfo_phase7 = 0;
+  lfo_rate0 = 0.13; lfo_rate1 = 0.17; lfo_rate2 = 0.23; lfo_rate3 = 0.29;
+  lfo_rate4 = 0.19; lfo_rate5 = 0.31; lfo_rate6 = 0.37; lfo_rate7 = 0.11;
+
   // FDN base delays (mutually prime)
   fdn_base0 = 1087; fdn_base1 = 1283; fdn_base2 = 1499; fdn_base3 = 1693;
   fdn_base4 = 1877; fdn_base5 = 2081; fdn_base6 = 2293; fdn_base7 = 2477;
@@ -133,6 +139,10 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   modal1.lms_bq_init();
   modal2.lms_bq_init();
   last_modal_boost = -1;
+
+  // Input HP (prevents bass accumulation in FDN feedback loop)
+  in_hp.lms_bq_init();
+  in_hp.lms_bq_set_hp(80, 0.707);
 
   // Output stage
   dc_out.lms_dc_init();
@@ -235,7 +245,7 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   dif_len2 = max(1, (dif_base2 * scale * srate_scale)|0);
   dif_len3 = max(1, (dif_base3 * scale * srate_scale)|0);
 
-  dif_coeff_base = 0.5 + diffusion * 0.3;
+  dif_coeff_base = 0.4 + diffusion * 0.25;
 
   fdn_len0 = min(8191, (fdn_base0 * scale * srate_scale)|0);
   fdn_len1 = min(8191, (fdn_base1 * scale * srate_scale)|0);
@@ -264,6 +274,18 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   modal_f3 = max(20, min(srate * 0.25, modal_f3));
 
   out_hp.lms_bq_set_hp(lowcut_freq, 0.707);
+  in_hp.lms_bq_set_hp(lowcut_freq, 0.707);
+
+  // LFO increments for FDN delay modulation
+  lfo_inc0 = 2 * $pi * lfo_rate0 / srate;
+  lfo_inc1 = 2 * $pi * lfo_rate1 / srate;
+  lfo_inc2 = 2 * $pi * lfo_rate2 / srate;
+  lfo_inc3 = 2 * $pi * lfo_rate3 / srate;
+  lfo_inc4 = 2 * $pi * lfo_rate4 / srate;
+  lfo_inc5 = 2 * $pi * lfo_rate5 / srate;
+  lfo_inc6 = 2 * $pi * lfo_rate6 / srate;
+  lfo_inc7 = 2 * $pi * lfo_rate7 / srate;
+  lfo_depth = 2 + room_size * 2;  // 2-4 samples — subtle shimmer, no pitch artifacts
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -288,7 +310,7 @@ dif_len0 = max(1, (dif_base0 * scale * srate_scale)|0);
 dif_len1 = max(1, (dif_base1 * scale * srate_scale)|0);
 dif_len2 = max(1, (dif_base2 * scale * srate_scale)|0);
 dif_len3 = max(1, (dif_base3 * scale * srate_scale)|0);
-dif_coeff_base = 0.5 + diffusion * 0.3;
+dif_coeff_base = 0.4 + diffusion * 0.25;
 fdn_len0 = min(8191, (fdn_base0 * scale * srate_scale)|0);
 fdn_len1 = min(8191, (fdn_base1 * scale * srate_scale)|0);
 fdn_len2 = min(8191, (fdn_base2 * scale * srate_scale)|0);
@@ -308,6 +330,18 @@ modal_f1 = max(20, min(srate * 0.25, 343.0 / (2.0 * room_length_m)));
 modal_f2 = max(20, min(srate * 0.25, 2.0 * modal_f1));
 modal_f3 = max(20, min(srate * 0.25, 3.0 * modal_f1));
 out_hp.lms_bq_set_hp(lowcut_freq, 0.707);
+in_hp.lms_bq_set_hp(lowcut_freq, 0.707);
+
+// LFO increments for FDN delay modulation
+lfo_inc0 = 2 * $pi * lfo_rate0 / srate;
+lfo_inc1 = 2 * $pi * lfo_rate1 / srate;
+lfo_inc2 = 2 * $pi * lfo_rate2 / srate;
+lfo_inc3 = 2 * $pi * lfo_rate3 / srate;
+lfo_inc4 = 2 * $pi * lfo_rate4 / srate;
+lfo_inc5 = 2 * $pi * lfo_rate5 / srate;
+lfo_inc6 = 2 * $pi * lfo_rate6 / srate;
+lfo_inc7 = 2 * $pi * lfo_rate7 / srate;
+lfo_depth = 2 + room_size * 2;
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -470,13 +504,13 @@ loop(BC_MAX_INST,
   dd = density_drive;
 
   // 1. Air Absorption LP (room's "Miller filter" — cutoff drops with density)
-  fdn_damp1 = fdn_damp_base + hd_air_density * dd * 0.2;
-  fdn_damp1 = max(0.05, min(0.85, fdn_damp1));
+  fdn_damp1 = fdn_damp_base + hd_air_density * dd * 0.35;
+  fdn_damp1 = max(0.05, min(0.90, fdn_damp1));
   fdn_damp2 = 1.0 - fdn_damp1;
 
-  // 2. Modal Resonance: lo density excites room modes (gentle — max 3dB)
-  modal_boost_db = (hd_density - 1.0) * dd * 2.0;
-  modal_boost_db = max(0.0, min(3.0, modal_boost_db));
+  // 2. Modal Resonance: lo density excites room modes (max 6dB)
+  modal_boost_db = (hd_density - 1.0) * dd * 4.0;
+  modal_boost_db = max(0.0, min(6.0, modal_boost_db));
   abs(modal_boost_db - last_modal_boost) > 0.2 ? (
     modal_q = 2.0 + room_size * 6.0;
     modal0.lms_bq_set_peak(modal_f1, modal_boost_db, modal_q);
@@ -485,16 +519,16 @@ loop(BC_MAX_INST,
     last_modal_boost = modal_boost_db;
   );
 
-  // 3. Surface Saturation drive (gentle)
-  surf_sat = (hd_density - 1.0) * dd * 0.15;
-  surf_sat = max(0.0, min(0.15, surf_sat));
+  // 3. Surface Saturation: walls buzz under density pressure
+  surf_sat = (hd_density - 1.0) * dd * 0.3;
+  surf_sat = max(0.0, min(0.35, surf_sat));
 
   // 4. Diffusion: mid density increases allpass coefficients
-  dif_coeff = dif_coeff_base + hd_mid_density * dd * 0.2;
-  dif_coeff = max(0.2, min(0.8, dif_coeff));
+  dif_coeff = dif_coeff_base + hd_mid_density * dd * 0.15;
+  dif_coeff = max(0.2, min(0.7, dif_coeff));
 
-  // 5. Decay Breathing: dense = slightly shorter tail
-  fdn_fb = fdn_fb_base - (hd_density - 1.0) * dd * 0.03;
+  // 5. Decay Breathing: dense = shorter tail, sparse = longer
+  fdn_fb = fdn_fb_base - (hd_density - 1.0) * dd * 0.06;
   fdn_fb = max(0.3, min(0.97, fdn_fb));
 
   // ==== PRE-DELAY ====
@@ -555,15 +589,48 @@ loop(BC_MAX_INST,
   er_pos = (er_pos + 1) % 96000;
 
   // ==== 8-LINE HADAMARD FDN WITH DENSITY-DRIVEN PHYSICS ====
-  // Read delay lines
-  d0 = fdn_buf0[(fdn_pos0 - fdn_len0 + 8192) & 8191];
-  d1 = fdn_buf1[(fdn_pos1 - fdn_len1 + 8192) & 8191];
-  d2 = fdn_buf2[(fdn_pos2 - fdn_len2 + 8192) & 8191];
-  d3 = fdn_buf3[(fdn_pos3 - fdn_len3 + 8192) & 8191];
-  d4 = fdn_buf4[(fdn_pos4 - fdn_len4 + 8192) & 8191];
-  d5 = fdn_buf5[(fdn_pos5 - fdn_len5 + 8192) & 8191];
-  d6 = fdn_buf6[(fdn_pos6 - fdn_len6 + 8192) & 8191];
-  d7 = fdn_buf7[(fdn_pos7 - fdn_len7 + 8192) & 8191];
+  // Advance LFO phases (slow modulation — room air currents)
+  lfo_phase0 += lfo_inc0; lfo_phase0 > 2*$pi ? lfo_phase0 -= 2*$pi;
+  lfo_phase1 += lfo_inc1; lfo_phase1 > 2*$pi ? lfo_phase1 -= 2*$pi;
+  lfo_phase2 += lfo_inc2; lfo_phase2 > 2*$pi ? lfo_phase2 -= 2*$pi;
+  lfo_phase3 += lfo_inc3; lfo_phase3 > 2*$pi ? lfo_phase3 -= 2*$pi;
+  lfo_phase4 += lfo_inc4; lfo_phase4 > 2*$pi ? lfo_phase4 -= 2*$pi;
+  lfo_phase5 += lfo_inc5; lfo_phase5 > 2*$pi ? lfo_phase5 -= 2*$pi;
+  lfo_phase6 += lfo_inc6; lfo_phase6 > 2*$pi ? lfo_phase6 -= 2*$pi;
+  lfo_phase7 += lfo_inc7; lfo_phase7 > 2*$pi ? lfo_phase7 -= 2*$pi;
+
+  // Read delay lines with LFO-modulated fractional positions (cubic interpolation)
+  fdn_rd0 = fdn_pos0 - fdn_len0 + sin(lfo_phase0) * lfo_depth;
+  fdn_rd0 < 0 ? fdn_rd0 += 8192; fdn_rd0 >= 8192 ? fdn_rd0 -= 8192;
+  d0 = lms_interp_cubic(fdn_buf0, fdn_rd0, 8192);
+
+  fdn_rd1 = fdn_pos1 - fdn_len1 + sin(lfo_phase1) * lfo_depth;
+  fdn_rd1 < 0 ? fdn_rd1 += 8192; fdn_rd1 >= 8192 ? fdn_rd1 -= 8192;
+  d1 = lms_interp_cubic(fdn_buf1, fdn_rd1, 8192);
+
+  fdn_rd2 = fdn_pos2 - fdn_len2 + sin(lfo_phase2) * lfo_depth;
+  fdn_rd2 < 0 ? fdn_rd2 += 8192; fdn_rd2 >= 8192 ? fdn_rd2 -= 8192;
+  d2 = lms_interp_cubic(fdn_buf2, fdn_rd2, 8192);
+
+  fdn_rd3 = fdn_pos3 - fdn_len3 + sin(lfo_phase3) * lfo_depth;
+  fdn_rd3 < 0 ? fdn_rd3 += 8192; fdn_rd3 >= 8192 ? fdn_rd3 -= 8192;
+  d3 = lms_interp_cubic(fdn_buf3, fdn_rd3, 8192);
+
+  fdn_rd4 = fdn_pos4 - fdn_len4 + sin(lfo_phase4) * lfo_depth;
+  fdn_rd4 < 0 ? fdn_rd4 += 8192; fdn_rd4 >= 8192 ? fdn_rd4 -= 8192;
+  d4 = lms_interp_cubic(fdn_buf4, fdn_rd4, 8192);
+
+  fdn_rd5 = fdn_pos5 - fdn_len5 + sin(lfo_phase5) * lfo_depth;
+  fdn_rd5 < 0 ? fdn_rd5 += 8192; fdn_rd5 >= 8192 ? fdn_rd5 -= 8192;
+  d5 = lms_interp_cubic(fdn_buf5, fdn_rd5, 8192);
+
+  fdn_rd6 = fdn_pos6 - fdn_len6 + sin(lfo_phase6) * lfo_depth;
+  fdn_rd6 < 0 ? fdn_rd6 += 8192; fdn_rd6 >= 8192 ? fdn_rd6 -= 8192;
+  d6 = lms_interp_cubic(fdn_buf6, fdn_rd6, 8192);
+
+  fdn_rd7 = fdn_pos7 - fdn_len7 + sin(lfo_phase7) * lfo_depth;
+  fdn_rd7 < 0 ? fdn_rd7 += 8192; fdn_rd7 >= 8192 ? fdn_rd7 -= 8192;
+  d7 = lms_interp_cubic(fdn_buf7, fdn_rd7, 8192);
 
   // Two-stage cascaded LP damping — the room's "Miller filter"
   // Stage 1: gentle rolloff
@@ -615,7 +682,7 @@ loop(BC_MAX_INST,
   m6 = (t2 - t6) * h_n; m7 = (t3 - t7) * h_n;
 
   // Write back (decorrelated input at 1/sqrt(8) with alternating polarity)
-  fdn_inp = dif_in * 0.354;
+  fdn_inp = in_hp.lms_bq_proc(dif_in) * 0.354;
   fdn_buf0[fdn_pos0] =  fdn_inp + m0 * fdn_fb;
   fdn_buf1[fdn_pos1] = -fdn_inp + m1 * fdn_fb;
   fdn_buf2[fdn_pos2] =  fdn_inp + m2 * fdn_fb;

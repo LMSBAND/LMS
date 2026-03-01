@@ -2014,6 +2014,46 @@ function lms_cab_table_init()
 );
 
 
+// ---- Impedance ratings per cab preset (ohms). ----
+// Returns the nominal impedance for a given cab preset.
+function lms_cab_get_ohms(preset_id)
+  local(ohms)
+(
+  ohms = 8;  // fallback
+  preset_id == 0  ? ohms = 0;   // Off — no load
+  preset_id == 1  ? ohms = 16;  // 1x12 Greenback (Celestion G12M)
+  preset_id == 2  ? ohms = 8;   // 1x12 Jensen C12N
+  preset_id == 3  ? ohms = 16;  // 1x12 Alnico Blue (Celestion Blue)
+  preset_id == 4  ? ohms = 8;   // 2x12 Jensen (two 16 parallel)
+  preset_id == 5  ? ohms = 16;  // 4x12 G12T-75 (Marshall)
+  preset_id == 6  ? ohms = 8;   // 4x12 V30 (Mesa Recto cab)
+  preset_id == 7  ? ohms = 4;   // 8x10 Sealed (SVT 810)
+  preset_id == 8  ? ohms = 16;  // 4x12 Sheffield (5150 cab)
+  preset_id == 9  ? ohms = 8;   // 1x15 Open (Bassman)
+  preset_id == 10 ? ohms = 8;   // 4x10 Sealed (Orange OBC410)
+  preset_id == 11 ? ohms = 16;  // Orange PPC412
+  ohms;
+);
+
+// ---- Compute combined load impedance for one or two cabs. ----
+// Two cabs in parallel: Z = (Za * Zb) / (Za + Zb)
+// Returns 0 if no cabs are active.
+function lms_cab_compute_load(ohms_a, ohms_b)
+  local(load)
+(
+  ohms_a > 0 && ohms_b > 0 ? (
+    load = (ohms_a * ohms_b) / (ohms_a + ohms_b);
+  ) : ohms_a > 0 ? (
+    load = ohms_a;
+  ) : ohms_b > 0 ? (
+    load = ohms_b;
+  ) : (
+    load = 0;
+  );
+  load;
+);
+
+
 // ---- Initialize a cab instance — zero all biquad state, set to bypass. ----
 function lms_cab_init()
 (
@@ -2280,7 +2320,47 @@ function lms_draw_cab_sel(mx, my, mw, mh, val)
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
   gfx_setfont(1, "Arial", F_LABEL);
   gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
-  gfx_drawstr("Cabinet");
+  gfx_drawstr("Cab A");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = mx + mw - floor(90 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  val == 0 ? gfx_drawstr("Off");
+  val == 1 ? gfx_drawstr("1x12 Greenback");
+  val == 2 ? gfx_drawstr("1x12 Jensen");
+  val == 3 ? gfx_drawstr("1x12 Blue");
+  val == 4 ? gfx_drawstr("2x12 Jensen");
+  val == 5 ? gfx_drawstr("4x12 G12T-75");
+  val == 6 ? gfx_drawstr("4x12 V30");
+  val == 7 ? gfx_drawstr("8x10 Sealed");
+  val == 8 ? gfx_drawstr("4x12 Sheffield");
+  val == 9 ? gfx_drawstr("1x15 Open");
+  val == 10 ? gfx_drawstr("4x10 Sealed");
+  val == 11 ? gfx_drawstr("Orange PPC412");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = (val + 1) % CAB_PRESET_COUNT;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= mx && mouse_x <= mx + mw &&
+    mouse_y >= my && mouse_y <= my + mh ? (
+      val = val - 1; val < 0 ? val = CAB_PRESET_COUNT - 1;
+  );
+  val;
+);
+
+
+// ---- GUI: Cab B selector widget (same as Cab A but labeled "Cab B") ----
+function lms_draw_cab_sel_b(mx, my, mw, mh, val)
+(
+  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+  gfx_rect(mx, my, mw, mh);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
+  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_drawstr("Cab B");
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
   gfx_x = mx + mw - floor(90 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
   val == 0 ? gfx_drawstr("Off");

@@ -43,6 +43,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="5.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v5.2 — Dual cab + impedance matching. New functions: lms_cab_get_ohms(preset_id) returns nominal impedance per cab preset, lms_cab_compute_load(ohms_a, ohms_b) computes parallel load impedance for dual-cab rigs. New GUI widget: lms_draw_cab_sel_b() (Cab B selector, same click behavior as Cab A). Cab A selector relabeled from "Cabinet" to "Cab A". All 10 density-aware amp sims now support dual cab (Cab A + Cab B in parallel) with impedance tap selector and load mismatch modeling.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -259,6 +264,10 @@
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response (low-shelf EQ shift). Running into a lower impedance than the tap = more sag, louder, bass-boosted. Higher impedance = tighter, quieter, leaner. Two cabs in parallel halve the load impedance. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -289,6 +298,10 @@
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
       </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -313,6 +326,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
     </reapack>
@@ -345,6 +362,10 @@
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
       </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -371,6 +392,10 @@
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -391,6 +416,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+      </version>
+      <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
     </reapack>
@@ -501,10 +530,18 @@
         <changelog><![CDATA[Initial release — Density-aware EVH 5150/6505 amp sim. High-gain cold-bias 6L6 architecture. Two channels: Rhythm (tight crunch, moderate gain) and Lead (cascaded stages, saturated high-gain). Cold-biased power tubes (Class AB running cold — crossover notch distortion at low volumes, aggressive bite). 4-stage 12AX7 preamp with bright cap. Shared post-EQ, resonance, presence controls. 6L6 push-pull power amp. Built-in noise gate, spring reverb, tape echo. 12 selectable cabinets. Full density monitor.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response (low-shelf EQ shift). Running into a lower impedance than the tap = more sag, louder, bass-boosted. Higher impedance = tighter, quieter, leaner. Default: 4x12 Sheffield on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_basswoman_v2.jsfx" type="effect" desc="LMS - The Basswoman v2 — Density-Aware Fender Bassman Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Bassman 5F6-A amp sim. Two channels: Normal (warm, full) and Bright (treble-boosted with bright cap). 12AY7 first preamp stage (38% of 12AX7 gain — the original low-gain Bassman input), 12AX7 second stage, 12AX7 phase inverter (more drive than Twin's 12AT7). Single 6L6 push-pull power amp: 50W, cathode-biased (14% shift — more compression than fixed bias), 5U4 tube rectifier (22% max droop, 4ms attack, 150ms recovery — one of the saggiest vintage rectifiers). Bassman tone stack: 40-170Hz bass sweep, 600Hz mid, ±6dB scoop (less scooped than Twin = more midrange body). Transformer resonance at 3.2kHz. Low NFB (6dB — raw, alive, touch-sensitive). Default cab: 1x15 Open (open-back bass cab). 12 selectable cabinets. Built-in spring reverb, bias tremolo, tape echo. Full density monitor with B+ voltage, cathode bias, transformer load.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 1x15 Open on Cab A with 8 ohm tap. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
       </version>
     </reapack>
@@ -513,10 +550,18 @@
         <changelog><![CDATA[Initial release — Density-aware Orange Terror Bass amp sim. Hybrid architecture: all-tube 12AX7 preamp with Class D solid-state power amp. Two channels: Warm (2-stage, clean to mild breakup) and Aggressive (4-stage cascaded, heavy saturation). NO bright cap (flat volume taper — key Orange characteristic). Orange FMV tone stack: bass-shifted (35-160Hz), 500Hz mid with ±5dB scoop (less mid-scoop than Marshall = mid-forward Orange voice), treble 800-3500Hz. Class D power section: transparent below clipping, hard symmetric clip at rails, no sag, no transformer saturation, no output transformer coloration — all the tone comes from the tube preamp. PSU sag affects preamp tubes only (10% max droop). Default cab: 4x10 Sealed (Orange OBC410 bass cab). 12 selectable cabinets. Built-in spring reverb, tape echo. Full density monitor.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 4x10 Sealed on Cab A with 8 ohm tap. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj99_v2.jsfx" type="effect" desc="LMS - OJ 99 v2 — Density-Aware Orange OR100 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Orange OR100 amp sim. All-tube, all common-cathode gain stages (no cold clipper — more symmetric clipping than Marshall). Two channels: Clean (2-stage, chimey cleans to edge-of-breakup) and Dirty (4-stage cascaded, thick saturated crunch to full roar). NO bright cap, NO cathode follower before tone stack, NO presence control — three key Orange design decisions that define the voice. High source impedance drives the tone stack differently (more interaction between controls). Orange FMV tone stack: 39k slope resistor (between Marshall 33k and Fender 56k), 700Hz mid, ±5dB scoop, treble 900-4000Hz. 4×EL34 push-pull power amp: fixed bias running hot, softer clipping than Marshall (push 1.35/pull 1.30), 12% cathode shift. Low NFB (~6dB — less than Marshall, more than none). Transformer resonance at 3.0kHz (warmer than Marshall). PSU: 20% max droop, 2ms attack, 100ms recovery (more sag than Marshall = more "alive" feel). Default cab: Orange PPC412 (closed-back 4x12 with V30s, 1.5kHz bark peak). 12 selectable cabinets. Built-in spring reverb, tape echo. Full density monitor with B+ voltage, cathode bias, transformer load.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: Orange PPC412 on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
       </version>
     </reapack>
@@ -527,6 +572,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-02-28T22:00:00Z">
         <changelog><![CDATA[v1.1 — Major sound quality overhaul. Fixed coherent FDN input (was a delay, not a reverb): input scaled to 1/sqrt(8) with alternating polarity. Two-stage cascaded LP in feedback path — the room's "Miller filter" (-12dB/oct air absorption). Inline allpass input diffusion with proper delay lengths. Output diffusion (2 allpass stages per channel). Modal resonance moved from feedback loop to output path (no more pitched drone). Stronger damping range, higher diffusion coefficients, gentler saturation.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-03-01T02:00:00Z">
+        <changelog><![CDATA[v1.2 — Living tail + bass clarity + dramatic density response. (1) FDN delay line modulation: 8 independent LFOs (0.11-0.37 Hz, irrational ratios) modulate delay read positions with cubic Hermite interpolation — tail shimmers and breathes instead of ringing metallically. (2) Input HPF before FDN: biquad highpass (tracks Low Cut slider) on the signal entering the feedback network prevents bass accumulation on long decays. ERs still get full bandwidth. (3) Widened density modulation: air absorption 0.2→0.35, modal resonance 3→6dB, surface saturation 0.15→0.35, diffusion 0.2→0.3, decay breathing 0.03→0.06 — clean guitar = bright open room, heavy distortion = dramatically darker/thicker/choked. (4) Tamed diffusion ceiling: allpass coefficients capped at 0.7 (was 0.85) to prevent self-oscillation at high diffusion + high density drive.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
     </reapack>
