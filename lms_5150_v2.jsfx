@@ -8,6 +8,11 @@ filename:0,shakebot_logo.png
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Pre Gain (%)
 slider3:1<0,1,1{Clean,Lead}>-Channel
@@ -27,6 +32,11 @@ slider15:0<0,1,1{Off,On}>-Noise Gate
 slider16:0<0,100,1>-Tape Echo Mix (%)
 slider17:50<0,100,1>-Echo Time (%)
 slider18:40<0,100,1>-Echo Feedback (%)
+// --- SPRING REVERB ---
+slider25:0<0,100,1>-Spring Reverb (%)
+// --- TREMOLO ---
+slider26:0<0,100,1>-Tremolo Depth (%)
+slider27:50<0,100,1>-Tremolo Speed (%)
 // --- CABINET ---
 slider19:8<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider20:1<0,1,1{Off,On}>-Cab Sim
@@ -40,12 +50,7 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 @init
 
 // === TUNER ===
-tuner.lms_yin_init(20000);
-tuner_disp_freq = 0;
-tuner_disp_conf = 0;
-tuner_disp_cents = 0;
-tuner_disp_note = -1;
-tuner_smooth = 0;
+tuner.lms_tuner_init(20000);
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -395,6 +400,64 @@ function sgate_proc(x) local(ax, gate_gain) (
   x * gate_gain;
 );
 
+// === SPRING REVERB ===
+function spring_init() (
+  this.buf_base = 50000;
+  this.pd_off = 0;       this.pd_len = 337;    this.pd_pos = 0;
+  this.ap1_off = 400;    this.ap1_len = 1087;  this.ap1_pos = 0;
+  this.ap2_off = 1500;   this.ap2_len = 1483;  this.ap2_pos = 0;
+  this.ap3_off = 3000;   this.ap3_len = 1801;  this.ap3_pos = 0;
+  this.ap4_off = 4900;   this.ap4_len = 2213;  this.ap4_pos = 0;
+  this.fb_off = 7200;    this.fb_len = 3571;   this.fb_pos = 0;
+  this.fb_val = 0;
+  this.fb_lp.bq_init();
+  this.fb_lp.bq_set_lp(2500, 0.5);
+  this.in_lp.bq_init();
+  this.in_lp.bq_set_lp(4000, 0.6);
+  memset(this.buf_base, 0, 11000);
+);
+function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
+  input = this.in_lp.bq_proc(x);
+  coeff = 0.28;
+  delayed = (this.buf_base + this.pd_off)[this.pd_pos];
+  (this.buf_base + this.pd_off)[this.pd_pos] = input + this.fb_val * coeff;
+  this.pd_pos += 1; this.pd_pos >= this.pd_len ? this.pd_pos = 0;
+  ap_out = delayed;
+  fb = (this.buf_base + this.ap1_off)[this.ap1_pos];
+  (this.buf_base + this.ap1_off)[this.ap1_pos] = ap_out + fb * 0.5;
+  ap_out = fb - ap_out * 0.5;
+  this.ap1_pos += 1; this.ap1_pos >= this.ap1_len ? this.ap1_pos = 0;
+  fb = (this.buf_base + this.ap2_off)[this.ap2_pos];
+  (this.buf_base + this.ap2_off)[this.ap2_pos] = ap_out + fb * 0.5;
+  ap_out = fb - ap_out * 0.5;
+  this.ap2_pos += 1; this.ap2_pos >= this.ap2_len ? this.ap2_pos = 0;
+  fb = (this.buf_base + this.ap3_off)[this.ap3_pos];
+  (this.buf_base + this.ap3_off)[this.ap3_pos] = ap_out + fb * 0.45;
+  ap_out = fb - ap_out * 0.45;
+  this.ap3_pos += 1; this.ap3_pos >= this.ap3_len ? this.ap3_pos = 0;
+  fb = (this.buf_base + this.ap4_off)[this.ap4_pos];
+  (this.buf_base + this.ap4_off)[this.ap4_pos] = ap_out + fb * 0.4;
+  ap_out = fb - ap_out * 0.4;
+  this.ap4_pos += 1; this.ap4_pos >= this.ap4_len ? this.ap4_pos = 0;
+  this.fb_val = this.fb_lp.bq_proc(ap_out);
+  this.fb_val = max(-0.9, min(0.9, this.fb_val));
+  wet = (this.buf_base + this.fb_off)[this.fb_pos];
+  (this.buf_base + this.fb_off)[this.fb_pos] = ap_out;
+  this.fb_pos += 1; this.fb_pos >= this.fb_len ? this.fb_pos = 0;
+  wet = (ap_out + wet * 0.3) * 0.7;
+  x + wet * mix;
+);
+
+// === TREMOLO (bias tremolo) ===
+function trem_init() ( this.phase = 0; );
+function trem_proc(x, depth, speed) local(rate, lfo) (
+  rate = 1.0 + speed * 9.0;
+  this.phase += rate / srate;
+  this.phase >= 1.0 ? this.phase -= 1.0;
+  lfo = sin(this.phase * 2.0 * $pi);
+  x * (1.0 - depth * 0.8 * (0.5 + lfo * 0.5));
+);
+
 // === TAPE ECHO ===
 function tape_echo_init() (
   this.buf_base = 200000;
@@ -479,7 +542,9 @@ pa.poweramp_set(0.5, 0.5, 0.5);
 // Noise gate
 gate.sgate_init();
 
-// Tape echo
+// Spring reverb + tremolo + tape echo
+spring.spring_init();
+trem.trem_init();
 echo.tape_echo_init();
 
 // Cabinet simulation
@@ -509,6 +574,8 @@ input_intensity = 0.5; sag_depth = 0.25;
 channel = 1;
 gate_on = 0;
 fx_bypass = 0;
+spring_mix = 0;
+trem_depth = 0; trem_speed = 0.5;
 echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 
 // Density matrix animation state
@@ -575,6 +642,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
 @slider
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
+bright_cap.bq_set_hishelf(2000, (1.0 - gain) * (1.0 - gain) * 4.0, 0.7);
 channel = slider3;
 ts.tonestack_set(slider4/100, slider5/100, slider6/100);
 post_gain = slider7 / 100;
@@ -588,6 +656,9 @@ gate_on = slider15;
 echo_mix = slider16 / 100;
 echo_time = slider17 / 100;
 echo_feedback = slider18 / 100;
+spring_mix = slider25 / 100;
+trem_depth = slider26 / 100;
+trem_speed = slider27 / 100;
 cab_type = slider19;
 cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
@@ -632,6 +703,7 @@ cab_load_ohms > 0 ? (
 // ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
+bright_cap.bq_set_hishelf(2000, (1.0 - gain) * (1.0 - gain) * 4.0, 0.7);
 channel = slider3;
 ts.tonestack_set(slider4/100, slider5/100, slider6/100);
 post_gain = slider7 / 100;
@@ -645,6 +717,9 @@ gate_on = slider15;
 echo_mix = slider16 / 100;
 echo_time = slider17 / 100;
 echo_feedback = slider18 / 100;
+spring_mix = slider25 / 100;
+trem_depth = slider26 / 100;
+trem_speed = slider27 / 100;
 cab_type = slider19;
 cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
@@ -683,16 +758,7 @@ cab_load_ohms > 0 ? (
 );
 
 // ---- Tuner: run pitch detection + smooth display ----
-tuner.lms_yin_detect();
-tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
-tuner.freq > 20 && tuner.confidence > 0.3 ? (
-  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
-  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
-  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
-  tuner_disp_note = tuner.midi_int;
-) : (
-  tuner_disp_conf *= 0.9;
-);
+tuner.lms_tuner_block();
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -865,7 +931,7 @@ mono = (spl0 + spl1) * 0.5 * in_level;
 mono = max(-1.0, min(1.0, mono));
 
 // Tuner — feed dry input for best pitch detection
-tuner.lms_yin_write(mono);
+tuner.lms_tuner_write(mono);
 
 // 0. RF filter (removes ultrasonic content before gain stages)
 mono = rf_filter.bq_proc(mono);
@@ -882,8 +948,6 @@ mono = input_hp.bq_proc(mono);
 bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 4. Bright cap — gain-dependent treble boost
-bright_db = (1.0 - gain) * (1.0 - gain) * 4.0;
-bright_cap.bq_set_hishelf(2000, bright_db, 0.7);
 mono = bright_cap.bq_proc(mono);
 
 // === CHANNEL ROUTING ===
@@ -964,8 +1028,17 @@ channel == 0 ? (
 
 // === EFFECTS LOOP (pre-power-amp) ===
 fx_bypass == 0 ? (
+  // Tremolo
+  trem_depth > 0 ? (
+    amp_out = trem.trem_proc(amp_out, trem_depth, trem_speed);
+  );
+  // Spring reverb
+  spring_mix > 0 ? (
+    amp_out = spring.spring_proc(amp_out, spring_mix);
+  );
+  // Tape echo
   echo_mix > 0 ? (
-    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, echo_time, echo_feedback);
   );
   amp_out = max(-0.95, min(0.95, amp_out));
 );
@@ -1233,7 +1306,7 @@ gfx_drawstr("Density-Aware Cold-Bias 6L6");
 //  TUNER STRIP
 // ============================================================================
 tuner_h = floor(28 * S);
-lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
+tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  COL 1: PREAMP
@@ -1290,7 +1363,7 @@ slider13 != _old ? slider_automate(2^12);
 //  COL 3: EFFECTS
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
-draw_panel(c3x, body_y, col_w, 26 + 7 * bar_sp, "EFFECTS");
+draw_panel(c3x, body_y, col_w, 26 + 11 * bar_sp, "EFFECTS");
 cy = body_y + floor(26 * S);
 _old = slider14; slider14 = draw_toggle(c3x + pad, cy + 2, slider14, "FX Bypass");
 slider14 != _old ? slider_automate(2^13);
@@ -1306,11 +1379,20 @@ slider17 != _old ? slider_automate(2^16);
 cy += bar_sp;
 _old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, 0, 100, "Echo FB", 1);
 slider18 != _old ? slider_automate(2^17);
+cy += bar_sp;
+_old = slider25; slider25 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider25, 0, 100, "Reverb", 1);
+slider25 != _old ? slider_automate(2^24);
+cy += bar_sp;
+_old = slider26; slider26 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider26, 0, 100, "Trem Depth", 1);
+slider26 != _old ? slider_automate(2^25);
+cy += bar_sp;
+_old = slider27; slider27 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider27, 0, 100, "Trem Speed", 1);
+slider27 != _old ? slider_automate(2^26);
 
 // ============================================================================
 //  CABINET PANEL
 // ============================================================================
-  p2h = 26 + 10 * bar_sp;  // TONE/POWER height (tallest column)
+  p2h = 26 + 11 * bar_sp;  // EFFECTS height (tallest column)
   cab_panel_y = body_y + p2h + gap;
   cab_panel_w = col_w * 3 + gap * 2;
   cab_panel_x = margin;

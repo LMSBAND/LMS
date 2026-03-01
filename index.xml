@@ -48,6 +48,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="5.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v5.3 — Tuner Module. Section 13: Tuner module (lms_tuner_init/write/block/draw) wraps YIN pitch detection, display smoothing, and click-to-toggle on/off UI into 4 functions — zero CPU when tuner is off. All 11 amp sims refactored to call tuner module instead of inline code.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -268,6 +273,10 @@
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response (low-shelf EQ shift). Running into a lower impedance than the tap = more sag, louder, bass-boosted. Higher impedance = tighter, quieter, leaner. Two cabs in parallel halve the load impedance. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — Tuner module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -302,6 +311,10 @@
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -331,6 +344,20 @@
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware SVT + ODB-3 Bass Amp Sim">
+      <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
+        <changelog><![CDATA[Initial release — Tribute bass amp inspired by Tomas Näslund (Blindside) and Tonteknik Studios. Based on The Fridge v2 (density-aware SVT) with the Crushinator replaced by a Boss ODB-3 Bass Overdrive emulation. ODB-3 features: 300Hz HPF before clipper (bass fundamentals stay clean), asymmetric germanium-style clipping (even harmonic emphasis), two-band post-clip EQ (80Hz/3kHz ±12dB), parallel clean/dirty blend. Built-in LA-2A opto compressor as the final chain element (post-cab, studio style) with GR meter, peak reduction, makeup gain, compress/limit mode, emphasis, and mix controls. Full SVT engine: density-aware 12AX7 preamp (V1a + V1b), SVT 4-band active tonestack with 5-position mid freq, 12AU7 driver, 6550 push-pull power amp with output transformer saturation, PSU sag, Ultra Lo/Hi switches. Default cab: 4x12 V30. All effects (spring reverb, tremolo, tape echo), dual cab with impedance matching. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v1.1 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_ac15_v2.jsfx" type="effect" desc="LMS - Top Boost v2 — Density-Aware AC15 Amp Sim">
@@ -366,6 +393,10 @@
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -396,6 +427,10 @@
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -420,6 +455,10 @@
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+      </version>
+      <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
       </version>
     </reapack>
@@ -534,6 +573,10 @@
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response (low-shelf EQ shift). Running into a lower impedance than the tap = more sag, louder, bass-boosted. Higher impedance = tighter, quieter, leaner. Default: 4x12 Sheffield on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_basswoman_v2.jsfx" type="effect" desc="LMS - The Basswoman v2 — Density-Aware Fender Bassman Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -542,6 +585,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 1x15 Open on Cab A with 8 ohm tap. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
       </version>
     </reapack>
@@ -554,6 +601,10 @@
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 4x10 Sealed on Cab A with 8 ohm tap. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj99_v2.jsfx" type="effect" desc="LMS - OJ 99 v2 — Density-Aware Orange OR100 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -562,6 +613,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: Orange PPC412 on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
+        <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
       </version>
     </reapack>
@@ -798,6 +853,44 @@
         <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
       </version>
+      <version name="1.5" author="LMS" time="2026-03-01T18:00:00Z">
+        <changelog><![CDATA[v1.5 — GUI restyle (LMS house palette), copy bar (Ctrl+click bar to select source, Ctrl+click another to paste). DrumBanger GUI refactored: header bar, panel framing, house color palette matching the amp sims. Tuner + core module refactoring. Stock kit auto-download in fix_pool script.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-rimshot.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hihat-808.wav</source>
+        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-openhat-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-analog.wav</source>
+        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-fm.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-808.wav</source>
+        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-laser.wav</source>
+        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-perc-chirpy.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-juicy.wav</source>
+        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-papercut.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
     </reapack>
     <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS Drone Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
@@ -865,17 +958,7 @@
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
       </version>
     </reapack>
-    <reapack name="drumbanger_sample.lua" type="script" desc="DRUMBANGER: Sample from Project">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — sample audio from REAPER project directly into DrumBanger pads]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_sample.lua</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-03-01T00:00:00Z">
-        <changelog><![CDATA[v1.1 — Dynamic pool discovery: searches Effects/ tree for lms_drumbanger.jsfx and uses pool/ next to it. Works with any ReaPack index name or install layout.]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_sample.lua</source>
-      </version>
-    </reapack>
-    <reapack name="drumbanger_service.lua" type="script" desc="DRUMBANGER: Sampling Service (Background)">
+<reapack name="drumbanger_service.lua" type="script" desc="DRUMBANGER: Sampling Service (Background)">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — background service for DrumBanger sampling integration via gmem]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
@@ -899,19 +982,17 @@
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
       </version>
     </reapack>
-    <reapack name="drumbanger_diagnose.lua" type="script" desc="DRUMBANGER: Diagnose Pool">
-      <version name="1.0" author="LMS" time="2026-02-28T23:55:00Z">
-        <changelog><![CDATA[Initial release — reports everything in the DRUMBANGER directory. Changes nothing.]]></changelog>
-        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_diagnose.lua</source>
-      </version>
-    </reapack>
-    <reapack name="drumbanger_fix_pool.lua" type="script" desc="DRUMBANGER: Fix Pool Directory">
+<reapack name="drumbanger_fix_pool.lua" type="script" desc="DRUMBANGER: Fix Pool Directory">
       <version name="1.0" author="LMS" time="2026-02-28T23:50:00Z">
         <changelog><![CDATA[Initial release — nukes and rebuilds the pool directory.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T00:00:00Z">
         <changelog><![CDATA[v1.1 — Dynamic JSFX discovery: finds lms_drumbanger.jsfx anywhere in Effects/ tree, rebuilds pool/ next to it. Also scans legacy DrumBox16/ and DRUMBANGER/ paths for stray wav files.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-03-01T18:00:00Z">
+        <changelog><![CDATA[v1.2 — Stock kit auto-download. If Kit1-808 or Kit2-LoFi samples are missing, downloads them from GitHub automatically. Safe to run any time — checks existing files first.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
       </version>
     </reapack>

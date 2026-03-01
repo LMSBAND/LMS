@@ -25,6 +25,7 @@
 //   10. Opto Compressor          (LA-2A T4B photocell, stereo, this.* state)
 //   11. Brick-Wall Limiter       (true-peak aware, stereo, this.* state)
 //   12. Pitch Detection & Correction (YIN detector, dual-tap shifter, scale snap)
+//   13. Tuner Module               (YIN + smoothing + toggle UI, this.* state)
 // ============================================================================
 
 @init
@@ -2515,3 +2516,82 @@ function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
   gfx_y = cm_cy + cm_h + floor(1 * S);
   gfx_drawstr("TUNER");
 );
+
+
+// ============================================================================
+//  SECTION 13: Tuner Module (high-level wrapper around YIN detector)
+//
+//  Wraps YIN pitch detection + display smoothing + toggle UI into a single
+//  module. Each amp calls four functions instead of inlining 40+ lines.
+//
+//  Usage:
+//    @init:   tuner.lms_tuner_init(20000);
+//    @sample: tuner.lms_tuner_write(mono);
+//    @block:  tuner.lms_tuner_block();
+//    @gfx:   tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
+// ============================================================================
+
+// Initialize tuner module — YIN detector + display state + on/off toggle.
+// buf_offset = starting memory address for YIN buffers (reserves 4300 slots).
+function lms_tuner_init(buf_offset)
+(
+  this.lms_yin_init(buf_offset);
+  this.on = 1;
+  this.disp_freq = 0;
+  this.disp_conf = 0;
+  this.disp_cents = 0;
+  this.disp_note = -1;
+  this.smooth = 0;
+);
+
+// Feed one sample to the pitch detector. Call in @sample.
+// Guarded by on/off toggle — zero cost when tuner is off.
+function lms_tuner_write(x)
+(
+  this.on ? this.lms_yin_write(x);
+);
+
+// Run pitch detection + smooth display values. Call in @block.
+// Guarded by on/off toggle — zero cost when tuner is off.
+function lms_tuner_block()
+(
+  this.on ? (
+    this.lms_yin_detect();
+    this.smooth == 0 ? this.smooth = exp(-1 / (srate / samplesblock * 0.080));
+    this.freq > 20 && this.confidence > 0.3 ? (
+      this.disp_freq = this.smooth * this.disp_freq + (1 - this.smooth) * this.freq;
+      this.disp_conf = this.smooth * this.disp_conf + (1 - this.smooth) * this.confidence;
+      this.disp_cents = this.smooth * this.disp_cents + (1 - this.smooth) * this.cents;
+      this.disp_note = this.midi_int;
+    ) : (
+      this.disp_conf *= 0.9;
+    );
+  );
+);
+
+// Draw tuner strip with click-to-toggle. Call in @gfx.
+// tx, ty, tw, th = strip rectangle. S = UI scale. lc = previous mouse_cap.
+function lms_tuner_draw(tx, ty, tw, th, S, lc)
+  local(f_small)
+(
+  this.on ? (
+    lms_draw_tuner(tx, ty, tw, th, this.disp_freq, this.disp_conf, this.disp_note, this.disp_cents, S);
+  ) : (
+    gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+    gfx_rect(tx, ty, tw, th);
+    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+    gfx_rect(tx, ty + th - 1, tw, 1);
+    f_small = max(7, floor(11 * S));
+    gfx_setfont(1, "Arial", f_small);
+    gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.42;
+    gfx_x = tx + floor(6 * S);
+    gfx_y = ty + floor((th - f_small) / 2);
+    gfx_drawstr("TUNER OFF");
+  );
+  // Click anywhere on the strip to toggle
+  (mouse_cap & 1) && !(lc & 1) && mouse_y >= ty && mouse_y <= ty + th ? (
+    this.on = 1 - this.on;
+  );
+);
+
+

@@ -8,6 +8,11 @@ filename:0,shakebot_logo.png
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
 slider3:1<0,1,1{Clean,Dirty}>-Channel
@@ -42,12 +47,7 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 @init
 
 // === TUNER ===
-tuner.lms_yin_init(20000);
-tuner_disp_freq = 0;
-tuner_disp_conf = 0;
-tuner_disp_cents = 0;
-tuner_disp_note = -1;
-tuner_smooth = 0;
+tuner.lms_tuner_init(20000);
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -831,16 +831,7 @@ cab_load_ohms > 0 ? (
 );
 
 // ---- Tuner: run pitch detection + smooth display ----
-tuner.lms_yin_detect();
-tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
-tuner.freq > 20 && tuner.confidence > 0.3 ? (
-  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
-  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
-  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
-  tuner_disp_note = tuner.midi_int;
-) : (
-  tuner_disp_conf *= 0.9;
-);
+tuner.lms_tuner_block();
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -1010,7 +1001,7 @@ mono = (spl0 + spl1) * 0.5 * in_level;
 mono = max(-1.0, min(1.0, mono));
 
 // Tuner — feed dry input for best pitch detection
-tuner.lms_yin_write(mono);
+tuner.lms_tuner_write(mono);
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
@@ -1074,11 +1065,12 @@ fx_bypass == 0 ? (
   );
   // Tape echo
   echo_mix > 0 ? (
-    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, echo_time, echo_feedback);
   );
   // Safety clamp — catches runaway feedback before it hits power tubes
   amp_out = max(-0.95, min(0.95, amp_out));
 );
+
 
 // 8. Power amp (4×EL34 push-pull, low NFB, no presence — the Orange bark)
 amp_out *= master;
@@ -1329,7 +1321,7 @@ gfx_drawstr("Density-Aware Orange OR100");
 //  TUNER STRIP
 // ============================================================================
 tuner_h = floor(28 * S);
-lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
+tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  COL 1: PREAMP
@@ -1377,7 +1369,7 @@ slider10 != _old ? slider_automate(2^9);
 //  COL 3: EFFECTS
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
-draw_panel(c3x, body_y, col_w, 26 + 7 * bar_sp, "EFFECTS");
+draw_panel(c3x, body_y, col_w, 26 + 9 * bar_sp, "EFFECTS");
 cy = body_y + floor(26 * S);
 _old = slider11; slider11 = draw_toggle(c3x + pad, cy + 2, slider11, "FX Bypass");
 slider11 != _old ? slider_automate(2^10);
@@ -1403,7 +1395,7 @@ slider18 != _old ? slider_automate(2^17);
 // ============================================================================
 //  CABINET PANEL (full width, between controls and density)
 // ============================================================================
-  p3h = 26 + 7 * bar_sp;  // EFFECTS is tallest
+  p3h = 26 + 9 * bar_sp;  // EFFECTS is tallest
   cab_panel_y = body_y + p3h + gap;
   cab_panel_w = col_w * 2 + gap;
   cab_panel_x = margin;

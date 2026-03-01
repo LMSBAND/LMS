@@ -8,6 +8,11 @@ filename:0,shakebot_logo.png
 import lms_core.jsfx-inc
 options:gmem=DrumBagger
 
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)
 slider3:0<0,1,1{Twin Reverb (85W),Deluxe Reverb (22W)}>-Channel
@@ -29,6 +34,7 @@ slider16:50<0,100,1>-Tremolo Speed (%)
 // --- TAPE ECHO ---
 slider17:0<0,100,1>-Tape Echo Mix (%)
 slider18:40<0,100,1>-Echo Feedback (%)
+slider25:50<0,100,1>-Echo Time (%)
 // --- CABINET ---
 slider19:4<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider20:1<0,1,1{Off,On}>-Cab Sim
@@ -42,12 +48,7 @@ slider24:0<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 @init
 
 // === TUNER ===
-tuner.lms_yin_init(20000);
-tuner_disp_freq = 0;
-tuner_disp_conf = 0;
-tuner_disp_cents = 0;
-tuner_disp_note = -1;
-tuner_smooth = 0;
+tuner.lms_tuner_init(20000);
 
 // === CORE MATH ===
 function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
@@ -691,9 +692,8 @@ gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
 amp_channel = 0; input_intensity = 0.5; sag_depth = 0.5;
 spring_mix = 0;
 trem_depth = 0; trem_speed = 0.5;
-echo_mix = 0; echo_feedback = 0.4;
+echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 fx_bypass = 0;
-
 // Density matrix animation state (128 cells for 16x8 grid)
 DM_CELLS = 90000;
 memset(DM_CELLS, 0, 128);
@@ -758,6 +758,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
 @slider
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
+bright_cap.bq_set_hishelf(3500, (1.0 - gain) * (1.0 - gain) * 3.5, 0.7);
 amp_channel = slider3;
 ts.fender_tonestack_set(slider4/100, slider5/100, slider6/100);
 master = slider8 / 100;
@@ -771,6 +772,7 @@ spring_mix = slider13 / 100;
 trem_depth = slider15 / 100;
 trem_speed = slider16 / 100;
 echo_mix = slider17 / 100;
+echo_time = slider25 / 100;
 echo_feedback = slider18 / 100;
 cab_type = slider19;
 cab_on = slider20;
@@ -816,6 +818,7 @@ cab_load_ohms > 0 ? (
 // ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
 in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
+bright_cap.bq_set_hishelf(3500, (1.0 - gain) * (1.0 - gain) * 3.5, 0.7);
 amp_channel = slider3;
 ts.fender_tonestack_set(slider4/100, slider5/100, slider6/100);
 master = slider8 / 100;
@@ -829,6 +832,7 @@ spring_mix = slider13 / 100;
 trem_depth = slider15 / 100;
 trem_speed = slider16 / 100;
 echo_mix = slider17 / 100;
+echo_time = slider25 / 100;
 echo_feedback = slider18 / 100;
 cab_type = slider19;
 cab_on = slider20;
@@ -867,17 +871,7 @@ cab_load_ohms > 0 ? (
   ohm_lo.lms_bq_init();
 );
 
-// ---- Tuner: run pitch detection + smooth display ----
-tuner.lms_yin_detect();
-tuner_smooth == 0 ? tuner_smooth = exp(-1 / (srate / samplesblock * 0.080));
-tuner.freq > 20 && tuner.confidence > 0.3 ? (
-  tuner_disp_freq = tuner_smooth * tuner_disp_freq + (1 - tuner_smooth) * tuner.freq;
-  tuner_disp_conf = tuner_smooth * tuner_disp_conf + (1 - tuner_smooth) * tuner.confidence;
-  tuner_disp_cents = tuner_smooth * tuner_disp_cents + (1 - tuner_smooth) * tuner.cents;
-  tuner_disp_note = tuner.midi_int;
-) : (
-  tuner_disp_conf *= 0.9;
-);
+tuner.lms_tuner_block();
 
 bc_my_slot >= 0 ? (
   sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
@@ -1047,7 +1041,7 @@ mono = (spl0 + spl1) * 0.5 * in_level;
 mono = max(-1.0, min(1.0, mono));
 
 // Tuner — feed dry input for best pitch detection
-tuner.lms_yin_write(mono);
+tuner.lms_tuner_write(mono);
 
 // 0. RF filter (68k grid stopper — common Fender input circuit)
 mono = rf_filter.bq_proc(mono);
@@ -1065,8 +1059,6 @@ bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.5), sag_depth * ohm_sag_mult, a
 
 // 4. Bright cap — gain-dependent (120pF across 1M pot)
 // At low gain: +3.5dB at 3.5kHz. At high gain: swamped.
-bright_db = (1.0 - gain) * (1.0 - gain) * 3.5;
-bright_cap.bq_set_hishelf(3500, bright_db, 0.7);
 mono = bright_cap.bq_proc(mono);
 
 // 5. V1a (12AX7 — AB763 preamp, fully bypassed cathode = high gain)
@@ -1104,7 +1096,7 @@ fx_bypass == 0 ? (
   );
   // Tape echo
   echo_mix > 0 ? (
-    amp_out = echo.tape_echo_proc(amp_out, echo_mix, 0.5, echo_feedback);
+    amp_out = echo.tape_echo_proc(amp_out, echo_mix, echo_time, echo_feedback);
   );
   // Safety clamp — catches runaway feedback before it hits power tubes
   amp_out = max(-0.95, min(0.95, amp_out));
@@ -1356,7 +1348,7 @@ gfx_drawstr("Density-Aware Fender Twin / Deluxe");
 //  TUNER STRIP
 // ============================================================================
 tuner_h = floor(28 * S);
-lms_draw_tuner(0, hdr_h, gfx_w, tuner_h, tuner_disp_freq, tuner_disp_conf, tuner_disp_note, tuner_disp_cents, S);
+tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  COL 1: PREAMP
@@ -1407,7 +1399,7 @@ slider11 != _old ? slider_automate(2^10);
 //  COL 3: EFFECTS
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
-draw_panel(c3x, body_y, col_w, 26 + 7 * bar_sp, "EFFECTS");
+draw_panel(c3x, body_y, col_w, 26 + 10 * bar_sp, "EFFECTS");
 cy = body_y + floor(26 * S);
 _old = slider12; slider12 = draw_toggle(c3x + pad, cy + 2, slider12, "FX Bypass");
 slider12 != _old ? slider_automate(2^11);
@@ -1424,13 +1416,16 @@ cy += bar_sp;
 _old = slider17; slider17 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider17, 0, 100, "Echo Mix", 1);
 slider17 != _old ? slider_automate(2^16);
 cy += bar_sp;
+_old = slider25; slider25 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider25, 0, 100, "Echo Time", 1);
+slider25 != _old ? slider_automate(2^24);
+cy += bar_sp;
 _old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, 0, 100, "Echo FB", 1);
 slider18 != _old ? slider_automate(2^17);
 
 // ============================================================================
 //  CABINET PANEL (full width, between controls and density)
 // ============================================================================
-  p3h = 26 + 7 * bar_sp;  // EFFECTS is tallest
+  p3h = 26 + 10 * bar_sp;  // EFFECTS is tallest
   cab_panel_y = body_y + p3h + gap;
   cab_panel_w = col_w * 3 + gap * 2;
   cab_panel_x = margin;

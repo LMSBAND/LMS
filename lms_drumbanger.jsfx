@@ -436,6 +436,8 @@ function scan_kits() local(kit_idx, fi) (
     i += 1;
   );
   bar_follow_locked = 0;
+  copy_src_bar = -1;
+  copy_src_pattern = -1;
   // Initialize link groups, choke groups, ties
   i = 0;
   loop(NUM_PADS,
@@ -502,19 +504,29 @@ wf_cached_len = 0;       // cached sample length (detect reloads)
 WF_PEAKS = 50400;        // 100 peak values at memory address 50400-50499
 WF_NUM_BINS = 0;         // actual number of bins computed
 
-// ---- Colors (Digitakt-inspired palette) ----
-// Background
-COL_BG_R = 0.08; COL_BG_G = 0.08; COL_BG_B = 0.10;
-// Pad off
-COL_PAD_R = 0.15; COL_PAD_G = 0.16; COL_PAD_B = 0.20;
-// Pad active/triggered
-COL_HIT_R = 0.95; COL_HIT_G = 0.45; COL_HIT_B = 0.15;
-// Step on
-COL_STEP_R = 0.30; COL_STEP_G = 0.75; COL_STEP_B = 0.55;
-// Step current (playhead)
+// ---- Colors (LMS house palette) ----
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+// DrumBanger semantic aliases (preserves all existing COL_* references)
+COL_PAD_R = COL_PANEL_R; COL_PAD_G = COL_PANEL_G; COL_PAD_B = COL_PANEL_B;
+COL_HIT_R = COL_ACCENT_R; COL_HIT_G = COL_ACCENT_G; COL_HIT_B = COL_ACCENT_B;
+COL_STEP_R = COL_GREEN_R; COL_STEP_G = COL_GREEN_G; COL_STEP_B = COL_GREEN_B;
 COL_HEAD_R = 1.0; COL_HEAD_G = 1.0; COL_HEAD_B = 1.0;
-// Text
-COL_TXT_R = 0.85; COL_TXT_G = 0.85; COL_TXT_B = 0.88;
+COL_TXT_R = COL_TEXT_R; COL_TXT_G = COL_TEXT_G; COL_TXT_B = COL_TEXT_B;
+// Domain-specific colors
+COL_DANGER_R = 0.90; COL_DANGER_G = 0.15; COL_DANGER_B = 0.10;
+COL_REC_R = 0.90; COL_REC_G = 0.10; COL_REC_B = 0.10;
+COL_MAGENTA_R = 0.90; COL_MAGENTA_G = 0.30; COL_MAGENTA_B = 0.70;
 
 // ---- Output bus state ----
 // Opto compressor (LA-2A style)
@@ -724,6 +736,44 @@ function get_plock_pitch(pattern, step, pad) (
 
 function set_plock_pitch(pattern, step, pad, val) (
   plock_addr(PLOCK_PITCH_BASE, pattern, step, pad)[] = val;
+);
+
+// ---- Copy bar: all step data from src_bar to dst_bar within same pattern ----
+function copy_bar(pattern, src_bar, dst_bar)
+  local(s, p, src_step, dst_step, sub)
+(
+  p = 0;
+  loop(NUM_PADS,
+    s = 0;
+    loop(NUM_STEPS,
+      src_step = src_bar * NUM_STEPS + s;
+      dst_step = dst_bar * NUM_STEPS + s;
+      // Main velocity
+      set_seq_step(pattern, dst_step, p, get_seq_step(pattern, src_step, p));
+      // Sub-steps 1-3
+      sub = 1;
+      loop(3,
+        set_sub_seq_step(pattern, dst_step, p, sub,
+          get_sub_seq_step(pattern, src_step, p, sub));
+        sub += 1;
+      );
+      // Tie
+      set_tie(pattern, dst_step, p, get_tie(pattern, src_step, p));
+      // Parameter locks
+      plock_addr(PLOCK_LP_BASE, pattern, dst_step, p)[] =
+        plock_addr(PLOCK_LP_BASE, pattern, src_step, p)[];
+      plock_addr(PLOCK_HP_BASE, pattern, dst_step, p)[] =
+        plock_addr(PLOCK_HP_BASE, pattern, src_step, p)[];
+      plock_addr(PLOCK_VOL_BASE, pattern, dst_step, p)[] =
+        plock_addr(PLOCK_VOL_BASE, pattern, src_step, p)[];
+      plock_addr(PLOCK_PAN_BASE, pattern, dst_step, p)[] =
+        plock_addr(PLOCK_PAN_BASE, pattern, src_step, p)[];
+      plock_addr(PLOCK_PITCH_BASE, pattern, dst_step, p)[] =
+        plock_addr(PLOCK_PITCH_BASE, pattern, src_step, p)[];
+      s += 1;
+    );
+    p += 1;
+  );
 );
 
 // ---- Pad copy function (copies all settings from src to dst) ----
@@ -1293,7 +1343,7 @@ spl1 = out_r * master_vol;
 // ============================================================
 // @GFX — User Interface
 // ============================================================
-@gfx 750 720
+@gfx 750 790
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -1301,6 +1351,7 @@ spl1 = out_r * master_vol;
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 S = gfx_w / 750;
 S < 0.5 ? S = 0.5;
+S_V = gfx_h / 790;
 
 // Scaled font sizes
 F_TITLE = max(10, floor(22 * S));
@@ -1314,44 +1365,108 @@ ui_selected_pad = max(0, min(NUM_PADS - 1, ui_selected_pad | 0));
 // ---- Background ----
 gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
+lms_hdr_h = floor(44 * S);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, lms_hdr_h);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, lms_hdr_h, gfx_w, max(1, floor(2 * S)));
 
 // ---- Layout constants ----
 margin = floor(10 * S);
-pad_area_y = floor(38 * S);
+panel_title_h = floor(22 * S);
+pad_area_y = lms_hdr_h + floor(8 * S);
 pad_area_h = floor(180 * S);
-seq_area_y = pad_area_y + pad_area_h + floor(20 * S);
+seq_area_y = pad_area_y + pad_area_h + panel_title_h + floor(14 * S);
 seq_area_h = floor(180 * S);
-mixer_y = seq_area_y + seq_area_h + floor(20 * S);
+mixer_y = seq_area_y + seq_area_h + panel_title_h + floor(14 * S);
 
-// ---- Logo ----
+// ---- Panel: PADS ----
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(margin, pad_area_y, gfx_w - margin * 2, pad_area_h + panel_title_h);
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+gfx_rect(margin, pad_area_y, gfx_w - margin * 2, panel_title_h);
+gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+gfx_rect(margin, pad_area_y, gfx_w - margin * 2, 1);
+gfx_rect(margin, pad_area_y, 1, pad_area_h + panel_title_h);
+gfx_rect(gfx_w - margin - 1, pad_area_y, 1, pad_area_h + panel_title_h);
+gfx_rect(margin, pad_area_y + pad_area_h + panel_title_h - 1, gfx_w - margin * 2, 1);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(margin, pad_area_y + panel_title_h, gfx_w - margin * 2, 1);
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = margin + floor(8 * S); gfx_y = pad_area_y + floor(4 * S);
+gfx_drawstr("PADS");
+pad_area_y += panel_title_h;
+
+// ---- Panel: SEQUENCER ----
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(margin, seq_area_y - panel_title_h, gfx_w - margin * 2, seq_area_h + panel_title_h);
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+gfx_rect(margin, seq_area_y - panel_title_h, gfx_w - margin * 2, panel_title_h);
+gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+gfx_rect(margin, seq_area_y - panel_title_h, gfx_w - margin * 2, 1);
+gfx_rect(margin, seq_area_y - panel_title_h, 1, seq_area_h + panel_title_h);
+gfx_rect(gfx_w - margin - 1, seq_area_y - panel_title_h, 1, seq_area_h + panel_title_h);
+gfx_rect(margin, seq_area_y + seq_area_h - 1, gfx_w - margin * 2, 1);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(margin, seq_area_y, gfx_w - margin * 2, 1);
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = margin + floor(8 * S); gfx_y = seq_area_y - panel_title_h + floor(4 * S);
+gfx_drawstr("SEQUENCER");
+
+// ---- Panel: MIXER ----
+mixer_panel_h = gfx_h - mixer_y;
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(margin, mixer_y - panel_title_h, gfx_w - margin * 2, mixer_panel_h + panel_title_h);
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+gfx_rect(margin, mixer_y - panel_title_h, gfx_w - margin * 2, panel_title_h);
+gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
+gfx_rect(margin, mixer_y - panel_title_h, gfx_w - margin * 2, 1);
+gfx_rect(margin, mixer_y - panel_title_h, 1, mixer_panel_h + panel_title_h);
+gfx_rect(gfx_w - margin - 1, mixer_y - panel_title_h, 1, mixer_panel_h + panel_title_h);
+gfx_rect(margin, mixer_y + mixer_panel_h - 1, gfx_w - margin * 2, 1);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(margin, mixer_y, gfx_w - margin * 2, 1);
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = margin + floor(8 * S); gfx_y = mixer_y - panel_title_h + floor(4 * S);
+gfx_drawstr("MIXER");
+
+// ---- Logo + title (LMS house style) ----
 gfx_getimgdim(0, logo_img_w, logo_img_h);
 logo_img_w > 0 ? (
-  logo_h = floor(16 * S);
+  logo_h = floor(32 * S);
   logo_w = floor(logo_h * (logo_img_w / logo_img_h));
-  logo_x = floor(4 * S);
-  logo_y = floor(2 * S);
+  logo_x = floor(6 * S);
+  logo_y = floor((lms_hdr_h - logo_h) / 2);
   gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
 ) : (
   logo_w = 0;
   logo_x = 0;
 );
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S);
+gfx_y = floor(10 * S);
+gfx_drawstr("DRUMBANGER");
 
 // ============================================
 // KIT NAVIGATION: [<] Kit Name [>]
 // ============================================
-kit_nav_y = floor(2 * S);
+kit_nav_y = floor(12 * S);
 kit_nav_h = floor(18 * S);
 kit_arrow_w = floor(22 * S);
 kit_name_w = floor(160 * S);
-kit_nav_x = logo_x + logo_w + floor(4 * S);
+kit_nav_x = gfx_w - kit_name_w - kit_arrow_w * 2 - floor(16 * S);
 max_kit = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
 
 gfx_setfont(1, "Arial", F_LABEL, 'b');
 
 // [<] button
-gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 gfx_rect(kit_nav_x, kit_nav_y, kit_arrow_w, kit_nav_h);
-gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
 gfx_x = kit_nav_x + floor(7 * S); gfx_y = kit_nav_y + floor(3 * S);
 gfx_drawchar($'<');
 mouse_cap & 1 && !(last_mouse_cap & 1) &&
@@ -1362,9 +1477,9 @@ mouse_cap & 1 && !(last_mouse_cap & 1) &&
 );
 
 // Kit name display
-gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
 gfx_rect(kit_nav_x + kit_arrow_w + floor(2 * S), kit_nav_y, kit_name_w, kit_nav_h);
-gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_x = kit_nav_x + kit_arrow_w + floor(8 * S); gfx_y = kit_nav_y + floor(3 * S);
 KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
   gfx_drawstr(600 + slider7);
@@ -1375,9 +1490,9 @@ KIT_COUNT[] > 0 && slider7 < KIT_COUNT[] ? (
 
 // [>] button
 kit_next_x = kit_nav_x + kit_arrow_w + floor(2 * S) + kit_name_w + floor(2 * S);
-gfx_r = 0.15; gfx_g = 0.18; gfx_b = 0.25;
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 gfx_rect(kit_next_x, kit_nav_y, kit_arrow_w, kit_nav_h);
-gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.75;
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
 gfx_x = kit_next_x + floor(7 * S); gfx_y = kit_nav_y + floor(3 * S);
 gfx_drawchar($'>');
 mouse_cap & 1 && !(last_mouse_cap & 1) &&
@@ -1389,7 +1504,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) &&
 
 // Pad count indicator (right of kit name)
 gfx_setfont(1, "Arial", F_TINY);
-gfx_r = 0.45; gfx_g = 0.45; gfx_b = 0.50;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = kit_next_x + kit_arrow_w + floor(8 * S); gfx_y = kit_nav_y + floor(4 * S);
 gfx_drawnumber(kit_loaded, 0);
 gfx_drawstr("/16 loaded");
@@ -1587,7 +1702,7 @@ loop(NUM_PADS,
 step_w = (gfx_w - margin * 2 - margin * 15) / 16;
 step_h = 30;
 seq_grid_x = margin;
-seq_grid_y = seq_area_y;
+seq_grid_y = seq_area_y + 24;
 
 // Label with time signature
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -1611,7 +1726,7 @@ gfx_cur_seq_sub < 2 ? gfx_cur_seq_sub = 1;
 gfx_cur_seq_sub > 1 ? (
   gfx_r = COL_STEP_R * 0.5; gfx_g = COL_STEP_G * 0.5; gfx_b = COL_STEP_B * 0.5;
 ) : (
-  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 );
 gfx_rect(gfx_res_x, gfx_res_y, gfx_res_w, gfx_res_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -1648,7 +1763,7 @@ gfx_cur_link > 0 ? (
     gfx_r = 0.15; gfx_g = 0.3; gfx_b = 0.5;   // Bootlicker = blue
   );
 ) : (
-  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 );
 gfx_rect(gfx_link_x, gfx_link_y, gfx_link_w, gfx_link_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -1685,7 +1800,7 @@ gfx_cur_choke = PAD_CHOKE_GROUP[ui_selected_pad];
 gfx_cur_choke > 0 ? (
   gfx_r = 0.5; gfx_g = 0.12; gfx_b = 0.12;  // red = choke active
 ) : (
-  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 );
 gfx_rect(gfx_choke_x, gfx_choke_y, gfx_choke_w, gfx_choke_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -1726,17 +1841,26 @@ gfx_bi = 0;
 loop(MAX_BARS,
   gfx_bbx = gfx_bar_btn_x0 + gfx_bi * (gfx_bar_btn_w + gfx_bar_btn_gap);
 
-  gfx_bi < cur_bar_count ? (
-    gfx_bi == cur_display_bar ? (
-      // Current display bar — bright orange
-      gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+  // Copy-source blink: cyan pulse when this bar is the copy source
+  copy_src_bar >= 0 && copy_src_pattern == gfx_cur_pattern && gfx_bi == copy_src_bar ? (
+    (time_precise() % 0.6) < 0.3 ? (
+      gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
     ) : (
-      // Active bar, not displayed — dim green
-      gfx_r = COL_STEP_R * 0.4; gfx_g = COL_STEP_G * 0.4; gfx_b = COL_STEP_B * 0.4;
+      gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
     );
   ) : (
-    // Inactive bar (beyond bar count) — very dim
-    gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+    gfx_bi < cur_bar_count ? (
+      gfx_bi == cur_display_bar ? (
+        // Current display bar — bright orange
+        gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
+      ) : (
+        // Active bar, not displayed — dim green
+        gfx_r = COL_STEP_R * 0.4; gfx_g = COL_STEP_G * 0.4; gfx_b = COL_STEP_B * 0.4;
+      );
+    ) : (
+      // Inactive bar (beyond bar count) — very dim
+      gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+    );
   );
   gfx_rect(gfx_bbx, gfx_bar_btn_y, gfx_bar_btn_w, gfx_bar_btn_h);
 
@@ -1744,8 +1868,35 @@ loop(MAX_BARS,
   gfx_x = gfx_bbx + 5; gfx_y = gfx_bar_btn_y + 2;
   gfx_drawnumber(gfx_bi + 1, 0);
 
-  // Left-click: navigate to this bar (or extend bar count)
-  mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  // Ctrl+left-click: copy bar (select source, then paste to destination)
+  (mouse_cap & 4) && (mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+    mouse_x >= gfx_bbx && mouse_x < gfx_bbx + gfx_bar_btn_w &&
+    mouse_y >= gfx_bar_btn_y && mouse_y < gfx_bar_btn_y + gfx_bar_btn_h ? (
+      copy_src_bar >= 0 && copy_src_pattern == gfx_cur_pattern ? (
+        // Second ctrl+click: paste to this bar
+        copy_src_bar != gfx_bi ? (
+          // Auto-extend bar count if pasting to an inactive bar
+          gfx_bi >= cur_bar_count ? (
+            PAT_BAR_COUNT[gfx_cur_pattern] = gfx_bi + 1;
+          );
+          copy_bar(gfx_cur_pattern, copy_src_bar, gfx_bi);
+          PAT_DISPLAY_BAR[gfx_cur_pattern] = gfx_bi;
+          bar_follow_locked = 1;
+        );
+        copy_src_bar = -1;
+        copy_src_pattern = -1;
+      ) : (
+        // First ctrl+click: select source bar
+        gfx_bi < cur_bar_count ? (
+          copy_src_bar = gfx_bi;
+          copy_src_pattern = gfx_cur_pattern;
+        );
+      );
+    );
+  );
+
+  // Left-click (no Ctrl): navigate to this bar (or extend bar count)
+  !(mouse_cap & 4) && mouse_cap & 1 && !(last_mouse_cap & 1) ? (
     mouse_x >= gfx_bbx && mouse_x < gfx_bbx + gfx_bar_btn_w &&
     mouse_y >= gfx_bar_btn_y && mouse_y < gfx_bar_btn_y + gfx_bar_btn_h ? (
       gfx_bi < cur_bar_count ? (
@@ -1756,6 +1907,9 @@ loop(MAX_BARS,
         PAT_DISPLAY_BAR[gfx_cur_pattern] = gfx_bi;
       );
       bar_follow_locked = 1;
+      // Cancel any pending copy on plain click
+      copy_src_bar = -1;
+      copy_src_pattern = -1;
     );
   );
 
@@ -1824,10 +1978,10 @@ loop(NUM_STEPS,
         brightness = gfx_vel / 127;
         gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
       ) : (
-        gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+        gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
       );
     ) : (
-      gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+      gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
     );
     gfx_rect(sx, sy, step_w, step_h);
 
@@ -1882,10 +2036,10 @@ loop(NUM_STEPS,
           brightness = gfx_vel / 127;
           gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
         ) : (
-          gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+          gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
         );
       ) : (
-        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+        gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
       );
       gfx_rect(gfx_sub_x, sy, gfx_sub_w, step_h);
 
@@ -1938,10 +2092,10 @@ loop(NUM_STEPS,
           brightness = gfx_vel / 127;
           gfx_r *= brightness; gfx_g *= brightness; gfx_b *= brightness;
         ) : (
-          gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+          gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
         );
       ) : (
-        gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+        gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
       );
       gfx_rect(gfx_sub_x, gfx_sub_y, gfx_sub_w, gfx_sub_h);
 
@@ -1999,20 +2153,20 @@ loop(NUM_STEPS,
     get_plock_vol(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ||
     get_plock_pan(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ||
     get_plock_pitch(gfx_cur_pattern, gfx_global_step, ui_selected_pad) > -900 ? (
-      gfx_r = 0.2; gfx_g = 0.8; gfx_b = 1.0;
+      gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
       gfx_rect(sx + step_w / 2 - 2, sy + step_h - 5, 4, 3);
     );
   );
 
   // Beat markers (every 4 steps)
   s % 4 == 0 ? (
-    gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;
+    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
     gfx_rect(sx, sy + step_h + 2, step_w, 2);
   );
 
   // REC overlay on current step
   gfx_global_step == seq_step && slider6 == 1 && transport_playing && seq_mode ? (
-    gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1; gfx_a = 0.4;
+    gfx_r = COL_DANGER_R; gfx_g = COL_DANGER_G; gfx_b = COL_DANGER_B; gfx_a = 0.4;
     gfx_rect(sx + 2, sy + 2, step_w - 4, step_h - 4);
     gfx_a = 1.0;
   );
@@ -2111,7 +2265,7 @@ mouse_cap & 1 && !last_mouse_cap ? (
 // -- Nudge < button (shift pattern left, wraps) --
 gfx_fbx += gfx_fill_btn_w + gfx_fill_btn_gap + 10;
 gfx_nudge_w = 30;
-gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_nudge_w, gfx_fill_btn_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
 gfx_x = gfx_fbx + 10; gfx_y = gfx_fill_btn_y + 4;
@@ -2133,7 +2287,7 @@ mouse_cap & 1 && !last_mouse_cap ? (
 
 // -- Nudge > button (shift pattern right, wraps) --
 gfx_fbx += gfx_nudge_w + 4;
-gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25;
+gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_nudge_w, gfx_fill_btn_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
 gfx_x = gfx_fbx + 10; gfx_y = gfx_fill_btn_y + 4;
@@ -2256,7 +2410,7 @@ gfx_rec_x = gfx_w - margin - gfx_rec_w;
 slider6 == 1 ? (
   gfx_rec_blink = (gfx_rec_blink + 1) % 30;
   gfx_rec_blink < 20 ? (
-    gfx_r = 0.9; gfx_g = 0.1; gfx_b = 0.1;
+    gfx_r = COL_REC_R; gfx_g = COL_REC_G; gfx_b = COL_REC_B;
   ) : (
     gfx_r = 0.5; gfx_g = 0.05; gfx_b = 0.05;
   );
@@ -2284,7 +2438,7 @@ ctrl_bar_w = gfx_w - margin * 2 - 120;
 ctrl_x = margin + 120;
 
 // Waveform display area sits between header and controls
-wf_y = mixer_y;
+wf_y = mixer_y + 4;
 wf_h = 50;
 
 // Shift all mixer controls below waveform
@@ -2293,7 +2447,7 @@ sp = ui_selected_pad;
 
 // Header: pad number
 gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
-gfx_x = margin; gfx_y = mixer_y - 18;
+gfx_x = margin + 60; gfx_y = mixer_y - panel_title_h + 4;
 gfx_drawstr("PAD ");
 gfx_drawnumber(sp + 1, 0);
 // Show if sample is loaded
@@ -2309,7 +2463,7 @@ PAD_NCH[sp] > 0 ? (
 gfx_chop_w = 55;
 gfx_chop_h = 16;
 gfx_chop_x = margin + 140;
-gfx_chop_y = mixer_y - 18;
+gfx_chop_y = mixer_y - panel_title_h + 3;
 gfx_cur_subdiv = PAD_SUBDIV[sp];
 gfx_cur_subdiv < 2 ? gfx_cur_subdiv = 1;
 
@@ -2317,7 +2471,7 @@ gfx_cur_subdiv < 2 ? gfx_cur_subdiv = 1;
 gfx_cur_subdiv > 1 ? (
   gfx_r = COL_STEP_R * 0.5; gfx_g = COL_STEP_G * 0.5; gfx_b = COL_STEP_B * 0.5;
 ) : (
-  gfx_r = 0.15; gfx_g = 0.16; gfx_b = 0.22;
+  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
 );
 gfx_rect(gfx_chop_x, gfx_chop_y, gfx_chop_w, gfx_chop_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -2351,7 +2505,7 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
 gfx_sample_w = 62;
 gfx_sample_h = 16;
 gfx_sample_x = gfx_chop_x + gfx_chop_w + 8;
-gfx_sample_y = mixer_y - 18;
+gfx_sample_y = mixer_y - panel_title_h + 3;
 
 // Check service heartbeat (gmem[6] increments if service is running)
 cur_service_hb = gmem[6];
@@ -2407,19 +2561,19 @@ sample_btn_state == 1 ? (
   gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
 ) : sample_btn_state == 3 ? (
   // Error — red flash
-  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+  gfx_r = COL_DANGER_R; gfx_g = COL_DANGER_G; gfx_b = COL_DANGER_B;
 ) : service_alive ? (
   // Idle, service running
   gfx_r = 0.12; gfx_g = 0.22; gfx_b = 0.28;
 ) : (
   // Idle, no service
-  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
 );
 gfx_rect(gfx_sample_x, gfx_sample_y, gfx_sample_w, gfx_sample_h);
 
 // Button text
 !service_alive && sample_btn_state == 0 ? (
-  gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.45;
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B5;
 ) : (
   gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
 );
@@ -2757,7 +2911,7 @@ WF_NUM_BINS > 0 ? (
   wf_bar_w = max(1, (wf_draw_w / WF_NUM_BINS) | 0);
   wf_half_h = (wf_h / 2) - 2;
 
-  gfx_r = 0.20; gfx_g = 0.75; gfx_b = 0.40;
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
 
   wf_bi = 0;
   loop(WF_NUM_BINS,
@@ -2809,7 +2963,7 @@ WF_NUM_BINS > 0 ? (
     wf_ndg_amt = max(1, (PAD_LENGTH[sp] / 100) | 0);
 
     // << button
-    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B; gfx_a = 0.85;
     gfx_rect(wf_ndg_l_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
     gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
     gfx_x = wf_ndg_l_x + 6; gfx_y = wf_ndg_y + 1;
@@ -2825,7 +2979,7 @@ WF_NUM_BINS > 0 ? (
     );
 
     // >> button
-    gfx_r = 0.18; gfx_g = 0.15; gfx_b = 0.25; gfx_a = 0.85;
+    gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B; gfx_a = 0.85;
     gfx_rect(wf_ndg_r_x, wf_ndg_y, wf_ndg_w, wf_ndg_h);
     gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B; gfx_a = 1;
     gfx_x = wf_ndg_r_x + 6; gfx_y = wf_ndg_y + 1;
@@ -2844,7 +2998,7 @@ WF_NUM_BINS > 0 ? (
 
 // Sampling instructions when no sample loaded
 PAD_LENGTH[sp] == 0 || PAD_NCH[sp] == 0 ? (
-  gfx_r = 0.35; gfx_g = 0.35; gfx_b = 0.4;
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
   gfx_x = margin + 8; gfx_y = wf_y + 6;
   gfx_drawstr("1. Bounce/edit audio on a track  2. Select item");
   gfx_x = margin + 8; gfx_y = wf_y + 20;
@@ -2860,11 +3014,14 @@ gfx_drawnumber(floor(cur_vol * 100 + 0.5), 0);
 gfx_drawstr("%");
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w, ctrl_h);
 // Bar fill
 gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
 gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w * cur_vol, ctrl_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y, 1, ctrl_h);
 
 // Drag to adjust volume (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 1 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -2897,16 +3054,19 @@ cur_pan < -0.01 ? (
 );
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y2, ctrl_bar_w, ctrl_h);
 // Center line
-gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
 gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y2, 2, ctrl_h);
 // Pan indicator
 pan_norm = (cur_pan + 1) / 2;  // 0 to 1
 gfx_r = COL_HIT_R; gfx_g = COL_HIT_G; gfx_b = COL_HIT_B;
 pan_px = ctrl_x + pan_norm * ctrl_bar_w;
 gfx_rect(pan_px - 4, ctrl_y2, 8, ctrl_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y2, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y2 + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y2, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y2, 1, ctrl_h);
 
 // Drag to adjust pan (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 2 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -2933,16 +3093,19 @@ gfx_drawnumber(floor(cur_pitch + 0.5), 0);
 gfx_drawstr("st");
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y3, ctrl_bar_w, ctrl_h);
 // Center line (0 semitones)
-gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
 gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y3, 2, ctrl_h);
 // Pitch indicator
 pitch_norm = (cur_pitch + 24) / 48;  // -24..+24 → 0..1
 gfx_r = 0.5; gfx_g = 0.6; gfx_b = 1.0;
 pitch_px = ctrl_x + max(0, min(1, pitch_norm)) * ctrl_bar_w;
 gfx_rect(pitch_px - 4, ctrl_y3, 8, ctrl_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y3, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y3 + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y3, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y3, 1, ctrl_h);
 
 // Drag to adjust pitch (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 3 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -2983,7 +3146,7 @@ cur_lp >= 0.999 ? (
 gfx_lp_tog_x = margin + 95;
 gfx_lp_tog_w = 22;
 cur_lp < 0.999 ? (
-  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
 ) : (
   gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 );
@@ -3005,13 +3168,16 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
 );
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_ylp, ctrl_bar_w, ctrl_h);
 // Bar fill (cyan)
 cur_lp < 0.999 ? (
-  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
   gfx_rect(ctrl_x, ctrl_ylp, ctrl_bar_w * cur_lp, ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_ylp, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_ylp + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_ylp, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_ylp, 1, ctrl_h);
 
 // Drag to adjust LP (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 4 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -3050,7 +3216,7 @@ cur_hp <= 0.001 ? (
 gfx_hp_tog_x = margin + 95;
 gfx_hp_tog_w = 22;
 cur_hp > 0.001 ? (
-  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+  gfx_r = COL_MAGENTA_R; gfx_g = COL_MAGENTA_G; gfx_b = COL_MAGENTA_B;
 ) : (
   gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0.25;
 );
@@ -3072,13 +3238,16 @@ mouse_cap & 1 && !(last_mouse_cap & 1) ? (
 );
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_yhp, ctrl_bar_w, ctrl_h);
 // Bar fill (magenta)
 cur_hp > 0.001 ? (
-  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+  gfx_r = COL_MAGENTA_R; gfx_g = COL_MAGENTA_G; gfx_b = COL_MAGENTA_B;
   gfx_rect(ctrl_x, ctrl_yhp, ctrl_bar_w * cur_hp, ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_yhp, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_yhp + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_yhp, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_yhp, 1, ctrl_h);
 
 // Drag to adjust HP (+ record plock when REC is armed)
 mouse_cap & 1 && (drag_id == 5 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -3100,7 +3269,7 @@ mouse_cap & 1 && (drag_id == 5 || (drag_id == 0 && drag_cooldown == 0)) ? (
 ctrl_y4 = ctrl_yhp + ctrl_h + 16;
 
 // -- Section label --
-gfx_r = 0.7; gfx_g = 0.5; gfx_b = 0.3;
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
 gfx_x = margin; gfx_y = ctrl_y4 - 14;
 gfx_drawstr("OUTPUT BUS");
 
@@ -3113,13 +3282,16 @@ gfx_drawnumber(floor(cur_sat + 0.5), 0);
 gfx_drawstr("%");
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y4, ctrl_bar_w, ctrl_h);
 // Bar fill (warm orange)
 cur_sat > 0 ? (
   gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.2;
   gfx_rect(ctrl_x, ctrl_y4, ctrl_bar_w * (cur_sat / 100), ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y4, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y4 + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y4, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y4, 1, ctrl_h);
 
 // Drag to adjust saturation
 mouse_cap & 1 && (drag_id == 6 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -3149,12 +3321,15 @@ cur_bus_lp < 0.999 ? (
   gfx_drawstr("OFF");
 );
 
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y_blp, ctrl_bar_w, ctrl_h);
 cur_bus_lp < 0.999 ? (
-  gfx_r = 0.2; gfx_g = 0.7; gfx_b = 0.9;
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
   gfx_rect(ctrl_x, ctrl_y_blp, ctrl_bar_w * cur_bus_lp, ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y_blp, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y_blp + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y_blp, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y_blp, 1, ctrl_h);
 
 mouse_cap & 1 && (drag_id == 9 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
@@ -3183,12 +3358,15 @@ cur_bus_hp > 0.001 ? (
   gfx_drawstr("OFF");
 );
 
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y_bhp, ctrl_bar_w, ctrl_h);
 cur_bus_hp > 0.001 ? (
-  gfx_r = 0.9; gfx_g = 0.3; gfx_b = 0.7;
+  gfx_r = COL_MAGENTA_R; gfx_g = COL_MAGENTA_G; gfx_b = COL_MAGENTA_B;
   gfx_rect(ctrl_x, ctrl_y_bhp, ctrl_bar_w * cur_bus_hp, ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y_bhp, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y_bhp + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y_bhp, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y_bhp, 1, ctrl_h);
 
 mouse_cap & 1 && (drag_id == 10 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
@@ -3208,14 +3386,17 @@ cur_cin >= 0 ? gfx_drawstr("+");
 gfx_drawnumber(cur_cin, 1);
 gfx_drawstr("dB");
 
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y_cin, ctrl_bar_w, ctrl_h);
-gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
 gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y_cin, 2, ctrl_h);
 cin_norm = (cur_cin + 12) / 24;
 gfx_r = 0.9; gfx_g = 0.6; gfx_b = 0.2;
 cin_px = ctrl_x + max(0, min(1, cin_norm)) * ctrl_bar_w;
 gfx_rect(cin_px - 4, ctrl_y_cin, 8, ctrl_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y_cin, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y_cin + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y_cin, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y_cin, 1, ctrl_h);
 
 mouse_cap & 1 && (drag_id == 11 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
@@ -3237,13 +3418,16 @@ gfx_drawnumber(floor(cur_comp + 0.5), 0);
 gfx_drawstr("%");
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y5, ctrl_bar_w, ctrl_h);
 // Bar fill (orange-red)
 cur_comp > 0 ? (
   gfx_r = 0.9; gfx_g = 0.4; gfx_b = 0.15;
   gfx_rect(ctrl_x, ctrl_y5, ctrl_bar_w * (cur_comp / 100), ctrl_h);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y5, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y5 + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y5, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y5, 1, ctrl_h);
 
 // Drag to adjust comp
 mouse_cap & 1 && (drag_id == 7 || (drag_id == 0 && drag_cooldown == 0)) ? (
@@ -3267,10 +3451,13 @@ gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
 gfx_rect(ctrl_x, ctrl_y6, ctrl_bar_w, 12);
 // GR meter fill (red, capped at 30dB for visual range)
 comp_gr_display > 0.1 ? (
-  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1;
+  gfx_r = COL_DANGER_R; gfx_g = COL_DANGER_G; gfx_b = COL_DANGER_B;
   gr_fill_w = min(comp_gr_display / 30, 1) * ctrl_bar_w;
   gfx_rect(ctrl_x, ctrl_y6, gr_fill_w, 12);
 );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_y6, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_y6 + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_y6, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_y6, 1, ctrl_h);
 
 // ---- Comp Gain bar ----
 ctrl_y7 = ctrl_y6 + 18;
@@ -3283,10 +3470,10 @@ gfx_drawnumber(cur_gain, 1);
 gfx_drawstr("dB");
 
 // Bar background
-gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
 gfx_rect(ctrl_x, ctrl_y7, ctrl_bar_w, ctrl_h);
 // Center line (0 dB)
-gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.3;
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
 gfx_rect(ctrl_x + ctrl_bar_w / 2 - 1, ctrl_y7, 2, ctrl_h);
 // Gain indicator
 gain_norm = (cur_gain + 12) / 24;  // -12..+12 → 0..1
@@ -3327,7 +3514,7 @@ vel_edit_open ? (
   );
 
   // Overlay background
-  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B; gfx_a = 0.95;
   gfx_rect(vel_edit_x, vel_edit_y, 50, 140);
   gfx_a = 1;
 
@@ -3351,7 +3538,7 @@ vel_edit_open ? (
   vslider_h = 110;
 
   // Track background
-  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
   gfx_rect(vslider_x, vslider_y, vslider_w, vslider_h);
 
   // Fill from bottom
@@ -3446,7 +3633,7 @@ gfx_drawstr(" (");
 gfx_drawnumber(kit_loaded, 0);
 gfx_drawstr("/16)");
 slider6 == 1 ? (
-  gfx_r = 0.9; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_r = COL_REC_R; gfx_g = COL_REC_G; gfx_b = COL_REC_B;
   gfx_drawstr("  REC");
 );
 
@@ -3475,7 +3662,7 @@ strcpy(#rn, "B");
 // Layout: "Root: C1 [-] [+]" at top-right
 rn_label_x = gfx_w - 200;
 rn_y = 4;
-gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
 gfx_x = rn_label_x; gfx_y = rn_y;
 gfx_drawstr("Root: ");
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
@@ -3488,7 +3675,7 @@ gfx_drawstr(")");
 // --- WARNING BANNER (service not running, etc.) ---
 warn_timer > 0 ? (
   warn_timer -= 1;
-  gfx_r = 0.9; gfx_g = 0.15; gfx_b = 0.1; gfx_a = 0.95;
+  gfx_r = COL_DANGER_R; gfx_g = COL_DANGER_G; gfx_b = COL_DANGER_B; gfx_a = 0.95;
   gfx_rect(0, 0, gfx_w, 20);
   gfx_a = 1;
   gfx_r = 1; gfx_g = 1; gfx_b = 1;
@@ -3502,7 +3689,7 @@ notice_btn_y = gfx_h - 18;
 buy_btn_x = notice_btn_x - 50;
 buy_btn_y = notice_btn_y;
 // BUY button
-gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
 gfx_rect(buy_btn_x, buy_btn_y, 45, 15);
 gfx_r = 0; gfx_g = 0; gfx_b = 0;
 gfx_x = buy_btn_x + 4; gfx_y = buy_btn_y + 2;
@@ -3513,7 +3700,7 @@ gfx_drawstr("BUY");
 );
 !(mouse_cap & 1) ? buy_clicked = 0;
 // NOTICE button
-gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
 gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
 gfx_r = 0; gfx_g = 0; gfx_b = 0;
 gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
@@ -3551,7 +3738,7 @@ buy_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("bryanleaf.gumroad.com/l/zzgmzx");
   gfx_setfont(1, "Arial", F_LABEL);
-  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
   gfx_rect(buy_btn_x, buy_btn_y, 45, 15);
   gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
   gfx_r = 0; gfx_g = 0; gfx_b = 0;
@@ -3653,7 +3840,7 @@ notice_show ? (
 
   gfx_setfont(1, "Arial", F_LABEL);
   // Redraw buttons on top so they're clickable
-  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
   gfx_rect(buy_btn_x, buy_btn_y, 45, 15);
   gfx_rect(notice_btn_x, notice_btn_y, 55, 15);
   gfx_r = 0; gfx_g = 0; gfx_b = 0;

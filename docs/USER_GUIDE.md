@@ -11,12 +11,25 @@ Free, open-source JSFX plugins for REAPER. No subscriptions. No iLok.
 2. Add this repository URL: `https://raw.githubusercontent.com/LMSBAND/LMS/master/index.xml`
 3. Synchronize. All plugins install automatically.
 
-### Manual (Windows)
+### Linux / macOS (install.sh)
+1. Clone the repo: `git clone https://github.com/LMSBAND/LMS.git`
+2. `cd LMS && chmod +x install.sh && ./install.sh`
+3. The script creates symbolic links into `~/.config/REAPER/Effects/` — edits in the repo are instantly live in REAPER.
+4. REAPER → Options → Preferences → Plug-ins → JS → Re-scan
+
+### Windows (install.bat)
 1. Download or clone the repo
-2. Open `%APPDATA%\REAPER\Effects\`
-3. Copy `lms_core.jsfx-inc` first (required by everything)
-4. Copy all `lms_*.jsfx` files
-5. REAPER → Options → Preferences → Plug-ins → JS → Re-scan
+2. Run `install.bat`
+3. The script copies all plugins, pool, and scripts into `%APPDATA%\REAPER\Effects\`
+4. REAPER → Options → Preferences → Plug-ins → JS → Re-scan
+
+### Manual (Windows)
+1. Open `%APPDATA%\REAPER\Effects\`
+2. Copy `lms_core.jsfx-inc` first (required by everything)
+3. Copy all `lms_*.jsfx` and `Drumbanger*.jsfx` files
+4. Copy the `pool/` folder into a `DRUMBANGER/` subfolder
+5. Copy the `scripts/` folder
+6. REAPER → Options → Preferences → Plug-ins → JS → Re-scan
 
 ### Manual (Linux)
 1. Copy everything to `~/.config/REAPER/Effects/`
@@ -28,7 +41,25 @@ Free, open-source JSFX plugins for REAPER. No subscriptions. No iLok.
 
 All amp sims share a density-aware architecture: a 4-band density tracker (Lo/Mid/Hi/Air) analyzes your playing dynamics in real time and modulates internal parameters like Miller capacitance, air shelf, drive boost, and feedback bandwidth. The harder you play, the more the amp responds — not just with more clipping, but with tonal changes that mirror how real tube amps behave under load.
 
-Every amp sim includes a full GUI, broadcast system (instance manager with follow/steal), and 4K/HiDPI scaling.
+Every amp sim includes a full GUI, broadcast system (instance manager with follow/steal), 4K/HiDPI scaling, and dual cabinet simulation.
+
+### Cabinet Simulation (All Amps)
+
+Every amp sim includes integrated dual-cab simulation with impedance modeling.
+
+| Control | What It Does |
+|---------|-------------|
+| Cabinet | Primary cab: Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed, 4x12 Sheffield, 1x15 Open, 4x10 Sealed, Orange PPC412 |
+| Cab Sim | On/Off |
+| Mic Distance | Primary mic position (0–100%) |
+| Cabinet B | Second cab selection (same options) for dual-cab blending |
+| Mic B Distance | Second mic position (0–100%) |
+| Impedance Tap | 4 ohm / 8 ohm / 16 ohm — electrical load on the output transformer |
+
+**Tips:**
+- Dual-cab blending (e.g. 4x12 V30 + 1x12 Greenback) creates wider, more complex tones
+- Impedance tap changes feel — lower impedance = tighter, higher = saggier
+- Mic Distance at 0% = close-mic punch; 100% = room ambience
 
 ---
 
@@ -160,6 +191,54 @@ The bass amp. SVT tone stack with selectable mid frequency and the Crushinator p
 
 ---
 
+### TOMASTEKNIK v2 — SVT + ODB-3 Bass
+
+Tribute amp inspired by Tomas Näslund's bass tone on Blindside's *A Thought Crushed My Mind* (1999, Tonteknik Studios, Umeå). SVT engine with a built-in Boss ODB-3 Bass Overdrive and LA-2A opto compressor — the entire Swedish hardcore bass rig in one plugin.
+
+| Control | What It Does |
+|---------|-------------|
+| Input Level | Input gain in dB |
+| Gain | Preamp drive |
+| Bass / Mid / Treble | SVT tone stack |
+| Mid Freq | 220 Hz / 450 Hz / 800 Hz / 1.6 kHz / 3 kHz |
+| Ultra Lo / Ultra Hi | Boost switches |
+| Master | Power amp drive |
+| Input Stage | Coupling cap intensity |
+| PSU Sag | Power supply droop |
+| Output Level | Final output in dB |
+| FX Bypass | Bypasses built-in effects |
+
+**ODB-3** (Boss ODB-3 Bass Overdrive):
+
+| Control | What It Does |
+|---------|-------------|
+| ODB-3 | On/Off |
+| ODB Drive | Distortion amount |
+| ODB Blend | Parallel mix (clean + dirty) |
+| ODB Low / High | Tone shaping on dirty signal |
+
+**Compressor** (LA-2A Opto — final in chain, post-cab):
+
+| Control | What It Does |
+|---------|-------------|
+| LA-2A | On/Off (with GR meter) |
+| Peak Reduction | How much compression |
+| Comp Gain | Makeup gain (dB) |
+| Comp Mode | Compress (gentler) / Limit (harder knee) |
+| Emphasis | High-frequency sidechain sensitivity |
+| Comp Mix | Parallel blend (0–100%) |
+
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
+
+**Tips:**
+- ODB Blend at 40-70% is the sweet spot — bass fundamentals stay clean while mids/highs get grit
+- The ODB-3's 300Hz HPF means bass never gets muddy even at max drive
+- Turn on the LA-2A with Peak Reduction at 50% and Mix at 100% for that glued studio bass tone
+- Default cab is 4x12 V30 (the Tonteknik vibe) — try 8x10 Sealed for classic SVT thunder
+- Crank Master with Gain at 50% for output transformer growl
+
+---
+
 ### Top Boost v2 — Vox AC15
 
 Two channels: Normal (darker, thicker) and Top Boost (brighter, chimey).
@@ -212,6 +291,111 @@ Three channels of high-gain American brutality with selectable rectifier type.
 - Modern channel + Silicon rectifier + Bold = tightest high-gain tone
 - Vintage channel + Tube rectifier + Spongy = classic rock crunch with sag
 - The built-in noise gate is basic — use Smart Gate for serious gating
+
+---
+
+### Area 50/51 v2 — Cold-Bias 6L6 High-Gain
+
+High-gain amp with cold-biased 6L6 power tubes. Two channels and a resonance control for low-end tightness.
+
+| Control | What It Does |
+|---------|-------------|
+| Input Level | Input gain in dB |
+| Pre Gain | Preamp drive |
+| Channel | Clean / Lead |
+| Low / Mid / High | Tone stack |
+| Post Gain | Post-EQ gain |
+| Presence | High-frequency emphasis |
+| Resonance | Low-frequency depth |
+| Master | Power amp drive |
+| Input Stage | Coupling cap intensity |
+| PSU Sag | Power supply droop |
+| Output Level | Final output in dB |
+| FX Bypass | Bypasses built-in effects |
+| Noise Gate | Built-in gate on/off |
+
+**Built-in Effects:** Tape Echo (mix + time + feedback)
+
+**Tips:**
+- Lead channel is where the gain lives — tight, aggressive, and articulate
+- Resonance controls the low-end thump. Higher = heavier, lower = tighter
+- Presence + Resonance together shape the power amp voicing more than any EQ
+
+---
+
+### OJ 99 v2 — Orange OR100 Rockerverb
+
+British voiced Orange with Clean and Dirty channels.
+
+| Control | What It Does |
+|---------|-------------|
+| Input Level | Input gain in dB |
+| Gain | Preamp drive |
+| Channel | Clean / Dirty |
+| Bass / Mid / Treble | Orange tone stack |
+| Master | Power amp drive |
+| Input Stage | Coupling cap intensity |
+| PSU Sag | Power supply droop |
+| Output Level | Final output in dB |
+| FX Bypass | Bypasses built-in effects |
+
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
+
+**Tips:**
+- Dirty channel has a thick, woolly midrange — very different from the Marshall or Mesa
+- Clean channel with Gain at 40% does "edge of breakup" beautifully
+- Default cab is Orange PPC412 — try it, that's what the amp was made for
+
+---
+
+### The Basswoman v2 — Fender Bassman
+
+Density-aware Bassman with Normal and Bright channels. Works for bass and guitar.
+
+| Control | What It Does |
+|---------|-------------|
+| Input Level | Input gain in dB |
+| Gain | Preamp drive |
+| Channel | Normal / Bright |
+| Bass / Mid / Treble | Bassman tone stack |
+| Presence | High-frequency emphasis |
+| Master | Power amp drive |
+| Input Stage | Coupling cap intensity |
+| PSU Sag | Power supply droop |
+| Output Level | Final output in dB |
+| FX Bypass | Bypasses built-in effects |
+
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + feedback)
+
+**Tips:**
+- The original "bass" amp that guitarists stole — great on both
+- Bright channel with Gain at 50% is the classic blues-rock overdrive
+- Normal channel keeps the low end intact for actual bass duties
+
+---
+
+### The Fucking Nightmare v2 — Orange Terror Bass
+
+Two-channel Orange bass amp: Warm for clean low-end and Aggressive for driven tones.
+
+| Control | What It Does |
+|---------|-------------|
+| Input Level | Input gain in dB |
+| Gain | Preamp drive |
+| Channel | Warm / Aggressive |
+| Bass / Mid / Treble | Orange tone stack |
+| Master | Power amp drive |
+| Input Stage | Coupling cap intensity |
+| PSU Sag | Power supply droop |
+| Output Level | Final output in dB |
+| FX Bypass | Bypasses built-in effects |
+
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
+
+**Tips:**
+- Aggressive channel is mean — use it for distorted bass tones
+- Warm channel with Master cranked gets a natural power amp growl
+- Pairs well with The Fridge's Crushinator for layered bass distortion
 
 ---
 
@@ -484,6 +668,84 @@ Algorithmic room reverb designed specifically for drums. Three mic positions.
 
 ---
 
+### Density Reverb — Harmonic Room Physics
+
+Advanced FDN reverb with modal filtering and density-aware processing. Eight preset room types.
+
+| Control | What It Does |
+|---------|-------------|
+| Preset | Plate / Spring / Pop Ambient / Basement / Studio Live / Studio Dampened / Cathedral / Garage |
+| Room Size | Room dimensions (0–100%) |
+| Decay | Reverb tail length (0–100%) |
+| Tone | Brightness of the reverb (0–100%) |
+| Pre-Delay | Gap before reverb starts (ms) |
+| Diffusion | Density of early reflections (0–100%) |
+| Density Drive | Density-aware harmonic saturation (0–100%) |
+| Width | Stereo spread (0–100%) |
+| Mix | Dry/wet blend (0–100%) |
+| Low Cut | High-pass on the reverb signal (20–500 Hz) |
+| Output Gain | Output level (dB) |
+
+**Tips:**
+- Start with a preset close to what you want, then tweak Size and Decay
+- Density Drive adds harmonic content that responds to input dynamics — louder playing = richer reverb
+- Low Cut at 80–120 Hz keeps reverb from muddying the low end
+- Cathedral preset at low Mix (10-15%) adds depth without washing things out
+- Pop Ambient is a good general-purpose starting point
+
+---
+
+## Pitch & Tuning
+
+---
+
+### LMS Pitch Detector — Monophonic Pitch Tracker
+
+Real-time pitch detection using the YIN algorithm. Outputs MIDI and feeds pitch data to other plugins via the shared pitch bus.
+
+| Control | What It Does |
+|---------|-------------|
+| Sensitivity | Detection threshold (0.05–0.50) — lower = stricter |
+| Min Hz | Lowest frequency to detect (50–400 Hz) |
+| Max Hz | Highest frequency to detect (200–1500 Hz) |
+| MIDI Channel | Output MIDI channel (1–16) |
+| MIDI Output | On/Off |
+| Key | Root note (C through B) |
+| Scale | Chromatic / Major / Minor |
+| Min Note | Minimum note duration before latching (ms) |
+
+**Tips:**
+- Use this upstream of Autotune or any plugin that reads the pitch bus
+- Sensitivity at 0.15 is a good starting point — raise it if you get false triggers, lower it for quieter signals
+- Set Min/Max Hz to match your instrument range for more accurate detection
+- Displays detected frequency, confidence, note name, and cents offset in the GUI
+
+---
+
+### LMS Autotune — Real-Time Pitch Correction
+
+Pitch correction with embedded YIN detection, vibrato preservation, and scale snapping.
+
+| Control | What It Does |
+|---------|-------------|
+| Speed | Correction speed (0–100%) — 100% = instant snap, lower = more natural |
+| Dry/Wet | Blend between original and corrected signal (0–100%) |
+| Output Gain | Output level (dB) |
+| Vibrato Preserve | How much natural vibrato to keep (0–100%) |
+| Lookahead | Prediction time for smoother correction (0–15 ms) |
+| Sensitivity | Pitch detection threshold (0.05–0.50) |
+| Key | Root note (C through B) |
+| Scale | Chromatic / Major / Minor |
+| Min Note | Minimum note duration before correction latches (ms) |
+
+**Tips:**
+- Speed at 100% + Dry/Wet at 100% = the robotic T-Pain effect
+- Speed at 40-60% + Vibrato Preserve at 50% = transparent vocal tuning
+- Set the correct Key and Scale to avoid correcting to wrong notes
+- Works best on monophonic sources (vocals, solo instruments)
+
+---
+
 ## Instruments
 
 ---
@@ -669,6 +931,15 @@ Captures a time selection or media item from the timeline as a WAV and loads it 
 
 **DRUMBANGER: Sampling Service** (`drumbanger_service.lua`)
 Background service that enables the SAMPLE button inside DrumBanger. Set this as a REAPER startup action for seamless workflow.
+
+**DRUMBANGER: Open Pool Folder** (`drumbanger_open_pool.lua`)
+Opens the DrumBanger pool folder in your system file manager. Drop `.wav` files or kit folders directly. Subfolders become kit names; first 16 `.wav` files per folder map to pads 1–16.
+
+**DRUMBANGER: Diagnose** (`drumbanger_diagnose.lua`)
+Diagnostic tool that searches the REAPER Effects tree and reports all copies of DrumBanger, kits, and pool directories. Changes nothing — purely informational. Run this if kits aren't loading.
+
+**DRUMBANGER: Fix Pool** (`drumbanger_fix_pool.lua`)
+Nuclear option for broken pool directories. Reads all existing `.wav` files into memory, nukes the old pool/kits structure, writes a clean directory, deduplicates, and rebuilds `manifest.txt`. Safe to run — no sample data is lost.
 
 ---
 

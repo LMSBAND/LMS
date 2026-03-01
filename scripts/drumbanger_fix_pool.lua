@@ -5,11 +5,51 @@
 -- (including nested pool/pool/, legacy kits/, wrong paths)
 -- and puts them in the one correct place: Effects/DRUMBANGER/pool/
 --
+-- If stock kits (Kit1-808, Kit2-LoFi) are missing, downloads them
+-- from GitHub automatically.
+--
 -- Safe to run any time. If your kits aren't showing up, run this.
 --
 -- Install: Actions > Show Action List > New Action > Load ReaScript
 
 local GMEM_NAME = "DrumBanger"
+
+local BASE_URL = "https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/"
+
+local STOCK_KITS = {
+  { rel = "Kit1-808/01-kick-808.wav" },
+  { rel = "Kit1-808/02-snare-808.wav" },
+  { rel = "Kit1-808/03-rimshot.wav" },
+  { rel = "Kit1-808/04-clap-808.wav" },
+  { rel = "Kit1-808/05-hihat-808.wav" },
+  { rel = "Kit1-808/06-openhat-808.wav" },
+  { rel = "Kit1-808/07-tom-808.wav" },
+  { rel = "Kit1-808/08-tom-analog.wav" },
+  { rel = "Kit1-808/09-tom-fm.wav" },
+  { rel = "Kit1-808/10-crash-808.wav" },
+  { rel = "Kit1-808/11-ride.wav" },
+  { rel = "Kit1-808/12-shaker.wav" },
+  { rel = "Kit1-808/13-perc-808.wav" },
+  { rel = "Kit1-808/14-cowbell-808.wav" },
+  { rel = "Kit1-808/15-perc-laser.wav" },
+  { rel = "Kit1-808/16-perc-chirpy.wav" },
+  { rel = "Kit2-LoFi/01-kick-juicy.wav" },
+  { rel = "Kit2-LoFi/02-snare-lofi.wav" },
+  { rel = "Kit2-LoFi/03-snare-papercut.wav" },
+  { rel = "Kit2-LoFi/04-clap-vinyl.wav" },
+  { rel = "Kit2-LoFi/05-hat-sweet.wav" },
+  { rel = "Kit2-LoFi/06-hat-vinyl.wav" },
+  { rel = "Kit2-LoFi/07-tom-lofi.wav" },
+  { rel = "Kit2-LoFi/08-tom-lofi2.wav" },
+  { rel = "Kit2-LoFi/09-tom-roto.wav" },
+  { rel = "Kit2-LoFi/10-crash-tape.wav" },
+  { rel = "Kit2-LoFi/11-ride.wav" },
+  { rel = "Kit2-LoFi/12-shaker-shuffle.wav" },
+  { rel = "Kit2-LoFi/13-perc-retro.wav" },
+  { rel = "Kit2-LoFi/14-tambo.wav" },
+  { rel = "Kit2-LoFi/15-perc-wobble.wav" },
+  { rel = "Kit2-LoFi/16-snare-vhs.wav" },
+}
 
 local function copy_file(src, dst)
   local fin = io.open(src, "rb")
@@ -21,6 +61,79 @@ local function copy_file(src, dst)
   fout:write(data)
   fout:close()
   return true, #data
+end
+
+-- Download a file from url to dest_path. Returns true on success.
+local function download_file(url, dest_path)
+  local os_name = reaper.GetOS()
+  local ok
+  if os_name:match("Win") then
+    local win_path = dest_path:gsub("/", "\\")
+    ok = os.execute(
+      'powershell -Command "& { '
+      .. "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; "
+      .. "Invoke-WebRequest -Uri '" .. url .. "' -OutFile '" .. win_path .. "' }"
+      .. '" 2>nul'
+    )
+  else
+    ok = os.execute('curl -sL -o "' .. dest_path .. '" "' .. url .. '"')
+  end
+  -- Verify the file was written and is non-empty
+  local f = io.open(dest_path, "rb")
+  if f then
+    local size = f:seek("end")
+    f:close()
+    if size and size > 0 then return true end
+  end
+  return false
+end
+
+-- Check for missing stock kit files and download them.
+-- Returns number of files downloaded.
+local function restore_stock_kits(pool_dir)
+  local missing = {}
+  for _, entry in ipairs(STOCK_KITS) do
+    local dest = pool_dir .. "/" .. entry.rel
+    local f = io.open(dest, "rb")
+    if f then
+      local size = f:seek("end")
+      f:close()
+      if not size or size == 0 then
+        missing[#missing + 1] = entry
+      end
+    else
+      missing[#missing + 1] = entry
+    end
+  end
+
+  if #missing == 0 then
+    reaper.ShowConsoleMsg("  All " .. #STOCK_KITS .. " stock kit samples present.\n")
+    return 0
+  end
+
+  reaper.ShowConsoleMsg("  " .. #missing .. " of " .. #STOCK_KITS .. " stock kit samples missing. Downloading...\n")
+
+  -- Create kit subdirectories
+  reaper.RecursiveCreateDirectory(pool_dir .. "/Kit1-808", 0)
+  reaper.RecursiveCreateDirectory(pool_dir .. "/Kit2-LoFi", 0)
+
+  local downloaded = 0
+  local failed = 0
+  for _, entry in ipairs(missing) do
+    local url = BASE_URL .. entry.rel
+    local dest = pool_dir .. "/" .. entry.rel
+    reaper.ShowConsoleMsg("  Downloading: " .. entry.rel .. " ... ")
+    if download_file(url, dest) then
+      downloaded = downloaded + 1
+      reaper.ShowConsoleMsg("OK\n")
+    else
+      failed = failed + 1
+      reaper.ShowConsoleMsg("FAILED\n")
+    end
+  end
+
+  reaper.ShowConsoleMsg("  Downloaded: " .. downloaded .. "  Failed: " .. failed .. "\n")
+  return downloaded
 end
 
 -- Recursively find all .wav files under a directory
@@ -98,8 +211,17 @@ local function main()
 
   if #wavs == 0 then
     reaper.ShowConsoleMsg("  No wav files found anywhere under DRUMBANGER/!\n")
-    reaper.ShowConsoleMsg("  Reinstall DRUMBANGER via ReaPack to get the stock kits.\n")
-    return
+    reaper.ShowConsoleMsg("  Attempting to download stock kits from GitHub...\n\n")
+    reaper.RecursiveCreateDirectory(pool_dir, 0)
+    local dl_count = restore_stock_kits(pool_dir)
+    if dl_count == 0 then
+      reaper.ShowConsoleMsg("\n  Download failed. Check your internet connection.\n")
+      reaper.ShowConsoleMsg("  Or reinstall DRUMBANGER via ReaPack to get the stock kits.\n")
+      return
+    end
+    -- Re-scan after downloading
+    find_wavs(db_dir, 0, wavs)
+    reaper.ShowConsoleMsg("\n  After download: found " .. #wavs .. " wav files\n")
   end
 
   -- Show where they currently are
@@ -199,6 +321,13 @@ local function main()
   -- Free memory
   wav_data = nil
 
+  -- Step 5b: Restore any missing stock kits (in case user has custom kits but stock kits got deleted)
+  reaper.ShowConsoleMsg("\nSTEP 4b: Checking stock kits...\n")
+  local dl_count = restore_stock_kits(pool_dir)
+  if dl_count > 0 then
+    wrote_count = wrote_count + dl_count
+  end
+
   -- Step 6: Rebuild manifest.txt
   reaper.ShowConsoleMsg("\nSTEP 5: Rebuilding manifest...\n")
   local manifest = {}
@@ -252,6 +381,28 @@ local function main()
   for kit_name, count in pairs(kits_found) do
     reaper.ShowConsoleMsg("  Kit: " .. kit_name .. " (" .. count .. " samples)\n")
     kit_count = kit_count + 1
+  end
+
+  -- Also count stock kits that were downloaded but not in kits_found
+  if not kits_found["Kit1-808"] then
+    local has_808 = false
+    for _, entry in ipairs(manifest) do
+      if entry:match("^Kit1%-808/") then has_808 = true; break end
+    end
+    if has_808 then
+      reaper.ShowConsoleMsg("  Kit: Kit1-808 (downloaded)\n")
+      kit_count = kit_count + 1
+    end
+  end
+  if not kits_found["Kit2-LoFi"] then
+    local has_lofi = false
+    for _, entry in ipairs(manifest) do
+      if entry:match("^Kit2%-LoFi/") then has_lofi = true; break end
+    end
+    if has_lofi then
+      reaper.ShowConsoleMsg("  Kit: Kit2-LoFi (downloaded)\n")
+      kit_count = kit_count + 1
+    end
   end
 
   if kit_count == 0 then
