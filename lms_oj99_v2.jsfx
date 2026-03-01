@@ -33,6 +33,11 @@ slider18:40<0,100,1>-Echo Feedback (%)
 slider19:11<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
 slider20:1<0,1,1{Off,On}>-Cab Sim
 slider21:0<0,100,1>-Mic Distance (%)
+// --- CABINET B ---
+slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet B
+slider23:0<0,100,1>-Mic B Distance (%)
+// --- IMPEDANCE TAP ---
+slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
 @init
 
@@ -633,6 +638,20 @@ cab.lms_cab_init();
 cab.lms_cab_set(11);  // default: Orange PPC412
 cab_type = 11;
 cab_on = 1;
+cab2.lms_cab_init();
+cab2.lms_cab_set(0);
+cab2_type = 0;
+cab_dual = 0;
+cab_b_solo = 0;
+
+// Impedance interaction — OR100 rear panel tap (4/8/16 ohm)
+amp_designed_ohms = 16;  // default: 16 ohm tap
+ohm_ratio = 1.0;
+ohm_sag_mult = 1.0;
+ohm_vol = 1.0;
+ohm_lo_gain = 0;
+ohm_lo.lms_bq_init();
+cab_load_ohms = 16;
 
 gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
 channel = 1; input_intensity = 0.5; sag_depth = 0.5;
@@ -654,7 +673,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
   BC_MY_TYPE = 26;
   BC_SLOT_SIZE = 512;
   BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 21;
+  BC_PARAM_COUNT = 24;
   BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
   BC_STALE_TIMEOUT = 2;
 
@@ -721,6 +740,37 @@ cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
 cab_mic = slider21;
 cab.lms_cab_set_mic(cab_mic);
+cab2_type = slider22;
+cab2.lms_cab_set(cab_on ? cab2_type : 0);
+cab2_mic = slider23;
+cab2.lms_cab_set_mic(cab2_mic);
+cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
+cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
+
+// Impedance interaction — rear panel tap + load mismatch
+amp_designed_ohms = slider24 == 0 ? 4 : slider24 == 1 ? 8 : 16;
+cab_a_ohms = lms_cab_get_ohms(cab_on ? cab_type : 0);
+cab_b_ohms = lms_cab_get_ohms(cab_on ? cab2_type : 0);
+cab_load_ohms = lms_cab_compute_load(cab_a_ohms, cab_b_ohms);
+cab_load_ohms > 0 ? (
+  ohm_ratio = cab_load_ohms / amp_designed_ohms;
+  ohm_ratio = max(0.25, min(4.0, ohm_ratio));
+  ohm_sag_mult = 1.0 / ohm_ratio;
+  ohm_sag_mult = max(0.5, min(2.5, ohm_sag_mult));
+  ohm_vol = 1.0 / sqrt(ohm_ratio);
+  ohm_vol = max(0.5, min(1.6, ohm_vol));
+  ohm_lo_gain = (1.0 - ohm_ratio) * 3.0;
+  ohm_lo_gain = max(-4.0, min(4.0, ohm_lo_gain));
+  abs(ohm_lo_gain) > 0.2 ? (
+    ohm_lo.lms_bq_set_loshelf(120, ohm_lo_gain, 0.7);
+  ) : (
+    ohm_lo.lms_bq_init();
+  );
+) : (
+  ohm_sag_mult = 1.0;
+  ohm_vol = 1.0;
+  ohm_lo.lms_bq_init();
+);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -748,6 +798,37 @@ cab_on = slider20;
 cab.lms_cab_set(cab_on ? cab_type : 0);
 cab_mic = slider21;
 cab.lms_cab_set_mic(cab_mic);
+cab2_type = slider22;
+cab2.lms_cab_set(cab_on ? cab2_type : 0);
+cab2_mic = slider23;
+cab2.lms_cab_set_mic(cab2_mic);
+cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
+cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
+
+// Impedance interaction — rear panel tap + load mismatch
+amp_designed_ohms = slider24 == 0 ? 4 : slider24 == 1 ? 8 : 16;
+cab_a_ohms = lms_cab_get_ohms(cab_on ? cab_type : 0);
+cab_b_ohms = lms_cab_get_ohms(cab_on ? cab2_type : 0);
+cab_load_ohms = lms_cab_compute_load(cab_a_ohms, cab_b_ohms);
+cab_load_ohms > 0 ? (
+  ohm_ratio = cab_load_ohms / amp_designed_ohms;
+  ohm_ratio = max(0.25, min(4.0, ohm_ratio));
+  ohm_sag_mult = 1.0 / ohm_ratio;
+  ohm_sag_mult = max(0.5, min(2.5, ohm_sag_mult));
+  ohm_vol = 1.0 / sqrt(ohm_ratio);
+  ohm_vol = max(0.5, min(1.6, ohm_vol));
+  ohm_lo_gain = (1.0 - ohm_ratio) * 3.0;
+  ohm_lo_gain = max(-4.0, min(4.0, ohm_lo_gain));
+  abs(ohm_lo_gain) > 0.2 ? (
+    ohm_lo.lms_bq_set_loshelf(120, ohm_lo_gain, 0.7);
+  ) : (
+    ohm_lo.lms_bq_init();
+  );
+) : (
+  ohm_sag_mult = 1.0;
+  ohm_vol = 1.0;
+  ohm_lo.lms_bq_init();
+);
 
 // ---- Tuner: run pitch detection + smooth display ----
 tuner.lms_yin_detect();
@@ -815,6 +896,9 @@ bc_my_slot >= 0 && bc_following > 0 ? (
         slider19 = gmem[lbase + 18];
         slider20 = gmem[lbase + 19];
         slider21 = gmem[lbase + 20];
+        slider22 = gmem[lbase + 21];
+        slider23 = gmem[lbase + 22];
+        slider24 = gmem[lbase + 23];
         bc_scan = BC_MAX_INST;
       );
     );
@@ -852,6 +936,9 @@ bc_my_slot >= 0 && bc_steal_pending ? (
       slider19 = gmem[lbase + 18];
       slider20 = gmem[lbase + 19];
       slider21 = gmem[lbase + 20];
+      slider22 = gmem[lbase + 21];
+      slider23 = gmem[lbase + 22];
+      slider24 = gmem[lbase + 23];
       bc_scan = BC_MAX_INST;
     );
     bc_scan += 1;
@@ -886,6 +973,9 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 18] = slider19;
   gmem[pbase + 19] = slider20;
   gmem[pbase + 20] = slider21;
+  gmem[pbase + 21] = slider22;
+  gmem[pbase + 22] = slider23;
+  gmem[pbase + 23] = slider24;
 );
 
 bc_instance_count = 0;
@@ -930,8 +1020,8 @@ input_intensity > 0.0 ? (
 // 2. Input coupling cap
 mono = input_hp.bq_proc(mono);
 
-// 3. PSU sag (shared rail)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth);
+// 3. PSU sag (shared rail — impedance-scaled: lower load = more current = more sag)
+bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 3b. NO bright cap — Orange has no treble bypass across volume pot.
 // This is part of why Orange sounds warmer and less "fizzy" than Marshall.
@@ -997,8 +1087,20 @@ amp_out = pa.poweramp_proc(amp_out, bplus);
 // 9. Soft gate
 amp_out = gate.sgate_proc(amp_out);
 
+// 9b. Impedance interaction — power delivery + damping factor
+amp_out *= ohm_vol;                       // lower load = more power = louder
+amp_out = ohm_lo.lms_bq_proc(amp_out);   // lower load = less damping = looser bass
+
 // 10. Cabinet (density-aware speaker sim)
-amp_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
+cab_dual ? (
+  cab_a_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
+  cab_b_out = cab2.lms_cab_proc(amp_out, v1a.hd.density);
+  amp_out = (cab_a_out + cab_b_out) * 0.5;
+) : cab_b_solo ? (
+  amp_out = cab2.lms_cab_proc(amp_out, v1a.hd.density);
+) : (
+  amp_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
+);
 
 amp_out *= out_level;
 // Brickwall output limiter — transparent safety ceiling
@@ -1305,7 +1407,7 @@ slider18 != _old ? slider_automate(2^17);
   cab_panel_y = body_y + p3h + gap;
   cab_panel_w = col_w * 2 + gap;
   cab_panel_x = margin;
-  cab_panel_h = floor(70 * S);
+  cab_panel_h = floor(155 * S);
   draw_panel(cab_panel_x, cab_panel_y, cab_panel_w, cab_panel_h, "CABINET");
   cab_cy = cab_panel_y + floor(26 * S);
   cab_cw = floor(cab_panel_w * 0.60);
@@ -1313,8 +1415,57 @@ slider18 != _old ? slider_automate(2^17);
   slider19 != _old ? slider_automate(2^18);
   _old = slider20; slider20 = draw_toggle(cab_panel_x + cab_cw + floor(8 * S), cab_cy, slider20, "Cab Sim");
   slider20 != _old ? slider_automate(2^19);
-  _old = slider21; slider21 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider21, 0, 100, "Mic Distance", 1);
+  _old = slider21; slider21 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp, cab_panel_w - 8, bar_h, slider21, 0, 100, "Mic A Distance", 1);
   slider21 != _old ? slider_automate(2^20);
+  _old = slider22; slider22 = lms_draw_cab_sel_b(cab_panel_x + 4, cab_cy + bar_sp * 2, cab_cw - 8, bar_h, slider22);
+  slider22 != _old ? slider_automate(2^21);
+  _old = slider23; slider23 = draw_bar(cab_panel_x + 4, cab_cy + bar_sp * 3, cab_panel_w - 8, bar_h, slider23, 0, 100, "Mic B Distance", 1);
+  slider23 != _old ? slider_automate(2^22);
+  // Impedance tap selector (clickable) + readout
+  gfx_setfont(1, "Arial", F_TINY);
+  ohm_tap_y = cab_cy + bar_sp * 4 + floor(2 * S);
+  ohm_tap_x = cab_panel_x + 4;
+  ohm_tap_w = floor(70 * S);
+  ohm_tap_h = floor(16 * S);
+  // Draw tap button
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+  gfx_rect(ohm_tap_x, ohm_tap_y, ohm_tap_w, ohm_tap_h);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(ohm_tap_x, ohm_tap_y, ohm_tap_w, 1);
+  gfx_rect(ohm_tap_x, ohm_tap_y + ohm_tap_h - 1, ohm_tap_w, 1);
+  gfx_rect(ohm_tap_x, ohm_tap_y, 1, ohm_tap_h);
+  gfx_rect(ohm_tap_x + ohm_tap_w - 1, ohm_tap_y, 1, ohm_tap_h);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_x = ohm_tap_x + floor(4 * S); gfx_y = ohm_tap_y + floor((ohm_tap_h - F_TINY) / 2);
+  gfx_drawstr(sprintf(#, "Tap: %dR", amp_designed_ohms));
+  // Click to cycle 4→8→16→4
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= ohm_tap_x && mouse_x <= ohm_tap_x + ohm_tap_w &&
+    mouse_y >= ohm_tap_y && mouse_y <= ohm_tap_y + ohm_tap_h ? (
+      _old = slider24;
+      slider24 = (slider24 + 1) % 3;
+      slider24 != _old ? slider_automate(2^23);
+  );
+  // Load readout (right of tap button)
+  cab_load_ohms > 0 ? (
+    gfx_x = ohm_tap_x + ohm_tap_w + floor(8 * S); gfx_y = ohm_tap_y + floor((ohm_tap_h - F_TINY) / 2);
+    ohm_ratio > 0.9 && ohm_ratio < 1.1 ? (
+      gfx_r = 0.25; gfx_g = 0.80; gfx_b = 0.50;  // green — matched
+    ) : ohm_ratio > 0.6 && ohm_ratio < 1.5 ? (
+      gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;  // gold — close
+    ) : (
+      gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;  // orange — mismatch
+    );
+    cab_load_ohms == floor(cab_load_ohms) ? (
+      gfx_drawstr(sprintf(#, "Load: %dR", cab_load_ohms));
+    ) : (
+      gfx_drawstr(sprintf(#, "Load: %.1fR", cab_load_ohms));
+    );
+    ohm_ratio > 0.9 && ohm_ratio < 1.1 ? (
+      gfx_r = 0.25; gfx_g = 0.80; gfx_b = 0.50;
+      gfx_drawstr(" matched");
+    );
+  );
 
 // ============================================================================
 //  DENSITY AWARENESS PANEL

@@ -64,10 +64,10 @@ rm -rf "$DEST/scripts"
 ln -s "$SCRIPT_DIR/scripts" "$DEST/scripts"
 echo "  Linked scripts/ → $SCRIPT_DIR/scripts/"
 
-# Symlink LMS ReaScripts to REAPER Scripts directory (shows up in Action list)
+# Symlink ALL ReaScripts to REAPER Scripts directory (shows up in Action list)
 LMS_SCRIPTS_DEST="$HOME/.config/REAPER/Scripts/LMS"
 mkdir -p "$LMS_SCRIPTS_DEST"
-for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
+for f in "$SCRIPT_DIR"/scripts/lms_*.lua "$SCRIPT_DIR"/scripts/drumbanger_*.lua; do
     [ -f "$f" ] || continue
     base=$(basename "$f")
     rm -f "$LMS_SCRIPTS_DEST/$base"
@@ -75,17 +75,18 @@ for f in "$SCRIPT_DIR"/scripts/lms_*.lua; do
     echo "  Linked $base → Scripts/LMS/"
 done
 
-# pool/ is already symlinked above — no copy needed
-
 echo ""
 echo "Done! Open REAPER and look for DRUMBANGER in the FX browser."
 echo ""
-echo "IMPORTANT: You must run drumbanger_service.lua as a background ReaScript"
-echo "for the sample pool browser to work:"
-echo "  Actions → Run ReaScript → $DEST/scripts/drumbanger_service.lua"
+echo "DRUMBANGER scripts (search 'DRUMBANGER' in Actions):"
+echo "  drumbanger_open_pool.lua  — open pool folder (drop kits here)"
+echo "  drumbanger_rescan.lua     — rescan pool after adding samples"
+echo "  drumbanger_service.lua    — background service (run this first)"
 echo ""
-echo "LMS Session scripts installed to: $LMS_SCRIPTS_DEST"
-echo "  In REAPER: Actions → Show action list → search 'LMS' to find:"
-echo "    lms_save.lua   — snapshot current session to session.lms"
-echo "    lms_load.lua   — restore session.lms into current project"
-echo "    lms_steal.lua  — merge another session.lms into current project"
+echo "LMS Session scripts (search 'LMS' in Actions):"
+echo "  lms_save.lua   — snapshot current session to session.lms"
+echo "  lms_load.lua   — restore session.lms into current project"
+echo "  lms_steal.lua  — merge another session.lms into current project"
+echo ""
+echo "Pool folder: $SCRIPT_DIR/pool/"
+echo "  Kit folders in pool/ = kits in DrumBanger. Drop WAV folders there."
