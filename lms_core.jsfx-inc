@@ -2536,7 +2536,7 @@ function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
 function lms_tuner_init(buf_offset)
 (
   this.lms_yin_init(buf_offset);
-  this.on = 1;
+  this.on = 0;
   this.disp_freq = 0;
   this.disp_conf = 0;
   this.disp_cents = 0;
