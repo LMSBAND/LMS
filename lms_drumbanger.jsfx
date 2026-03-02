@@ -1055,6 +1055,12 @@ while(midirecv(offset, msg1, msg2, msg3)) (
       );
     );
   );
+  // Program Change → pattern select (PC 0-7 = Pattern 1-8)
+  status == 0xC0 ? (
+    msg2 >= 0 && msg2 < NUM_PATTERNS ? (
+      slider3 = msg2;
+    );
+  );
   // Always pass MIDI through
   midisend(offset, msg1, msg2, msg3);
 );
