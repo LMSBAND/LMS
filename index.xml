@@ -223,26 +223,10 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_drum_room.jsfx" type="effect" desc="LMS Chris' Bedroom — Drum Room Reverb">
-      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
-        <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
-      </version>
-      <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
-      </version>
-      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
-        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Restored room visualization (bird's-eye room, drum kit, mic dots, level meters, GR meter). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
-      </version>
-      <version name="4.0" author="LMS" time="2026-02-20T12:00:00Z">
-        <changelog><![CDATA[v4.0 — Renamed to "LMS Chris' Bedroom — Drum Room Reverb".]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
-      </version>
-      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_room.jsfx</source>
+    <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm Special — Physical Room Modeler">
+      <version name="1.0" author="LMS" time="2026-03-02T00:00:00Z">
+        <changelog><![CDATA[v1.0 — Physical room acoustics modeler. N-sided polygon rooms (3-12 walls), image-source reflections (1st + 2nd order), floor/ceiling taps, 8 wall materials with frequency-dependent absorption, source/mic positioning with directivity and polar patterns (omni/cardioid/fig-8/hyper), Sabine RT60, post-mix compressor selection (LA2A/1176/Distressor). Replaces Chris' Bedroom.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
