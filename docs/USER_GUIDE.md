@@ -529,7 +529,7 @@ Two modes: Single (per-track gating) and Drum (cross-mic spatial intelligence wi
 - **CLR button:** Resets phase correction offset to zero.
 
 **Tips:**
-- Smart Gate + Chris' Bedroom + Density Maximizer = 5-minute drum mix
+- Smart Gate + Black In Bluhm Special + Density Maximizer = 5-minute drum mix
 - Pre-Open at 5ms preserves the attack of every hit
 - In drum mode, set all your drums to their types first, then dial thresholds from one instance using right-click
 - Bleed Reject at 60% is a good starting point for most kits
@@ -640,31 +640,35 @@ Standalone tape delay with spring reverb. Inspired by the Roland Space Echo.
 
 ---
 
-### Chris' Bedroom — Drum Room Reverb
+### Black In Bluhm Special — Physical Room Modeler
 
-Algorithmic room reverb designed specifically for drums. Three mic positions.
+Physical room acoustics modeler. Everything emerges from geometry — no fake reverb knobs.
 
 | Control | What It Does |
 |---------|-------------|
-| Room Size | Small room → large room |
-| Decay | Reverb tail length |
-| Damping | High-frequency absorption |
-| Pre-delay | Gap before reverb starts (ms) |
-| Near Mic | Close mic level (dB) — tight, punchy |
-| Mid Mic | Middle distance level (dB) — balanced |
-| Far Mic | Room mic level (dB) — ambient, roomy |
-| Mic Type | Character of the virtual mics |
-| Comp Threshold | Built-in compressor threshold |
-| Comp Amount | How much compression on the reverb |
+| Walls | Room polygon sides (3-12) — 4 = rectangle, more = rounder |
+| Room Width | Room width in meters |
+| Room Depth | Room depth in meters |
+| Ceiling Height | Room height in meters |
+| Wall/Floor/Ceiling Material | Surface absorption (Concrete, Wood, Drywall, Glass, Brick, Carpet, Curtain, Foam) |
+| Source X/Y | Sound source position — drag in room view |
+| Source Angle | Source facing direction |
+| Mic X/Y | Microphone position — drag in room view |
+| Mic Angle | Mic facing direction |
+| Mic Pattern | Omni / Cardioid / Figure-8 / Hypercardioid |
+| Reflection Depth | 1st Order only or 2nd Order reflections |
+| Compressor | Off / LA2A / 1176 / Distressor |
+| Comp Amount | How hard you drive the compressor |
+| Wet Mix | Wet/dry blend |
 | Output Gain | Output level (dB) |
-| Dry/Wet | Master blend |
-| Algorithm | Reverb algorithm selection |
 
 **Tips:**
-- Near Mic only = tight 70s drum sound
-- Far Mic cranked + Comp Amount at 80% = John Bonham room sound
-- This was designed for drum bus, but it works great on anything
-- Room Size small + Decay short + Dry/Wet at 20% = realistic room ambience
+- Parallel walls = comb filtering (move mic to hear it)
+- Source near a wall = bass buildup (boundary effect)
+- Carpet/Foam walls = dead room, Concrete = long RT60
+- 1176 at high amount = all-buttons-in room crush
+- Distressor adds harmonic saturation that thickens the verb
+- Drag source and mic in the room view for real-time positioning
 
 ---
 
