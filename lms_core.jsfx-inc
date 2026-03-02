@@ -1319,6 +1319,102 @@ function lms_opto_proc(l, r)
 
 
 // ============================================================================
+//  SECTION 10B: Opto Lite — T4B Photocell without Density Tracker
+//  (stereo, this.* state, feedforward, no memory accumulation)
+//
+//  Same T4B photocell physics as Section 10 (EL panel square-law brightness,
+//  CdS power-law resistance, two-stage release) but stripped for percussive
+//  sources like drums. No density tracker (5 biquads), no memory accumulation,
+//  no sidechain emphasis, no tube warmth. Feedforward sidechain — reads input
+//  level directly, better for transients than feedback topology.
+//
+//  Fixed envelope times: 10ms attack, 60ms fast release, 1s slow release.
+//  All coefficients pre-computed in init (zero per-sample exp() calls).
+//
+//  Usage:
+//    @init:   opto.lms_opto_lite_init();
+//    @block:  opto.lms_opto_lite_set(peak_red);
+//    @sample: opto.lms_opto_lite_proc(l, r);
+//             l *= opto.gr;
+//             r *= opto.gr;
+//             // opto.gr_db has dB of gain reduction for metering
+// ============================================================================
+
+// ---- Opto Lite init ----
+function lms_opto_lite_init() (
+  // T4B Photocell state
+  this.cell_r = 1.0;       // normalized resistance: 1.0 = dark, 0.01 = full light
+  this.light = 0.0;        // EL panel brightness
+
+  // Fixed envelope coefficients (pre-computed, no per-sample exp())
+  this.att_coeff = exp(-1 / (srate * 0.010));   // ~10ms attack
+  this.rel_fast  = exp(-1 / (srate * 0.060));   // ~60ms stage 1
+  this.rel_slow  = exp(-1 / (srate * 1.000));   // ~1s stage 2
+
+  // Sidechain
+  this.sc_gain = 0.5;      // peak reduction (0-1)
+
+  // Output
+  this.gr = 1.0;
+  this.gr_db = 0.0;
+);
+
+// ---- Opto Lite set ----
+// peak_red: 0-1 (how much compression)
+function lms_opto_lite_set(peak_red) (
+  this.sc_gain = peak_red;
+);
+
+// ---- Opto Lite process stereo pair ----
+// Feedforward sidechain, T4B photocell, two-stage release (fixed times)
+function lms_opto_lite_proc(l, r)
+  local(mono, sc_level, el_voltage, gamma, r_target,
+        recovery_pct, rel_coeff)
+(
+  mono = (l + r) * 0.5;
+
+  // 1. Feedforward sidechain (no base offset — 0% = zero compression)
+  sc_level = abs(mono) * this.sc_gain * 2.0;
+
+  // 2. EL Panel — square-law brightness
+  el_voltage = max(0.0, sc_level - 0.01);
+  this.light = min(1.0, el_voltage * el_voltage);
+
+  // 3. CdS Photoresistor — power-law resistance
+  //    ref=0.05 (feedforward needs higher ref than feedback's 0.001)
+  //    Compression onset at light > 0.05; continuous at threshold
+  gamma = 0.7;
+  this.light > 0.05 ? (
+    r_target = (0.05 / this.light) ^ gamma;
+    r_target = max(0.01, r_target);
+  ) : (
+    r_target = 1.0;
+  );
+
+  // 4. Two-stage release (fixed times, no memory stretching)
+  recovery_pct = (this.cell_r - 0.01) / 0.99;
+  recovery_pct = max(0.0, min(1.0, recovery_pct));
+  recovery_pct < 0.5 ? (
+    rel_coeff = this.rel_fast;   // stage 1: fast initial recovery
+  ) : (
+    rel_coeff = this.rel_slow;   // stage 2: slow tail
+  );
+
+  // 5. Asymmetric attack/release on photocell resistance
+  r_target < this.cell_r ? (
+    this.cell_r = this.att_coeff * this.cell_r + (1 - this.att_coeff) * r_target;
+  ) : (
+    this.cell_r = rel_coeff * this.cell_r + (1 - rel_coeff) * r_target;
+  );
+  this.cell_r = max(0.01, min(1.0, this.cell_r));
+
+  // 6. Output gain
+  this.gr = this.cell_r;
+  this.gr_db = 20 * log10(max(0.001, this.gr));
+);
+
+
+// ============================================================================
 //  SECTION 11: Brick-Wall Limiter (true-peak aware, stereo, this.* state)
 //
 //  Transparent brick-wall limiter with true peak detection via 2x

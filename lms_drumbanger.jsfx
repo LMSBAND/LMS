@@ -8,7 +8,6 @@ desc:LMS DRUMBANGER
 // MIDI notes 36-51 (C1 to D#2) trigger pads 1-16.
 filename:0,shakebot_logo.png
 
-
 options:maxmem=16777216
 options:gmem=DrumBanger
 
@@ -156,8 +155,10 @@ slider75:0<-12,12,0.1>-Comp Input Gain (dB)
 // 58600-66791: PLOCK_VOL_BASE — volume parameter locks (8 pat * 64 * 16)
 // 66800-74991: PLOCK_PAN_BASE — pan parameter locks
 // 75000-83191: PLOCK_PITCH_BASE — pitch parameter locks
-// 83200-83699: MENU_MAP (temp: maps menu selection -> pool index)
-// 83700+:      sample data buffer (loaded via file_open)
+// 83200-83215: PAD_NUDGE_MS[16] — per-pad timing nudge in ms (0-50)
+// 83216-83231: PAD_NUDGE_DELAY[16] — runtime countdown in samples (not serialized)
+// 83232-83731: MENU_MAP (temp: maps menu selection -> pool index)
+// 83732+:      sample data buffer (loaded via file_open)
 
 @init
 
@@ -223,8 +224,10 @@ TIE_BASE      = 50400;   // 8 pat * 64 steps * 16 pads = 8192 (50400-58591)
 PLOCK_VOL_BASE   = 58600;  // 8 pat * 64 steps * 16 pads = 8192 (58600-66791)
 PLOCK_PAN_BASE   = 66800;  // same = 8192 (66800-74991)
 PLOCK_PITCH_BASE = 75000;  // same = 8192 (75000-83191)
-MENU_MAP      = 83200;   // temp: maps pool menu index -> pool manifest index (up to 500)
-SAMPLE_BUF    = 83700;
+PAD_NUDGE_MS     = 83200;  // 83200-83215: per-pad nudge in ms (0-50), serialized
+PAD_NUDGE_DELAY  = 83216;  // 83216-83231: runtime countdown in samples (not serialized)
+MENU_MAP      = 83232;   // temp: maps pool menu index -> pool manifest index (up to 500)
+SAMPLE_BUF    = 83732;
 
 // ---- Sequencer state ----
 seq_step = 0;
@@ -399,6 +402,39 @@ function scan_kits() local(kit_idx, fi) (
   KIT_COUNT[] = kit_idx;
 );
 
+// ---- Stash/resolve pad pool names across rescans ----
+// Before scan_pool(), save current filenames to string slots 50-65.
+// After scan_pool(), resolve them against the new manifest.
+function stash_pad_pool_names() local(i) (
+  i = 0;
+  loop(NUM_PADS,
+    PAD_POOL_IDX[i] >= 0 && PAD_POOL_IDX[i] < pool_count ? (
+      strcpy(50 + i, 100 + PAD_POOL_IDX[i]);
+    ) : (
+      strcpy(50 + i, "");
+    );
+    i += 1;
+  );
+);
+
+function resolve_pad_pool_names() local(i, j, resolved) (
+  i = 0;
+  loop(NUM_PADS,
+    PAD_POOL_IDX[i] >= 0 && strlen(50 + i) > 0 ? (
+      resolved = -1;
+      j = 0;
+      while(j < pool_count && resolved < 0) (
+        strcmp(100 + j, 50 + i) == 0 ? resolved = j;
+        j += 1;
+      );
+      resolved >= 0 ? (
+        PAD_POOL_IDX[i] = resolved;
+      );
+    );
+    i += 1;
+  );
+);
+
 // ---- Load initial kit (first run only) ----
 // Kits = subfolders in pool/. Each folder's first 16 .wav files map to pads.
 // Guard: only load on first @init. Subsequent @init (sample rate change,
@@ -444,6 +480,8 @@ function scan_kits() local(kit_idx, fi) (
     PAD_LINK_GROUP[i] = 0;
     PAD_LINK_ROLE[i] = 0;
     PAD_CHOKE_GROUP[i] = 0;
+    PAD_NUDGE_MS[i] = 0;
+    PAD_NUDGE_DELAY[i] = 0;
     i += 1;
   );
   i = 0;
@@ -470,7 +508,7 @@ pool_load_idx = -1;   // pool manifest index to load
 // ui_selected_pad persists naturally (defaults to 0 on first load, survives @init)
 notice_show = 0;
 // Sticky drag: lock to one control bar, prevent accidental cross-control drags
-drag_id = 0;           // 0=none, 1=vol, 2=pan, 3=pitch, 4=LP, 5=HP, 6=sat, 7=comp, 8=gain
+drag_id = 0;           // 0=none, 1=vol, 2=pan, 3=pitch, 4=LP, 5=HP, 6=sat, 7=comp, 8=gain, 9=busLP, 10=busHP, 11=compIn, 12=nudge
 drag_cooldown = 0;     // frames after release before new drag allowed
 
 // Velocity editor overlay state
@@ -529,11 +567,15 @@ COL_REC_R = 0.90; COL_REC_G = 0.10; COL_REC_B = 0.10;
 COL_MAGENTA_R = 0.90; COL_MAGENTA_G = 0.30; COL_MAGENTA_B = 0.70;
 
 // ---- Output bus state ----
-// Opto compressor (LA-2A style)
+// Opto compressor (inline feedforward — pre-computed coefficients)
 opto_gr = 0;      // current gain reduction in dB
 opto_fast = 0;    // fast release envelope
 opto_slow = 0;    // slow release envelope
 comp_gr_display = 0;  // GR for GFX meter
+// Pre-compute exp() coefficients (avoids 3 exp() calls per sample)
+opto_att = exp(-1 / (0.010 * srate));       // 10ms attack
+opto_rel_fast = exp(-1 / (0.060 * srate));  // 60ms fast release
+opto_rel_slow = exp(-1 / (1.0 * srate));    // 1s slow release
 
 // Bus filter state (cascaded one-pole, same design as per-pad)
 bus_lp_l1 = 0; bus_lp_r1 = 0; bus_lp_l2 = 0; bus_lp_r2 = 0;
@@ -593,6 +635,13 @@ function trigger_pad_core(pad, vel) local(v, subdiv, slice, slice_len, slice_sta
 
     PAD_VELOCITY[pad] = v;
     PAD_DECAY[pad] = 1.0;
+
+    // Per-pad timing nudge: delay playback start by nudge_ms
+    PAD_NUDGE_MS[pad] > 0 ? (
+      PAD_NUDGE_DELAY[pad] = (PAD_NUDGE_MS[pad] / 1000) * srate;
+    ) : (
+      PAD_NUDGE_DELAY[pad] = 0;
+    );
   );
 );
 
@@ -792,6 +841,7 @@ function copy_pad_settings(src, dst) local(buf_src, buf_dst, copy_i) (
   PAD_LINK_GROUP[dst] = PAD_LINK_GROUP[src];
   PAD_LINK_ROLE[dst]  = PAD_LINK_ROLE[src];
   PAD_CHOKE_GROUP[dst] = PAD_CHOKE_GROUP[src];
+  PAD_NUDGE_MS[dst]    = PAD_NUDGE_MS[src];
   // Copy sample data (pool idx + buffer)
   PAD_POOL_IDX[dst]   = PAD_POOL_IDX[src];
   PAD_LENGTH[dst]     = PAD_LENGTH[src];
@@ -856,6 +906,8 @@ function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, nu
 // ---- MIDI root note (live update from slider) ----
 MIDI_NOTE_BASE = slider8;
 
+// (Compressor uses inline code in @sample — no @block setup needed)
+
 // ---- Kit hot-reload on slider change ----
 slider7 != loaded_kit_num ? load_kit_samples(slider7);
 
@@ -868,8 +920,10 @@ pool_load_pad >= 0 ? (
 
 // ---- gmem: ReaScript signals pool rescan (works even without GUI open) ----
 gmem[0] > 0 ? (
+  stash_pad_pool_names();
   scan_pool();
   scan_kits();
+  resolve_pad_pool_names();
   gmem[2] > 0 && gmem[1] >= 0 && gmem[1] < pool_count ? (
     pool_load_idx = gmem[1];
     pool_load_pad = ui_selected_pad;
@@ -879,8 +933,10 @@ gmem[0] > 0 ? (
   gmem[2] = 0;
 );
 gmem[7] > 0 ? (
+  stash_pad_pool_names();
   scan_pool();
   scan_kits();
+  resolve_pad_pool_names();
   loaded_kit_num = -1;
   gmem[7] = 0;
 );
@@ -956,6 +1012,25 @@ tempo > 0 ? (
 
 // Trigger pads on step change OR transport start (sequence mode only)
 seq_mode && transport_playing && (timeline_step != seq_step || transport_started) ? (
+  // Flush unfired sub-steps from the ending step (don't drop them at boundary)
+  !transport_started ? (
+    p = 0;
+    loop(NUM_PADS,
+      pad_seq_sub = PAD_SEQ_SUBDIV[p];
+      pad_seq_sub > 1 ? (
+        si = 1;
+        loop(pad_seq_sub - 1,
+          !(SUB_FIRED[p] & (1 << si)) ? (
+            vel = get_sub_seq_step(slider3, seq_step, p, si);
+            vel > 0 ? trigger_pad(p, vel);
+          );
+          si += 1;
+        );
+      );
+      p += 1;
+    );
+  );
+
   // Reset sub-step counter and mark sub-step 0 as fired for all pads
   sub_step_counter = 0;
   p = 0;
@@ -993,6 +1068,18 @@ seq_mode && transport_playing && (timeline_step != seq_step || transport_started
   );
 );
 
+// Update step tracking (before sub-step firing so it reads the correct step)
+seq_step = timeline_step;
+
+// Swing-adjusted step duration for sub-step timing
+// Even steps are longer, odd steps shorter (swing stretches the pair)
+swing_split = 1.0 + (slider2 / 100) * 0.9;
+seq_step % 2 == 0 ? (
+  actual_step_dur = swing_split * step_samples;
+) : (
+  actual_step_dur = (2.0 - swing_split) * step_samples;
+);
+
 // Sub-step timing: fire sub-steps 1, 2, 3 when their time arrives
 seq_mode && transport_playing && step_samples > 0 ? (
   sub_step_counter += samplesblock;
@@ -1001,7 +1088,7 @@ seq_mode && transport_playing && step_samples > 0 ? (
   loop(NUM_PADS,
     pad_seq_sub = PAD_SEQ_SUBDIV[p];
     pad_seq_sub > 1 ? (
-      sub_dur = step_samples / pad_seq_sub;
+      sub_dur = actual_step_dur / pad_seq_sub;
       si = 1;
       loop(pad_seq_sub - 1,
         !(SUB_FIRED[p] & (1 << si)) && sub_step_counter >= si * sub_dur ? (
@@ -1015,9 +1102,6 @@ seq_mode && transport_playing && step_samples > 0 ? (
     p += 1;
   );
 );
-
-// Track timeline position (must be set before MIDI for recording)
-seq_step = timeline_step;
 
 // ---- Read gmem trigger requests from Drum Trigger (gmem[140..155]) ----
 // Pattern: Drum Trigger writes velocity to gmem[140+pad], we consume by zeroing
@@ -1045,7 +1129,7 @@ while(midirecv(offset, msg1, msg2, msg3)) (
         rec_pad_sub = PAD_SEQ_SUBDIV[pad];
         rec_pad_sub > 1 && step_samples > 0 ? (
           // Quantize to nearest sub-step
-          rec_sub_dur = step_samples / rec_pad_sub;
+          rec_sub_dur = actual_step_dur / rec_pad_sub;
           rec_cur_sub = (sub_step_counter / rec_sub_dur) | 0;
           rec_cur_sub = max(0, min(rec_cur_sub, rec_pad_sub - 1));
           set_sub_seq_step(slider3, seq_step, pad, rec_cur_sub, msg3);
@@ -1059,6 +1143,7 @@ while(midirecv(offset, msg1, msg2, msg3)) (
   status == 0xC0 ? (
     msg2 >= 0 && msg2 < NUM_PATTERNS ? (
       slider3 = msg2;
+      slider_automate(slider3);
     );
   );
   // Always pass MIDI through
@@ -1123,6 +1208,10 @@ loop(NUM_PADS,
 
     // ---- Main voice ----
     PAD_PLAYING[p] ? (
+      // Per-pad nudge delay: count down before starting audio
+      PAD_NUDGE_DELAY[p] > 0 ? (
+        PAD_NUDGE_DELAY[p] -= 1;
+      ) : (
       pos = PAD_POS[p];
 
       // Loaded sample playback (respects slice boundaries for CHOP mode)
@@ -1209,6 +1298,7 @@ loop(NUM_PADS,
       ) : (
         PAD_PLAYING[p] = 0;
       );
+      ); // end nudge delay else
     );
 
     // ---- Kill tail: fade out the old voice on retrigger ----
@@ -1306,11 +1396,7 @@ comp_amount > 0 ? (
     target_gr_db = 0;
   );
 
-  // Opto cell model: fast attack (~10ms), dual-stage release
-  opto_att = exp(-1 / (0.010 * srate));
-  opto_rel_fast = exp(-1 / (0.060 * srate));
-  opto_rel_slow = exp(-1 / (1.0 * srate));
-
+  // Opto cell: coefficients pre-computed in @init
   target_gr_db > opto_gr ? (
     // Attack
     opto_gr = opto_att * opto_gr + (1 - opto_att) * target_gr_db;
@@ -1349,7 +1435,7 @@ spl1 = out_r * master_vol;
 // ============================================================
 // @GFX — User Interface
 // ============================================================
-@gfx 750 790
+@gfx 750 816
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -2792,11 +2878,10 @@ pool_count > 0 ? (
         // Folder changed? Open/close submenus
         strcmp(#pm_dir, #pm_prev_dir) != 0 ? (
           strlen(#pm_dir) > 0 ? (
-            // Open new submenu header
+            // Open new submenu header (not a selectable item — don't increment pm_menu_n)
             pm_need_sep ? strcat(#pool_menu, "|");
             strcat(#pool_menu, ">");
             strcat(#pool_menu, #pm_dir);
-            pm_menu_n += 1;
             pm_in_sub = 1;
             pm_need_sep = 1;
           ) : (
@@ -3269,10 +3354,44 @@ mouse_cap & 1 && (drag_id == 5 || (drag_id == 0 && drag_cooldown == 0)) ? (
   );
 );
 
+// ---- Per-pad Nudge bar (timing push-back, 0-50ms) ----
+ctrl_ynudge = ctrl_yhp + ctrl_h + 6;
+cur_nudge = PAD_NUDGE_MS[sp];
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = margin; gfx_y = ctrl_ynudge + 2;
+gfx_drawstr("Nudge ");
+cur_nudge > 0 ? (
+  gfx_drawnumber(cur_nudge, 1);
+  gfx_drawstr("ms");
+) : (
+  gfx_drawstr("OFF");
+);
+
+// Bar background
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(ctrl_x, ctrl_ynudge, ctrl_bar_w, ctrl_h);
+// Bar fill (dim/subtle)
+cur_nudge > 0 ? (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(ctrl_x, ctrl_ynudge, ctrl_bar_w * (cur_nudge / 50), ctrl_h);
+);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(ctrl_x, ctrl_ynudge, ctrl_bar_w, 1); gfx_rect(ctrl_x, ctrl_ynudge + ctrl_h - 1, ctrl_bar_w, 1);
+gfx_rect(ctrl_x, ctrl_ynudge, 1, ctrl_h); gfx_rect(ctrl_x + ctrl_bar_w - 1, ctrl_ynudge, 1, ctrl_h);
+
+// Drag to adjust nudge
+mouse_cap & 1 && (drag_id == 12 || (drag_id == 0 && drag_cooldown == 0)) ? (
+  mouse_x >= ctrl_x && mouse_x <= ctrl_x + ctrl_bar_w &&
+  mouse_y >= ctrl_ynudge && mouse_y < ctrl_ynudge + ctrl_h ? (
+    drag_id = 12;
+    PAD_NUDGE_MS[sp] = max(0, min(50, (mouse_x - ctrl_x) / ctrl_bar_w * 50));
+  );
+);
+
 // ============================================
 // SECTION 3B: OUTPUT BUS (Sat / Comp / Gain)
 // ============================================
-ctrl_y4 = ctrl_yhp + ctrl_h + 16;
+ctrl_y4 = ctrl_ynudge + ctrl_h + 16;
 
 // -- Section label --
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
@@ -3305,6 +3424,7 @@ mouse_cap & 1 && (drag_id == 6 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y4 && mouse_y < ctrl_y4 + ctrl_h ? (
     drag_id = 6;
     slider70 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+    slider_automate(slider70);
   );
 );
 
@@ -3342,6 +3462,7 @@ mouse_cap & 1 && (drag_id == 9 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y_blp && mouse_y < ctrl_y_blp + ctrl_h ? (
     drag_id = 9;
     slider73 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider_automate(slider73);
   );
 );
 
@@ -3379,6 +3500,7 @@ mouse_cap & 1 && (drag_id == 10 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y_bhp && mouse_y < ctrl_y_bhp + ctrl_h ? (
     drag_id = 10;
     slider74 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider_automate(slider74);
   );
 );
 
@@ -3411,6 +3533,7 @@ mouse_cap & 1 && (drag_id == 11 || (drag_id == 0 && drag_cooldown == 0)) ? (
     new_cin = max(-12, min(12, ((mouse_x - ctrl_x) / ctrl_bar_w) * 24 - 12));
     new_cin = floor(new_cin * 2 + 0.5) / 2;
     slider75 = new_cin;
+    slider_automate(slider75);
   );
 );
 
@@ -3441,6 +3564,7 @@ mouse_cap & 1 && (drag_id == 7 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y5 && mouse_y < ctrl_y5 + ctrl_h ? (
     drag_id = 7;
     slider71 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+    slider_automate(slider71);
   );
 );
 
@@ -3496,6 +3620,7 @@ mouse_cap & 1 && (drag_id == 8 || (drag_id == 0 && drag_cooldown == 0)) ? (
     // Snap to 0.5 dB
     new_gain = floor(new_gain * 2 + 0.5) / 2;
     slider72 = new_gain;
+    slider_automate(slider72);
   );
 );
 
@@ -3861,9 +3986,9 @@ notice_show ? (
 // ============================================================
 @serialize
 
-serial_version = 9;
+serial_version = 11;
 file_var(0, serial_version);
-// After file_var: serial_version = 7 when saving, = saved version when loading
+// After file_var: serial_version = 10 when saving, = saved version when loading
 
 // ---- v6: expanded pattern data (8 pat * 64 steps * 16 pads = 8192) ----
 serial_version >= 6 ? (
@@ -4035,12 +4160,12 @@ serial_version >= 9 ? (
   // then reload pool overrides on top.
   file_avail(0) >= 0 ? (  // loading (not saving)
     // Stash restored pool state (load_kit_samples resets these to defaults)
-    // Temp memory: 83200-83247 (after PLOCK_PITCH_BASE ends at 83191)
+    // Borrow MENU_MAP temp area (not used during @serialize)
     i = 0;
     loop(NUM_PADS,
-      83200[i] = PAD_POOL_IDX[i];    // 83200-83215
-      83216[i] = PAD_CHOP_OFFSET[i];  // 83216-83231
-      83232[i] = PAD_SLICE[i];        // 83232-83247
+      MENU_MAP[i]      = PAD_POOL_IDX[i];
+      MENU_MAP[16 + i] = PAD_CHOP_OFFSET[i];
+      MENU_MAP[32 + i] = PAD_SLICE[i];
       i += 1;
     );
     // Load the correct kit (slider7 restored by REAPER before @serialize)
@@ -4048,10 +4173,55 @@ serial_version >= 9 ? (
     // Restore pool overrides and reload their audio from disk
     i = 0;
     loop(NUM_PADS,
-      PAD_CHOP_OFFSET[i] = 83216[i];
-      PAD_SLICE[i] = 83232[i];
-      83200[i] >= 0 ? (
-        load_pad_from_pool(i, 83200[i]);
+      PAD_CHOP_OFFSET[i] = MENU_MAP[16 + i];
+      PAD_SLICE[i] = MENU_MAP[32 + i];
+      MENU_MAP[i] >= 0 ? (
+        load_pad_from_pool(i, MENU_MAP[i]);
+      );
+      i += 1;
+    );
+  );
+);
+
+// v10: per-pad timing nudge
+serial_version >= 10 ? (
+  i = 0; loop(NUM_PADS, file_var(0, PAD_NUDGE_MS[i]); i += 1);
+);
+
+// v11: pool filenames for stable reload across manifest changes
+// PAD_POOL_IDX is a positional index into manifest.txt. If the manifest
+// changes (samples added/deleted/rescanned), the index points to the wrong
+// file. v11 saves the actual filename and resolves it on load.
+serial_version >= 11 ? (
+  // Prepare filename strings for saving (on load, file_string overwrites these)
+  i = 0;
+  loop(NUM_PADS,
+    PAD_POOL_IDX[i] >= 0 ? (
+      strcpy(50 + i, 100 + PAD_POOL_IDX[i]);
+    ) : (
+      strcpy(50 + i, "");
+    );
+    file_string(0, 50 + i);
+    i += 1;
+  );
+
+  // On load: resolve filenames against current manifest
+  file_avail(0) >= 0 ? (
+    i = 0;
+    loop(NUM_PADS,
+      strlen(50 + i) > 0 ? (
+        // Search manifest for this filename
+        resolved = -1;
+        j = 0;
+        while(j < pool_count && resolved < 0) (
+          strcmp(100 + j, 50 + i) == 0 ? resolved = j;
+          j += 1;
+        );
+        // If found at a different index, reload with the correct one
+        resolved >= 0 && resolved != PAD_POOL_IDX[i] ? (
+          load_pad_from_pool(i, resolved);
+        );
+        // If not found in manifest, keep whatever v9 loaded (best effort)
       );
       i += 1;
     );
