@@ -936,6 +936,10 @@
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
       </version>
+      <version name="1.3" author="LMS" time="2026-03-03T00:00:00Z">
+        <changelog><![CDATA[v1.3 — Slot-based lock mode UI (8 numbered buttons), click-drag painting for step sequencer and 16x16 overview grid, overview cells match pad selector size, HiDPI scaling fix (S = min(w/h) prevents vertical overflow), Chord Mode defaults to Single (was Off), gmem pattern export (700000-700265) for Lua MIDI print, PRINT button stamps active pattern as MIDI item at edit cursor.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS Drone FX Satellite — FET Comp + Tape Delay + Flanger">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
@@ -948,6 +952,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-03-03T00:00:00Z">
+        <changelog><![CDATA[v1.3 — HiDPI scaling fix (S = min(w/h) prevents vertical layout overflow on wide windows). Slot-based lock mode UI with 8 numbered buttons.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
       </version>
     </reapack>
@@ -998,6 +1006,10 @@
         <changelog><![CDATA[v1.1 — Dynamic pool discovery: searches Effects/ tree for lms_drumbanger.jsfx and uses pool/ next to it. Works with any ReaPack index name or install layout.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-03-03T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Integrated MIDI print: watches gmem[700500] for print requests from DroneMIDI2, stamps pattern as MIDI item at edit cursor with correct scale/chord/octave translation. Unified service handles both SAMPLE and MIDI PRINT.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_open_pool.lua" type="script" desc="DRUMBANGER: Open Pool Folder">
       <version name="1.0" author="LMS" time="2026-02-28T23:00:00Z">
@@ -1025,6 +1037,12 @@
       <version name="1.2" author="LMS" time="2026-03-01T18:00:00Z">
         <changelog><![CDATA[v1.2 — Stock kit auto-download. If Kit1-808 or Kit2-LoFi samples are missing, downloads them from GitHub automatically. Safe to run any time — checks existing files first.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
+      </version>
+    </reapack>
+    <reapack name="lms_setup.lua" type="script" desc="LMS: Suite Setup (Run Once)">
+      <version name="1.0" author="LMS" time="2026-03-03T00:00:00Z">
+        <changelog><![CDATA[v1.0 — One-click LMS setup: registers DrumBanger service as a REAPER action, starts it, installs __startup.lua for auto-start on every REAPER launch (no SWS needed). Run once — handles SAMPLE button + MIDI PRINT button automatically.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
     </reapack>
   </category>
@@ -1081,7 +1099,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 10 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100). 12 shared cabinet models. Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). Channel strip, distressor, passive EQ, tube saturator, tape machine, tape echo, Chris' Bedroom drum room reverb, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites. Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 11 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100), TOMASTEKNIK v2 (SVT + ODB-3). 12 shared cabinet models. Black In Bluhm Special (physical room modeler — geometry-based acoustics). Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). LA-2A opto compressor, Smart Gate, Autotune, Pitch Detector, channel strip, distressor, tube saturator, tape machine, tape echo, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites (MIDI print, auto-start service). Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>
