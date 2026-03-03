@@ -321,6 +321,25 @@ lock_mode == 0 ? (
   );
 );
 
+// ---- Export pattern + settings to gmem for Lua print script ----
+gmem[700000] += 1;                      // heartbeat
+gmem[700001] = steps_per_measure;
+gmem[700002] = slider2;                 // MIDI channel
+gmem[700003] = slider3;                 // root note
+gmem[700004] = slider4;                 // scale id
+gmem[700005] = slider5;                 // chord mode
+gmem[700006] = slider6;                 // octave (index: 0=-2, 2=0, 7=+5)
+gmem[700007] = lock_mode;
+exp_s = 0;
+loop(NUM_STEPS,
+  exp_p = 0;
+  loop(NUM_PADS,
+    gmem[700010 + exp_s * NUM_PADS + exp_p] = get_active_step(exp_s, exp_p);
+    exp_p += 1;
+  );
+  exp_s += 1;
+);
+
 // ---- Pass through incoming MIDI ----
 while(midirecv(offset, msg1, msg2, msg3)) (
   midisend(offset, msg1, msg2, msg3);
@@ -577,6 +596,26 @@ is_locked ? (
     );
     LOCK_HAS_DATA[ui_slot] = 0;
     lock_mode = 0;
+  );
+
+  // -- PRINT button (next to CLEAR) --
+  print_x = clear_x + clear_w + slot_gap;
+  print_w = floor(50 * S);
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.30;
+  gfx_rect(print_x, slot_row_y, print_w, slot_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(print_x, slot_row_y, print_w, 1);
+  gfx_rect(print_x, slot_row_y + slot_btn_h - 1, print_w, 1);
+  gfx_rect(print_x, slot_row_y, 1, slot_btn_h);
+  gfx_rect(print_x + print_w - 1, slot_row_y, 1, slot_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = print_x + floor(6 * S); gfx_y = slot_row_y + floor(3 * S);
+  gfx_drawstr("PRINT");
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= print_x && mouse_x < print_x + print_w &&
+    mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+    gmem[700500] = 1;  // signal Lua script to print
   );
 );
 
