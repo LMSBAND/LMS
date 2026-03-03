@@ -741,6 +741,14 @@ seq_grid_y = pad_sel_y + pad_sel_h + floor(4 * S);
 step_w = (gfx_w - margin * 2 - floor(15 * S) * 2) / 16;
 step_h = floor(28 * S);
 
+// Drag-paint state: on mouse-down, first cell sets paint value (on/off).
+// While held, any new cell entered gets painted to that value.
+!(mouse_cap & 1) ? (
+  drag_painting = 0;
+  drag_last_step = -1;
+  drag_last_pad = -1;
+);
+
 s = 0;
 loop(NUM_STEPS,
   sx = margin + s * (step_w + 2);
@@ -780,12 +788,25 @@ loop(NUM_STEPS,
     gfx_rect(sx + step_w - 2, sy, 2, step_h);
   );
 
-  // Click to toggle step (Lock mode only)
+  // Click + drag to paint steps (Lock mode only)
   !vel_edit_open && is_locked && LOCK_HAS_DATA[lock_slot] && s < steps_per_measure &&
-    mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_cap & 1 &&
     mouse_x >= sx && mouse_x < sx + step_w &&
     mouse_y >= sy && mouse_y < sy + step_h ? (
-    toggle_local_step(lock_slot, s, ui_selected_pad);
+    // New click: determine paint value from first cell
+    !(last_mouse_cap & 1) ? (
+      cur_v = get_local_step(lock_slot, s, ui_selected_pad);
+      drag_paint_val = cur_v > 0 ? 0 : 100;
+      drag_painting = 1;
+      drag_last_step = s; drag_last_pad = ui_selected_pad;
+      set_local_step(lock_slot, s, ui_selected_pad, drag_paint_val);
+    ) : (
+      // Dragging: paint if we entered a new cell
+      drag_painting && (s != drag_last_step) ? (
+        drag_last_step = s; drag_last_pad = ui_selected_pad;
+        set_local_step(lock_slot, s, ui_selected_pad, drag_paint_val);
+      );
+    );
   );
 
   // Right-click: open velocity editor (Lock mode only)
@@ -847,13 +868,25 @@ loop(NUM_PADS,
     );
     gfx_rect(ox, oy, ov_cell_w, ov_cell_h);
 
-    // Click to toggle (Lock mode only)
+    // Click + drag to paint (Lock mode only)
     !vel_edit_open && is_locked && LOCK_HAS_DATA[lock_slot] && os < steps_per_measure &&
-      mouse_cap & 1 && !(last_mouse_cap & 1) &&
+      mouse_cap & 1 &&
       mouse_x >= ox && mouse_x < ox + ov_cell_w &&
       mouse_y >= oy && mouse_y < oy + ov_cell_h ? (
-      toggle_local_step(lock_slot, os, op);
-      ui_selected_pad = op;
+      !(last_mouse_cap & 1) ? (
+        cur_v = get_local_step(lock_slot, os, op);
+        drag_paint_val = cur_v > 0 ? 0 : 100;
+        drag_painting = 1;
+        drag_last_step = os; drag_last_pad = op;
+        set_local_step(lock_slot, os, op, drag_paint_val);
+        ui_selected_pad = op;
+      ) : (
+        drag_painting && (os != drag_last_step || op != drag_last_pad) ? (
+          drag_last_step = os; drag_last_pad = op;
+          set_local_step(lock_slot, os, op, drag_paint_val);
+          ui_selected_pad = op;
+        );
+      );
     );
 
     // Right-click: open velocity editor (Lock mode only)
