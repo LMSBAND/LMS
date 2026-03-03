@@ -1,6 +1,6 @@
 -- LMS Suite Setup
 -- Run this ONCE. It registers the DrumBanger service as an action,
--- starts it, and adds it to REAPER's startup actions so it auto-runs
+-- starts it, and installs __startup.lua so it auto-runs
 -- every time you open REAPER.
 
 -- Find the service script (same directory as this setup script)
@@ -33,37 +33,65 @@ local cmd_string = reaper.ReverseNamedCommandLookup(cmd_id)
 -- Start the service right now
 reaper.Main_OnCommand(cmd_id, 0)
 
--- Add to REAPER startup actions
--- REAPER stores these in reaper-kb.ini as SCR lines.
--- Flag 4 = Lua, flag 256 = run on startup. We need flags = 260.
-local kb_path = reaper.GetResourcePath() .. "/reaper-kb.ini"
-local kb = io.open(kb_path, "r")
-if kb then
-  local content = kb:read("*a")
-  kb:close()
+-- Save the service path so __startup.lua can dofile() it directly
+reaper.SetExtState("LMS", "service_path", service_path, true)
 
-  -- Find our SCR line (AddRemoveReaScript wrote it with flags=4)
-  -- and change flags to 260 (4 + 256 = Lua + startup)
-  local search = "SCR 4 0 " .. cmd_string
-  local replace = "SCR 260 0 " .. cmd_string
+-- Install __startup.lua for auto-start on REAPER launch
+-- REAPER natively runs Scripts/__startup.lua on every launch (no SWS needed)
+local scripts_dir = reaper.GetResourcePath() .. "/Scripts"
+local startup_path = scripts_dir .. "/__startup.lua"
 
-  if content:find(search, 1, true) then
-    content = content:gsub(search, replace, 1)
-    kb = io.open(kb_path, "w")
-    if kb then
-      kb:write(content)
-      kb:close()
-    end
-  end
+local LMS_START = "-- [LMS AUTO-START BEGIN]"
+local LMS_END   = "-- [LMS AUTO-START END]"
+
+local lms_block = LMS_START .. "\n" ..
+  "reaper.defer(function()\n" ..
+  "  local base = reaper.GetResourcePath() .. \"/Scripts\"\n" ..
+  "  local paths = {\n" ..
+  "    base .. \"/LMS/drumbanger_service.lua\",\n" ..
+  "    base .. \"/LMS Plugins/DRUMBANGER/Scripts/drumbanger_service.lua\",\n" ..
+  "  }\n" ..
+  "  for _, p in ipairs(paths) do\n" ..
+  "    local f = io.open(p, \"r\")\n" ..
+  "    if f then\n" ..
+  "      f:close()\n" ..
+  "      reaper.ShowConsoleMsg(\"LMS: Auto-starting service...\\n\")\n" ..
+  "      dofile(p)\n" ..
+  "      return\n" ..
+  "    end\n" ..
+  "  end\n" ..
+  "  reaper.ShowConsoleMsg(\"LMS: Service script not found — run LMS Setup again.\\n\")\n" ..
+  "end)\n" ..
+  LMS_END .. "\n"
+
+-- Read existing __startup.lua (preserve other scripts' blocks)
+local existing = ""
+local sf = io.open(startup_path, "r")
+if sf then
+  existing = sf:read("*a")
+  sf:close()
 end
 
--- Save the command ID so other scripts can find it
-reaper.SetExtState("LMS", "service_cmd", cmd_string or "", true)
+-- Remove any previous LMS block (idempotent re-runs)
+local bs = existing:find(LMS_START, 1, true)
+local be = existing:find(LMS_END, 1, true)
+if bs and be then
+  local tail = be + #LMS_END
+  if existing:sub(tail, tail) == "\n" then tail = tail + 1 end
+  existing = existing:sub(1, bs - 1) .. existing:sub(tail)
+end
+
+-- Append our block
+sf = io.open(startup_path, "w")
+if sf then
+  sf:write(existing .. lms_block)
+  sf:close()
+end
 
 reaper.ShowMessageBox(
   "LMS Suite setup complete!\n\n" ..
   "DrumBanger service is now running.\n" ..
   "Handles: SAMPLE button + MIDI PRINT button.\n\n" ..
-  "Auto-start on REAPER launch: restart REAPER once\n" ..
-  "to activate. After that it runs automatically.",
+  "Auto-start installed. The service will run\n" ..
+  "automatically every time you open REAPER.",
   "LMS Setup", 0)
