@@ -819,7 +819,7 @@ ov_gap = max(1, floor(1 * S));
 // Fill remaining space — overview gets whatever's left
 ov_bottom = gfx_h - floor(18 * S);
 ov_total = ov_bottom - overview_y;
-ov_cell_h = max(4, floor(ov_total / 16) - ov_gap);
+ov_cell_h = pad_sel_h;
 ov_cell_w = (gfx_w - margin * 2 - floor(15 * S)) / 16;
 
 // Label
