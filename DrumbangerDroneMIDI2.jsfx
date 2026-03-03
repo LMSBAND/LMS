@@ -65,7 +65,8 @@ prev_playing = 0;
 
 // ---- Mode tracking ----
 // lock_mode: 0=Follow, 1-8=Lock slot (serialized, NOT zeroed here)
-// @serialize restores lock_mode on project load. @init can re-run on play start.
+// ui_slot: 0-7 = selected pattern slot (serialized, NOT zeroed here)
+// @serialize restores lock_mode + ui_slot on project load.
 prev_lock_mode = -1;  // detect mode changes
 
 // ---- Velocity editor state ----
@@ -394,26 +395,18 @@ gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(5 * S);
 gfx_drawstr("DroneMIDI2");
 
-// ---- Follow / Lock status in header ----
+// ---- Mode status in header ----
 gfx_setfont(1, "Arial", F_SMALL);
 is_follow ? (
   gfx_r = COL_LIVE_R; gfx_g = COL_LIVE_G; gfx_b = COL_LIVE_B;
   gfx_drawstr("  FOLLOW");
   gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_drawstr("  (live pat ");
-  gfx_drawnumber(gmem[13] + 1, 0);
-  gfx_drawstr(")");
+  gfx_drawstr("  slot ");
+  gfx_drawnumber(ui_slot + 1, 0);
 ) : (
   gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
   gfx_drawstr("  LOCK ");
-  gfx_drawnumber(lock_slot + 1, 0);
-  LOCK_HAS_DATA[lock_slot] ? (
-    gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-    gfx_drawstr("  (editable)");
-  ) : (
-    gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.3;
-    gfx_drawstr("  (empty)");
-  );
+  gfx_drawnumber(ui_slot + 1, 0);
 );
 
 // ---- Status line ----
@@ -427,38 +420,175 @@ gfx_drawnumber(steps_per_measure, 0);
 transport_playing ? gfx_drawstr("  PLAYING") : gfx_drawstr("  STOPPED");
 
 // ============================================
-// CONTROL ROW — Mode, MIDI Ch, Root, Scale, Chord, Octave
+// PATTERN SLOTS + FOLLOW/LOCK TOGGLE
 // ============================================
-ctrl_y = hdr_h + floor(22 * S);
+slot_row_y = hdr_h + floor(22 * S);
+slot_btn_w = floor(22 * S);
+slot_btn_h = floor(18 * S);
+slot_gap = floor(3 * S);
+ui_slot = max(0, min(7, ui_slot));
+
+// -- FOLLOW button --
+follow_btn_x = margin;
+follow_btn_w = floor(62 * S);
+gfx_setfont(1, "Arial", F_SMALL);
+is_follow ? (
+  gfx_r = COL_LIVE_R * 0.3; gfx_g = COL_LIVE_G * 0.3; gfx_b = COL_LIVE_B * 0.3;
+  gfx_rect(follow_btn_x, slot_row_y, follow_btn_w, slot_btn_h);
+  gfx_r = COL_LIVE_R; gfx_g = COL_LIVE_G; gfx_b = COL_LIVE_B;
+) : (
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(follow_btn_x, slot_row_y, follow_btn_w, slot_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+);
+gfx_x = follow_btn_x + floor(6 * S); gfx_y = slot_row_y + floor(3 * S);
+gfx_drawstr("FOLLOW");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= follow_btn_x && mouse_x < follow_btn_x + follow_btn_w &&
+  mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+  lock_mode = 0;
+);
+
+// -- LOCK button --
+lock_btn_x = follow_btn_x + follow_btn_w + slot_gap;
+lock_btn_w = floor(50 * S);
+is_locked ? (
+  gfx_r = COL_STEP_R * 0.3; gfx_g = COL_STEP_G * 0.3; gfx_b = COL_STEP_B * 0.3;
+  gfx_rect(lock_btn_x, slot_row_y, lock_btn_w, slot_btn_h);
+  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+) : (
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(lock_btn_x, slot_row_y, lock_btn_w, slot_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+);
+gfx_x = lock_btn_x + floor(6 * S); gfx_y = slot_row_y + floor(3 * S);
+gfx_drawstr("LOCK");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= lock_btn_x && mouse_x < lock_btn_x + lock_btn_w &&
+  mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+  lock_mode = ui_slot + 1;
+);
+
+// -- 8 Pattern Slot buttons --
+slot_base_x = lock_btn_x + lock_btn_w + floor(8 * S);
+gfx_setfont(1, "Arial", F_TINY);
+si = 0;
+loop(NUM_LOCKS,
+  sx = slot_base_x + si * (slot_btn_w + slot_gap);
+  has_data = LOCK_HAS_DATA[si];
+  is_sel = (ui_slot == si);
+
+  // Background: yellow=has data, green=empty, brighter if selected
+  has_data ? (
+    is_sel ? (
+      gfx_r = COL_STEP_R * 0.4; gfx_g = COL_STEP_G * 0.4; gfx_b = COL_STEP_B * 0.4;
+    ) : (
+      gfx_r = COL_STEP_R * 0.12; gfx_g = COL_STEP_G * 0.12; gfx_b = COL_STEP_B * 0.12;
+    );
+  ) : (
+    is_sel ? (
+      gfx_r = COL_LIVE_R * 0.25; gfx_g = COL_LIVE_G * 0.25; gfx_b = COL_LIVE_B * 0.25;
+    ) : (
+      gfx_r = COL_LIVE_R * 0.06; gfx_g = COL_LIVE_G * 0.06; gfx_b = COL_LIVE_B * 0.06;
+    );
+  );
+  gfx_rect(sx, slot_row_y, slot_btn_w, slot_btn_h);
+
+  // Border: bright white if selected
+  is_sel ? (
+    gfx_r = 0.85; gfx_g = 0.85; gfx_b = 0.85;
+  ) : has_data ? (
+    gfx_r = COL_STEP_R * 0.3; gfx_g = COL_STEP_G * 0.3; gfx_b = COL_STEP_B * 0.3;
+  ) : (
+    gfx_r = COL_LIVE_R * 0.12; gfx_g = COL_LIVE_G * 0.12; gfx_b = COL_LIVE_B * 0.12;
+  );
+  gfx_rect(sx, slot_row_y, slot_btn_w, 1);
+  gfx_rect(sx, slot_row_y + slot_btn_h - 1, slot_btn_w, 1);
+  gfx_rect(sx, slot_row_y, 1, slot_btn_h);
+  gfx_rect(sx + slot_btn_w - 1, slot_row_y, 1, slot_btn_h);
+
+  // Number label
+  has_data ? (
+    gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
+  ) : (
+    gfx_r = COL_LIVE_R * 0.4; gfx_g = COL_LIVE_G * 0.4; gfx_b = COL_LIVE_B * 0.4;
+  );
+  gfx_x = sx + floor(7 * S); gfx_y = slot_row_y + floor(3 * S);
+  gfx_drawnumber(si + 1, 0);
+
+  // Click: select slot, auto-set mode based on data
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+    mouse_x >= sx && mouse_x < sx + slot_btn_w &&
+    mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+    ui_slot = si;
+    has_data ? lock_mode = si + 1 : lock_mode = 0;
+  );
+
+  si += 1;
+);
+
+// -- RE-CAPTURE + CLEAR (lock mode only) --
+action_x = slot_base_x + NUM_LOCKS * (slot_btn_w + slot_gap) + floor(4 * S);
+is_locked ? (
+  recap_w = floor(80 * S);
+  gfx_r = 0.12; gfx_g = 0.28; gfx_b = 0.12;
+  gfx_rect(action_x, slot_row_y, recap_w, slot_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(action_x, slot_row_y, recap_w, 1);
+  gfx_rect(action_x, slot_row_y + slot_btn_h - 1, recap_w, 1);
+  gfx_rect(action_x, slot_row_y, 1, slot_btn_h);
+  gfx_rect(action_x + recap_w - 1, slot_row_y, 1, slot_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = action_x + floor(6 * S); gfx_y = slot_row_y + floor(3 * S);
+  gfx_drawstr("RE-CAPTURE");
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= action_x && mouse_x < action_x + recap_w &&
+    mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+    src_pat = gmem[13];
+    snap_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[ui_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
+      snap_i += 1;
+    );
+    LOCK_HAS_DATA[ui_slot] = 1;
+  );
+
+  clear_x = action_x + recap_w + slot_gap;
+  clear_w = floor(50 * S);
+  gfx_r = 0.30; gfx_g = 0.10; gfx_b = 0.10;
+  gfx_rect(clear_x, slot_row_y, clear_w, slot_btn_h);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_rect(clear_x, slot_row_y, clear_w, 1);
+  gfx_rect(clear_x, slot_row_y + slot_btn_h - 1, clear_w, 1);
+  gfx_rect(clear_x, slot_row_y, 1, slot_btn_h);
+  gfx_rect(clear_x + clear_w - 1, slot_row_y, 1, slot_btn_h);
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+  gfx_x = clear_x + floor(6 * S); gfx_y = slot_row_y + floor(3 * S);
+  gfx_drawstr("CLEAR");
+
+  mouse_cap & 1 && !(last_mouse_cap & 1) &&
+    mouse_x >= clear_x && mouse_x < clear_x + clear_w &&
+    mouse_y >= slot_row_y && mouse_y < slot_row_y + slot_btn_h ? (
+    clr_i = 0;
+    loop(NUM_STEPS * NUM_PADS,
+      LOCAL_PAT[ui_slot * 256 + clr_i] = 0;
+      clr_i += 1;
+    );
+    LOCK_HAS_DATA[ui_slot] = 0;
+    lock_mode = 0;
+  );
+);
+
+// ============================================
+// CONTROL ROW — MIDI Ch, Root, Scale, Chord, Octave
+// ============================================
+ctrl_y = hdr_h + floor(44 * S);
 ctrl_h = floor(16 * S);
 gfx_setfont(1, "Arial", F_SMALL);
 
-// -- Mode (Follow / Lock 1-8) --
-ctrl_x = margin;
-is_follow ? (
-  gfx_r = COL_LIVE_R; gfx_g = COL_LIVE_G; gfx_b = COL_LIVE_B;
-  gfx_x = ctrl_x; gfx_y = ctrl_y;
-  gfx_drawstr("FOLLOW");
-) : (
-  gfx_r = COL_STEP_R; gfx_g = COL_STEP_G; gfx_b = COL_STEP_B;
-  gfx_x = ctrl_x; gfx_y = ctrl_y;
-  gfx_drawstr("LOCK ");
-  gfx_drawnumber(lock_mode, 0);
-);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
-  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(55 * S) &&
-  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
-  lock_mode = (lock_mode + 1) % 9;
-);
-(mouse_cap & 2) && !(last_mouse_cap & 2) &&
-  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(55 * S) &&
-  mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
-  lock_mode = lock_mode - 1;
-  lock_mode < 0 ? lock_mode = 8;
-);
-
 // -- MIDI Channel --
-ctrl_x = floor(80 * S);
+ctrl_x = margin;
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = ctrl_x; gfx_y = ctrl_y;
 gfx_drawstr("Ch ");
@@ -477,7 +607,7 @@ gfx_drawnumber(slider2 + 1, 0);
 );
 
 // -- Root Note --
-ctrl_x = floor(135 * S);
+ctrl_x = floor(60 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = ctrl_x; gfx_y = ctrl_y;
 gfx_drawstr("Root ");
@@ -503,7 +633,7 @@ gfx_drawnumber(ro - 1, 0);
 );
 
 // -- Scale --
-ctrl_x = floor(215 * S);
+ctrl_x = floor(140 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = ctrl_x; gfx_y = ctrl_y;
 gfx_drawstr("Scl ");
@@ -529,7 +659,7 @@ gfx_drawstr("MIXO");
 );
 
 // -- Chord Mode --
-ctrl_x = floor(330 * S);
+ctrl_x = floor(250 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = ctrl_x; gfx_y = ctrl_y;
 gfx_drawstr("Chd ");
@@ -552,7 +682,7 @@ gfx_drawstr("POWER");
 );
 
 // -- Octave --
-ctrl_x = floor(430 * S);
+ctrl_x = floor(355 * S);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = ctrl_x; gfx_y = ctrl_y;
 gfx_drawstr("Oct ");
@@ -572,71 +702,10 @@ gfx_drawnumber(oct_disp, 0);
   slider6 < 0 ? slider6 = 7;
 );
 
-// ---- RESYNC button (Lock mode only — re-capture from gmem) ----
-is_locked ? (
-  resync_btn_w = floor(90 * S);
-  resync_btn_h = floor(22 * S);
-  resync_btn_x = gfx_w - margin - resync_btn_w;
-  resync_btn_y = hdr_h + floor(4 * S);
-
-  gfx_r = 0.15; gfx_g = 0.35; gfx_b = 0.15;
-  gfx_rect(resync_btn_x, resync_btn_y, resync_btn_w, resync_btn_h);
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_rect(resync_btn_x, resync_btn_y, resync_btn_w, 1);
-  gfx_rect(resync_btn_x, resync_btn_y + resync_btn_h - 1, resync_btn_w, 1);
-  gfx_rect(resync_btn_x, resync_btn_y, 1, resync_btn_h);
-  gfx_rect(resync_btn_x + resync_btn_w - 1, resync_btn_y, 1, resync_btn_h);
-  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-  gfx_x = resync_btn_x + floor(10 * S); gfx_y = resync_btn_y + floor(4 * S);
-  gfx_drawstr("RE-CAPTURE");
-
-  mouse_cap & 1 && !(last_mouse_cap & 1) &&
-    mouse_x >= resync_btn_x && mouse_x < resync_btn_x + resync_btn_w &&
-    mouse_y >= resync_btn_y && mouse_y < resync_btn_y + resync_btn_h ? (
-    // Force re-snapshot from gmem into current lock slot
-    src_pat = gmem[13];
-    snap_i = 0;
-    loop(NUM_STEPS * NUM_PADS,
-      LOCAL_PAT[lock_slot * 256 + snap_i] = gmem[1000 + src_pat * 1024 + snap_i];
-      snap_i += 1;
-    );
-    LOCK_HAS_DATA[lock_slot] = 1;
-  );
-
-  // ---- CLEAR button ----
-  clear_btn_w = floor(60 * S);
-  clear_btn_h = floor(22 * S);
-  clear_btn_x = resync_btn_x - clear_btn_w - floor(6 * S);
-  clear_btn_y = hdr_h + floor(4 * S);
-
-  gfx_r = 0.35; gfx_g = 0.12; gfx_b = 0.12;
-  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, clear_btn_h);
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_rect(clear_btn_x, clear_btn_y, clear_btn_w, 1);
-  gfx_rect(clear_btn_x, clear_btn_y + clear_btn_h - 1, clear_btn_w, 1);
-  gfx_rect(clear_btn_x, clear_btn_y, 1, clear_btn_h);
-  gfx_rect(clear_btn_x + clear_btn_w - 1, clear_btn_y, 1, clear_btn_h);
-  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-  gfx_x = clear_btn_x + floor(10 * S); gfx_y = clear_btn_y + floor(4 * S);
-  gfx_drawstr("CLEAR");
-
-  mouse_cap & 1 && !(last_mouse_cap & 1) &&
-    mouse_x >= clear_btn_x && mouse_x < clear_btn_x + clear_btn_w &&
-    mouse_y >= clear_btn_y && mouse_y < clear_btn_y + clear_btn_h ? (
-    // Zero out current lock slot
-    clr_i = 0;
-    loop(NUM_STEPS * NUM_PADS,
-      LOCAL_PAT[lock_slot * 256 + clr_i] = 0;
-      clr_i += 1;
-    );
-    LOCK_HAS_DATA[lock_slot] = 0;
-  );
-);
-
 // ============================================
-// PAD SELECT — 16 buttons
+// PAD SELECT — Individual pad editing
 // ============================================
-pad_sel_y = hdr_h + floor(40 * S);
+pad_sel_y = hdr_h + floor(64 * S);
 pad_sel_h = floor(20 * S);
 pad_sel_w = (gfx_w - margin * 2 - floor(15 * S) * 3) / 16;
 pad_sel_gap = floor(3 * S);
@@ -668,7 +737,7 @@ loop(NUM_PADS,
 // ============================================
 // STEP SEQUENCER GRID — single row for selected pad
 // ============================================
-seq_grid_y = pad_sel_y + pad_sel_h + floor(14 * S);
+seq_grid_y = pad_sel_y + pad_sel_h + floor(4 * S);
 step_w = (gfx_w - margin * 2 - floor(15 * S) * 2) / 16;
 step_h = floor(28 * S);
 
@@ -744,19 +813,23 @@ loop(NUM_STEPS,
 // ============================================
 // MULTI-PAD OVERVIEW — 16 pads × 16 steps
 // ============================================
-overview_y = seq_grid_y + step_h + floor(20 * S);
-ov_cell_w = (gfx_w - margin * 2 - floor(15 * S)) / 16;
-ov_cell_h = floor(10 * S);
+ov_label_y = seq_grid_y + step_h + floor(4 * S);
+overview_y = ov_label_y + floor(12 * S);
 ov_gap = max(1, floor(1 * S));
+// Fill remaining space — overview gets whatever's left
+ov_bottom = gfx_h - floor(18 * S);
+ov_total = ov_bottom - overview_y;
+ov_cell_h = max(4, floor(ov_total / 16) - ov_gap);
+ov_cell_w = (gfx_w - margin * 2 - floor(15 * S)) / 16;
 
 // Label
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-gfx_x = margin; gfx_y = overview_y - floor(12 * S);
+gfx_x = margin; gfx_y = ov_label_y;
 is_follow ? (
   gfx_drawstr("Live Pattern (read-only):");
 ) : (
-  gfx_drawstr("Lock ");
-  gfx_drawnumber(lock_slot + 1, 0);
+  gfx_drawstr("Slot ");
+  gfx_drawnumber(ui_slot + 1, 0);
   gfx_drawstr(" (click to edit):");
 );
 
@@ -834,7 +907,7 @@ loop(NUM_PADS,
 // ============================================
 // NOTES PLAYING indicator
 // ============================================
-notes_y = overview_y + NUM_PADS * (ov_cell_h + ov_gap) + floor(12 * S);
+notes_y = overview_y + NUM_PADS * (ov_cell_h + ov_gap) + floor(4 * S);
 gfx_x = margin; gfx_y = notes_y;
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
 notes_on_count > 0 ? (
@@ -958,19 +1031,19 @@ notice_show ? (
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("Signal chain: DroneMIDI2 > Synth > DroneFX"); _ny += _nl + 2;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("FOLLOW: real-time pass-through of the live DrumBanger pattern."); _ny += _nl;
+  gfx_drawstr("FOLLOW = live from DrumBanger. LOCK = use captured pattern."); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("LOCK 1-8: capture a snapshot into an editable slot."); _ny += _nl + 2;
+  gfx_drawstr("8 pattern slots: green = empty, yellow = has data."); _ny += _nl + 2;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("WORKFLOW:"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  1. Set mode to Lock slot > pattern auto-snapshots"); _ny += _nl;
+  gfx_drawstr("  1. Click a slot to select it (auto-locks if it has data)"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  2. Click steps to toggle. Right-click = velocity slider."); _ny += _nl;
+  gfx_drawstr("  2. Click LOCK to capture live pattern into selected slot"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  3. Switch back to Follow for live jamming"); _ny += _nl;
+  gfx_drawstr("  3. Edit steps: left-click toggle, right-click velocity"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
-  gfx_drawstr("  RE-CAPTURE updates a Lock slot. CLEAR erases it."); _ny += _nl + 2;
+  gfx_drawstr("  4. Click FOLLOW to return to live. RE-CAPTURE / CLEAR in lock mode."); _ny += _nl + 2;
   gfx_x = _nx; gfx_y = _ny;
   gfx_drawstr("Root Note, Scale, Chord Mode (Off/Single/Triad/7th/Power), Octave -2 to +5"); _ny += _nl;
   gfx_x = _nx; gfx_y = _ny;
@@ -1092,4 +1165,9 @@ loop(NUM_LOCKS,
 // Save/load lock_mode (guard against old saves without this field)
 file_avail(0) >= 0 ? (
   file_var(0, lock_mode);
+);
+
+// Save/load ui_slot (guard against old saves without this field)
+file_avail(0) >= 0 ? (
+  file_var(0, ui_slot);
 );
