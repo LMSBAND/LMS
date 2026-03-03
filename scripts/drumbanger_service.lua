@@ -311,7 +311,130 @@ local function start_sampling()
       duration, track_name, target_pad + 1))
 end
 
--- ---- Main tick (runs every defer frame) ----
+-- ============================================================
+--  MIDI PRINT — stamps DroneMIDI2 pattern as a MIDI item
+-- ============================================================
+
+-- Scale tables (same as DroneMIDI2 @init)
+local SCALES = {}
+for i = 0, 23 do SCALES[0*24+i] = i end
+local s_maj = {0,2,4,5,7,9,11,12,14,16,17,19,21,23,24,26,28,29,31,33,35,36,38,40}
+for i = 0, 23 do SCALES[1*24+i] = s_maj[i+1] end
+local s_min = {0,2,3,5,7,8,10,12,14,15,17,19,20,22,24,26,27,29,31,32,34,36,38,39}
+for i = 0, 23 do SCALES[2*24+i] = s_min[i+1] end
+local s_pmaj = {0,2,4,7,9,12,14,16,19,21,24,26,28,31,33,36,38,40,43,45,48,50,52,55}
+for i = 0, 23 do SCALES[3*24+i] = s_pmaj[i+1] end
+local s_pmin = {0,3,5,7,10,12,15,17,19,22,24,27,29,31,34,36,39,41,43,46,48,51,53,55}
+for i = 0, 23 do SCALES[4*24+i] = s_pmin[i+1] end
+local s_blu = {0,3,5,6,7,10,12,15,17,18,19,22,24,27,29,30,31,34,36,39,41,42,43,46}
+for i = 0, 23 do SCALES[5*24+i] = s_blu[i+1] end
+local s_dor = {0,2,3,5,7,9,10,12,14,15,17,19,21,22,24,26,27,29,31,33,34,36,38,39}
+for i = 0, 23 do SCALES[6*24+i] = s_dor[i+1] end
+local s_mxl = {0,2,4,5,7,9,10,12,14,16,17,19,21,22,24,26,28,29,31,33,34,36,38,40}
+for i = 0, 23 do SCALES[7*24+i] = s_mxl[i+1] end
+
+local function build_midi_notes(pad_idx, vel, root, scale_id, chord_mode, oct_offset)
+  local notes = {}
+  local base = root + oct_offset * 12
+  local note = base + (SCALES[scale_id * 24 + pad_idx] or 0)
+
+  if chord_mode == 1 then
+    notes[#notes+1] = {note = note, vel = vel}
+  elseif chord_mode == 2 then
+    notes[#notes+1] = {note = note, vel = vel}
+    notes[#notes+1] = {note = base + (SCALES[scale_id*24 + pad_idx + 2] or 0), vel = vel}
+    notes[#notes+1] = {note = base + (SCALES[scale_id*24 + pad_idx + 4] or 0), vel = vel}
+  elseif chord_mode == 3 then
+    notes[#notes+1] = {note = note, vel = vel}
+    notes[#notes+1] = {note = base + (SCALES[scale_id*24 + pad_idx + 2] or 0), vel = vel}
+    notes[#notes+1] = {note = base + (SCALES[scale_id*24 + pad_idx + 4] or 0), vel = vel}
+    notes[#notes+1] = {note = base + (SCALES[scale_id*24 + pad_idx + 6] or 0), vel = vel}
+  elseif chord_mode == 4 then
+    notes[#notes+1] = {note = note, vel = vel}
+    notes[#notes+1] = {note = note + 7, vel = vel}
+    notes[#notes+1] = {note = note + 12, vel = vel}
+  end
+
+  for _, n in ipairs(notes) do
+    n.note = math.max(0, math.min(127, n.note))
+  end
+  return notes
+end
+
+local function do_midi_print()
+  local steps      = math.max(1, math.floor(reaper.gmem_read(700001)))
+  local chan        = math.floor(reaper.gmem_read(700002))
+  local root        = math.floor(reaper.gmem_read(700003))
+  local scale_id    = math.floor(reaper.gmem_read(700004))
+  local chord_mode  = math.floor(reaper.gmem_read(700005))
+  local oct_idx     = math.floor(reaper.gmem_read(700006))
+  local oct_offset  = oct_idx - 2
+
+  if chord_mode == 0 then
+    reaper.ShowConsoleMsg("LMS PRINT: Chord Mode is OFF — set to Single/Triad/7th/Power first.\n")
+    return
+  end
+
+  -- Read pattern
+  local pattern = {}
+  for s = 0, 15 do
+    pattern[s] = {}
+    for p = 0, 15 do
+      pattern[s][p] = math.floor(reaper.gmem_read(700010 + s * 16 + p))
+    end
+  end
+
+  local cursor_pos = reaper.GetCursorPosition()
+  local cursor_qn  = reaper.TimeMap2_timeToQN(0, cursor_pos)
+  local step_len_qn = 0.25
+  local end_pos = reaper.TimeMap2_QNToTime(0, cursor_qn + steps * step_len_qn)
+
+  local track = reaper.GetSelectedTrack(0, 0) or reaper.GetTrack(0, 0)
+  if not track then
+    reaper.ShowConsoleMsg("LMS PRINT: No track found.\n")
+    return
+  end
+
+  reaper.Undo_BeginBlock()
+  local item = reaper.CreateNewMIDIItemInProj(track, cursor_pos, end_pos)
+  local take = reaper.GetActiveTake(item)
+  if not take then
+    reaper.Undo_EndBlock("LMS Print MIDI (failed)", -1)
+    return
+  end
+
+  -- Delete default note
+  local _, num_notes = reaper.MIDI_CountEvts(take)
+  for i = num_notes - 1, 0, -1 do
+    reaper.MIDI_DeleteNote(take, i)
+  end
+
+  local note_count = 0
+  for s = 0, steps - 1 do
+    for p = 0, 15 do
+      local vel = pattern[s][p]
+      if vel > 0 then
+        local notes = build_midi_notes(p, vel, root, scale_id, chord_mode, oct_offset)
+        local start_ppq = reaper.MIDI_GetPPQPosFromProjQN(take, cursor_qn + s * step_len_qn)
+        local end_ppq   = reaper.MIDI_GetPPQPosFromProjQN(take, cursor_qn + (s + 1) * step_len_qn)
+        for _, n in ipairs(notes) do
+          reaper.MIDI_InsertNote(take, false, false, start_ppq, end_ppq, chan, n.note, n.vel, true)
+          note_count = note_count + 1
+        end
+      end
+    end
+  end
+
+  reaper.MIDI_Sort(take)
+  reaper.UpdateItemInProject(item)
+  reaper.Undo_EndBlock("LMS: Print DroneMIDI2 (" .. note_count .. " notes)", -1)
+  reaper.UpdateArrange()
+  reaper.ShowConsoleMsg("LMS PRINT: " .. note_count .. " notes across " .. steps .. " steps.\n")
+end
+
+-- ============================================================
+--  MAIN TICK (runs every defer frame)
+-- ============================================================
 
 local function tick()
   reaper.gmem_attach(GMEM_NAME)
@@ -336,13 +459,23 @@ local function tick()
     check_accessor()
   end
 
+  -- Check for MIDI print request from DroneMIDI2
+  local print_flag = reaper.gmem_read(700500)
+  if print_flag == 1 then
+    reaper.gmem_write(700500, 0)
+    do_midi_print()
+  end
+
   reaper.defer(tick)
 end
 
--- ---- Startup ----
+-- ============================================================
+--  STARTUP
+-- ============================================================
 
 reaper.gmem_attach(GMEM_NAME)
 reaper.gmem_write(5, 0)   -- clear status
 reaper.gmem_write(3, 0)   -- clear any stale request
-reaper.ShowConsoleMsg("DRUMBANGER SERVICE: Started. SAMPLE button in DRUMBANGER is now active.\n")
+reaper.gmem_write(700500, 0)  -- clear print flag
+reaper.ShowConsoleMsg("LMS SERVICE: Started. SAMPLE + MIDI PRINT active.\n")
 tick()
