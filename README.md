@@ -1,3 +1,7 @@
+**LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.**
+
+---
+
 # NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER
 ### INSTALL LINUX NOW
 
