@@ -621,7 +621,7 @@ spl1 = in_r;
 //  SCALING — compute scale factor from actual window size vs nominal
 // ============================================================================
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
-S = gfx_w / 680;
+S = min(gfx_w / 680, gfx_h / 490);
 S < 0.5 ? S = 0.5;
 
 // Scaled font sizes
