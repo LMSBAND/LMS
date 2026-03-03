@@ -20,7 +20,7 @@ slider1:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>
 slider2:0<0,15,1>-MIDI Channel (0=1)
 slider3:60<0,127,1>-Root Note
 slider4:0<0,7,1{Chromatic,Major,Minor,Pentatonic Maj,Pentatonic Min,Blues,Dorian,Mixolydian}>-Scale
-slider5:0<0,4,1{Off,Single,Triad,7th,Power}>-Chord Mode
+slider5:1<0,4,1{Off,Single,Triad,7th,Power}>-Chord Mode
 slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>-Octave
 
 // ============================================================
