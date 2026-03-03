@@ -32,7 +32,7 @@ slider12:3.0<0.1,14.9,0.01>-Mic Y (m)
 slider13:180<-180,180,1>-Mic Angle
 slider14:1<0,3,1{Omni,Cardioid,Figure-8,Hypercardioid}>-Mic Pattern
 // --- OUTPUT ---
-slider15:1<0,1,1{1st Only,2nd Order}>-Reflection Depth
+slider15:2<0,2,1{1st Only,2nd Order,3rd Order}>-Reflection Depth
 slider16:50<0,100,1>-Wet Mix (%)
 slider17:0<-12,12,0.1>-Output Gain (dB)
 // --- COMPRESSOR ---
@@ -52,15 +52,17 @@ SPEED_OF_SOUND = 343.0;
 AIR_ABS_COEFF = 0.003;
 TWO_PI = 2.0 * $pi;
 
-// Fixed slot layout — every reflection has a STABLE slot that never changes index
-// This eliminates clicks from index shuffling between blocks
+// Fixed slot layout — contiguous active range for efficient @sample loop
+// Direct + 1st + floor/ceil are always active; 2nd/3rd appended after
 SLOT_DIRECT = 0;
-SLOT_1ST = 1;                                   // slots 1..MAX_WALLS
-SLOT_2ND = MAX_WALLS + 1;                       // slots 13..156 (i*MAX_WALLS+j)
-SLOT_FLOOR = MAX_WALLS + 1 + MAX_WALLS * MAX_WALLS;  // 157
-SLOT_CEIL = SLOT_FLOOR + 1;                      // 158
-TOTAL_SLOTS = SLOT_CEIL + 1;                     // 159
-REFL_STRIDE = 4;                                 // delay, gain, pan_l, pan_r
+SLOT_1ST = 1;                                   // slots 1..MAX_WALLS (12)
+SLOT_FLOOR = MAX_WALLS + 1;                     // 13
+SLOT_CEIL = SLOT_FLOOR + 1;                     // 14
+SLOT_2ND = SLOT_CEIL + 1;                       // 15..158 (i*MAX_WALLS+j)
+SLOT_3RD = SLOT_2ND + MAX_WALLS * MAX_WALLS;   // 159..374 (3rd order, max 6 walls)
+MAX_3RD_N = 6;                                   // 3rd order only for rooms <= 6 walls
+TOTAL_SLOTS = SLOT_3RD + MAX_3RD_N * MAX_3RD_N * MAX_3RD_N;  // 159 + 216 = 375
+REFL_STRIDE = 6;                                 // delay, peak, lo_l, lo_r, hi_l, hi_r
 
 // ============================================================================
 //  MEMORY ALLOCATION
@@ -76,10 +78,14 @@ mat_table = buf_pos;     buf_pos += 32;
 refl_table = buf_pos;    buf_pos += TOTAL_SLOTS * REFL_STRIDE;
 // Image sources for 1st order (used by 2nd order computation)
 img_table = buf_pos;     buf_pos += MAX_WALLS * 2;
-// Smoothed values (parallel arrays)
+// Smoothed values (parallel arrays — 2-band: lo + hi)
 sm_delay = buf_pos;      buf_pos += TOTAL_SLOTS;
-sm_gain_l = buf_pos;     buf_pos += TOTAL_SLOTS;
-sm_gain_r = buf_pos;     buf_pos += TOTAL_SLOTS;
+sm_lo_l = buf_pos;       buf_pos += TOTAL_SLOTS;
+sm_lo_r = buf_pos;       buf_pos += TOTAL_SLOTS;
+sm_hi_l = buf_pos;       buf_pos += TOTAL_SLOTS;
+sm_hi_r = buf_pos;       buf_pos += TOTAL_SLOTS;
+// Per-tap LPF state for lo/hi crossover
+tap_lp = buf_pos;        buf_pos += TOTAL_SLOTS;
 // GFX hit points for ray visualization (pre-computed in @block, read-only in @gfx)
 // Per 1st-order reflection: hit_x, hit_y
 gfx_hits = buf_pos;      buf_pos += MAX_WALLS * 2;
@@ -87,8 +93,11 @@ gfx_hits = buf_pos;      buf_pos += MAX_WALLS * 2;
 memset(delay_buf, 0, DELAY_BUF_SIZE);
 memset(refl_table, 0, TOTAL_SLOTS * REFL_STRIDE);
 memset(sm_delay, 0, TOTAL_SLOTS);
-memset(sm_gain_l, 0, TOTAL_SLOTS);
-memset(sm_gain_r, 0, TOTAL_SLOTS);
+memset(sm_lo_l, 0, TOTAL_SLOTS);
+memset(sm_lo_r, 0, TOTAL_SLOTS);
+memset(sm_hi_l, 0, TOTAL_SLOTS);
+memset(sm_hi_r, 0, TOTAL_SLOTS);
+memset(tap_lp, 0, TOTAL_SLOTS);
 memset(gfx_hits, 0, MAX_WALLS * 2);
 
 wr_pos = 0;
@@ -101,6 +110,9 @@ comp_gr = 1;
 comp_sat = 1;
 comp_sat_inv = 1;
 gfx_gr_smooth = 1;
+sm_wet_norm = 1;
+proc_end = TOTAL_SLOTS;  // process all on startup, will converge
+fade_count = 0;
 
 // ============================================================================
 //  MATERIAL ABSORPTION TABLE [lo, mid, hi, air]
@@ -202,6 +214,35 @@ function seg_intersect(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y)
 function calc_dist(x1, y1, x2, y2) local(dx,dy) ( dx=x2-x1; dy=y2-y1; sqrt(dx*dx+dy*dy); );
 function calc_angle(x1, y1, x2, y2) ( atan2(y2-y1, x2-x1); );
 
+// Point-in-convex-polygon test using outward normals
+// Returns 1 if point is inside all walls with margin
+function is_inside_poly(px, py, nw, margin) local(k, wb, d, ok) (
+  ok = 1;
+  k = 0;
+  loop(nw,
+    wb = wall_table + k * WALL_STRIDE;
+    d = (px - wb[0]) * wb[4] + (py - wb[1]) * wb[5];
+    d > -margin ? ok = 0;
+    k += 1;
+  );
+  ok;
+);
+
+// Push point inside polygon by lerping toward center
+// Writes result to clamp_x, clamp_y globals
+function clamp_inside_poly(px, py, nw, margin, cx, cy) local(done) (
+  clamp_x = px; clamp_y = py;
+  done = 0;
+  loop(16,
+    !done ? (
+      is_inside_poly(clamp_x, clamp_y, nw, margin) ? done = 1 : (
+        clamp_x = clamp_x * 0.85 + cx * 0.15;
+        clamp_y = clamp_y * 0.85 + cy * 0.15;
+      );
+    );
+  );
+);
+
 function mic_gain(arrival_ang, mic_ang, pattern) local(rel) (
   rel = arrival_ang - mic_ang;
   rel > $pi ? rel -= TWO_PI;
@@ -224,26 +265,51 @@ function mat_avg_abs(mat_id) local(mb) (
   (mb[0]+mb[1]+mb[2]+mb[3])*0.25;
 );
 
-// Write a reflection into a fixed slot. gain=0 means inactive.
-function set_refl(slot, delay_s, gain, pan)
+// 2-band absorption: lo = (lo+mid)/2, hi = (hi+air)/2
+// Returns REFLECTION coefficient (1 - absorption)
+function mat_lo_refl(mat_id) local(mb) (
+  mb = mat_table + mat_id*4;
+  1.0 - (mb[0]+mb[1])*0.5;
+);
+function mat_hi_refl(mat_id) local(mb) (
+  mb = mat_table + mat_id*4;
+  1.0 - (mb[2]+mb[3])*0.5;
+);
+
+// Proximity effect: directional mics boost bass when source is close
+// Returns low-frequency gain multiplier (>1 when close + directional)
+function prox_boost(dist, pattern) local(boost) (
+  pattern == 0 ? 1.0 : (
+    boost = 1.0 + (pattern == 2 ? 1.5 : 0.8) / max(0.3, dist);
+    min(boost, 4.0);
+  );
+);
+
+// Write a 2-band reflection into a fixed slot
+function set_refl(slot, delay_s, gain_lo, gain_hi, pan)
   local(ri)
 (
   ri = refl_table + slot * REFL_STRIDE;
   ri[0] = min(delay_s, DELAY_BUF_SIZE - 4);
-  ri[1] = gain;
-  ri[2] = gain * (1.0 - pan);  // pre-computed L
-  ri[3] = gain * pan;           // pre-computed R
+  ri[1] = max(abs(gain_lo), abs(gain_hi));   // peak for threshold + GFX
+  ri[2] = gain_lo * (1.0 - pan);  // lo L
+  ri[3] = gain_lo * pan;           // lo R
+  ri[4] = gain_hi * (1.0 - pan);  // hi L
+  ri[5] = gain_hi * pan;           // hi R
 );
 
 // ============================================================================
 //  REFLECTION COMPUTATION — called from @block only
 // ============================================================================
 function compute_reflections()
-  local(i, j, nw, wb, wb2, dist, delay_s, gain, arrival, emission, arrival_rel,
+  local(i, j, k, nw, wb, wb1, wb2, wb3, dist, delay_s, base, gain_lo, gain_hi,
+        arrival, emission, arrival_rel,
         src_x, src_y, mic_x, mic_y, mic_a, src_a, pat,
-        mat_id, abs_avg, abs_avg2, img_x, img_y, mx, my,
-        hit_x, hit_y, ceil_h, d_vert, horiz_dist, pan,
-        total_abs_area, total_area, volume, w_area, f_area, slot)
+        img_x, img_y, mx, my, hit_x, hit_y, ceil_h, d_vert, horiz_dist, pan,
+        img1_x, img1_y, img2_x, img2_y, img3_x, img3_y,
+        hit_k_x, hit_k_y, hit_j_x, hit_j_y,
+        total_abs_area, total_area, volume, w_area, f_area, slot, prox,
+        wet_power)
 (
   nw = slider1;
   src_x=slider8; src_y=slider9; src_a=slider10*$pi/180;
@@ -254,7 +320,7 @@ function compute_reflections()
   i = 0;
   loop(TOTAL_SLOTS,
     ri = refl_table + i * REFL_STRIDE;
-    ri[0]=0; ri[1]=0; ri[2]=0; ri[3]=0;
+    ri[0]=0; ri[1]=0; ri[2]=0; ri[3]=0; ri[4]=0; ri[5]=0;
     i += 1;
   );
 
@@ -263,11 +329,11 @@ function compute_reflections()
   dist < 0.01 ? dist = 0.01;
   delay_s = dist / SPEED_OF_SOUND * srate;
   arrival = calc_angle(src_x, src_y, mic_x, mic_y);
-  gain = 1.0 / dist;
-  gain *= mic_gain(arrival+$pi, mic_a, pat);
-  gain *= source_gain(arrival, src_a);
-  gain *= exp(-AIR_ABS_COEFF * dist);
-  set_refl(SLOT_DIRECT, delay_s, gain, 0.5);
+  base = (1.0 / dist) * mic_gain(arrival+$pi, mic_a, pat) * source_gain(arrival, src_a);
+  prox = prox_boost(dist, pat);
+  gain_lo = base * exp(-AIR_LO * dist) * prox;
+  gain_hi = base * exp(-AIR_HI * dist);
+  set_refl(SLOT_DIRECT, delay_s, gain_lo, gain_hi, 0.5);
 
   // === 1ST ORDER (slots 1..nw) ===
   i = 0;
@@ -278,25 +344,22 @@ function compute_reflections()
 
     wb = wall_table + i * WALL_STRIDE;
     seg_intersect(mic_x, mic_y, img_x, img_y, wb[0], wb[1], wb[2], wb[3]) ? (
-      // Store hit point for GFX (pre-computed, thread-safe)
       gfx_hits[i*2]   = mic_x + seg_t*(img_x-mic_x);
       gfx_hits[i*2+1] = mic_y + seg_t*(img_y-mic_y);
 
       dist = calc_dist(mic_x, mic_y, img_x, img_y);
       dist < 0.01 ? dist = 0.01;
       delay_s = dist / SPEED_OF_SOUND * srate;
-      abs_avg = mat_avg_abs(wb[6]);
-      gain = (1.0-abs_avg) / dist;
-      gain *= exp(-AIR_ABS_COEFF * dist);
       arrival = calc_angle(img_x, img_y, mic_x, mic_y);
-      gain *= mic_gain(arrival+$pi, mic_a, pat);
       emission = calc_angle(src_x, src_y, img_x, img_y);
-      gain *= source_gain(emission, src_a);
+      base = (1.0/dist) * mic_gain(arrival+$pi, mic_a, pat) * source_gain(emission, src_a);
+      gain_lo = base * mat_lo_refl(wb[6]) * exp(-AIR_LO * dist);
+      gain_hi = base * mat_hi_refl(wb[6]) * exp(-AIR_HI * dist);
       arrival_rel = (arrival+$pi) - mic_a;
       arrival_rel > $pi ? arrival_rel -= TWO_PI;
       arrival_rel < -$pi ? arrival_rel += TWO_PI;
       pan = 0.5 + 0.4*sin(arrival_rel);
-      set_refl(SLOT_1ST + i, delay_s, gain, pan);
+      set_refl(SLOT_1ST + i, delay_s, gain_lo, gain_hi, pan);
     ) : (
       gfx_hits[i*2] = -1; gfx_hits[i*2+1] = -1;
     );
@@ -323,22 +386,76 @@ function compute_reflections()
               dist < 0.01 ? dist = 0.01;
               delay_s = dist / SPEED_OF_SOUND * srate;
               delay_s < (DELAY_BUF_SIZE-4) ? (
-                abs_avg = mat_avg_abs(wb[6]);
-                abs_avg2 = mat_avg_abs(wb2[6]);
-                gain = (1.0-abs_avg)*(1.0-abs_avg2)/dist;
-                gain *= exp(-AIR_ABS_COEFF * dist);
                 arrival = calc_angle(mx, my, mic_x, mic_y);
-                gain *= mic_gain(arrival+$pi, mic_a, pat);
                 emission = calc_angle(src_x, src_y, mx, my);
-                gain *= source_gain(emission, src_a);
+                base = (1.0/dist) * mic_gain(arrival+$pi, mic_a, pat) * source_gain(emission, src_a);
+                gain_lo = base * mat_lo_refl(wb[6]) * mat_lo_refl(wb2[6]) * exp(-AIR_LO * dist);
+                gain_hi = base * mat_hi_refl(wb[6]) * mat_hi_refl(wb2[6]) * exp(-AIR_HI * dist);
                 arrival_rel = (arrival+$pi) - mic_a;
                 arrival_rel > $pi ? arrival_rel -= TWO_PI;
                 arrival_rel < -$pi ? arrival_rel += TWO_PI;
                 pan = 0.5 + 0.4*sin(arrival_rel);
                 slot = SLOT_2ND + i*MAX_WALLS + j;
-                set_refl(slot, delay_s, gain, pan);
+                set_refl(slot, delay_s, gain_lo, gain_hi, pan);
               );
             );
+          );
+        );
+        j += 1;
+      );
+      i += 1;
+    );
+  );
+
+  // === 3RD ORDER (only for rooms with <= 6 walls) ===
+  slider15 >= 2 && nw <= MAX_3RD_N ? (
+    i = 0;
+    loop(nw,
+      img1_x = img_table[i*2]; img1_y = img_table[i*2+1];
+      j = 0;
+      loop(nw,
+        j != i ? (
+          mirror_across_wall(img1_x, img1_y, j);
+          img2_x = mirror_x; img2_y = mirror_y;
+          k = 0;
+          loop(nw,
+            k != j ? (
+              mirror_across_wall(img2_x, img2_y, k);
+              img3_x = mirror_x; img3_y = mirror_y;
+              // 3-segment visibility: mic → wall k → wall j → wall i
+              wb3 = wall_table + k * WALL_STRIDE;
+              seg_intersect(mic_x, mic_y, img3_x, img3_y, wb3[0], wb3[1], wb3[2], wb3[3]) ? (
+                hit_k_x = mic_x + seg_t*(img3_x-mic_x);
+                hit_k_y = mic_y + seg_t*(img3_y-mic_y);
+                wb2 = wall_table + j * WALL_STRIDE;
+                seg_intersect(hit_k_x, hit_k_y, img2_x, img2_y, wb2[0], wb2[1], wb2[2], wb2[3]) ? (
+                  hit_j_x = hit_k_x + seg_t*(img2_x-hit_k_x);
+                  hit_j_y = hit_k_y + seg_t*(img2_y-hit_k_y);
+                  wb1 = wall_table + i * WALL_STRIDE;
+                  seg_intersect(hit_j_x, hit_j_y, img1_x, img1_y, wb1[0], wb1[1], wb1[2], wb1[3]) ? (
+                    dist = calc_dist(mic_x, mic_y, img3_x, img3_y);
+                    dist < 0.01 ? dist = 0.01;
+                    delay_s = dist / SPEED_OF_SOUND * srate;
+                    delay_s < (DELAY_BUF_SIZE-4) ? (
+                      arrival = calc_angle(img3_x, img3_y, mic_x, mic_y);
+                      emission = calc_angle(src_x, src_y, img3_x, img3_y);
+                      base = (1.0/dist) * mic_gain(arrival+$pi, mic_a, pat) * source_gain(emission, src_a);
+                      gain_lo = base * mat_lo_refl(wb1[6]) * mat_lo_refl(wb2[6]) * mat_lo_refl(wb3[6])
+                                * exp(-AIR_LO * dist);
+                      gain_hi = base * mat_hi_refl(wb1[6]) * mat_hi_refl(wb2[6]) * mat_hi_refl(wb3[6])
+                                * exp(-AIR_HI * dist);
+                      arrival_rel = (arrival+$pi) - mic_a;
+                      arrival_rel > $pi ? arrival_rel -= TWO_PI;
+                      arrival_rel < -$pi ? arrival_rel += TWO_PI;
+                      pan = 0.5 + 0.4*sin(arrival_rel);
+                      slot = SLOT_3RD + i*MAX_3RD_N*MAX_3RD_N + j*MAX_3RD_N + k;
+                      set_refl(slot, delay_s, gain_lo, gain_hi, pan);
+                    );
+                  );
+                );
+              );
+            );
+            k += 1;
           );
         );
         j += 1;
@@ -354,14 +471,14 @@ function compute_reflections()
   d_vert > 0.01 ? (
     delay_s = d_vert / SPEED_OF_SOUND * srate;
     delay_s < (DELAY_BUF_SIZE-4) ? (
-      abs_avg = mat_avg_abs(slider6);
-      gain = (1.0-abs_avg)/d_vert * exp(-AIR_ABS_COEFF*d_vert);
       arrival = calc_angle(src_x, src_y, mic_x, mic_y);
-      gain *= mic_gain(arrival+$pi, mic_a, pat) * 0.8;
+      base = (0.8/d_vert) * mic_gain(arrival+$pi, mic_a, pat);
+      gain_lo = base * mat_lo_refl(slider6) * exp(-AIR_LO * d_vert);
+      gain_hi = base * mat_hi_refl(slider6) * exp(-AIR_HI * d_vert);
       arrival_rel = (arrival+$pi)-mic_a;
       arrival_rel > $pi ? arrival_rel -= TWO_PI;
       arrival_rel < -$pi ? arrival_rel += TWO_PI;
-      set_refl(SLOT_FLOOR, delay_s, gain, 0.5+0.3*sin(arrival_rel));
+      set_refl(SLOT_FLOOR, delay_s, gain_lo, gain_hi, 0.5+0.3*sin(arrival_rel));
     );
   );
   // Ceiling
@@ -369,14 +486,14 @@ function compute_reflections()
   d_vert > 0.01 ? (
     delay_s = d_vert / SPEED_OF_SOUND * srate;
     delay_s < (DELAY_BUF_SIZE-4) ? (
-      abs_avg = mat_avg_abs(slider7);
-      gain = (1.0-abs_avg)/d_vert * exp(-AIR_ABS_COEFF*d_vert);
       arrival = calc_angle(src_x, src_y, mic_x, mic_y);
-      gain *= mic_gain(arrival+$pi, mic_a, pat) * 0.8;
+      base = (0.8/d_vert) * mic_gain(arrival+$pi, mic_a, pat);
+      gain_lo = base * mat_lo_refl(slider7) * exp(-AIR_LO * d_vert);
+      gain_hi = base * mat_hi_refl(slider7) * exp(-AIR_HI * d_vert);
       arrival_rel = (arrival+$pi)-mic_a;
       arrival_rel > $pi ? arrival_rel -= TWO_PI;
       arrival_rel < -$pi ? arrival_rel += TWO_PI;
-      set_refl(SLOT_CEIL, delay_s, gain, 0.5+0.3*sin(arrival_rel));
+      set_refl(SLOT_CEIL, delay_s, gain_lo, gain_hi, 0.5+0.3*sin(arrival_rel));
     );
   );
 
@@ -395,6 +512,16 @@ function compute_reflections()
   computed_rt60 = 0.161 * volume / total_abs_area;
   computed_rt60 = min(10.0, max(0.05, computed_rt60));
 
+  // === WET NORMALIZATION — normalize wet energy to match dry ===
+  wet_power = 0;
+  i = 0;
+  loop(TOTAL_SLOTS,
+    ri = refl_table + i * REFL_STRIDE;
+    wet_power += ri[1] * ri[1];
+    i += 1;
+  );
+  wet_norm = wet_power > 0.0001 ? 1.0 / sqrt(wet_power) : 1.0;
+
   // Snapshot wall count for @gfx (thread-safe read)
   gfx_nw = nw;
 );
@@ -404,8 +531,14 @@ function compute_reflections()
 // ============================================================================
 out_hp.lms_bq_init();
 out_hp.lms_bq_set_hp(30, 0.707);
-dc_out.lms_dc_init();
 smooth_coeff = exp(-1 / (srate * 0.030));  // 30ms
+sm_inv = 1.0 - smooth_coeff;
+// Lo/hi crossover at 1kHz for frequency-dependent absorption
+xover_coeff = exp(-TWO_PI * 1000.0 / srate);
+xover_inv = 1.0 - xover_coeff;
+// Precomputed air absorption coefficients
+AIR_LO = AIR_ABS_COEFF * 0.3;
+AIR_HI = AIR_ABS_COEFF * 1.5;
 
 build_polygon(slider1, slider2, slider3);
 compute_reflections();
@@ -415,8 +548,10 @@ i = 0;
 loop(TOTAL_SLOTS,
   ri = refl_table + i * REFL_STRIDE;
   sm_delay[i] = ri[0];
-  sm_gain_l[i] = ri[2];
-  sm_gain_r[i] = ri[3];
+  sm_lo_l[i] = ri[2];
+  sm_lo_r[i] = ri[3];
+  sm_hi_l[i] = ri[4];
+  sm_hi_r[i] = ri[5];
   i += 1;
 );
 
@@ -446,8 +581,26 @@ drag_mic = 0;
   slider11 = max(room_margin, min(slider2-room_margin, slider11));
   slider12 = max(room_margin, min(slider3-room_margin, slider12));
   build_polygon(slider1, slider2, slider3);
+  // Clamp source/mic inside polygon (handles N-gon corners)
+  !is_inside_poly(slider8, slider9, slider1, room_margin) ? (
+    clamp_inside_poly(slider8, slider9, slider1, room_margin, slider2*0.5, slider3*0.5);
+    slider8 = clamp_x; slider9 = clamp_y;
+    slider_automate(2^7); slider_automate(2^8);
+  );
+  !is_inside_poly(slider11, slider12, slider1, room_margin) ? (
+    clamp_inside_poly(slider11, slider12, slider1, room_margin, slider2*0.5, slider3*0.5);
+    slider11 = clamp_x; slider12 = clamp_y;
+    slider_automate(2^10); slider_automate(2^11);
+  );
   compute_reflections();
+  proc_target = SLOT_2ND;
+  slider15 >= 1 ? proc_target = SLOT_2ND + slider1 * MAX_WALLS;
+  slider15 >= 2 && slider1 <= MAX_3RD_N ? proc_target = SLOT_3RD + slider1 * MAX_3RD_N * MAX_3RD_N;
+  proc_target = min(proc_target, TOTAL_SLOTS);
+  proc_end < proc_target ? ( proc_end = proc_target; fade_count = 0; );
   mix = slider16/100;
+  dry_g = cos(mix * $pi * 0.5);
+  wet_g = sin(mix * $pi * 0.5);
   out_gain = lms_db2lin(slider17);
   comp_type = slider18;
   comp_amount = slider19;
@@ -488,8 +641,36 @@ drag_mic = 0;
   slider11 = max(room_margin, min(slider2-room_margin, slider11));
   slider12 = max(room_margin, min(slider3-room_margin, slider12));
   build_polygon(slider1, slider2, slider3);
+  // Clamp source/mic inside polygon (handles N-gon corners)
+  !is_inside_poly(slider8, slider9, slider1, room_margin) ? (
+    clamp_inside_poly(slider8, slider9, slider1, room_margin, slider2*0.5, slider3*0.5);
+    slider8 = clamp_x; slider9 = clamp_y;
+    slider_automate(2^7); slider_automate(2^8);
+  );
+  !is_inside_poly(slider11, slider12, slider1, room_margin) ? (
+    clamp_inside_poly(slider11, slider12, slider1, room_margin, slider2*0.5, slider3*0.5);
+    slider11 = clamp_x; slider12 = clamp_y;
+    slider_automate(2^10); slider_automate(2^11);
+  );
   compute_reflections();
+  // Active slot range — contiguous: direct+1st+floor+ceil, then 2nd, then 3rd
+  proc_target = SLOT_2ND;                        // always: direct+1st+floor+ceil
+  slider15 >= 1 ? proc_target = SLOT_2ND + slider1 * MAX_WALLS;
+  slider15 >= 2 && slider1 <= MAX_3RD_N ? proc_target = SLOT_3RD + slider1 * MAX_3RD_N * MAX_3RD_N;
+  proc_target = min(proc_target, TOTAL_SLOTS);
+  // Expand immediately, contract after fade-out (~260ms for smoothing to settle)
+  proc_end < proc_target ? (
+    proc_end = proc_target;
+    fade_count = 0;
+  ) : proc_end > proc_target ? (
+    fade_count += 1;
+    fade_count > 200 ? ( proc_end = proc_target; fade_count = 0; );
+  ) : (
+    fade_count = 0;
+  );
   mix = slider16/100;
+  dry_g = cos(mix * $pi * 0.5);
+  wet_g = sin(mix * $pi * 0.5);
   out_gain = lms_db2lin(slider17);
   comp_type = slider18;
   comp_amount = slider19;
@@ -516,36 +697,44 @@ drag_mic = 0;
 
   wet_l = 0;
   wet_r = 0;
-  sm_inv = 1.0 - smooth_coeff;
 
-  // Process ALL fixed slots — inactive ones have gain=0, smoothing fades them
+  // Process active slots only — 2-band crossover per tap for freq-dependent absorption
   i = 0;
-  loop(TOTAL_SLOTS,
+  loop(proc_end,
     ri = refl_table + i * REFL_STRIDE;
 
-    // Smooth toward targets
-    sm_delay[i]  = sm_delay[i]*smooth_coeff + ri[0]*sm_inv;
-    sm_gain_l[i] = sm_gain_l[i]*smooth_coeff + ri[2]*sm_inv;
-    sm_gain_r[i] = sm_gain_r[i]*smooth_coeff + ri[3]*sm_inv;
+    // Smooth toward targets (lo + hi bands)
+    sm_delay[i] = sm_delay[i]*smooth_coeff + ri[0]*sm_inv;
+    sm_lo_l[i]  = sm_lo_l[i]*smooth_coeff + ri[2]*sm_inv;
+    sm_lo_r[i]  = sm_lo_r[i]*smooth_coeff + ri[3]*sm_inv;
+    sm_hi_l[i]  = sm_hi_l[i]*smooth_coeff + ri[4]*sm_inv;
+    sm_hi_r[i]  = sm_hi_r[i]*smooth_coeff + ri[5]*sm_inv;
 
-    // Skip if gain is negligible (saves the cubic interp)
-    (abs(sm_gain_l[i]) > 0.00001 || abs(sm_gain_r[i]) > 0.00001) ? (
+    // Skip if both bands are negligible
+    (abs(sm_lo_l[i]) + abs(sm_hi_l[i]) > 0.00001 || abs(sm_lo_r[i]) + abs(sm_hi_r[i]) > 0.00001) ? (
       read_pos = wr_pos - sm_delay[i];
       read_pos < 0 ? read_pos += DELAY_BUF_SIZE;
       read_pos >= DELAY_BUF_SIZE ? read_pos -= DELAY_BUF_SIZE;
       tap = lms_interp_cubic(delay_buf, read_pos, DELAY_BUF_SIZE);
-      wet_l += tap * sm_gain_l[i];
-      wet_r += tap * sm_gain_r[i];
+      // Split into lo/hi via one-pole crossover at 1kHz
+      tap_lp[i] = tap_lp[i] * xover_coeff + tap * xover_inv;
+      tap_lo = tap_lp[i];
+      tap_hi = tap - tap_lo;
+      wet_l += tap_lo * sm_lo_l[i] + tap_hi * sm_hi_l[i];
+      wet_r += tap_lo * sm_lo_r[i] + tap_hi * sm_hi_r[i];
     );
     i += 1;
   );
 
   wr_pos = (wr_pos + 1) & DELAY_BUF_MASK;
 
+  // Normalize wet signal energy to match dry
+  sm_wet_norm = sm_wet_norm*smooth_coeff + wet_norm*sm_inv;
+  wet_l *= sm_wet_norm;
+  wet_r *= sm_wet_norm;
+
   wet_l = out_hp.lms_bq_proc_l(wet_l);
   wet_r = out_hp.lms_bq_proc_r(wet_r);
-  wet_l = dc_out.lms_dc_proc_l(wet_l);
-  wet_r = dc_out.lms_dc_proc_r(wet_r);
   wet_l = max(-4, min(4, wet_l));
   wet_r = max(-4, min(4, wet_r));
 
@@ -584,8 +773,9 @@ drag_mic = 0;
     );
   );
 
-  spl0 = spl0*(1-mix) + wet_l*mix*out_gain;
-  spl1 = spl1*(1-mix) + wet_r*mix*out_gain;
+  // Equal-power crossfade (dry_g/wet_g precomputed in @block)
+  spl0 = spl0*dry_g + wet_l*wet_g*out_gain;
+  spl1 = spl1*dry_g + wet_r*wet_g*out_gain;
 
 @gfx 700 600
 
@@ -726,15 +916,21 @@ mouse_cap & 1 ? (
   );
   drag_src ? (
     new_x=(mouse_x-off_x)/px_per_m; new_y=(mouse_y-off_y)/px_per_m;
-    slider8=max(0.15,min(room_w-0.15,new_x));
-    slider9=max(0.15,min(room_d-0.15,new_y));
-    slider_automate(2^7); slider_automate(2^8);
+    new_x=max(0.15,min(room_w-0.15,new_x));
+    new_y=max(0.15,min(room_d-0.15,new_y));
+    is_inside_poly(new_x, new_y, g_nw, 0.15) ? (
+      slider8=new_x; slider9=new_y;
+      slider_automate(2^7); slider_automate(2^8);
+    );
   );
   drag_mic ? (
     new_x=(mouse_x-off_x)/px_per_m; new_y=(mouse_y-off_y)/px_per_m;
-    slider11=max(0.15,min(room_w-0.15,new_x));
-    slider12=max(0.15,min(room_d-0.15,new_y));
-    slider_automate(2^10); slider_automate(2^11);
+    new_x=max(0.15,min(room_w-0.15,new_x));
+    new_y=max(0.15,min(room_d-0.15,new_y));
+    is_inside_poly(new_x, new_y, g_nw, 0.15) ? (
+      slider11=new_x; slider12=new_y;
+      slider_automate(2^10); slider_automate(2^11);
+    );
   );
 ) : (
   drag_src=0; drag_mic=0;
@@ -791,7 +987,7 @@ _old=slider13; slider13=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider13,-1
 slider13=floor(slider13+0.5); slider13!=_old ? slider_automate(2^12); cy+=bar_sp;
 _old=slider14; slider14=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider14,3,"Mic Pat","Omni","Cardioid","Fig-8","Hyper");
 slider14!=_old ? slider_automate(2^13); cy+=bar_sp;
-_old=slider15; slider15=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,1,"Depth","1st Only","2nd Order","","");
+_old=slider15; slider15=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,2,"Depth","1st Only","2nd Order","3rd Order","");
 slider15!=_old ? slider_automate(2^14); cy+=bar_sp;
 cy+=floor(4*S);
 
