@@ -228,6 +228,10 @@
         <changelog><![CDATA[v1.0 — Physical room acoustics modeler. N-sided polygon rooms (3-12 walls), image-source reflections (1st + 2nd order), floor/ceiling taps, 8 wall materials with frequency-dependent absorption, source/mic positioning with directivity and polar patterns (omni/cardioid/fig-8/hyper), Sabine RT60, post-mix compressor selection (LA2A/1176/Distressor). Replaces Chris' Bedroom.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-03-02T12:00:00Z">
+        <changelog><![CDATA[v1.1 — 3rd order reflections (triple-bounce image sources), 2-band frequency-dependent wall absorption, proximity effect for directional mics, level-matched equal-power crossfade, polygon clamping, active-range CPU optimization.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
