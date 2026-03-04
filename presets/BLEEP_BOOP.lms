@@ -28,7 +28,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -36,7 +36,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -53,7 +53,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -61,7 +61,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -78,7 +78,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -86,7 +86,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -103,7 +103,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -111,7 +111,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -128,7 +128,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -136,7 +136,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -153,7 +153,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -161,7 +161,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -178,7 +178,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -186,7 +186,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -203,7 +203,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_moog_synth.jsfx",
+          "name": "JS: lms_nuug420.jsfx",
           "params": []
         },
         {
@@ -211,7 +211,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -232,7 +232,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -249,11 +249,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_ac15_v2.jsfx",
+          "name": "JS: lms_ol_reliable_v2.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -266,7 +266,7 @@
       "solo": false,
       "fx": [
         {
-          "name": "JS: lms_density_limiter.jsfx",
+          "name": "JS: lms_mega_increasinator.jsfx",
           "params": []
         }
       ]
