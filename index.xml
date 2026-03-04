@@ -119,32 +119,6 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_passive_eq.jsfx" type="effect" desc="PEQ4U — Passive Equalizer">
-      <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
-        <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-      <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-      <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
-        <changelog><![CDATA[v2.1 — Renamed to PEQ4U.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-      <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
-        <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-      <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
-        <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-      <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_passive_eq.jsfx</source>
-      </version>
-    </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
@@ -221,16 +195,6 @@
       <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm Special — Physical Room Modeler">
-      <version name="1.0" author="LMS" time="2026-03-02T00:00:00Z">
-        <changelog><![CDATA[v1.0 — Physical room acoustics modeler. N-sided polygon rooms (3-12 walls), image-source reflections (1st + 2nd order), floor/ceiling taps, 8 wall materials with frequency-dependent absorption, source/mic positioning with directivity and polar patterns (omni/cardioid/fig-8/hyper), Sabine RT60, post-mix compressor selection (LA2A/1176/Distressor). Replaces Chris' Bedroom.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-03-02T12:00:00Z">
-        <changelog><![CDATA[v1.1 — 3rd order reflections (triple-bounce image sources), 2-band frequency-dependent wall absorption, proximity effect for directional mics, level-matched equal-power crossfade, polygon clamping, active-range CPU optimization.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_the_space.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
@@ -537,12 +501,6 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_frenchie_dev.jsfx" type="effect" desc="LMS - The Frenchie v3 — Density-Aware 5W Class A (Full Hog)">
-      <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
-        <changelog><![CDATA[Initial release — Frenchie v3 Full Hog. Everything from v2 plus: screen grid current (6V6 plate compression feeding back to PSU), 120Hz PSU ripple (scales with load), transformer core hysteresis (B-H memory blended at 5% on v2 saturation), speaker impedance interaction (80Hz resonance + voice coil + back-EMF), improved 5F1 tone circuit (source impedance mid-bump at 800Hz). All stages connected through shared power rail. 0.3% CPU.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_dev.jsfx</source>
-      </version>
-    </reapack>
     <reapack name="lms_nuug420.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — Moog-inspired mono synth with PolyBLEP oscillators, 4-pole Moog ladder filter (LP/HP/BP), 2 ADSR envelopes, LFO with 6 shapes, up to 8-voice unison, glide/portamento, tube/tape/fuzz saturation, chorus, ping-pong delay, 11 built-in presets, category-based randomizer, DrumBanger pad trigger integration via gmem. Full GUI with waveform scope.]]></changelog>
@@ -623,20 +581,6 @@
       <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="lms_reverb.jsfx" type="effect" desc="LMS - Density Reverb — Harmonic Room Physics">
-      <version name="1.0" author="LMS" time="2026-02-28T20:00:00Z">
-        <changelog><![CDATA[Initial release — Density-aware algorithmic reverb with harmonic room physics. 8-line Hadamard FDN with 5 density-driven room behaviors: Air Absorption (HF dies faster with dense content — real air physics), Modal Resonance (bass density excites standing waves at calculated room-mode frequencies), Surface Saturation (walls buzz under density pressure via tanh), Diffusion Density (complex midrange gets denser echo wash), Decay Breathing (dense content shortens tail, sparse lets it extend). Local 4-band density tracker (Lo/Mid/Hi/Air). 12-tap early reflections with density-modulated per-tap absorption. 4-stage Dattorro input diffusion. 8 built-in presets: Plate, Spring, Pop Ambient, Basement, Studio Live, Studio Dampened, Cathedral, Garage. Room Size, Decay, Tone, Pre-Delay, Diffusion, Density Drive (0%=static room, 100%=fully reactive), Width, Mix, Low Cut, Output Gain. Room Physics density monitor showing Lo→Modes, Mid→Diffuse, Hi→Walls, Air→Absorb. Broadcast system (follow/steal). Works standalone or after any LMS amp sim.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-02-28T22:00:00Z">
-        <changelog><![CDATA[v1.1 — Major sound quality overhaul. Fixed coherent FDN input (was a delay, not a reverb): input scaled to 1/sqrt(8) with alternating polarity. Two-stage cascaded LP in feedback path — the room's "Miller filter" (-12dB/oct air absorption). Inline allpass input diffusion with proper delay lengths. Output diffusion (2 allpass stages per channel). Modal resonance moved from feedback loop to output path (no more pitched drone). Stronger damping range, higher diffusion coefficients, gentler saturation.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
-      </version>
-      <version name="1.2" author="LMS" time="2026-03-01T02:00:00Z">
-        <changelog><![CDATA[v1.2 — Living tail + bass clarity + dramatic density response. (1) FDN delay line modulation: 8 independent LFOs (0.11-0.37 Hz, irrational ratios) modulate delay read positions with cubic Hermite interpolation — tail shimmers and breathes instead of ringing metallically. (2) Input HPF before FDN: biquad highpass (tracks Low Cut slider) on the signal entering the feedback network prevents bass accumulation on long decays. ERs still get full bandwidth. (3) Widened density modulation: air absorption 0.2→0.35, modal resonance 3→6dB, surface saturation 0.15→0.35, diffusion 0.2→0.3, decay breathing 0.03→0.06 — clean guitar = bright open room, heavy distortion = dramatically darker/thicker/choked. (4) Tamed diffusion ceiling: allpass coefficients capped at 0.7 (was 0.85) to prevent self-oscillation at high diffusion + high density drive.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
     </reapack>
   </category>
