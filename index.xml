@@ -467,22 +467,22 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Maximizer — Auto-Makeup Brick-Wall Limiter">
+    <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware master bus limiter. Reads harmonic density state from LMS amp plugins via gmem to predict peaks BEFORE they arrive. Gain reduction is proactive, not reactive — the signal never clips because the limiter already set the gain correctly. True peak detection with inter-sample peak interpolation. Soft knee with 3dB width. Tanh soft clip safety net. GR meter, density state display, measured vs predicted peak comparison. Works standalone (standard reactive limiting) or gmem-linked (predictive mode).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
       <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
         <changelog><![CDATA[v1.0 — Renamed to Density Maximizer. Auto-makeup gain, brick-wall limiting, density-aware threshold modulation. Full rewrite of gain staging and metering.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-24T00:00:00Z">
         <changelog><![CDATA[v1.1 — Add Pop, Hardcore, Hip-Hop, Punk EQ profiles (8 total). Genre-targeted reactive EQ curves with dedicated filter coefficients.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_limiter.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_density_seq.jsfx" type="effect" desc="LMS - Density Sequencer — Your Playing Is The Sequence">
