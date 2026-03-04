@@ -1,5 +1,5 @@
-desc:LMS - The Frenchie v2 (Density-Aware Champ)
-//tags: amp guitar champ density-aware
+desc:LMS - The Frenchie v2 (Density-Aware 5W Class A)
+//tags: amp guitar class-a single-ended density-aware
 //author: LMS
 //version: 1.1
 //license: GPL-3.0
@@ -31,11 +31,11 @@ slider18:0<0,100,1>-Tape Echo Mix (%)
 slider19:50<0,100,1>-Echo Time (%)
 slider20:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
-slider12:1<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
+slider12:1<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet
 slider13:1<0,1,1{Off,On}>-Cab Sim
 slider14:0<0,100,1>-Mic Distance (%)
 // --- CABINET B ---
-slider15:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet B
+slider15:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet B
 slider16:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider17:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
@@ -1088,9 +1088,9 @@ gfx_drawstr("THE FRENCHIE v2");
 
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_SMALL);
-gfx_measurestr("Density-Aware Champ 5F1", sub_w, sub_h);
+gfx_measurestr("Density-Aware 5W Class A", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
-gfx_drawstr("Density-Aware Champ 5F1");
+gfx_drawstr("Density-Aware 5W Class A");
 
 // ============================================================================
 //  TUNER STRIP

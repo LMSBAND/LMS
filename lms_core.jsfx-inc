@@ -2094,7 +2094,7 @@ function lms_cab_table_init()
   b[20]=2; b[21]=4500; b[22]=0.55; b[23]=0;   // LP 4500Hz (10" speakers roll off early)
   b[24]=3; b[25]=90; b[26]=3.0; b[27]=2.5;    // RES 90Hz +3dB (sealed cab resonance, tight)
 
-  // ---- Preset 11: Orange PPC412 (closed-back 4x12, V30s, Orange voicing) ----
+  // ---- Preset 11: 4x12 Closed (closed-back 4x12, V30s, Orange voicing) ----
   // THE Orange cabinet. Closed-back birch ply, Celestion V30s.
   // Compared to generic V30 cab: more low-mid focus, pronounced 1-2kHz bark,
   // tighter bass from closed back, warmer top end. The Orange "voice".
@@ -2128,7 +2128,7 @@ function lms_cab_get_ohms(preset_id)
   preset_id == 8  ? ohms = 16;  // 4x12 Sheffield (5150 cab)
   preset_id == 9  ? ohms = 8;   // 1x15 Open (Bassman)
   preset_id == 10 ? ohms = 8;   // 4x10 Sealed (Orange OBC410)
-  preset_id == 11 ? ohms = 16;  // Orange PPC412
+  preset_id == 11 ? ohms = 16;  // 4x12 Closed
   ohms;
 );
 
@@ -2431,7 +2431,7 @@ function lms_draw_cab_sel(mx, my, mw, mh, val)
   val == 8 ? gfx_drawstr("4x12 Sheffield");
   val == 9 ? gfx_drawstr("1x15 Open");
   val == 10 ? gfx_drawstr("4x10 Sealed");
-  val == 11 ? gfx_drawstr("Orange PPC412");
+  val == 11 ? gfx_drawstr("4x12 Closed");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= mx && mouse_x <= mx + mw &&
     mouse_y >= my && mouse_y <= my + mh ? (
@@ -2471,7 +2471,7 @@ function lms_draw_cab_sel_b(mx, my, mw, mh, val)
   val == 8 ? gfx_drawstr("4x12 Sheffield");
   val == 9 ? gfx_drawstr("1x15 Open");
   val == 10 ? gfx_drawstr("4x10 Sealed");
-  val == 11 ? gfx_drawstr("Orange PPC412");
+  val == 11 ? gfx_drawstr("4x12 Closed");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= mx && mouse_x <= mx + mw &&
     mouse_y >= my && mouse_y <= my + mh ? (
