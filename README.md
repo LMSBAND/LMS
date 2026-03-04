@@ -1,3 +1,9 @@
+**LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.**
+
+### https://lmsband.github.io/LMS
+
+---
+
 # NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER
 ### INSTALL LINUX NOW
 
@@ -18,23 +24,58 @@ https://instagram.com/LMSSKABAND
 
 ## LMS Plugin Suite — Install Guide
 
-Free, open source mixing tools for REAPER. Channel strip, EQ, compressor, tube saturation, tape machine, tape echo, Moog filter, and DRUMBANGER — all sharing one DSP kernel. Works on Linux, Mac, and Windows.
+Free, open source mixing tools for REAPER. 11 density-aware amp sims, physical room modeler, LA-2A opto compressor, drum machine, autotune, smart gate, pitch detection, and more — all sharing one DSP kernel (69 functions). Works on Linux, Mac, and Windows.
 
 ### What's included
 
+**Amp Sims (11)**
+| Plugin | What it does |
+|--------|-------------|
+| `lms_oj99_v2.jsfx` | Orange-style — spring reverb, tremolo, tape echo |
+| `lms_basswoman_v2.jsfx` | Fender Bassman — spring, trem, echo |
+| `lms_ac15_v2.jsfx` | Vox AC15 — spring, trem, echo |
+| `lms_frenchie_v2.jsfx` | Frenchie — spring, tremolo |
+| `lms_fridge_v2.jsfx` | Ampeg fridge — Crushinator, spring, trem, echo |
+| `lms_5150_v2.jsfx` | 5150 — noise gate, spring, trem, echo |
+| `lms_mesa_v2.jsfx` | Mesa Rectifier — 3 channels, noise gate, spring, trem, echo |
+| `lms_punk_v2.jsfx` | JCM800 — spring, trem, echo |
+| `lms_twins_v2.jsfx` | Fender Twin — spring, trem, echo |
+| `lms_nightmare_v2.jsfx` | Nightmare — spring, trem, echo |
+| `lms_tomasteknik_v2.jsfx` | Tomasteknik — spring, trem, echo |
+
+**Instruments**
+| Plugin | What it does |
+|--------|-------------|
+| `lms_drumbanger.jsfx` | Sample-based drum machine + sequencer |
+| `lms_moog_synth.jsfx` | Moog-style ladder filter synth |
+| `lms_drum_trigger.jsfx` | Audio-to-MIDI drum trigger |
+
+**Channel Tools**
 | Plugin | What it does |
 |--------|-------------|
 | `lms_channel_strip.jsfx` | Preamp, 4-band EQ, compressor, output |
-| `lms_tube_sat.jsfx` | Tube saturation — warm/hot/tape/fuzz modes |
-| `lms_tape_machine.jsfx` | Tape saturation + spring reverb |
-| `lms_tape_echo.jsfx` | Tape delay with wow/flutter |
-| `lms_passive_eq.jsfx` | Passive-style parametric EQ |
 | `lms_distressor.jsfx` | FET compressor / distressor |
-| `lms_moog_synth.jsfx` | Moog-style ladder filter synth |
-| `lms_drumbanger.jsfx` | Sample-based drum machine |
-| `lms_core.jsfx-inc` | Shared DSP kernel — **required by all of the above** |
+| `lms_la2a.jsfx` | Density-aware LA-2A opto compressor |
+| `lms_smart_gate.jsfx` | Density-aware noise gate (single + drum mode, cross-mic phase correction) |
+| `lms_tube_sat.jsfx` | Tube saturation — warm/hot/tape/fuzz modes |
+| `lms_density_limiter.jsfx` | Predictive mastering limiter |
+| `lms_pitch_detector.jsfx` | Monophonic YIN pitch tracker (MIDI output) |
 
-All channel strips share a broadcast system: set one as LEADER and every other instance follows in real time. Tweak one, they all move.
+**Effects**
+| Plugin | What it does |
+|--------|-------------|
+| `lms_tape_echo.jsfx` | Tape delay with wow/flutter |
+| `lms_tape_machine.jsfx` | Tape saturation + spring reverb |
+| `lms_reverb.jsfx` | FDN reverb with modal filtering |
+| `lms_room.jsfx` | Physical room modeler — geometry-based acoustics |
+| `lms_autotune.jsfx` | Real-time pitch correction (YIN, vibrato preserve, scale snap) |
+
+**Core**
+| Plugin | What it does |
+|--------|-------------|
+| `lms_core.jsfx-inc` | Shared DSP kernel — 69 functions — **required by all of the above** |
+
+All plugins share state through a common memory bus (gmem). The amp's density tracker broadcasts harmonic content. The compressor reads it. The reverb reads it. One PR to lms_core makes every plugin in the suite better.
 
 ---
 
