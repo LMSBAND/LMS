@@ -1,5 +1,5 @@
-desc:LMS - OJ 99 v2 (Density-Aware Orange OR100)
-//tags: amp guitar orange or100 rockerverb density-aware
+desc:LMS - OJ 95 v2 (this is one killer amp)
+//tags: amp guitar dirty-brit density-aware
 //author: LMS
 //version: 1.0
 //license: GPL-3.0
@@ -35,11 +35,11 @@ slider16:0<0,100,1>-Tape Echo Mix (%)
 slider17:50<0,100,1>-Echo Time (%)
 slider18:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
-slider19:11<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
+slider19:11<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet
 slider20:1<0,1,1{Off,On}>-Cab Sim
 slider21:0<0,100,1>-Mic Distance (%)
 // --- CABINET B ---
-slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet B
+slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet B
 slider23:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
@@ -635,7 +635,7 @@ echo_mix = 0; echo_time = 0.5; echo_feedback = 0.4;
 // Cabinet simulation (shared presets from core)
 lms_cab_table_init();
 cab.lms_cab_init();
-cab.lms_cab_set(11);  // default: Orange PPC412
+cab.lms_cab_set(11);  // default: 4x12 Closed
 cab_type = 11;
 cab_on = 1;
 cab2.lms_cab_init();
@@ -1312,12 +1312,12 @@ logo_img_w > 0 ? (
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
-gfx_drawstr("OJ 99 v2");
+gfx_drawstr("OJ 95 v2");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_LABEL);
-gfx_measurestr("Density-Aware Orange OR100", sub_w, sub_h);
+gfx_measurestr("this is one killer amp", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
-gfx_drawstr("Density-Aware Orange OR100");
+gfx_drawstr("this is one killer amp");
 
 // ============================================================================
 //  TUNER STRIP

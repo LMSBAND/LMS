@@ -39,7 +39,7 @@
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
       <version name="5.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v5.1 — 5 new cabinet presets: Sheffield 1x15 Open (open-back bass cab, 45Hz tuning, warm LP at 4kHz), 4x10 Sealed (Orange OBC410 bass cab, 50Hz HP, 90Hz resonance, tight 4.5kHz LP), Orange PPC412 (closed-back 4x12 V30, 1.5kHz bark peak, 110Hz resonance — THE Orange sound). Also added 1x15 Open preset. CAB_PRESET_COUNT now 12. All existing amp sims updated with expanded cab selector (12 cabinets).]]></changelog>
+        <changelog><![CDATA[v5.1 — 5 new cabinet presets: Sheffield 1x15 Open (open-back bass cab, 45Hz tuning, warm LP at 4kHz), 4x10 Sealed (Orange OBC410 bass cab, 50Hz HP, 90Hz resonance, tight 4.5kHz LP), 4x12 Closed (closed-back 4x12 V30, 1.5kHz bark peak, 110Hz resonance — THE Orange sound). Also added 1x15 Open preset. CAB_PRESET_COUNT now 12. All existing amp sims updated with expanded cab selector (12 cabinets).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
@@ -245,7 +245,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
+    <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware 5W Class A Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Champ 5F1 amp sim. Two triode stages (V1a 12AX7 preamp + V2b power driver) with fixed asymmetric clipping and 4-band density tracker (Lo/Mid/Hi/Air) driving Miller LP, air shelf, drive boost, and NFB bandwidth — NOT the clipping curve. PSU sag (25% max droop, 80ms recovery). Simple tone control (LP sweep). 1x12 Greenback cab sim. Built-in spring reverb (4-stage allpass diffusion, pre-delay, feedback LP) and bias tremolo (sine LFO, 1-10Hz). Runs 16 instances at 2.5% CPU.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
@@ -271,7 +271,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -309,7 +309,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -321,7 +321,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
+    <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Ampeg SVT-CL bass amp sim. Single V1 12AX7 preamp with even harmonic emphasis (neg clips softer), 6550 push-pull power amp (symmetric 1.2x, high headroom). Bass-tuned 4-band density tracker (Lo<150Hz, Mid 150-1200Hz, Hi>1200Hz, Air>3500Hz). SVT tone stack with selectable mid freq (220/450/800/1.6k/3k), Ultra Lo/Hi switches. 8x10 sealed cab sim (6-band). Built-in Crushinator pedal (SansAmp-style parallel clean/dirty blend with diode clipping, pre-clip presence/mid push, post-clip bass/treble EQ). Tape echo. Runs 16 instances at 2.5% CPU.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
@@ -343,7 +343,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -355,7 +355,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware SVT + ODB-3 Bass Amp Sim">
+    <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
         <changelog><![CDATA[Initial release — Tribute bass amp inspired by Tomas Näslund (Blindside) and Tonteknik Studios. Based on The Fridge v2 (density-aware SVT) with the Crushinator replaced by a Boss ODB-3 Bass Overdrive emulation. ODB-3 features: 300Hz HPF before clipper (bass fundamentals stay clean), asymmetric germanium-style clipping (even harmonic emphasis), two-band post-clip EQ (80Hz/3kHz ±12dB), parallel clean/dirty blend. Built-in LA-2A opto compressor as the final chain element (post-cab, studio style) with GR meter, peak reduction, makeup gain, compress/limit mode, emphasis, and mix controls. Full SVT engine: density-aware 12AX7 preamp (V1a + V1b), SVT 4-band active tonestack with 5-position mid freq, 12AU7 driver, 6550 push-pull power amp with output transformer saturation, PSU sag, Ultra Lo/Hi switches. Default cab: 4x12 V30. All effects (spring reverb, tremolo, tape echo), dual cab with impedance matching. Core v5.2.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
@@ -391,7 +391,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -403,7 +403,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
+    <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Twin Reverb / Deluxe Reverb amp sim. Two amps in one plugin: Twin Reverb (85W, 6L6GC push-pull, silicon rectifier, 2×12 open-back Jensen C12N) and Deluxe Reverb (22W, 6V6GT push-pull, 5U4GB tube rectifier, 1×12 open-back Jensen C12N). Shared AB763 preamp: V1a 12AX7 (fully bypassed cathode), cathode follower buffer (V1b, prevents tone stack loading, 18% programme-dependent compression), Fender passive tone stack (700Hz mid — THE scooped Fender sound), 12AT7 LTP phase inverter (lower gain than Marshall's 12AX7 = more headroom = stays clean longer). Gain-dependent bright cap (120pF, 3.5kHz). RF input filter (68k grid stopper). Twin: 6L6GC push-pull with minimal cathode bias shift (8%), 85W output transformer (×1.8 sensitivity — hardest to saturate in suite), 3.8kHz winding resonance, 10dB NFB with presence. Deluxe: 6V6GT push-pull with 15% cathode bias shift (more compression), 22W output transformer (×3.0 sensitivity — saturates earlier = warmer breakup), 3.5kHz winding resonance, 8dB NFB with presence. Fender 3-spring reverb tank (brighter, more diffuse than single-spring). Bias tremolo. Tape echo. Full monitor with per-channel power amp density, transformer core load, cathode bias, and B+ voltage.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
@@ -425,7 +425,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -455,7 +455,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
+        <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, 4x12 Closed). Core v5.1.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
@@ -537,36 +537,36 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_frenchie_dev.jsfx" type="effect" desc="LMS - The Frenchie v3 — Density-Aware Champ (Full Hog)">
+    <reapack name="lms_frenchie_dev.jsfx" type="effect" desc="LMS - The Frenchie v3 — Density-Aware 5W Class A (Full Hog)">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
         <changelog><![CDATA[Initial release — Frenchie v3 Full Hog. Everything from v2 plus: screen grid current (6V6 plate compression feeding back to PSU), 120Hz PSU ripple (scales with load), transformer core hysteresis (B-H memory blended at 5% on v2 saturation), speaker impedance interaction (80Hz resonance + voice coil + back-EMF), improved 5F1 tone circuit (source impedance mid-bump at 800Hz). All stages connected through shared power rail. 0.3% CPU.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_dev.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_moog_synth.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
+    <reapack name="lms_nuug420.jsfx" type="effect" desc="NUUG 420 — Analog Mono Synth w/ Ladder Filter">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
         <changelog><![CDATA[Initial release — Moog-inspired mono synth with PolyBLEP oscillators, 4-pole Moog ladder filter (LP/HP/BP), 2 ADSR envelopes, LFO with 6 shapes, up to 8-voice unison, glide/portamento, tube/tape/fuzz saturation, chorus, ping-pong delay, 11 built-in presets, category-based randomizer, DrumBanger pad trigger integration via gmem. Full GUI with waveform scope.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v1.1 — GUI overhaul with skeuomorphic analog controls, in-plugin NOTICE button with full usage documentation.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v1.2 — Renamed to NUUG 420.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
       <version name="1.3" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v1.3 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
       <version name="1.4" author="LMS" time="2026-02-20T12:00:00Z">
         <changelog><![CDATA[v1.4 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
       <version name="1.5" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.5 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_area51_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — Density-Aware Cold-Bias 6L6 Amp Sim">
@@ -597,7 +597,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Terror Bass Amp Sim">
+    <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Hybrid Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Orange Terror Bass amp sim. Hybrid architecture: all-tube 12AX7 preamp with Class D solid-state power amp. Two channels: Warm (2-stage, clean to mild breakup) and Aggressive (4-stage cascaded, heavy saturation). NO bright cap (flat volume taper — key Orange characteristic). Orange FMV tone stack: bass-shifted (35-160Hz), 500Hz mid with ±5dB scoop (less mid-scoop than Marshall = mid-forward Orange voice), treble 800-3500Hz. Class D power section: transparent below clipping, hard symmetric clip at rails, no sag, no transformer saturation, no output transformer coloration — all the tone comes from the tube preamp. PSU sag affects preamp tubes only (10% max droop). Default cab: 4x10 Sealed (Orange OBC410 bass cab). 12 selectable cabinets. Built-in spring reverb, tape echo. Full density monitor.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
@@ -611,18 +611,18 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_oj99_v2.jsfx" type="effect" desc="LMS - OJ 99 v2 — Density-Aware Orange OR100 Amp Sim">
+    <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
-        <changelog><![CDATA[Initial release — Density-aware Orange OR100 amp sim. All-tube, all common-cathode gain stages (no cold clipper — more symmetric clipping than Marshall). Two channels: Clean (2-stage, chimey cleans to edge-of-breakup) and Dirty (4-stage cascaded, thick saturated crunch to full roar). NO bright cap, NO cathode follower before tone stack, NO presence control — three key Orange design decisions that define the voice. High source impedance drives the tone stack differently (more interaction between controls). Orange FMV tone stack: 39k slope resistor (between Marshall 33k and Fender 56k), 700Hz mid, ±5dB scoop, treble 900-4000Hz. 4×EL34 push-pull power amp: fixed bias running hot, softer clipping than Marshall (push 1.35/pull 1.30), 12% cathode shift. Low NFB (~6dB — less than Marshall, more than none). Transformer resonance at 3.0kHz (warmer than Marshall). PSU: 20% max droop, 2ms attack, 100ms recovery (more sag than Marshall = more "alive" feel). Default cab: Orange PPC412 (closed-back 4x12 with V30s, 1.5kHz bark peak). 12 selectable cabinets. Built-in spring reverb, tape echo. Full density monitor with B+ voltage, cathode bias, transformer load.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
+        <changelog><![CDATA[Initial release — Density-aware Orange OR100 amp sim. All-tube, all common-cathode gain stages (no cold clipper — more symmetric clipping than Marshall). Two channels: Clean (2-stage, chimey cleans to edge-of-breakup) and Dirty (4-stage cascaded, thick saturated crunch to full roar). NO bright cap, NO cathode follower before tone stack, NO presence control — three key Orange design decisions that define the voice. High source impedance drives the tone stack differently (more interaction between controls). Orange FMV tone stack: 39k slope resistor (between Marshall 33k and Fender 56k), 700Hz mid, ±5dB scoop, treble 900-4000Hz. 4×EL34 push-pull power amp: fixed bias running hot, softer clipping than Marshall (push 1.35/pull 1.30), 12% cathode shift. Low NFB (~6dB — less than Marshall, more than none). Transformer resonance at 3.0kHz (warmer than Marshall). PSU: 20% max droop, 2ms attack, 100ms recovery (more sag than Marshall = more "alive" feel). Default cab: 4x12 Closed (closed-back 4x12 with V30s, 1.5kHz bark peak). 12 selectable cabinets. Built-in spring reverb, tape echo. Full density monitor with B+ voltage, cathode bias, transformer load.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
-        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: Orange PPC412 on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
+        <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 4x12 Closed on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj99_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="LMS - Density Reverb — Harmonic Room Physics">

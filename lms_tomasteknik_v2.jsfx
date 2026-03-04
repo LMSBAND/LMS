@@ -1,5 +1,5 @@
-desc:LMS - TOMASTEKNIK v2 (Density-Aware SVT + ODB-3)
-//tags: amp bass svt odb3 density-aware blindside
+desc:LMS - TOMASTEKNIK v2 (Density-Aware All-Tube Bass + OD)
+//tags: amp bass all-tube overdrive density-aware blindside
 //author: LMS
 //version: 1.0
 //license: GPL-3.0
@@ -42,11 +42,11 @@ slider29:0<0,100,1>-Spring Reverb (%)
 slider30:0<0,100,1>-Tremolo Depth (%)
 slider31:50<0,100,1>-Tremolo Speed (%)
 // --- CABINET ---
-slider23:6<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
+slider23:6<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet
 slider24:1<0,1,1{Off,On}>-Cab Sim
 slider25:0<0,100,1>-Mic Distance (%)
 // --- CABINET B ---
-slider26:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet B
+slider26:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet B
 slider27:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider28:0<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
@@ -1336,9 +1336,9 @@ gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
 gfx_drawstr("TOMASTEKNIK v2");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_LABEL);
-gfx_measurestr("Density-Aware SVT + ODB-3", sub_w, sub_h);
+gfx_measurestr("Density-Aware All-Tube Bass + OD", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
-gfx_drawstr("Density-Aware SVT + ODB-3");
+gfx_drawstr("Density-Aware All-Tube Bass + OD");
 
 // ============================================================================
 //  TUNER STRIP

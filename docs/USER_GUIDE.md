@@ -49,7 +49,7 @@ Every amp sim includes integrated dual-cab simulation with impedance modeling.
 
 | Control | What It Does |
 |---------|-------------|
-| Cabinet | Primary cab: Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed, 4x12 Sheffield, 1x15 Open, 4x10 Sealed, Orange PPC412 |
+| Cabinet | Primary cab: Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed, 4x12 Sheffield, 1x15 Open, 4x10 Sealed, 4x12 Closed |
 | Cab Sim | On/Off |
 | Mic Distance | Primary mic position (0–100%) |
 | Cabinet B | Second cab selection (same options) for dual-cab blending |
@@ -344,7 +344,7 @@ British voiced Orange with Clean and Dirty channels.
 **Tips:**
 - Dirty channel has a thick, woolly midrange — very different from the Marshall or Mesa
 - Clean channel with Gain at 40% does "edge of breakup" beautifully
-- Default cab is Orange PPC412 — try it, that's what the amp was made for
+- Default cab is 4x12 Closed — try it, that's what the amp was made for
 
 ---
 

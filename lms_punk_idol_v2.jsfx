@@ -35,11 +35,11 @@ slider16:0<0,100,1>-Tape Echo Mix (%)
 slider17:50<0,100,1>-Echo Time (%)
 slider18:40<0,100,1>-Echo Feedback (%)
 // --- CABINET ---
-slider19:5<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet
+slider19:5<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet
 slider20:1<0,1,1{Off,On}>-Cab Sim
 slider21:0<0,100,1>-Mic Distance (%)
 // --- CABINET B ---
-slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,Orange PPC412}>-Cabinet B
+slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet B
 slider23:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
