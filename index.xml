@@ -171,56 +171,56 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_tape_machine.jsfx" type="effect" desc="LMS Tape Machine">
+    <reapack name="lms_henge_on_crack.jsfx" type="effect" desc="LMS - HENGE ON CRACK — Tape Machine">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
       <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix. Transfer curve display updated.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
       <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_machine.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_tape_echo.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
+    <reapack name="lms_henge.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v2.1 — Renamed to HENGE DELAY with UFO in GUI. An ode to space-themed bands everywhere.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
       <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tape_echo.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm Special — Physical Room Modeler">
@@ -233,10 +233,10 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_room_v2.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
+    <reapack name="lms_the_space.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
         <changelog><![CDATA[v1.0 — Schroeder reverb with material-based damping. 4 parallel comb filters (LP+HP feedback) into 2 allpass diffusers. Continuous size (1-20m), 8 surface materials (Concrete/Wood/Drywall/Brick/Metal/Carpet/Glass/Curtain) for floor/walls/ceiling with averaged absorption coefficients. Reactive Vibe modes (Bright opens on air content, Moody thickens on lo/mid) driven by 4-band density tracker with adjustable intensity. 8-slot satellite system via gmem — Space Send instances on source tracks route proximity-filtered audio to The Space bus. Click-through material selectors, per-source distance and send level control. 0.22% CPU with 10 sources.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_room_send.jsfx" type="effect" desc="LMS - Space Send — Satellite for The Space">
