@@ -283,42 +283,42 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_punk_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware JCM800 Amp Sim">
+    <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Marshall JCM800 2203 amp sim. Dual triode stages (V1B crunch + V1A lead) with fixed asymmetric clipping and 4-band density tracker driving Miller LP, air shelf, drive boost, and NFB bandwidth. EL34 push-pull power amp (asymmetric 1.4x/1.35x hardness). PSU sag with tube rectifier response. Clean/Crunch/Lead switching. Full passive tone stack (bass/mid/treble/presence). 4x12 Greenback cab sim. Built-in spring reverb, bias tremolo, and tape echo (circular delay with LP feedback, wow/flutter). Runs 16 instances at 2.5% CPU.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-19T12:00:00Z">
         <changelog><![CDATA[v1.1 — Six JCM800 circuit additions from real 2203/2204 schematic: (1) Bright cap — 120pF gain-dependent treble boost at 3kHz, preserves pick attack at low gain, swamped at high gain. (2) Cathode follower — 12AX7 unity-gain buffer between preamp and tone stack, programme-dependent compression (up to 20% gain reduction), prevents tone stack loading. (3) Long-tail pair phase inverter — 12AX7 LTP driving EL34 grids, soft round clipping at high master adds "pillow" pre-compression before power tubes. (4) Output transformer saturation — density-driven low-frequency core loading at ~120Hz, saturates lows only on big power chords (smaller core than SVT = more sensitive). (5) Presence in NFB loop — presence control adjusts HF content of negative feedback loop (more presence = less HF NFB = more bite). (6) Cab resonance — 110Hz closed-back 4x12 air resonance (Q=3.0). Monitor updated with PI density, transformer core load, and CF compression readouts.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
         <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=12, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Channel mode selector (Clean/Crunch/Lead). All controls now match the LMS suite GUI standard.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="1.3" author="LMS" time="2026-02-19T16:00:00Z">
         <changelog><![CDATA[v1.3 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
         <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 4x12 Greenback cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). BC_PARAM_COUNT bumped to 18.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
       <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware SVT Bass Amp Sim">
@@ -365,42 +365,42 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_ac15_v2.jsfx" type="effect" desc="LMS - Top Boost v2 — Density-Aware AC15 Amp Sim">
+    <reapack name="lms_ol_reliable_v2.jsfx" type="effect" desc="LMS - Ol Reliable v2 — Density-Aware EL84 Class A Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T00:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Vox AC15 amp sim. EF86 pentode preamp (soft positive/HARD negative cutoff — the AC15 "glass") with 12AX7 second stage on Top Boost channel. EL84 cathode-biased push-pull power amp with NO negative feedback (raw, alive, touch-sensitive), cathode bias shift for natural compression. Top Boost EQ with built-in mid presence peak (the chime). Tone Cut (back panel LP). Celestion Alnico Blue 1x12 cab sim with 2.5kHz presence peak. Built-in bias tremolo and spring reverb. Normal/Top Boost channel switching. 20% PSU sag with spongy feel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-19T18:00:00Z">
         <changelog><![CDATA[v1.1 — Six AC15 circuit additions from real schematic: (1) Cathodyne phase inverter — real AC15 uses cathodyne (concertina), NOT long-tail pair like Marshall. Wider bandwidth = more HF (Vox shimmer). Plate clips harder than cathode (asymmetric bloom under drive). (2) Output transformer saturation — small 15W EL84 OT (×3.5 sensitivity at ~90Hz), density-driven low-frequency core loading creates creamy breakup on power chords. (3) Transformer winding resonance — 4kHz +2.0dB peak (the Vox shimmer, between Champ 3.5k and Mesa 4.5k). (4) Interstage coupling cap HP at 160Hz — real AC15 has SMALLER coupling caps than Marshall (0.01µF vs 0.022µF), tighter bass than you'd expect from a Vox. (5) EF86 screen grid compression — pentode-specific positive peak soft knee, screen grid current limits positive peaks creating the "glassy" EF86 ceiling that's different from triode grid conduction. (6) Open-back cab resonance — 180Hz +1.5dB Q=2.0 (the "body" of the Vox sound). Monitor updated with cathodyne PI density, transformer core load %, and EF86 screen compression.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-02-20T00:00:00Z">
         <changelog><![CDATA[v1.2 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=14, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×460 three-column layout (Preamp + Tone/Power + Effects). Normal/Top Boost channel mode selector with Tone Cut control. All controls now match the LMS suite GUI standard.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="1.3" author="LMS" time="2026-02-19T16:00:00Z">
         <changelog><![CDATA[v1.3 — Fix: spring reverb buffer collision with broadcast system (buf_base 100000 overlapped BC_BASE 100000). Reverb would go haywire to infinity after ~30 seconds. Moved spring reverb buffer to address 50000.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="1.4" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.4 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
         <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 1x12 Alnico Blue cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal). BC_PARAM_COUNT bumped to 18.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
       <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ac15_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Fender Twin/Deluxe Amp Sim">
@@ -437,34 +437,34 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_mesa_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware Triple Rectifier Amp Sim">
+    <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Mesa Boogie Triple Rectifier amp sim. Three channels: Clean (V1a only, Fender-like breakup), Vintage (V1a→V2a→V2b, creamy singing lead), Modern (V1a→V2a→V2b driven HARD, wall of brown crushing chug). V2b cold-bias stage with extreme asymmetry (pos_hard=2.0, neg_hard=0.7) for massive 2nd harmonics — THE Mesa sound. V2a partially bypassed cathode with 86Hz HP (0.68uF/2.7k) — THE tightness mechanism, 12dB less gain below 86Hz prevents low-end mud through cascaded stages. Interstage coupling cap HP at 72Hz (3× cascaded = ultra-tight at max gain). Cathode follower (programme-dependent compression up to 30% gain reduction). 6L6 push-pull power amp with output transformer saturation and winding resonance (4.5kHz). Silicon/Tube rectifier × Bold/Spongy PSU matrix (4 distinct dynamics from tightest to saggiest). Mesa passive tone stack (mid at 750Hz). Gain-dependent bright cap (2kHz). V30 4x12 closed-back cab with 8-stage EQ and 120Hz box resonance. Built-in noise gate and tape echo. Full monitor with per-stage density, B+ voltage, CF compression, xfmr load.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-02-20T00:00:00Z">
         <changelog><![CDATA[v1.1 — Full suite-standard GUI: interactive slider controls (draw_bar with click-drag and slider_automate), broadcast system (BC_MY_TYPE=15, gmem instance registry, follow/steal/leader/follower modes, 32 instances), instance manager panel with pagination, NOTICE overlay with usage docs, @serialize for persistent follow state. 600×480 three-column layout (Preamp + Tone/Power + Effects). Channel mode selector (Clean/Vintage/Modern), Rectifier toggle (Silicon/Tube), Bold/Spongy toggle, Noise Gate toggle. All controls now match the LMS suite GUI standard.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-28T12:00:00Z">
         <changelog><![CDATA[v2.0 — Shared cabinet simulation: replaced hardcoded 4x12 V30 closed-back cab EQ with core Section 13 cab system. 7 selectable cabinets (Off, 1x12 Greenback, 1x12 Jensen, 1x12 Blue, 2x12 Jensen, 4x12 G12T-75, 4x12 V30, 8x10 Sealed). Density-aware speaker breakup, dynamic LP darkening, dynamic cabinet resonance, mic distance (off-axis rolloff + proximity effect). Built-in chromatic tuner strip (YIN pitch detector on dry input). Cabinet panel in GUI with selector, on/off toggle, mic distance slider. Cab params broadcast through gmem (follow/steal).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[v2.1 — Expanded cab selector: 12 cabinets (added 1x15 Open, 4x10 Sealed, Orange PPC412). Core v5.1.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.2" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v2.2 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
       <version name="2.3" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mesa_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_density_limiter.jsfx" type="effect" desc="LMS - Density Maximizer — Auto-Makeup Brick-Wall Limiter">
@@ -569,32 +569,32 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_moog_synth.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_5150_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — Density-Aware Cold-Bias 6L6 Amp Sim">
+    <reapack name="lms_area51_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — Density-Aware Cold-Bias 6L6 Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware EVH 5150/6505 amp sim. High-gain cold-bias 6L6 architecture. Two channels: Rhythm (tight crunch, moderate gain) and Lead (cascaded stages, saturated high-gain). Cold-biased power tubes (Class AB running cold — crossover notch distortion at low volumes, aggressive bite). 4-stage 12AX7 preamp with bright cap. Shared post-EQ, resonance, presence controls. 6L6 push-pull power amp. Built-in noise gate, spring reverb, tape echo. 12 selectable cabinets. Full density monitor.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response (low-shelf EQ shift). Running into a lower impedance than the tap = more sag, louder, bass-boosted. Higher impedance = tighter, quieter, leaner. Default: 4x12 Sheffield on Cab A with 16 ohm tap. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_5150_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_basswoman_v2.jsfx" type="effect" desc="LMS - The Basswoman v2 — Density-Aware Fender Bassman Amp Sim">
+    <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Bassman 5F6-A amp sim. Two channels: Normal (warm, full) and Bright (treble-boosted with bright cap). 12AY7 first preamp stage (38% of 12AX7 gain — the original low-gain Bassman input), 12AX7 second stage, 12AX7 phase inverter (more drive than Twin's 12AT7). Single 6L6 push-pull power amp: 50W, cathode-biased (14% shift — more compression than fixed bias), 5U4 tube rectifier (22% max droop, 4ms attack, 150ms recovery — one of the saggiest vintage rectifiers). Bassman tone stack: 40-170Hz bass sweep, 600Hz mid, ±6dB scoop (less scooped than Twin = more midrange body). Transformer resonance at 3.2kHz. Low NFB (6dB — raw, alive, touch-sensitive). Default cab: 1x15 Open (open-back bass cab). 12 selectable cabinets. Built-in spring reverb, bias tremolo, tape echo. Full density monitor with B+ voltage, cathode bias, transformer load.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
       <version name="1.1" author="LMS" time="2026-03-01T02:00:00Z">
         <changelog><![CDATA[v1.1 — Dual cab + impedance matching. Cab A + Cab B selectors (12 cabs each, run in parallel). Impedance tap selector (4/8/16 ohm). Load mismatch modeling: mismatched impedance affects power amp sag, output volume, and low-end response. Default: 1x15 Open on Cab A with 8 ohm tap. Core v5.2.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
       <version name="1.2" author="LMS" time="2026-03-01T14:00:00Z">
         <changelog><![CDATA[v1.2 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_basswoman_v2.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Terror Bass Amp Sim">
