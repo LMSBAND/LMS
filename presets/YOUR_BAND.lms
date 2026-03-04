@@ -15,7 +15,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -32,7 +32,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -49,7 +49,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -66,7 +66,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -83,7 +83,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -100,7 +100,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -117,7 +117,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -134,7 +134,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -151,7 +151,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -168,7 +168,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -185,11 +185,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_punk_v2.jsfx",
+          "name": "JS: lms_punk_idol_v2.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -206,11 +206,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_punk_v2.jsfx",
+          "name": "JS: lms_punk_idol_v2.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -227,11 +227,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_mesa_v2.jsfx",
+          "name": "JS: lms_trsob_v2.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -248,11 +248,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_mesa_v2.jsfx",
+          "name": "JS: lms_trsob_v2.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -273,7 +273,7 @@
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -290,11 +290,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_tape_machine.jsfx",
+          "name": "JS: lms_henge_on_crack.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -311,11 +311,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_tape_machine.jsfx",
+          "name": "JS: lms_henge_on_crack.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -332,11 +332,11 @@
           "params": []
         },
         {
-          "name": "JS: lms_tape_machine.jsfx",
+          "name": "JS: lms_henge_on_crack.jsfx",
           "params": []
         },
         {
-          "name": "JS: lms_channel_strip.jsfx",
+          "name": "JS: lms_rtw.jsfx",
           "params": []
         }
       ]
@@ -349,7 +349,7 @@
       "solo": false,
       "fx": [
         {
-          "name": "JS: lms_density_limiter.jsfx",
+          "name": "JS: lms_mega_increasinator.jsfx",
           "params": []
         }
       ]
