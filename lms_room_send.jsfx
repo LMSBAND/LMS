@@ -1,7 +1,7 @@
-desc:LMS - Room Send
+desc:LMS - Space Send
 //tags: reverb room routing satellite
 //author: LMS
-//version: 2.0
+//version: 5.0
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
@@ -14,12 +14,16 @@ out_pin:Output R
 out_pin:Send L
 out_pin:Send R
 
-slider1:2.0<0.5,15,0.01>-Distance (m)
-slider2:0<-24,6,0.1>-Send Level (dB)
+slider1:1<1,8,1>-Slot
+slider2:0<0,7,1{Drums,Percussion,Guitar,Bass,Vocals,Keys,Synth,Other}>-Source
+slider3:1<1,6,1>-Number
 
 @init
 
-// === gmem protocol ===
+// === gmem layout ===
+// Room heartbeat: gmem[900000]
+// Send slots:     gmem[900010 + slot*4] = { heartbeat, type, number, active }
+// Ctrl slots:     gmem[900080 + slot*3] = { dist, send_db, active_flag }
 ROOM_GMEM_BASE   = 900000;
 ROOM_SEND_BASE   = 900010;
 ROOM_SEND_STRIDE = 4;
@@ -27,135 +31,119 @@ ROOM_CTRL_BASE   = 900080;
 ROOM_CTRL_STRIDE = 3;
 MAX_SLOTS = 8;
 
-// Persistent instance ID (survives @init re-runs)
-send_instance_id == 0 ? send_instance_id = floor(rand() * 1073741824) + 1;
-send_heartbeat = 0;
-my_slot = -1;
+slot_taken = 1000;  // 8-slot occupancy snapshot for @gfx
+prev_slot = -1;
 
+send_heartbeat = 0;
 master_alive = 0;
 master_timeout = 0;
-last_master_hb = 0;
-remote_active = 0;
+last_master_hb = -1;
+
+// DSP state (controlled by The Space)
+dist = 2.0;
+send_gain = 1.0;
+dist_gain = 1.0 / sqrt(2.0);
 
 // Proximity filters
 prox_lo.lms_bq_init();
 prox_hi.lms_bq_init();
 
-// Proximity filter curves
-// Low shelf: +6dB at 0.5m, 0dB at 3m, -4dB at 15m
 function calc_lo_shelf_db(d) (
   d <= 3.0 ? 6.0 * (1.0 - (d - 0.5) / 2.5)
             : -4.0 * (d - 3.0) / 12.0;
 );
 
-// High shelf: 0dB at 0.5m, -3dB at 8m, -8dB at 15m
 function calc_hi_shelf_db(d) (
   d <= 8.0 ? -3.0 * (d - 0.5) / 7.5
             : -3.0 - 5.0 * (d - 8.0) / 7.0;
 );
 
-dist = slider1;
-send_gain = lms_db2lin(slider2);
-lo_db = calc_lo_shelf_db(dist);
-hi_db = calc_hi_shelf_db(dist);
-prox_lo.lms_bq_set_loshelf(250, lo_db, 0.707);
-prox_hi.lms_bq_set_hishelf(4000, hi_db, 0.707);
-dist_gain = 1.0 / sqrt(max(0.5, dist));
+function apply_prox(d) (
+  lo_db = calc_lo_shelf_db(d);
+  hi_db = calc_hi_shelf_db(d);
+  prox_lo.lms_bq_set_loshelf(250, lo_db, 0.707);
+  prox_hi.lms_bq_set_hishelf(4000, hi_db, 0.707);
+  dist_gain = 1.0 / sqrt(max(0.5, d));
+);
+
+apply_prox(dist);
 
 @slider
-dist = slider1;
-send_gain = lms_db2lin(slider2);
 
 @block
-// Local defaults
-dist = slider1;
-send_gain = lms_db2lin(slider2);
+// Manual slot (1-based slider, 0-based index)
+my_slot = max(0, min(7, floor(slider1) - 1));
 
-// Check master heartbeat (room alive?)
+// Write heartbeat to our slot (so Space can detect us)
+send_heartbeat += 1;
+si = ROOM_SEND_BASE + my_slot * ROOM_SEND_STRIDE;
+gmem[si]     = send_heartbeat;
+gmem[si + 1] = floor(slider2);
+gmem[si + 2] = floor(slider3);
+gmem[si + 3] = 1.0;
+
+// Check master heartbeat (Space alive?)
 master_hb = gmem[ROOM_GMEM_BASE];
 master_hb != last_master_hb ? (
   last_master_hb = master_hb;
   master_alive = 1;
-  master_timeout = 100;
+  master_timeout = 0;
 ) : (
-  master_timeout > 0 ? master_timeout -= 1 : master_alive = 0;
+  master_timeout += samplesblock / srate;
+  master_timeout > 2.0 ? master_alive = 0;
 );
 
-// Auto-claim gmem slot
-claimed = 0;
-k = 0;
-loop(MAX_SLOTS,
-  !claimed ? (
-    si = ROOM_SEND_BASE + k * ROOM_SEND_STRIDE;
-    gmem[si + 1] == send_instance_id ? (
-      my_slot = k;
-      claimed = 1;
-    );
-  );
-  k += 1;
-);
-!claimed ? (
-  k = 0;
-  loop(MAX_SLOTS,
-    !claimed ? (
-      si = ROOM_SEND_BASE + k * ROOM_SEND_STRIDE;
-      gmem[si + 3] < 0.5 ? (
-        my_slot = k;
-        claimed = 1;
-      );
-    );
-    k += 1;
-  );
-);
-my_slot < 0 ? my_slot = 0;
-
-// Write heartbeat + local distance to gmem (Room reads this on first connect)
-send_heartbeat += 1;
-si = ROOM_SEND_BASE + my_slot * ROOM_SEND_STRIDE;
-gmem[si]     = send_heartbeat;
-gmem[si + 1] = send_instance_id;
-gmem[si + 2] = dist;
-gmem[si + 3] = 1.0;
-
-// Check for remote control from Room
+// Read control values from Space
 ci = ROOM_CTRL_BASE + my_slot * ROOM_CTRL_STRIDE;
-gmem[ci + 2] > 0.5 ? (
-  remote_active = 1;
+master_alive && gmem[ci + 2] > 0.5 ? (
   dist = gmem[ci];
   send_gain = lms_db2lin(gmem[ci + 1]);
 ) : (
-  remote_active = 0;
+  dist = 2.0;
+  send_gain = 1.0;
 );
 
-// Update proximity filters (after remote override)
-lo_db = calc_lo_shelf_db(dist);
-hi_db = calc_hi_shelf_db(dist);
-prox_lo.lms_bq_set_loshelf(250, lo_db, 0.707);
-prox_hi.lms_bq_set_hishelf(4000, hi_db, 0.707);
-dist_gain = 1.0 / sqrt(max(0.5, dist));
+// Update proximity filters
+apply_prox(dist);
+
+// Track slot changes — clear old slot's active flag
+prev_slot >= 0 && prev_slot != my_slot ? (
+  old_si = ROOM_SEND_BASE + prev_slot * ROOM_SEND_STRIDE;
+  gmem[old_si + 3] = 0;
+);
+prev_slot = my_slot;
+
+// Scan slot occupancy for @gfx buttons
+k = 0;
+loop(MAX_SLOTS,
+  k == my_slot ? (
+    slot_taken[k] = 0;
+  ) : (
+    sj = ROOM_SEND_BASE + k * ROOM_SEND_STRIDE;
+    slot_taken[k] = gmem[sj + 3] > 0.5 ? 1 : 0;
+  );
+  k += 1;
+);
 
 @sample
 l = spl0;
 r = spl1;
 
-// Proximity-filtered send on ch 3/4 (route send from these channels)
 fl = prox_lo.lms_bq_proc_l(l);
 fr = prox_lo.lms_bq_proc_r(r);
 fl = prox_hi.lms_bq_proc_l(fl);
 fr = prox_hi.lms_bq_proc_r(fr);
 
-// Ch 1/2: dry passthrough (main track unaffected)
 spl0 = l;
 spl1 = r;
-// Ch 3/4: filtered + scaled send signal
 spl2 = fl * dist_gain * send_gain;
 spl3 = fr * dist_gain * send_gain;
 
-@gfx 300 220
+@gfx 300 240
 
 lms_gfx_setup(300);
 lms_gfx_background();
-lms_gfx_logo_title(0, "ROOM SEND", "satellite");
+lms_gfx_logo_title(0, "SPACE SEND", "satellite");
 
 body_y = lms_hdr_h + floor(4*S);
 margin = floor(8*S);
@@ -168,47 +156,149 @@ ctrl_x = margin;
 ctrl_w = gfx_w - margin*2;
 cy = body_y;
 
-// === PROXIMITY ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp, "PROXIMITY");
+// === SLOT (8 buttons: green=free, red=taken, accent=ours) ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+bar_sp, "SLOT");
 cy += floor(26*S);
-_old=slider1; slider1=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider1,0.5,15,"Distance m",0);
-slider1!=_old ? (dist=slider1; slider_automate(2^0);); cy+=bar_sp;
-_old=slider2; slider2=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider2,-24,6,"Send dB",0);
-slider2!=_old ? (send_gain=lms_db2lin(slider2); slider_automate(2^1);); cy+=bar_sp;
-cy+=floor(4*S);
 
-// === STATUS ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp, "STATUS");
-cy += floor(26*S);
-gfx_setfont(1,"Arial",F_LABEL);
-master_alive ? (
-  remote_active ? (
-    gfx_r=COL_ACCENT_R; gfx_g=COL_ACCENT_G; gfx_b=COL_ACCENT_B;
-    gfx_x=ctrl_x+pad; gfx_y=cy;
-    gfx_drawstr("Room Controlled");
+btn_total = ctrl_w - pad2;
+btn_gap = floor(2*S);
+btn_w = floor((btn_total - 7*btn_gap) / 8);
+gk = 0;
+loop(8,
+  btn_x = ctrl_x + pad + gk * (btn_w + btn_gap);
+  gk == (floor(slider1) - 1) ? (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  ) : slot_taken[gk] ? (
+    gfx_r = 0.6; gfx_g = 0.12; gfx_b = 0.12;
   ) : (
-    gfx_r=COL_GREEN_R; gfx_g=COL_GREEN_G; gfx_b=COL_GREEN_B;
-    gfx_x=ctrl_x+pad; gfx_y=cy;
-    gfx_drawstr("Room Connected");
+    gfx_r = 0.12; gfx_g = 0.45; gfx_b = 0.12;
   );
-) : (
-  gfx_r=0.8; gfx_g=0.5; gfx_b=0.1;
-  gfx_x=ctrl_x+pad; gfx_y=cy;
-  gfx_drawstr("No Room");
+  gfx_rect(btn_x, cy, btn_w, bar_h);
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(btn_x, cy, btn_w, bar_h, 0);
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  sprintf(#sn, "%d", gk + 1);
+  gfx_measurestr(#sn, _tw, _th);
+  gfx_x = btn_x + floor((btn_w - _tw) / 2);
+  gfx_y = cy + floor((bar_h - _th) / 2);
+  gfx_drawstr(#sn);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= btn_x && mouse_x < btn_x + btn_w &&
+    mouse_y >= cy && mouse_y < cy + bar_h ? (
+      slider1 = gk + 1;
+      slider_automate(2^0);
+  );
+  gk += 1;
 );
 cy += bar_sp;
+cy += floor(4*S);
 
-// Routing info
-gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
-gfx_setfont(1,"Arial",F_TINY);
-gfx_x=ctrl_x+pad; gfx_y=cy;
-gfx_drawstr("Send from ch 3/4 to bus");
-gfx_drawstr("   Eff: ");
-lvl = dist_gain * send_gain;
-gfx_drawnumber(20*log10(max(0.0001, lvl)), 1); gfx_drawstr("dB");
+// === SOURCE (click-through selectors: left=next, right=prev) ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp, "SOURCE");
+cy += floor(26*S);
+
+sel_x = ctrl_x + pad;
+sel_w = ctrl_w - pad2;
+
+// Type
+_old = slider2;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(sel_x, cy, sel_w, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(sel_x, cy, sel_w, bar_h, 0);
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = sel_x + floor(5*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawstr("Type");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = sel_x + sel_w - floor(80*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+slider2==0 ? gfx_drawstr("Drums");
+slider2==1 ? gfx_drawstr("Percussion");
+slider2==2 ? gfx_drawstr("Guitar");
+slider2==3 ? gfx_drawstr("Bass");
+slider2==4 ? gfx_drawstr("Vocals");
+slider2==5 ? gfx_drawstr("Keys");
+slider2==6 ? gfx_drawstr("Synth");
+slider2==7 ? gfx_drawstr("Other");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= sel_x && mouse_x <= sel_x + sel_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider2 = (slider2 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= sel_x && mouse_x <= sel_x + sel_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider2 = slider2 - 1; slider2 < 0 ? slider2 = 7;
+);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+
+// Number
+_old = slider3;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(sel_x, cy, sel_w, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(sel_x, cy, sel_w, bar_h, 0);
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = sel_x + floor(5*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawstr("Number");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = sel_x + sel_w - floor(80*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawnumber(floor(slider3), 0);
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= sel_x && mouse_x <= sel_x + sel_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider3 = slider3 % 6 + 1;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= sel_x && mouse_x <= sel_x + sel_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider3 = slider3 - 1; slider3 < 1 ? slider3 = 6;
+);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+cy += floor(4*S);
+
+// === STATUS ===
+master_alive ? (
+  stat_h = floor(26*S) + 3*floor(14*S);
+  lms_draw_panel(ctrl_x, cy, ctrl_w, stat_h, "STATUS");
+  cy += floor(26*S);
+
+  gfx_setfont(1,"Arial",F_LABEL);
+  gfx_r=COL_GREEN_R; gfx_g=COL_GREEN_G; gfx_b=COL_GREEN_B;
+  gfx_x=ctrl_x+pad; gfx_y=cy;
+  gfx_drawstr("Connected to THE SPACE");
+  cy += floor(14*S);
+
+  gfx_setfont(1,"Arial",F_TINY);
+  gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+  gfx_x=ctrl_x+pad; gfx_y=cy;
+  gfx_drawstr("Route ch 3/4 to THE SPACE bus");
+  cy += floor(14*S);
+
+  gfx_x=ctrl_x+pad; gfx_y=cy;
+  gfx_drawstr("Adjust distance & level in THE SPACE");
+  cy += floor(14*S);
+) : (
+  stat_h = floor(26*S) + 2*floor(14*S);
+  lms_draw_panel(ctrl_x, cy, ctrl_w, stat_h, "STATUS");
+  cy += floor(26*S);
+
+  gfx_setfont(1,"Arial",F_LABEL);
+  gfx_r=0.8; gfx_g=0.5; gfx_b=0.1;
+  gfx_x=ctrl_x+pad; gfx_y=cy;
+  gfx_drawstr("Waiting for THE SPACE");
+  cy += floor(14*S);
+
+  gfx_setfont(1,"Arial",F_TINY);
+  gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+  gfx_x=ctrl_x+pad; gfx_y=cy;
+  gfx_drawstr("Add THE SPACE plugin to a bus");
+  cy += floor(14*S);
+);
 
 lms_gfx_notice_btn(gfx_h);
 last_cap = mouse_cap;
-
-@serialize
-file_var(0, send_instance_id);

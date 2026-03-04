@@ -233,6 +233,18 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_room_v2.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
+      <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
+        <changelog><![CDATA[v1.0 — Schroeder reverb with material-based damping. 4 parallel comb filters (LP+HP feedback) into 2 allpass diffusers. Continuous size (1-20m), 8 surface materials (Concrete/Wood/Drywall/Brick/Metal/Carpet/Glass/Curtain) for floor/walls/ceiling with averaged absorption coefficients. Reactive Vibe modes (Bright opens on air content, Moody thickens on lo/mid) driven by 4-band density tracker with adjustable intensity. 8-slot satellite system via gmem — Space Send instances on source tracks route proximity-filtered audio to The Space bus. Click-through material selectors, per-source distance and send level control. 0.22% CPU with 10 sources.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_v2.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_room_send.jsfx" type="effect" desc="LMS - Space Send — Satellite for The Space">
+      <version name="5.0" author="LMS" time="2026-03-04T00:00:00Z">
+        <changelog><![CDATA[v5.0 — Satellite send for The Space reverb. Proximity filtering (lo shelf + hi shelf based on distance), outputs processed audio on ch 3/4 for routing to The Space bus. 8-slot button selector with live occupancy (green=free, red=taken, accent=yours). Click-through instrument type (Drums/Percussion/Guitar/Bass/Vocals/Keys/Synth/Other) and number selectors. Auto-detects The Space via gmem heartbeat.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
+      </version>
+    </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware Champ Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware Fender Champ 5F1 amp sim. Two triode stages (V1a 12AX7 preamp + V2b power driver) with fixed asymmetric clipping and 4-band density tracker (Lo/Mid/Hi/Air) driving Miller LP, air shelf, drive boost, and NFB bandwidth — NOT the clipping curve. PSU sag (25% max droop, 80ms recovery). Simple tone control (LP sweep). 1x12 Greenback cab sim. Built-in spring reverb (4-stage allpass diffusion, pre-delay, feedback LP) and bias tremolo (sine LFO, 1-10Hz). Runs 16 instances at 2.5% CPU.]]></changelog>

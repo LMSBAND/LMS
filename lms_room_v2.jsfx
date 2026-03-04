@@ -1,7 +1,7 @@
-desc:LMS - Room v2
-//tags: reverb room acoustics
+desc:LMS - The Space
+//tags: reverb room acoustics space
 //author: LMS
-//version: 2.0
+//version: 1.0
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
@@ -12,12 +12,15 @@ in_pin:Input R
 out_pin:Output L
 out_pin:Output R
 
-slider1:0<0,5,1{Small Room,Club,Garage,Hall,Cathedral,Plate}>-Preset
+slider1:5<1,20,0.1>-Size (m)
 slider2:50<0,100,1>-Decay (%)
-slider3:30<0,100,1>-Damping (%)
-slider4:100<0,100,1>-Mix (%)
-slider5:0<-24,6,0.1>-Output Gain (dB)
-slider6:50<0,100,1>-Density (%)
+slider3:0<0,7,1{Concrete,Wood,Drywall,Brick,Metal,Carpet,Glass,Curtain}>-Floor
+slider4:2<0,7,1{Concrete,Wood,Drywall,Brick,Metal,Carpet,Glass,Curtain}>-Walls
+slider5:1<0,7,1{Concrete,Wood,Drywall,Brick,Metal,Carpet,Glass,Curtain}>-Ceiling
+slider6:0<0,2,1{Off,Bright,Moody}>-Vibe
+slider7:100<0,100,1>-Mix (%)
+slider8:0<-24,6,0.1>-Output Gain (dB)
+slider9:50<0,100,1>-Vibe Intensity (%)
 
 @init
 
@@ -29,14 +32,16 @@ ROOM_CTRL_BASE   = 900080;
 ROOM_CTRL_STRIDE = 3;
 MAX_SLOTS = 8;
 
-// === Buffer sizes (power of 2, safe up to 192kHz) ===
+// === Buffer sizes ===
 PREDLY_SIZE = 8192;
 PREDLY_MASK = PREDLY_SIZE - 1;
 COMB_SIZE = 32768;
 COMB_MASK = COMB_SIZE - 1;
 AP_SIZE = 8192;
-NUM_PRESETS = 6;
-PRESET_STRIDE = 8;  // comb0-3, ap0-1, feedback, predelay
+
+// === Material table (8 materials × 2: lo_abs, hi_abs) ===
+MAT_COUNT = 8;
+MAT_STRIDE = 2;
 
 // === Memory allocation ===
 buf_pos = 0;
@@ -48,19 +53,24 @@ comb_buf2  = buf_pos;  buf_pos += COMB_SIZE;
 comb_buf3  = buf_pos;  buf_pos += COMB_SIZE;
 ap_buf0    = buf_pos;  buf_pos += AP_SIZE;
 ap_buf1    = buf_pos;  buf_pos += AP_SIZE;
-preset_tbl = buf_pos;  buf_pos += NUM_PRESETS * PRESET_STRIDE;
+mat_tbl    = buf_pos;  buf_pos += MAT_COUNT * MAT_STRIDE;
 
 // Satellite tracking
-sat_active = buf_pos;  buf_pos += MAX_SLOTS;
-sat_hb     = buf_pos;  buf_pos += MAX_SLOTS;
-sat_dist   = buf_pos;  buf_pos += MAX_SLOTS;
+sat_active      = buf_pos;  buf_pos += MAX_SLOTS;
+sat_hb          = buf_pos;  buf_pos += MAX_SLOTS;
+sat_type        = buf_pos;  buf_pos += MAX_SLOTS;
+sat_num         = buf_pos;  buf_pos += MAX_SLOTS;
+sat_stale_timer = buf_pos;  buf_pos += MAX_SLOTS;
+gfx_snap        = buf_pos;  buf_pos += MAX_SLOTS;  // frozen snapshot for @gfx
+
+STALE_TIMEOUT = 2.0;
 
 // Per-satellite control values (Room controls these, sends read them)
 ctrl_dist    = buf_pos;  buf_pos += MAX_SLOTS;
 ctrl_send_db = buf_pos;  buf_pos += MAX_SLOTS;
 ctrl_init    = buf_pos;  buf_pos += MAX_SLOTS;
 
-// Zero buffers
+// Zero DSP buffers (always — clean reverb tail on play)
 memset(predly_buf, 0, PREDLY_SIZE);
 memset(comb_buf0, 0, COMB_SIZE);
 memset(comb_buf1, 0, COMB_SIZE);
@@ -68,71 +78,88 @@ memset(comb_buf2, 0, COMB_SIZE);
 memset(comb_buf3, 0, COMB_SIZE);
 memset(ap_buf0, 0, AP_SIZE);
 memset(ap_buf1, 0, AP_SIZE);
+
+// Reset detection state (always — satellites re-announce on play)
 memset(sat_active, 0, MAX_SLOTS);
-memset(sat_hb, 0, MAX_SLOTS);
-memset(sat_dist, 0, MAX_SLOTS);
-memset(ctrl_init, 0, MAX_SLOTS);
+memset(gfx_snap, 0, MAX_SLOTS);
+memset(sat_type, 0, MAX_SLOTS);
+memset(sat_num, 0, MAX_SLOTS);
+memset(sat_stale_timer, 0, MAX_SLOTS);
+k = 0;
+loop(MAX_SLOTS, sat_hb[k] = -1; k += 1;);
+
+// Clear SEND gmem so dead satellites don't ghost (live ones re-announce in 1 block)
+k = 0;
+loop(MAX_SLOTS * ROOM_SEND_STRIDE, gmem[ROOM_SEND_BASE + k] = 0; k += 1;);
+
+// Restore ctrl VALUES from gmem (survives play/stop — gmem never cleared)
+// ctrl_init stays 0 — @block sets it to 1 only when a live satellite is detected
 k = 0;
 loop(MAX_SLOTS,
-  ctrl_dist[k] = 2.0;
-  ctrl_send_db[k] = 0.0;
+  ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
+  gd = gmem[ci];
+  gd >= 0.5 && gd <= 15.0 ? (
+    ctrl_dist[k] = gd;
+    ctrl_send_db[k] = gmem[ci + 1];
+  ) : (
+    ctrl_dist[k] = 2.0;
+    ctrl_send_db[k] = 0.0;
+  );
+  ctrl_init[k] = 0;
   k += 1;
 );
 
-// === Preset table (delay lengths @ 44.1kHz, scaled to current srate) ===
+// === Material absorption table ===
+//              lo_abs  hi_abs
+mat_tbl[0]  = 0.02; mat_tbl[1]  = 0.03;  // Concrete
+mat_tbl[2]  = 0.13; mat_tbl[3]  = 0.08;  // Wood
+mat_tbl[4]  = 0.20; mat_tbl[5]  = 0.05;  // Drywall
+mat_tbl[6]  = 0.04; mat_tbl[7]  = 0.06;  // Brick
+mat_tbl[8]  = 0.02; mat_tbl[9]  = 0.02;  // Metal
+mat_tbl[10] = 0.16; mat_tbl[11] = 0.63;  // Carpet
+mat_tbl[12] = 0.27; mat_tbl[13] = 0.03;  // Glass
+mat_tbl[14] = 0.25; mat_tbl[15] = 0.64;  // Curtain
+
+// === Base delays (prime numbers @ 44.1kHz, scale with size) ===
 sr_scale = srate / 44100;
+BASE_COMB0 = 1117; BASE_COMB1 = 1277;
+BASE_COMB2 = 1487; BASE_COMB3 = 1601;
+BASE_AP0 = 241; BASE_AP1 = 557;
+BASE_PREDLY = 200;
+BASE_FB = 0.80;
 
-// Small Room
-p = preset_tbl;
-p[0]=floor(1117*sr_scale); p[1]=floor(1277*sr_scale);
-p[2]=floor(1487*sr_scale); p[3]=floor(1601*sr_scale);
-p[4]=floor(241*sr_scale);  p[5]=floor(557*sr_scale);
-p[6]=0.75; p[7]=floor(200*sr_scale);
+function calc_delays(size) (
+  comb_delay0 = min(floor(BASE_COMB0 * size * sr_scale), COMB_SIZE-1);
+  comb_delay1 = min(floor(BASE_COMB1 * size * sr_scale), COMB_SIZE-1);
+  comb_delay2 = min(floor(BASE_COMB2 * size * sr_scale), COMB_SIZE-1);
+  comb_delay3 = min(floor(BASE_COMB3 * size * sr_scale), COMB_SIZE-1);
+  ap_delay0   = min(max(16, floor(BASE_AP0 * size * sr_scale)), AP_SIZE-1);
+  ap_delay1   = min(max(16, floor(BASE_AP1 * size * sr_scale)), AP_SIZE-1);
+  predly_len  = min(floor(BASE_PREDLY * size * sr_scale), PREDLY_SIZE-1);
+);
 
-// Club
-p = preset_tbl + PRESET_STRIDE;
-p[0]=floor(1557*sr_scale); p[1]=floor(1777*sr_scale);
-p[2]=floor(2017*sr_scale); p[3]=floor(2277*sr_scale);
-p[4]=floor(337*sr_scale);  p[5]=floor(677*sr_scale);
-p[6]=0.80; p[7]=floor(400*sr_scale);
-
-// Garage
-p = preset_tbl + 2*PRESET_STRIDE;
-p[0]=floor(2017*sr_scale); p[1]=floor(2317*sr_scale);
-p[2]=floor(2617*sr_scale); p[3]=floor(2917*sr_scale);
-p[4]=floor(441*sr_scale);  p[5]=floor(857*sr_scale);
-p[6]=0.82; p[7]=floor(600*sr_scale);
-
-// Hall
-p = preset_tbl + 3*PRESET_STRIDE;
-p[0]=floor(3217*sr_scale); p[1]=floor(3617*sr_scale);
-p[2]=floor(4017*sr_scale); p[3]=floor(4417*sr_scale);
-p[4]=floor(557*sr_scale);  p[5]=floor(1117*sr_scale);
-p[6]=0.85; p[7]=floor(1000*sr_scale);
-
-// Cathedral
-p = preset_tbl + 4*PRESET_STRIDE;
-p[0]=floor(4817*sr_scale); p[1]=floor(5417*sr_scale);
-p[2]=floor(6017*sr_scale); p[3]=floor(6617*sr_scale);
-p[4]=floor(757*sr_scale);  p[5]=floor(1557*sr_scale);
-p[6]=0.88; p[7]=floor(1800*sr_scale);
-
-// Plate
-p = preset_tbl + 5*PRESET_STRIDE;
-p[0]=floor(1423*sr_scale); p[1]=floor(1637*sr_scale);
-p[2]=floor(1877*sr_scale); p[3]=floor(2137*sr_scale);
-p[4]=floor(307*sr_scale);  p[5]=floor(743*sr_scale);
-p[6]=0.84; p[7]=floor(100*sr_scale);
+function calc_materials(fl, wa, ce) local(fi, wi, ci) (
+  fi = floor(fl) * MAT_STRIDE;
+  wi = floor(wa) * MAT_STRIDE;
+  ci = floor(ce) * MAT_STRIDE;
+  blend_lo = (mat_tbl[fi] + mat_tbl[wi] + mat_tbl[ci]) / 3.0;
+  blend_hi = (mat_tbl[fi+1] + mat_tbl[wi+1] + mat_tbl[ci+1]) / 3.0;
+  hi_damp = blend_hi;
+  lo_leak = max(0.5, 1.0 - blend_lo * 1.5);
+);
 
 // Write positions
 predly_wr = 0;
 comb_wr0 = 0; comb_wr1 = 0; comb_wr2 = 0; comb_wr3 = 0;
 ap_wr0 = 0; ap_wr1 = 0;
 
-// Comb filter one-pole LP states
+// Comb filter states
 comb_lp0 = 0; comb_lp1 = 0; comb_lp2 = 0; comb_lp3 = 0;
+comb_hp0 = 0; comb_hp1 = 0; comb_hp2 = 0; comb_hp3 = 0;
+comb_prev0 = 0; comb_prev1 = 0; comb_prev2 = 0; comb_prev3 = 0;
 
-// Density envelope
+// 4-band density tracker
+room_hd.lms_opto_hd_init();
 density_env = 0;
 
 // State
@@ -140,57 +167,43 @@ room_heartbeat = 0;
 sat_count = 0;
 last_cap = 0;
 
-// Load initial preset
-function load_preset(idx) (
-  p = preset_tbl + idx * PRESET_STRIDE;
-  comb_delay0 = min(p[0], COMB_SIZE-1);
-  comb_delay1 = min(p[1], COMB_SIZE-1);
-  comb_delay2 = min(p[2], COMB_SIZE-1);
-  comb_delay3 = min(p[3], COMB_SIZE-1);
-  ap_delay0   = min(p[4], AP_SIZE-1);
-  ap_delay1   = min(p[5], AP_SIZE-1);
-  base_feedback = p[6];
-  predly_len  = min(p[7], PREDLY_SIZE-1);
-);
+// Wet fade-in (avoids garbage first reflection on play)
+wet_ramp = 0;
+wet_ramp_inc = 1.0 / (srate * 0.05);  // 50ms ramp
 
-cur_preset = floor(slider1);
-load_preset(cur_preset);
-out_gain = lms_db2lin(slider5);
-mix_wet = slider4 / 100;
+calc_delays(slider1);
+calc_materials(slider3, slider4, slider5);
+out_gain = lms_db2lin(slider8);
+mix_wet = slider7 / 100;
 mix_dry = 1.0 - mix_wet;
 
+@serialize
+file_mem(0, ctrl_dist, MAX_SLOTS);
+file_mem(0, ctrl_send_db, MAX_SLOTS);
+file_mem(0, ctrl_init, MAX_SLOTS);
+
 @slider
-new_preset = floor(slider1);
-new_preset != cur_preset ? (
-  cur_preset = new_preset;
-  load_preset(cur_preset);
-);
-out_gain = lms_db2lin(slider5);
-mix_wet = slider4 / 100;
+calc_delays(slider1);
+calc_materials(slider3, slider4, slider5);
+out_gain = lms_db2lin(slider8);
+mix_wet = slider7 / 100;
 mix_dry = 1.0 - mix_wet;
 
 @block
-// Duplicate slider reads
-new_preset = floor(slider1);
-new_preset != cur_preset ? (
-  cur_preset = new_preset;
-  load_preset(cur_preset);
-);
-out_gain = lms_db2lin(slider5);
-mix_wet = slider4 / 100;
+calc_delays(slider1);
+calc_materials(slider3, slider4, slider5);
+out_gain = lms_db2lin(slider8);
+mix_wet = slider7 / 100;
 mix_dry = 1.0 - mix_wet;
 
-// Decay scales feedback: 0% → half of preset, 100% → full preset
+// Decay scales feedback
 decay_mult = 0.5 + 0.5 * (slider2 / 100);
-
-// Damping base: 0% = bright (no LP), 100% = dark (heavy LP), capped at 0.7
-damp_base = slider3 / 100 * 0.7;
 
 // Master heartbeat (so satellites know we're alive)
 room_heartbeat += 1;
 gmem[ROOM_GMEM_BASE] = room_heartbeat;
 
-// Scan satellites (for GFX display)
+// Scan satellites (SmartGate-style time-based stale detection)
 sat_count = 0;
 k = 0;
 loop(MAX_SLOTS,
@@ -198,43 +211,43 @@ loop(MAX_SLOTS,
   hb = gmem[si];
   active = gmem[si + 3];
 
-  hb != sat_hb[k] ? (
-    sat_hb[k] = hb;
-    sat_active[k] = 100;
-    sat_dist[k] = gmem[si + 2];
+  active > 0.5 ? (
+    hb != sat_hb[k] ? (
+      // Heartbeat changed = alive
+      sat_hb[k] = hb;
+      sat_stale_timer[k] = 0;
+      sat_active[k] = 1;
+      sat_type[k] = gmem[si + 1];
+      sat_num[k] = gmem[si + 2];
+    ) : (
+      // Heartbeat unchanged = accumulate stale time
+      sat_stale_timer[k] += samplesblock / srate;
+      sat_stale_timer[k] > STALE_TIMEOUT ? (
+        sat_active[k] = 0;
+      );
+    );
   ) : (
-    sat_active[k] > 0 ? sat_active[k] -= 1;
+    sat_active[k] = 0;
   );
 
-  sat_active[k] > 0 && active > 0.5 ? (
-    sat_count += 1;
-    sat_dist[k] = gmem[si + 2];
-  );
+  sat_active[k] ? sat_count += 1;
+  gfx_snap[k] = sat_active[k];  // freeze for @gfx
   k += 1;
 );
 
 // Write control values to gmem for active satellites
 k = 0;
 loop(MAX_SLOTS,
-  sat_active[k] > 0 ? (
-    // First time: copy satellite's reported distance
-    !ctrl_init[k] ? (
-      ctrl_dist[k] = sat_dist[k];
-      ctrl_send_db[k] = 0.0;
-      ctrl_init[k] = 1;
-    );
-    // Write control to gmem
+  sat_active[k] ? (
+    // Mark as initialized (ctrl values already restored from gmem or defaulted in @init)
+    ctrl_init[k] = 1;
     ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
     gmem[ci]     = ctrl_dist[k];
     gmem[ci + 1] = ctrl_send_db[k];
     gmem[ci + 2] = 1.0;
   ) : (
-    // Clear control when satellite disconnects
-    ctrl_init[k] ? (
-      ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
-      gmem[ci + 2] = 0.0;
-      ctrl_init[k] = 0;
-    );
+    ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
+    gmem[ci + 2] = 0.0;
   );
   k += 1;
 );
@@ -244,22 +257,33 @@ dry_l = spl0;
 dry_r = spl1;
 in_mono = (spl0 + spl1) * 0.5;
 
-// === Density envelope (fast attack, slow release) ===
-in_energy = abs(in_mono);
-in_energy > density_env ? (
-  density_env += 0.002 * (in_energy - density_env);
-) : (
-  density_env += 0.00005 * (in_energy - density_env);
-);
-density_env = min(1.0, density_env);
+// === 4-band density tracker ===
+room_hd.lms_opto_hd_proc(in_mono);
+density_env = room_hd.env_total;
 
-// Density modulation: loud → less feedback, more damping (scaled by intensity slider)
-density_int      = slider6 / 100;
-density_fb_mod   = min(0.15, density_env * 0.3) * density_int;
-density_damp_mod = min(0.2,  density_env * 0.4) * density_int;
-mod_fb   = max(0.3, base_feedback * decay_mult - density_fb_mod);
-mod_damp = min(0.85, damp_base + density_damp_mod);
-damp_inv = 1.0 - mod_damp;
+// === Vibe modulation ===
+vibe = floor(slider6);
+vibe_int = slider9 / 100;
+mod_hi_damp = hi_damp;
+mod_lo_leak = lo_leak;
+mod_fb = max(0.3, BASE_FB * decay_mult);
+
+vibe == 1 ? (
+  // Bright: air content opens up the verb (scaled by intensity)
+  mod_hi_damp = max(0.01, hi_damp - room_hd.air_density * 2.0 * vibe_int);
+) :
+vibe == 2 ? (
+  // Moody: lo/mid content thickens the verb (scaled by intensity)
+  lm_mod = (room_hd.env_lo + room_hd.env_mid) * 0.5;
+  lm_mod = min(0.5, lm_mod * 2.0) * vibe_int;
+  mod_hi_damp = min(0.95, hi_damp + lm_mod);
+  mod_fb = min(0.95, mod_fb + lm_mod * 0.3);
+);
+
+// Effect activity for display
+vibe_fx = min(1.0, abs(mod_hi_damp - hi_damp) * 5.0);
+
+damp_inv = 1.0 - mod_hi_damp;
 
 // === Pre-delay ===
 predly_buf[predly_wr] = in_mono;
@@ -268,65 +292,71 @@ rd < 0 ? rd += PREDLY_SIZE;
 in_delayed = predly_buf[rd & PREDLY_MASK];
 predly_wr = (predly_wr + 1) & PREDLY_MASK;
 
-// === 4 parallel comb filters (lowpass-feedback comb) ===
+// === 4 parallel comb filters (LP + HP feedback damping) ===
 // Comb 0
 rd = comb_wr0 - comb_delay0;
 rd < 0 ? rd += COMB_SIZE;
 c0_out = comb_buf0[rd & COMB_MASK];
-comb_lp0 = comb_lp0 * mod_damp + c0_out * damp_inv;
-comb_buf0[comb_wr0] = in_delayed + comb_lp0 * mod_fb;
+comb_lp0 = comb_lp0 * mod_hi_damp + c0_out * damp_inv;
+comb_hp0 = mod_lo_leak * (comb_hp0 + comb_lp0 - comb_prev0);
+comb_prev0 = comb_lp0;
+comb_buf0[comb_wr0] = in_delayed + comb_hp0 * mod_fb;
 comb_wr0 = (comb_wr0 + 1) & COMB_MASK;
 
 // Comb 1
 rd = comb_wr1 - comb_delay1;
 rd < 0 ? rd += COMB_SIZE;
 c1_out = comb_buf1[rd & COMB_MASK];
-comb_lp1 = comb_lp1 * mod_damp + c1_out * damp_inv;
-comb_buf1[comb_wr1] = in_delayed + comb_lp1 * mod_fb;
+comb_lp1 = comb_lp1 * mod_hi_damp + c1_out * damp_inv;
+comb_hp1 = mod_lo_leak * (comb_hp1 + comb_lp1 - comb_prev1);
+comb_prev1 = comb_lp1;
+comb_buf1[comb_wr1] = in_delayed + comb_hp1 * mod_fb;
 comb_wr1 = (comb_wr1 + 1) & COMB_MASK;
 
 // Comb 2
 rd = comb_wr2 - comb_delay2;
 rd < 0 ? rd += COMB_SIZE;
 c2_out = comb_buf2[rd & COMB_MASK];
-comb_lp2 = comb_lp2 * mod_damp + c2_out * damp_inv;
-comb_buf2[comb_wr2] = in_delayed + comb_lp2 * mod_fb;
+comb_lp2 = comb_lp2 * mod_hi_damp + c2_out * damp_inv;
+comb_hp2 = mod_lo_leak * (comb_hp2 + comb_lp2 - comb_prev2);
+comb_prev2 = comb_lp2;
+comb_buf2[comb_wr2] = in_delayed + comb_hp2 * mod_fb;
 comb_wr2 = (comb_wr2 + 1) & COMB_MASK;
 
 // Comb 3
 rd = comb_wr3 - comb_delay3;
 rd < 0 ? rd += COMB_SIZE;
 c3_out = comb_buf3[rd & COMB_MASK];
-comb_lp3 = comb_lp3 * mod_damp + c3_out * damp_inv;
-comb_buf3[comb_wr3] = in_delayed + comb_lp3 * mod_fb;
+comb_lp3 = comb_lp3 * mod_hi_damp + c3_out * damp_inv;
+comb_hp3 = mod_lo_leak * (comb_hp3 + comb_lp3 - comb_prev3);
+comb_prev3 = comb_lp3;
+comb_buf3[comb_wr3] = in_delayed + comb_hp3 * mod_fb;
 comb_wr3 = (comb_wr3 + 1) & COMB_MASK;
 
 // === Stereo split + allpass diffusion ===
-// L channel: combs 0+1, R channel: combs 2+3
 sum_l = (c0_out + c1_out) * 0.5;
 sum_r = (c2_out + c3_out) * 0.5;
 
-// Allpass 0 (left)
 wet_l = lms_spring_ap(ap_buf0, ap_wr0, ap_delay0, sum_l, 0.5);
 ap_wr0 = (ap_wr0 + 1) % ap_delay0;
 
-// Allpass 1 (right)
 wet_r = lms_spring_ap(ap_buf1, ap_wr1, ap_delay1, sum_r, 0.5);
 ap_wr1 = (ap_wr1 + 1) % ap_delay1;
 
 // === Mix + output ===
-spl0 = (dry_l * mix_dry + wet_l * mix_wet) * out_gain;
-spl1 = (dry_r * mix_dry + wet_r * mix_wet) * out_gain;
+wet_ramp = min(1.0, wet_ramp + wet_ramp_inc);
+spl0 = (dry_l * mix_dry + wet_l * mix_wet * wet_ramp) * out_gain;
+spl1 = (dry_r * mix_dry + wet_r * mix_wet * wet_ramp) * out_gain;
 
 // Safety clamp
 spl0 = max(-4, min(4, spl0));
 spl1 = max(-4, min(4, spl1));
 
-@gfx 400 580
+@gfx 400 620
 
 lms_gfx_setup(400);
 lms_gfx_background();
-lms_gfx_logo_title(0, "ROOM", "special");
+lms_gfx_logo_title(0, "THE SPACE", "special");
 
 body_y = lms_hdr_h + floor(4*S);
 margin = floor(8*S);
@@ -339,81 +369,235 @@ ctrl_x = margin;
 ctrl_w = gfx_w - margin*2;
 cy = body_y;
 
-// === PRESET ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+bar_sp, "PRESET");
+// === ROOM ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+bar_sp, "ROOM");
 cy += floor(26*S);
-_old=slider1; slider1=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider1,0,5,"Preset",1);
-slider1=floor(slider1+0.5); slider1!=_old ? slider_automate(2^0);
-// Preset name overlay
-gfx_setfont(1,"Arial",F_LABEL);
-gfx_r=COL_ACCENT_R; gfx_g=COL_ACCENT_G; gfx_b=COL_ACCENT_B;
-gfx_x=ctrl_x+ctrl_w-floor(90*S); gfx_y=cy+floor((bar_h-F_LABEL)/2);
-slider1==0 ? gfx_drawstr("Small Room");
-slider1==1 ? gfx_drawstr("Club");
-slider1==2 ? gfx_drawstr("Garage");
-slider1==3 ? gfx_drawstr("Hall");
-slider1==4 ? gfx_drawstr("Cathedral");
-slider1==5 ? gfx_drawstr("Plate");
+_old=slider1; slider1=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider1,1,20,"Size m",0);
+slider1!=_old ? slider_automate(2^0);
 cy+=bar_sp;
 cy+=floor(4*S);
 
-// === REVERB ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp, "REVERB");
+// === MATERIALS (click-through: left=next, right=prev) ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+3*bar_sp, "MATERIALS");
+cy += floor(26*S);
+
+mat_x = ctrl_x + pad;
+mat_w = ctrl_w - pad2;
+
+// Floor
+_old = slider3;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(mat_x, cy, mat_w, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(mat_x, cy, mat_w, bar_h, 0);
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = mat_x + floor(5*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawstr("Floor");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = mat_x + mat_w - floor(80*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+slider3==0 ? gfx_drawstr("Concrete");
+slider3==1 ? gfx_drawstr("Wood");
+slider3==2 ? gfx_drawstr("Drywall");
+slider3==3 ? gfx_drawstr("Brick");
+slider3==4 ? gfx_drawstr("Metal");
+slider3==5 ? gfx_drawstr("Carpet");
+slider3==6 ? gfx_drawstr("Glass");
+slider3==7 ? gfx_drawstr("Curtain");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider3 = (slider3 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider3 = slider3 - 1; slider3 < 0 ? slider3 = 7;
+);
+slider3 = floor(slider3 + 0.5);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+
+// Walls
+_old = slider4;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(mat_x, cy, mat_w, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(mat_x, cy, mat_w, bar_h, 0);
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = mat_x + floor(5*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawstr("Walls");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = mat_x + mat_w - floor(80*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+slider4==0 ? gfx_drawstr("Concrete");
+slider4==1 ? gfx_drawstr("Wood");
+slider4==2 ? gfx_drawstr("Drywall");
+slider4==3 ? gfx_drawstr("Brick");
+slider4==4 ? gfx_drawstr("Metal");
+slider4==5 ? gfx_drawstr("Carpet");
+slider4==6 ? gfx_drawstr("Glass");
+slider4==7 ? gfx_drawstr("Curtain");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider4 = (slider4 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider4 = slider4 - 1; slider4 < 0 ? slider4 = 7;
+);
+slider4 = floor(slider4 + 0.5);
+slider4 != _old ? slider_automate(2^3);
+cy += bar_sp;
+
+// Ceiling
+_old = slider5;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(mat_x, cy, mat_w, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(mat_x, cy, mat_w, bar_h, 0);
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = mat_x + floor(5*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+gfx_drawstr("Ceiling");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = mat_x + mat_w - floor(80*S); gfx_y = cy + floor((bar_h - F_LABEL)/2);
+slider5==0 ? gfx_drawstr("Concrete");
+slider5==1 ? gfx_drawstr("Wood");
+slider5==2 ? gfx_drawstr("Drywall");
+slider5==3 ? gfx_drawstr("Brick");
+slider5==4 ? gfx_drawstr("Metal");
+slider5==5 ? gfx_drawstr("Carpet");
+slider5==6 ? gfx_drawstr("Glass");
+slider5==7 ? gfx_drawstr("Curtain");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider5 = (slider5 + 1) % 8;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= mat_x && mouse_x <= mat_x + mat_w &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider5 = slider5 - 1; slider5 < 0 ? slider5 = 7;
+);
+slider5 = floor(slider5 + 0.5);
+slider5 != _old ? slider_automate(2^4);
+cy += bar_sp;
+cy += floor(4*S);
+
+// === VIBE ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp+5*floor(13*S)+floor(4*S), "VIBE");
+cy += floor(26*S);
+_old=slider6; slider6=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider6,2,"Vibe","Off","Bright","Moody","");
+slider6!=_old ? slider_automate(2^5);
+cy+=bar_sp;
+
+// Intensity control
+_old=slider9; slider9=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider9,0,100,"Intensity %",1);
+slider9=floor(slider9+0.5); slider9!=_old ? slider_automate(2^8);
+cy+=bar_sp;
+
+// 4-band density bars
+d_bar_h = floor(10*S);
+d_bx = ctrl_x + pad + floor(30*S);
+d_bar_w = ctrl_w - pad2 - floor(35*S);
+gfx_setfont(1,"Arial",F_TINY);
+
+// LO (Blue)
+gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+gfx_x=ctrl_x+pad; gfx_y=cy; gfx_drawstr("LO");
+disp_lo = min(1, max(0, (room_hd.density - 1.0) / 1.5));
+gfx_r=0.12; gfx_g=0.31; gfx_b=0.86;
+disp_lo > 0 ? gfx_rect(d_bx, cy, floor(d_bar_w * disp_lo), d_bar_h);
+gfx_r=0.2; gfx_g=0.2; gfx_b=0.25;
+gfx_rect(d_bx, cy, d_bar_w, d_bar_h, 0);
+cy += floor(13*S);
+
+// MID (Gold)
+gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+gfx_x=ctrl_x+pad; gfx_y=cy; gfx_drawstr("MID");
+gfx_r=0.86; gfx_g=0.63; gfx_b=0.12;
+room_hd.mid_density > 0 ? gfx_rect(d_bx, cy, floor(d_bar_w * min(1, room_hd.mid_density)), d_bar_h);
+gfx_r=0.2; gfx_g=0.2; gfx_b=0.25;
+gfx_rect(d_bx, cy, d_bar_w, d_bar_h, 0);
+cy += floor(13*S);
+
+// HI (Red-Orange)
+gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+gfx_x=ctrl_x+pad; gfx_y=cy; gfx_drawstr("HI");
+gfx_r=0.86; gfx_g=0.24; gfx_b=0.12;
+room_hd.hi_density > 0 ? gfx_rect(d_bx, cy, floor(d_bar_w * min(1, room_hd.hi_density)), d_bar_h);
+gfx_r=0.2; gfx_g=0.2; gfx_b=0.25;
+gfx_rect(d_bx, cy, d_bar_w, d_bar_h, 0);
+cy += floor(13*S);
+
+// AIR (Purple)
+gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+gfx_x=ctrl_x+pad; gfx_y=cy; gfx_drawstr("AIR");
+gfx_r=0.71; gfx_g=0.16; gfx_b=0.86;
+room_hd.air_density > 0 ? gfx_rect(d_bx, cy, floor(d_bar_w * min(1, room_hd.air_density)), d_bar_h);
+gfx_r=0.2; gfx_g=0.2; gfx_b=0.25;
+gfx_rect(d_bx, cy, d_bar_w, d_bar_h, 0);
+cy += floor(13*S);
+
+// Effect activity meter (Accent)
+gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+gfx_x=ctrl_x+pad; gfx_y=cy; gfx_drawstr("FX");
+gfx_r=COL_ACCENT_R; gfx_g=COL_ACCENT_G; gfx_b=COL_ACCENT_B;
+vibe_fx > 0 ? gfx_rect(d_bx, cy, floor(d_bar_w * min(1, vibe_fx)), d_bar_h);
+gfx_r=0.2; gfx_g=0.2; gfx_b=0.25;
+gfx_rect(d_bx, cy, d_bar_w, d_bar_h, 0);
+cy += floor(13*S);
+cy += floor(4*S);
+
+// === OUTPUT ===
+lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+3*bar_sp, "OUTPUT");
 cy += floor(26*S);
 _old=slider2; slider2=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider2,0,100,"Decay %",1);
 slider2=floor(slider2+0.5); slider2!=_old ? slider_automate(2^1); cy+=bar_sp;
-_old=slider3; slider3=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider3,0,100,"Damping %",1);
-slider3=floor(slider3+0.5); slider3!=_old ? slider_automate(2^2); cy+=bar_sp;
+_old=slider7; slider7=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider7,0,100,"Mix %",1);
+slider7=floor(slider7+0.5); slider7!=_old ? slider_automate(2^6); cy+=bar_sp;
+_old=slider8; slider8=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider8,-24,6,"Gain dB",0);
+slider8!=_old ? slider_automate(2^7); cy+=bar_sp;
 cy+=floor(4*S);
 
-// === OUTPUT ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp, "OUTPUT");
-cy += floor(26*S);
-_old=slider4; slider4=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider4,0,100,"Mix %",1);
-slider4=floor(slider4+0.5); slider4!=_old ? slider_automate(2^3); cy+=bar_sp;
-_old=slider5; slider5=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider5,-24,6,"Gain dB",0);
-slider5!=_old ? slider_automate(2^4); cy+=bar_sp;
-cy+=floor(4*S);
+// === SOURCES (uses gfx_snap — frozen in @block, stable across entire frame) ===
+// NOTE: uses gk (not k) because @block can interrupt @gfx and corrupt shared variables
+gfx_src_count = 0;
+gk = 0;
+loop(MAX_SLOTS, gfx_snap[gk] ? gfx_src_count += 1; gk += 1;);
 
-// === DENSITY ===
-lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+bar_sp+floor(12*S), "DENSITY");
-cy += floor(26*S);
-_old=slider6; slider6=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider6,0,100,"Intensity %",1);
-slider6=floor(slider6+0.5); slider6!=_old ? slider_automate(2^5); cy+=bar_sp;
-// Activity meter
-den_max = ctrl_w - pad2;
-den_fill = floor(den_max * min(1.0, density_env * 5));
-gfx_r=COL_ACCENT_R*0.7; gfx_g=COL_ACCENT_G*0.7; gfx_b=COL_ACCENT_B*0.7;
-den_fill > 0 ? gfx_rect(ctrl_x+pad, cy, den_fill, floor(6*S));
-gfx_r=COL_PANEL_R*0.5; gfx_g=COL_PANEL_G*0.5; gfx_b=COL_PANEL_B*0.5;
-den_fill < den_max ? gfx_rect(ctrl_x+pad+den_fill, cy, den_max-den_fill, floor(6*S));
-cy += floor(12*S);
-cy += floor(4*S);
-
-// === SOURCES (only shown when satellites connected) ===
-sat_count > 0 ? (
-  src_h = floor(26*S) + sat_count * (floor(14*S) + 2 * bar_sp);
+gfx_src_count > 0 ? (
+  src_h = floor(26*S) + gfx_src_count * (floor(14*S) + 2 * bar_sp);
   lms_draw_panel(ctrl_x, cy, ctrl_w, src_h, "SOURCES");
   cy += floor(26*S);
-  sn = 0;
-  k = 0;
+  gk = 0;
   loop(MAX_SLOTS,
-    sat_active[k] > 0 ? (
-      sn += 1;
-      // Source label
+    gfx_snap[gk] ? (
       gfx_setfont(1,"Arial",F_TINY);
       gfx_r=COL_GREEN_R; gfx_g=COL_GREEN_G; gfx_b=COL_GREEN_B;
       gfx_x=ctrl_x+pad; gfx_y=cy;
-      gfx_drawstr("Send "); gfx_drawnumber(sn, 0);
+      st = floor(sat_type[gk]);
+      st==0 ? gfx_drawstr("Drums");
+      st==1 ? gfx_drawstr("Perc");
+      st==2 ? gfx_drawstr("Guitar");
+      st==3 ? gfx_drawstr("Bass");
+      st==4 ? gfx_drawstr("Vocals");
+      st==5 ? gfx_drawstr("Keys");
+      st==6 ? gfx_drawstr("Synth");
+      st==7 ? gfx_drawstr("Other");
+      gfx_drawstr(" "); gfx_drawnumber(floor(sat_num[gk]), 0);
+      gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;
+      gfx_drawstr("  [slot "); gfx_drawnumber(gk + 1, 0); gfx_drawstr("]");
       cy += floor(14*S);
-      // Distance bar
-      ctrl_dist[k]=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,ctrl_dist[k],0.5,15,"Distance m",0);
+      ctrl_dist[gk]=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,ctrl_dist[gk],0.5,15,"Distance m",0);
       cy+=bar_sp;
-      // Send level bar
-      ctrl_send_db[k]=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,ctrl_send_db[k],-24,6,"Send dB",0);
+      ctrl_send_db[gk]=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,ctrl_send_db[gk],-24,6,"Send dB",0);
       cy+=bar_sp;
     );
-    k += 1;
+    gk += 1;
   );
 );
 
