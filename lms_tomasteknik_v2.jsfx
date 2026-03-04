@@ -994,6 +994,7 @@ bc_my_slot >= 0 ? (
   gmem[pbase + 27] = slider28;
 );
 
+
 bc_instance_count = 0;
 bc_scan = 0;
 loop(BC_MAX_INST,
@@ -1130,6 +1131,7 @@ comp_on ? (
 
 spl0 = amp_out;
 spl1 = amp_out;
+
 
 // Density state for GFX — use v1b (second preamp stage, most relevant)
 d_env_lo  = v1b.hd.env_lo;  d_env_mid = v1b.hd.env_mid;
