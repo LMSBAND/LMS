@@ -59,34 +59,34 @@
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
-    <reapack name="lms_channel_strip.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
+    <reapack name="lms_rtw.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v2.1 — Renamed to LMS RTW (LMS Reinvents The Wheel).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel (import lms_core.jsfx-inc): one file contains all biquad filters, saturation, compressor, DC blocker — fix once, every plugin gets better. Broadcast system: BC_MAX_INST 8→32 so sessions with 30+ tracks work correctly. Instance panel paging: 5 rows/page with < > navigation, defaults to your page, YOU button to jump back. Status labels: LEADER (gold, someone following you) / FOLLOWER (blue, you are following) / UNASSIGNED (gray, free agent) — replaces the always-on [LEADER] label.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
       <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_traumatizer.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
