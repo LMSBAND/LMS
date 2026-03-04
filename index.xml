@@ -527,6 +527,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Analog Synth">
+      <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
+        <changelog><![CDATA[Initial release — Lil Stinker analog synthesizer.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+    </reapack>
     <reapack name="lms_area51_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — the tone is out there...">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware EVH 5150/6505 amp sim. High-gain cold-bias 6L6 architecture. Two channels: Rhythm (tight crunch, moderate gain) and Lead (cascaded stages, saturated high-gain). Cold-biased power tubes (Class AB running cold — crossover notch distortion at low volumes, aggressive bite). 4-stage 12AX7 preamp with bright cap. Shared post-EQ, resonance, presence controls. 6L6 push-pull power amp. Built-in noise gate, spring reverb, tape echo. 12 selectable cabinets. Full density monitor.]]></changelog>
