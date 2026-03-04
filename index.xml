@@ -495,10 +495,10 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_la2a.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
+    <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware opto compressor inspired by the LA-2A. T4 opto cell with dual light-dependent resistor model (fast/slow time constants), program-dependent attack/release, density-aware threshold modulation, peak/compress mode, mix (parallel compression), HF emphasis sidechain, GR metering, broadcast follow/steal.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_la2a.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_smart_gate.jsfx" type="effect" desc="LMS - Smart Gate — Density-Aware Noise Gate">
