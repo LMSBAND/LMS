@@ -51,6 +51,9 @@ slider19:0<-24,24,0.1>-Output (dB)
 slider22:0<0,4,1{None,Mix,Feedback,Wow/Flutter,Speed}>-Delay Mod
 slider23:0<0,3,1{None,Depth,Rate,Mix}>-Flanger Mod
 
+// -- Band Space (write audio to gmem for room plugin positioning) --
+slider24:0<0,1,1{Off,On}>-Band Space
+
 in_pin:Left
 in_pin:Right
 out_pin:Left
@@ -142,6 +145,16 @@ vel_edit_open = 0;
 // DC blocker
 dc_l_x1 = 0; dc_l_y1 = 0;
 dc_r_x1 = 0; dc_r_y1 = 0;
+
+// Band Space gmem constants
+BAND_BASE_GMEM = 800000;
+BAND_SLOT_BASE = 800010;  // slots start after room header
+BAND_STRIDE_GMEM = 8;
+BAND_MAX_SLOTS = 8;
+band_heartbeat = 0;
+band_claimed_slot = -1;  // which slot this instance claimed (-1 = none)
+band_instance_id == 0 ? band_instance_id = floor(rand() * 1073741824) + 1;  // preserve across @init
+prev_band_on = 0;
 
 // ============================================================
 //  DSP FUNCTIONS — all in-house from LMS suite
@@ -386,6 +399,44 @@ db_connected ? (
   !is_follow && got_trigger ? trig_active = 0;
 );
 
+// ---- Band Space: auto-claim slot when room exists ----
+band_on = slider24;
+band_on && gmem[BAND_BASE_GMEM] > 0 ? (
+  // Room exists — claim a slot if we don't have one
+  band_claimed_slot < 0 ? (
+    // Scan for first free slot (no active heartbeat) or one we already own
+    bs = 0;
+    loop(BAND_MAX_SLOTS,
+      band_claimed_slot < 0 ? (
+        bsi = BAND_SLOT_BASE + bs * BAND_STRIDE_GMEM;
+        // Claim if: our instance_id matches, or slot is inactive (stale heartbeat or no active flag)
+        gmem[bsi+3] == band_instance_id ? (
+          band_claimed_slot = bs;
+        ) : gmem[bsi+1] < 0.5 ? (
+          band_claimed_slot = bs;
+        );
+      );
+      bs += 1;
+    );
+  );
+  // Write to our claimed slot
+  band_claimed_slot >= 0 ? (
+    band_heartbeat += 1;
+    bsi = BAND_SLOT_BASE + band_claimed_slot * BAND_STRIDE_GMEM;
+    gmem[bsi]   = band_heartbeat;
+    gmem[bsi+1] = 1.0;
+    gmem[bsi+3] = band_instance_id;
+  );
+) : (
+  // Release our slot
+  band_claimed_slot >= 0 ? (
+    bsi = BAND_SLOT_BASE + band_claimed_slot * BAND_STRIDE_GMEM;
+    gmem[bsi+1] = 0;
+    // keep gmem[bsi+3] (instance_id) so we can reclaim this slot
+  );
+  band_claimed_slot = -1;
+);
+
 // ============================================================
 //  @SAMPLE — THE FX ENGINE
 // ============================================================
@@ -608,8 +659,18 @@ SCOPE_BUF[scope_pos] = (in_l + in_r) * 0.5;
 scope_pos += 1;
 scope_pos >= SCOPE_SIZE ? scope_pos = 0;
 
-spl0 = in_l;
-spl1 = in_r;
+// Band Space: write post-FX mono audio to gmem
+// When band mode active, audio goes ONLY via gmem — zero bus output to prevent
+// double-processing (same audio through main source + band source = comb filter)
+band_claimed_slot >= 0 ? (
+  bsi = BAND_SLOT_BASE + band_claimed_slot * BAND_STRIDE_GMEM;
+  gmem[bsi+2] = (in_l + in_r) * 0.5;
+  spl0 = 0;
+  spl1 = 0;
+) : (
+  spl0 = in_l;
+  spl1 = in_r;
+);
 
 
 // ============================================================
@@ -1090,6 +1151,51 @@ gfx_is_locked ? (
     LOCK_HAS_DATA[gfx_lock_slot] = 0;
     lock_mode = 0;  // back to Follow
   );
+);
+
+// ---- BAND SPACE button — toggle send to room plugin ----
+band_btn_w = floor(54 * S);
+band_btn_h = floor(16 * S);
+band_btn_x = slot_base_x + NUM_LOCKS * (slot_w + slot_gap) + floor(4 * S);
+// Shift right if CAPTURE or CLEAR is showing
+gfx_is_follow ? (
+  band_btn_x = cap_btn_x + cap_btn_w + floor(4 * S);
+) : gfx_is_locked ? (
+  band_btn_x = clear_btn_x + clear_btn_w + floor(4 * S);
+);
+band_btn_y = mode_row_y + floor(1 * S);
+
+band_room_exists = gmem[BAND_BASE_GMEM] > 0;
+slider24 && band_room_exists && band_claimed_slot >= 0 ? (
+  // Active + connected: green with slot number
+  gfx_r = 0.15; gfx_g = 0.35; gfx_b = 0.15;
+  gfx_rect(band_btn_x, band_btn_y, band_btn_w, band_btn_h);
+  gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+) : slider24 && !band_room_exists ? (
+  // On but no room detected: amber
+  gfx_r = 0.25; gfx_g = 0.18; gfx_b = 0.05;
+  gfx_rect(band_btn_x, band_btn_y, band_btn_w, band_btn_h);
+  gfx_r = 0.8; gfx_g = 0.5; gfx_b = 0.1;
+) : (
+  // Off
+  gfx_r = 0.06; gfx_g = 0.06; gfx_b = 0.08;
+  gfx_rect(band_btn_x, band_btn_y, band_btn_w, band_btn_h);
+  gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
+);
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = band_btn_x + floor(4 * S); gfx_y = band_btn_y + floor(2 * S);
+slider24 && band_claimed_slot >= 0 ? (
+  gfx_drawstr("BAND "); gfx_drawnumber(band_claimed_slot + 1, 0);
+) : (
+  gfx_drawstr("BAND");
+);
+
+// Click: toggle on/off
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= band_btn_x && mouse_x < band_btn_x + band_btn_w &&
+  mouse_y >= band_btn_y && mouse_y < band_btn_y + band_btn_h ? (
+  slider24 = 1 - slider24;
+  slider_automate(2^23);
 );
 
 // ============================================================
@@ -1614,5 +1720,9 @@ file_avail(0) >= 0 ? (
   file_avail(0) >= 0 ? (
     file_var(0, trig_source_sel);
     file_var(0, comp_mode);
+  );
+  // Band Space slot
+  file_avail(0) >= 0 ? (
+    file_var(0, slider24);
   );
 );
