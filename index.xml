@@ -89,34 +89,34 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_channel_strip.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_distressor.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
+    <reapack name="lms_traumatizer.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-17T00:00:00Z">
         <changelog><![CDATA[v2.0 — Full GUI overhaul with skeuomorphic analog controls, broadcast system (gmem instance registry, follow mode, state stealing), persistent follow state across transport stop/start.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="2.1" author="LMS" time="2026-02-17T12:00:00Z">
         <changelog><![CDATA[v2.1 — Renamed to KITTY KATS BIG KRUSH.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="3.0" author="LMS" time="2026-02-17T18:00:00Z">
         <changelog><![CDATA[v3.0 — Fix: GUI slider changes now update audio in real-time (slider_automate). Hidden native slider panel.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="4.0" author="LMS" time="2026-02-18T00:00:00Z">
         <changelog><![CDATA[v4.0 — Shared DSP kernel, BC_MAX_INST 32, instance panel paging, LEADER/FOLLOWER/UNASSIGNED status labels.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="4.1" author="LMS" time="2026-02-20T12:00:00Z">
         <changelog><![CDATA[v4.1 — Saturation now density-aware (core v3.0). Instance prefix + _init fix.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
       <version name="5.0" author="LMS" time="2026-02-21T00:00:00Z">
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_distressor.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_passive_eq.jsfx" type="effect" desc="PEQ4U — Passive Equalizer">
