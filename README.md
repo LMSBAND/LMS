@@ -24,58 +24,58 @@ https://instagram.com/LMSSKABAND
 
 ## LMS Plugin Suite — Install Guide
 
-Free, open source mixing tools for REAPER. 11 density-aware amp sims, physical room modeler, LA-2A opto compressor, drum machine, autotune, smart gate, pitch detection, and more — all sharing one DSP kernel (69 functions). Works on Linux, Mac, and Windows.
+Free, open source mixing tools for REAPER. 11 density-aware amp sims, 2 synths, physical room modeler, opto compressor, drum machine, pitch correction, smart gate, pitch detection, and more — all sharing one DSP kernel. Works on Linux, Mac, and Windows.
 
 ### What's included
 
 **Amp Sims (11)**
 | Plugin | What it does |
 |--------|-------------|
-| `lms_oj99_v2.jsfx` | Orange-style — spring reverb, tremolo, tape echo |
-| `lms_basswoman_v2.jsfx` | Fender Bassman — spring, trem, echo |
-| `lms_ac15_v2.jsfx` | Vox AC15 — spring, trem, echo |
-| `lms_frenchie_v2.jsfx` | Frenchie — spring, tremolo |
-| `lms_fridge_v2.jsfx` | Ampeg fridge — Crushinator, spring, trem, echo |
-| `lms_5150_v2.jsfx` | 5150 — noise gate, spring, trem, echo |
-| `lms_mesa_v2.jsfx` | Mesa Rectifier — 3 channels, noise gate, spring, trem, echo |
-| `lms_punk_v2.jsfx` | JCM800 — spring, trem, echo |
-| `lms_twins_v2.jsfx` | Fender Twin — spring, trem, echo |
-| `lms_nightmare_v2.jsfx` | Nightmare — spring, trem, echo |
-| `lms_tomasteknik_v2.jsfx` | Tomasteknik — spring, trem, echo |
+| `lms_oj95_v2.jsfx` | OJ 95 — this is one killer amp |
+| `lms_bottom_feeder_v2.jsfx` | Bottom Feeder — tweed bass, spring, trem, echo |
+| `lms_ol_reliable_v2.jsfx` | Ol Reliable — EL84 Class A, spring, trem, echo |
+| `lms_frenchie_v2.jsfx` | The Frenchie — 5W Class A, spring, tremolo |
+| `lms_fridge_v2.jsfx` | The Fridge — all-tube bass, Crushinator, spring, trem, echo |
+| `lms_area51_v2.jsfx` | Area 50/51 — the tone is out there..., noise gate, spring, trem, echo |
+| `lms_trsob_v2.jsfx` | The TRSOB — high-gain rectifier, 3 channels, noise gate, spring, trem, echo |
+| `lms_punk_idol_v2.jsfx` | Punk Idol — British crunch, spring, trem, echo |
+| `lms_twins_v2.jsfx` | The Twins — dual American clean, spring, trem, echo |
+| `lms_nightmare_v2.jsfx` | The Fucking Nightmare — hybrid bass, spring, trem, echo |
+| `lms_tomasteknik_v2.jsfx` | TOMASTEKNIK — all-tube bass + OD, spring, trem, echo |
 
 **Instruments**
 | Plugin | What it does |
 |--------|-------------|
 | `lms_drumbanger.jsfx` | Sample-based drum machine + sequencer |
-| `lms_moog_synth.jsfx` | Moog-style ladder filter synth |
-| `lms_drum_trigger.jsfx` | Audio-to-MIDI drum trigger |
+| `lms_nuug420.jsfx` | NUUG 420 — analog mono synth (ladder filter, unison, chorus, delay) |
+| `lms_lil_stinker.jsfx` | Lil Stinker — analog mono/poly synth (ladder filter, Multidrive, 74 presets) |
+| `lms_drum_trigger.jsfx` | Audio-to-DrumBanger transient detector |
 
 **Channel Tools**
 | Plugin | What it does |
 |--------|-------------|
-| `lms_channel_strip.jsfx` | Preamp, 4-band EQ, compressor, output |
-| `lms_distressor.jsfx` | FET compressor / distressor |
-| `lms_la2a.jsfx` | Density-aware LA-2A opto compressor |
-| `lms_smart_gate.jsfx` | Density-aware noise gate (single + drum mode, cross-mic phase correction) |
-| `lms_tube_sat.jsfx` | Tube saturation — warm/hot/tape/fuzz modes |
-| `lms_density_limiter.jsfx` | Predictive mastering limiter |
-| `lms_pitch_detector.jsfx` | Monophonic YIN pitch tracker (MIDI output) |
+| `lms_rtw.jsfx` | RTW (Reinvents The Wheel) — channel strip (EQ + compression + gate) |
+| `lms_traumatizer.jsfx` | KITTY KATS Big Krush — compressor/crusher |
+| `lms_silver69.jsfx` | Silver Sixty Nine — density-aware opto compressor |
+| `lms_smart_gate.jsfx` | Smart Gate — density-aware noise gate (single + drum mode, cross-mic phase correction) |
+| `lms_tube_sat.jsfx` | Tube Saturator — warm/hot/tape/fuzz modes |
+| `lms_mega_increasinator.jsfx` | Mega Increasinator — predictive mastering limiter |
+| `lms_pitch_detector.jsfx` | Pitch Detector — monophonic YIN pitch tracker (MIDI output) |
 
 **Effects**
 | Plugin | What it does |
 |--------|-------------|
-| `lms_tape_echo.jsfx` | Tape delay with wow/flutter |
-| `lms_tape_machine.jsfx` | Tape saturation + spring reverb |
-| `lms_reverb.jsfx` | FDN reverb with modal filtering |
-| `lms_room.jsfx` | Physical room modeler — geometry-based acoustics |
-| `lms_autotune.jsfx` | Real-time pitch correction (YIN, vibrato preserve, scale snap) |
+| `lms_henge.jsfx` | Henge — tape delay with wow/flutter |
+| `lms_henge_on_crack.jsfx` | Henge On Crack — tape saturation and coloring |
+| `lms_the_space.jsfx` | The Space — physical room modeler (geometry-based acoustics) |
+| `lms_faker.jsfx` | The Faker — real-time pitch correction (YIN, vibrato preserve, scale snap) |
 
 **Core**
 | Plugin | What it does |
 |--------|-------------|
-| `lms_core.jsfx-inc` | Shared DSP kernel — 69 functions — **required by all of the above** |
+| `lms_core.jsfx-inc` | Shared DSP kernel — **required by all of the above** |
 
-All plugins share state through a common memory bus (gmem). The amp's density tracker broadcasts harmonic content. The compressor reads it. The reverb reads it. One PR to lms_core makes every plugin in the suite better.
+All plugins share state through a common memory bus (gmem). The amp's density tracker broadcasts harmonic content. The compressor reads it. The room reads it. One PR to lms_core makes every plugin in the suite better.
 
 ---
 
