@@ -80,7 +80,7 @@ Two amps in one. The Twin is a clean 85W powerhouse; the Deluxe is a 22W breakup
 | Output Level | Final output in dB |
 | FX Bypass | Bypasses built-in effects |
 
-**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + feedback)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Twin channel stays clean at high volumes — use it for pedal platform tones
@@ -103,7 +103,7 @@ The simplest amp in the suite. One knob of gain, one knob of tone. Sounds huge.
 | Output Level | Final output in dB |
 | FX Bypass | Bypasses built-in effects |
 
-**Built-in Effects:** Spring Reverb, Tremolo (depth + speed)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Gain at 70%+ is where the magic happens — spongy, compressed breakup
@@ -115,7 +115,7 @@ The simplest amp in the suite. One knob of gain, one knob of tone. Sounds huge.
 
 Everything the v2 does, plus transformer hysteresis modeling. The output transformer remembers what you just played — previous notes bias the saturation of the next note through persistent magnetic state.
 
-Same controls as v2. The difference is under the hood:
+Same controls as v2 (minus Tape Echo — v3 has Spring Reverb and Tremolo only). The difference is under the hood:
 - B-H curve hysteresis with remanence and coercivity
 - Asymmetric magnetization from single-ended DC bias
 - Dynamic Miller capacitance (6.5–9.5 kHz sweep based on harmonic density)
@@ -182,7 +182,7 @@ The bass amp. SVT tone stack with selectable mid frequency and the Crushinator p
 | Crush Presence | High-frequency edge |
 | Crush Low / High | Tone shaping |
 
-**Built-in Effects:** Tape Echo (mix + time + feedback)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Crushinator Blend at 30-40% adds grit without losing low-end definition
@@ -256,7 +256,7 @@ Two channels: Normal (darker, thicker) and Top Boost (brighter, chimey).
 | Output Level | Final output in dB |
 | FX Bypass | Bypasses built-in effects |
 
-**Built-in Effects:** Tremolo (bias wobble on EL84s — depth + speed), Spring Reverb
+**Built-in Effects:** Tremolo (bias wobble on EL84s — depth + speed), Spring Reverb, Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Top Boost channel is the classic jangly Vox tone
@@ -285,7 +285,7 @@ Three channels of high-gain American brutality with selectable rectifier type.
 | FX Bypass | Bypasses built-in effects |
 | Noise Gate | Built-in gate on/off |
 
-**Built-in Effects:** Tape Echo (mix + time + feedback)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Modern channel + Silicon rectifier + Bold = tightest high-gain tone
@@ -314,7 +314,7 @@ High-gain amp with cold-biased 6L6 power tubes. Two channels and a resonance con
 | FX Bypass | Bypasses built-in effects |
 | Noise Gate | Built-in gate on/off |
 
-**Built-in Effects:** Tape Echo (mix + time + feedback)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - Lead channel is where the gain lives — tight, aggressive, and articulate
@@ -365,7 +365,7 @@ Density-aware Bassman with Normal and Bright channels. Works for bass and guitar
 | Output Level | Final output in dB |
 | FX Bypass | Bypasses built-in effects |
 
-**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + feedback)
+**Built-in Effects:** Spring Reverb, Tremolo (depth + speed), Tape Echo (mix + time + feedback)
 
 **Tips:**
 - The original "bass" amp that guitarists stole — great on both
@@ -642,11 +642,13 @@ Standalone tape delay with spring reverb. Inspired by the Roland Space Echo.
 
 ### Black In Bluhm Special — Physical Room Modeler
 
-Physical room acoustics modeler. Everything emerges from geometry — no fake reverb knobs.
+Physical room acoustics modeler. Everything — comb filtering, diffusion, bass buildup, HF damping, tail length — emerges from geometry and physics. No fake reverb knobs.
+
+2-band frequency-dependent wall absorption (lo/hi split at 1kHz) means materials behave like real surfaces: concrete reflects everything, carpet eats highs, foam kills both. Proximity effect on directional mics boosts bass when the source is close, just like a real cardioid. Level-matched equal-power crossfade keeps volume constant at any mix position.
 
 | Control | What It Does |
 |---------|-------------|
-| Walls | Room polygon sides (3-12) — 4 = rectangle, more = rounder |
+| Walls | Room polygon sides (3-12) — 4 = rectangle, more = rounder/diffuse |
 | Room Width | Room width in meters |
 | Room Depth | Room depth in meters |
 | Ceiling Height | Room height in meters |
@@ -656,16 +658,21 @@ Physical room acoustics modeler. Everything emerges from geometry — no fake re
 | Mic X/Y | Microphone position — drag in room view |
 | Mic Angle | Mic facing direction |
 | Mic Pattern | Omni / Cardioid / Figure-8 / Hypercardioid |
-| Reflection Depth | 1st Order only or 2nd Order reflections |
-| Compressor | Off / LA2A / 1176 / Distressor |
+| Reflection Depth | 1st Order / 2nd Order / 3rd Order |
+| Compressor | Off / LA2A / 1176 / Distressor (wet signal only) |
+| Comp Input | Drive into the compressor (-12 to +24 dB) |
 | Comp Amount | How hard you drive the compressor |
-| Wet Mix | Wet/dry blend |
+| Comp Ratio | 2:1 / 4:1 / 8:1 / 20:1 |
+| Wet Mix | Wet/dry blend (equal-power crossfade) |
 | Output Gain | Output level (dB) |
 
 **Tips:**
-- Parallel walls = comb filtering (move mic to hear it)
-- Source near a wall = bass buildup (boundary effect)
+- Parallel walls = comb filtering (move mic to hear it). More walls = diffusion.
+- Source near a wall = bass buildup (boundary effect) — this emerges from the math
 - Carpet/Foam walls = dead room, Concrete = long RT60
+- 3rd Order on 4 walls is ~4% CPU. 1st Order is under 1%. Use 2nd Order for the sweet spot.
+- Directional mics (Cardioid/Fig-8) boost bass when close to the source (proximity effect)
+- Rotate mic away from source — direct sound drops, far-wall reflections become prominent
 - 1176 at high amount = all-buttons-in room crush
 - Distressor adds harmonic saturation that thickens the verb
 - Drag source and mic in the room view for real-time positioning
@@ -930,17 +937,11 @@ File picker to load a WAV into the pool and assign it to the selected pad.
 **DRUMBANGER: Rescan Pool** (`drumbanger_rescan.lua`)
 Rescans the pool folder and rebuilds the manifest. Run this after manually adding samples.
 
-**DRUMBANGER: Sample from Project** (`drumbanger_sample.lua`)
-Captures a time selection or media item from the timeline as a WAV and loads it onto a pad.
-
 **DRUMBANGER: Sampling Service** (`drumbanger_service.lua`)
 Background service that enables the SAMPLE button inside DrumBanger. Set this as a REAPER startup action for seamless workflow.
 
 **DRUMBANGER: Open Pool Folder** (`drumbanger_open_pool.lua`)
 Opens the DrumBanger pool folder in your system file manager. Drop `.wav` files or kit folders directly. Subfolders become kit names; first 16 `.wav` files per folder map to pads 1–16.
-
-**DRUMBANGER: Diagnose** (`drumbanger_diagnose.lua`)
-Diagnostic tool that searches the REAPER Effects tree and reports all copies of DrumBanger, kits, and pool directories. Changes nothing — purely informational. Run this if kits aren't loading.
 
 **DRUMBANGER: Fix Pool** (`drumbanger_fix_pool.lua`)
 Nuclear option for broken pool directories. Reads all existing `.wav` files into memory, nukes the old pool/kits structure, writes a clean directory, deduplicates, and rebuilds `manifest.txt`. Safe to run — no sample data is lost.

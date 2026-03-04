@@ -520,6 +520,106 @@
     color: var(--orange);
   }
 
+  /* EVIL CABLE MESS */
+  .evil-cables {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.45;
+  }
+  .evil-cables path { fill: none; stroke-linecap: round; }
+  .evil-cables circle { fill: #1a0808; stroke-width: 1.5; }
+
+  .bus-diagram.evil .bus-tracks { position: relative; z-index: 1; }
+  .bus-diagram.evil .bus-connections { position: relative; z-index: 1; }
+
+  /* Connector jacks on evil boxes */
+  .bus-diagram.evil .bus-track-box { position: relative; }
+  .cable-jack {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid #773333;
+    background: #1a0808;
+    position: absolute;
+  }
+  .cable-jack.bot { bottom: -4px; left: 50%; transform: translateX(-50%); }
+  .cable-jack.top { top: -4px; left: 50%; transform: translateX(-50%); }
+  .cable-jack.rt { right: -4px; top: 50%; transform: translateY(-50%); }
+  .cable-jack.lt { left: -4px; top: 50%; transform: translateY(-50%); }
+
+  /* Knob dots between evil routes */
+  .cable-knob {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1px solid #553333;
+    background: radial-gradient(circle at 35% 35%, #332020, #0a0505);
+    vertical-align: middle;
+    margin: 0 3px;
+    position: relative;
+  }
+  .cable-knob::after {
+    content: '';
+    position: absolute;
+    width: 2px; height: 4px;
+    background: #664444;
+    top: 2px; left: 50%;
+    transform: translateX(-50%) rotate(-30deg);
+    border-radius: 1px;
+  }
+
+  /* LMS DATA FLOW */
+  .data-bus {
+    height: 2px;
+    background: linear-gradient(90deg, transparent 5%, var(--good-green) 30%, var(--good-green) 70%, transparent 95%);
+    margin: 1.2rem 0 0.5rem;
+    border-radius: 2px;
+    box-shadow: 0 0 12px rgba(34,197,94,0.25), 0 0 4px rgba(34,197,94,0.4);
+    position: relative;
+  }
+  .data-bus-label {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.5rem;
+    color: rgba(34,197,94,0.5);
+    letter-spacing: 0.2em;
+    margin-bottom: 0.5rem;
+  }
+
+  .data-line {
+    width: 1px;
+    height: 28px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(to bottom, rgba(34,197,94,0.35), rgba(34,197,94,0.08));
+  }
+  .data-line::after {
+    content: '';
+    position: absolute;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: #44ffaa;
+    box-shadow: 0 0 6px rgba(68,255,170,0.8);
+    left: -1px;
+    animation: data-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes data-pulse {
+    0%   { top: -3px; opacity: 0; }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { top: 28px; opacity: 0; }
+  }
+  .bus-track:nth-child(1) .data-line::after { animation-delay: 0s; }
+  .bus-track:nth-child(2) .data-line::after { animation-delay: 0.35s; }
+  .bus-track:nth-child(3) .data-line::after { animation-delay: 0.7s; }
+  .bus-track:nth-child(4) .data-line::after { animation-delay: 0.15s; }
+  .bus-track:nth-child(5) .data-line::after { animation-delay: 0.55s; }
+  .bus-track:nth-child(6) .data-line::after { animation-delay: 0.85s; }
+  .bus-track:nth-child(7) .data-line::after { animation-delay: 0.25s; }
+
   /* ============================================ */
   /* FINAL BANNER */
   /* ============================================ */
@@ -2374,6 +2474,7 @@
   <div class="tldr-header">
     <div class="tldr-badge">TLDR</div>
     <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
+    <div style="color:#8a8f98;font-size:0.8rem;line-height:1.5;max-width:640px;margin:0.75rem auto;font-style:italic;">LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.</div>
     <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
     <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#9660;</span></button>
   </div>
@@ -2632,97 +2733,138 @@
     plugin already knows what every other plugin is doing.
   </p>
 
-  <!-- Traditional routing -->
+  <!-- Traditional routing — cable hell -->
   <div class="bus-diagram evil">
+    <!-- SVG cable tangle -->
+    <svg class="evil-cables" viewBox="0 0 800 220" preserveAspectRatio="none">
+      <!-- main cable runs — tangled, overlapping -->
+      <path d="M60,45 C60,120 180,80 240,160 S380,200 520,170" stroke="#773333" stroke-width="2"/>
+      <path d="M160,50 C200,130 120,160 300,180 S500,130 680,170" stroke="#884422" stroke-width="1.8"/>
+      <path d="M260,42 C280,100 160,140 400,120 S580,180 700,150" stroke="#663322" stroke-width="1.5"/>
+      <path d="M360,48 C340,110 480,90 520,160 S600,180 680,165" stroke="#774433" stroke-width="2"/>
+      <path d="M60,50 C100,140 280,100 360,170 S460,200 680,170" stroke="#553322" stroke-width="1.2" stroke-dasharray="4,3"/>
+      <path d="M460,45 C440,100 560,80 600,130 S660,160 700,155" stroke="#885533" stroke-width="1.8"/>
+      <path d="M560,48 C520,90 620,70 640,120 S680,150 700,160" stroke="#664433" stroke-width="1.5"/>
+      <path d="M160,48 C200,90 100,130 240,150 S340,180 360,170" stroke="#773322" stroke-width="1.3"/>
+      <path d="M60,42 C140,100 80,140 440,130 S600,190 700,165" stroke="#552222" stroke-width="1" stroke-dasharray="6,4"/>
+      <path d="M260,50 C300,80 240,120 500,110 S620,160 640,165" stroke="#884444" stroke-width="1.6"/>
+      <path d="M460,42 C420,80 500,100 400,150 S340,180 520,175" stroke="#663333" stroke-width="1.2"/>
+      <path d="M360,45 C380,70 320,100 200,140 S100,170 160,180" stroke="#774422" stroke-width="1.4" stroke-dasharray="3,5"/>
+      <!-- connector knobs at cable endpoints -->
+      <circle cx="60" cy="45" r="3.5" stroke="#883333"/><circle cx="60" cy="50" r="3.5" stroke="#883333"/>
+      <circle cx="160" cy="50" r="3.5" stroke="#884422"/><circle cx="160" cy="48" r="3.5" stroke="#773322"/>
+      <circle cx="260" cy="42" r="3.5" stroke="#663322"/><circle cx="260" cy="50" r="3.5" stroke="#884444"/>
+      <circle cx="360" cy="48" r="3.5" stroke="#774433"/><circle cx="360" cy="45" r="3.5" stroke="#774422"/>
+      <circle cx="460" cy="45" r="3.5" stroke="#885533"/><circle cx="460" cy="42" r="3.5" stroke="#663333"/>
+      <circle cx="560" cy="48" r="3.5" stroke="#664433"/>
+      <circle cx="680" cy="170" r="4" stroke="#993333"/><circle cx="700" cy="155" r="4" stroke="#993333"/>
+      <circle cx="700" cy="160" r="4" stroke="#993333"/><circle cx="700" cy="165" r="4" stroke="#993333"/>
+      <!-- junction knobs — places where cables cross -->
+      <circle cx="300" cy="140" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
+      <circle cx="400" cy="120" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
+      <circle cx="520" cy="160" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
+      <circle cx="200" cy="130" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
+      <circle cx="500" cy="130" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
+      <circle cx="600" cy="170" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
+    </svg>
     <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
     <div class="bus-tracks">
       <div class="bus-track">
-        <div class="bus-track-box">KICK</div>
+        <div class="bus-track-box">KICK<span class="cable-jack bot"></span><span class="cable-jack rt"></span></div>
         <div class="bus-track-label">Track 1</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box">SNARE</div>
+        <div class="bus-track-box">SNARE<span class="cable-jack bot"></span><span class="cable-jack rt"></span></div>
         <div class="bus-track-label">Track 2</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span></div>
+        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span><span class="cable-jack bot"></span><span class="cable-jack lt"></span></div>
         <div class="bus-track-label">Track 3</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box">SYNTH</div>
+        <div class="bus-track-box">SYNTH<span class="cable-jack bot"></span><span class="cable-jack rt"></span></div>
         <div class="bus-track-label">Track 4</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box send">VERB<br>BUS</div>
+        <div class="bus-track-box send">VERB<br>BUS<span class="cable-jack top"></span><span class="cable-jack bot"></span></div>
         <div class="bus-track-label">Aux 1</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box send">DELAY<br>BUS</div>
+        <div class="bus-track-box send">DELAY<br>BUS<span class="cable-jack top"></span><span class="cable-jack bot"></span></div>
         <div class="bus-track-label">Aux 2</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box send">DRUM<br>BUS</div>
+        <div class="bus-track-box send">DRUM<br>BUS<span class="cable-jack top"></span><span class="cable-jack bot"></span></div>
         <div class="bus-track-label">Bus 1</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box master">MASTER</div>
+        <div class="bus-track-box master">MASTER<span class="cable-jack top"></span><span class="cable-jack lt"></span></div>
         <div class="bus-track-label">Out</div>
       </div>
     </div>
     <div class="bus-connections">
-      <span class="route">T1 → Bus1 (post)</span>
-      <span class="route">T2 → Bus1 (post)</span>
-      <span class="route">T1 → T3 SC (pre)</span>
+      <span class="route">T1 → Bus1 (post)</span><span class="cable-knob"></span>
+      <span class="route">T2 → Bus1 (post)</span><span class="cable-knob"></span>
+      <span class="route">T1 → T3 SC (pre)</span><span class="cable-knob"></span>
       <span class="route">T1 → Aux1 (send -12dB)</span>
-      <span class="route">T2 → Aux1 (send -6dB)</span>
-      <span class="route">T4 → Aux1 (send -18dB)</span>
+      <br>
+      <span class="cable-knob"></span><span class="route">T2 → Aux1 (send -6dB)</span><span class="cable-knob"></span>
+      <span class="route">T4 → Aux1 (send -18dB)</span><span class="cable-knob"></span>
       <span class="route">T4 → Aux2 (send -10dB)</span>
-      <span class="route">Bus1 → Master</span>
-      <span class="route">T3 → Master</span>
-      <span class="route">T4 → Master</span>
-      <span class="route">Aux1 → Master</span>
+      <br>
+      <span class="route">Bus1 → Master</span><span class="cable-knob"></span>
+      <span class="route">T3 → Master</span><span class="cable-knob"></span>
+      <span class="route">T4 → Master</span><span class="cable-knob"></span>
+      <span class="route">Aux1 → Master</span><span class="cable-knob"></span>
       <span class="route">Aux2 → Master</span>
       <br>
       <span style="color:#664444;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
     </div>
   </div>
 
-  <!-- LMS routing -->
+  <!-- LMS routing — clean data flow -->
   <div class="bus-diagram good">
     <h3>LMS: 6 TRACKS, SIDECHAIN + FX — ZERO ROUTING</h3>
     <div class="bus-tracks">
       <div class="bus-track">
         <div class="bus-track-box">DRUM-<br>BANGER</div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 1</div>
       </div>
       <div class="bus-track">
         <div class="bus-track-box">DRONE<br>MIDI→<br>BASS</div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 2</div>
       </div>
       <div class="bus-track">
         <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">SC pad 1</span></div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 2</div>
       </div>
       <div class="bus-track">
         <div class="bus-track-box">DRONE<br>MIDI→<br>SYNTH</div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 3</div>
       </div>
       <div class="bus-track">
         <div class="bus-track-box">DRONE<br>FX<br><span style="font-size:0.45rem;color:var(--orange)">delay+flg</span></div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 3</div>
       </div>
       <div class="bus-track">
         <div class="bus-track-box">CHAN<br>STRIP</div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Track 4</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box master">MATCH-<br>ERING</div>
+        <div class="bus-track-box master">DENSITY<br>LIMITER</div>
+        <div class="data-line"></div>
         <div class="bus-track-label">Master</div>
       </div>
     </div>
+    <div class="data-bus"></div>
+    <div class="data-bus-label">gmem[] SHARED MEMORY BUS</div>
     <div class="bus-connections">
-      <span class="route gmem-route">gmem[] — ALL PLUGINS SHARE STATE</span>
-      <br>
       <span class="route">Drumbanger writes triggers → Drones read</span>
       <span class="route">Pattern change → ALL tracks update</span>
       <span class="route">Sidechain via gmem[] — no audio routing</span>
@@ -2731,102 +2873,6 @@
     </div>
   </div>
 </section>
-
-<!-- ============================================ -->
-<!-- GMEM INTERACTIVE GRAPHIC -->
-<!-- ============================================ -->
-<div class="da-section-label">HOW GMEM WORKS</div>
-
-<div class="gmem-graphic-wrap">
-  <div class="gmem-graphic">
-    <div class="gmem-graphic-title">SHARED MEMORY STATE BUS</div>
-
-    <div class="gmem-toggle-row">
-      <button class="gmem-toggle-btn active-lms" id="gmem-btn-lms" onclick="gmemSetMode('lms')">LMS (gmem[] bus)</button>
-      <button class="gmem-toggle-btn" id="gmem-btn-trad" onclick="gmemSetMode('traditional')">Traditional (routing)</button>
-    </div>
-
-    <!-- LMS mode: bus bar + plugin boxes -->
-    <div id="gmem-lms-view">
-      <div class="gmem-bus-bar" id="gmem-bus-bar">
-        gmem[] — SHARED MEMORY BUS
-        <div class="gmem-bus-sub">All plugins read &amp; write to the same namespace. Same audio block. Zero latency.</div>
-      </div>
-
-      <div class="gmem-plugins-row" id="gmem-plugins-row">
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(0)" id="gmem-p0">
-          DRUM-<br>BANGER
-          <div class="gmem-plugin-sub">writes triggers, step, BPM</div>
-          <div class="gmem-data-line"></div>
-        </div>
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(1)" id="gmem-p1">
-          AMP SIM<br>(TWINS)
-          <div class="gmem-plugin-sub">writes density, reads follow</div>
-          <div class="gmem-data-line"></div>
-        </div>
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(2)" id="gmem-p2">
-          DRONE<br>MIDI
-          <div class="gmem-plugin-sub">reads triggers, writes MIDI</div>
-          <div class="gmem-data-line"></div>
-        </div>
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(3)" id="gmem-p3">
-          DRONE<br>FX
-          <div class="gmem-plugin-sub">reads pad, applies sidechain</div>
-          <div class="gmem-data-line"></div>
-        </div>
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(4)" id="gmem-p4">
-          CHANNEL<br>STRIP
-          <div class="gmem-plugin-sub">reads/writes broadcast</div>
-          <div class="gmem-data-line"></div>
-        </div>
-        <div class="gmem-plugin-box lms-mode" onclick="gmemSelect(5)" id="gmem-p5">
-          DENSITY<br>LIMITER
-          <div class="gmem-plugin-sub">reads all densities</div>
-          <div class="gmem-data-line"></div>
-        </div>
-      </div>
-
-      <div class="gmem-detail-box lms-mode-detail" id="gmem-detail">
-        <h4>CLICK A PLUGIN TO SEE WHAT IT READS &amp; WRITES</h4>
-        <div id="gmem-detail-content">Every plugin in the LMS suite shares a single gmem[] namespace. No audio routing. No sidechain buses. Just memory reads and writes, on the same sample.</div>
-      </div>
-    </div>
-
-    <!-- Traditional mode: spaghetti routing -->
-    <div id="gmem-trad-view" style="display:none">
-      <div class="gmem-bus-bar trad-mode">
-        NO SHARED STATE
-        <div class="gmem-bus-sub">Each plugin is a black box. Communication requires manual audio routing.</div>
-      </div>
-
-      <div class="gmem-plugins-row">
-        <div class="gmem-plugin-box trad-mode">KICK<br>TRACK<div class="gmem-plugin-sub">isolated</div><div class="gmem-data-line"></div></div>
-        <div class="gmem-plugin-box trad-mode">AMP<br>SIM<div class="gmem-plugin-sub">isolated</div><div class="gmem-data-line"></div></div>
-        <div class="gmem-plugin-box trad-mode">COMP<div class="gmem-plugin-sub">needs SC input</div><div class="gmem-data-line"></div></div>
-        <div class="gmem-plugin-box trad-mode">REVERB<br>BUS<div class="gmem-plugin-sub">aux send</div><div class="gmem-data-line"></div></div>
-        <div class="gmem-plugin-box trad-mode">DELAY<br>BUS<div class="gmem-plugin-sub">aux send</div><div class="gmem-data-line"></div></div>
-        <div class="gmem-plugin-box trad-mode">LIMITER<div class="gmem-plugin-sub">master only</div><div class="gmem-data-line"></div></div>
-      </div>
-
-      <div class="gmem-spaghetti">
-        <span class="route-line">Kick → Comp SC (pre-fader)</span>
-        <span class="route-line">Kick → Drum Bus (post)</span>
-        <span class="route-line">Kick → Verb Bus (-12dB)</span>
-        <span class="route-line">Amp → Delay Bus (-6dB)</span>
-        <span class="route-line">Amp → Verb Bus (-18dB)</span>
-        <span class="route-line">Drum Bus → Master</span>
-        <span class="route-line">Verb Bus → Master</span>
-        <span class="route-line">Delay Bus → Master</span>
-        <br>
-        <span style="color:#664444;font-size:9px;margin-top:8px;display:inline-block">Each connection is a manual routing operation in the I/O matrix. No plugin knows what any other plugin is doing.</span>
-      </div>
-    </div>
-
-    <div class="gmem-footer-note">
-      <span class="gmem-packet"></span> data flows between all plugins on every sample — zero latency, zero routing
-    </div>
-  </div>
-</div>
 
 <!-- ============================================ -->
 <!-- DENSITY-AWARE AMP SECTION -->
@@ -3317,16 +3363,36 @@
       <!-- The core box -->
       <div class="the-core">
         <div class="the-core-name">lms_core.jsfx-inc</div>
-        <div class="the-core-subtitle">ONE FILE — THE SOURCE OF TRUTH</div>
+        <div class="the-core-subtitle">ONE FILE — 69 FUNCTIONS — THE ORGAN OF TRUTH</div>
         <div class="core-alg-grid">
           <span class="core-chip">FET comp</span>
-          <span class="core-chip">LA2A opto</span>
+          <span class="core-chip">LA-2A opto</span>
+          <span class="core-chip">Opto lite</span>
+          <span class="core-chip">Brick limiter</span>
           <span class="core-chip">Biquad EQ</span>
+          <span class="core-chip">HP / LP / BP</span>
+          <span class="core-chip">Peak / Shelf</span>
+          <span class="core-chip">Warm tube</span>
+          <span class="core-chip">Hot tube</span>
           <span class="core-chip">Tape sat</span>
-          <span class="core-chip">Delay</span>
-          <span class="core-chip">Flanger</span>
+          <span class="core-chip">Rectifier</span>
+          <span class="core-chip">Fuzz</span>
+          <span class="core-chip">Harmonics</span>
+          <span class="core-chip">ADAA</span>
+          <span class="core-chip">Cab sim</span>
+          <span class="core-chip">12 cab models</span>
+          <span class="core-chip">Impedance</span>
+          <span class="core-chip">Speaker breakup</span>
+          <span class="core-chip">YIN pitch</span>
+          <span class="core-chip">Pitch shift</span>
+          <span class="core-chip">Scale snap</span>
+          <span class="core-chip">Tuner</span>
+          <span class="core-chip">Spring reverb</span>
+          <span class="core-chip">Tone filter</span>
           <span class="core-chip">DC block</span>
-          <span class="core-chip">Pan law</span>
+          <span class="core-chip">Cubic interp</span>
+          <span class="core-chip">Density tracker</span>
+          <span class="core-chip">GFX toolkit</span>
         </div>
         <div class="the-core-community">
           Open source. Community-improved.<br>
@@ -3340,25 +3406,35 @@
         <div class="core-line"></div>
         <div class="core-line"></div>
         <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
       </div>
 
       <!-- Thin plugin boxes -->
       <div class="core-grid new-grid">
         <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">11 AMP SIMS</div>
+          <div class="core-thin-desc">preamp + tonestack only</div>
+        </div>
+        <div class="core-plugin-box new-box">
           <div class="core-plugin-name new-name">CHANNEL STRIP</div>
-          <div class="core-thin-desc">UI + routing logic only</div>
+          <div class="core-thin-desc">UI + routing only</div>
         </div>
         <div class="core-plugin-box new-box">
           <div class="core-plugin-name new-name">DRUMBANGER</div>
-          <div class="core-thin-desc">UI + sequencer logic only</div>
+          <div class="core-thin-desc">sequencer + pads only</div>
         </div>
         <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">DRONE FX</div>
-          <div class="core-thin-desc">UI + gmem[] logic only</div>
+          <div class="core-plugin-name new-name">ROOM MODELER</div>
+          <div class="core-thin-desc">geometry + taps only</div>
         </div>
         <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">TAPE ECHO</div>
-          <div class="core-thin-desc">UI + tape logic only</div>
+          <div class="core-plugin-name new-name">AUTOTUNE</div>
+          <div class="core-thin-desc">scale logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">SMART GATE</div>
+          <div class="core-thin-desc">threshold + broadcast only</div>
         </div>
       </div>
 
@@ -3606,7 +3682,7 @@
       </div>
       <div class="flow-arrow"><span>▼ plus</span></div>
       <div class="flow-node">
-        <div class="node-name">Channel Strip + Tape Echo + Spring Verb + Matchering</div>
+        <div class="node-name">Channel Strip + Tape Echo + Reverbs + Limiter</div>
         <div class="node-detail">~3MB total. DSP algorithms. No sample libraries. No textures.</div>
       </div>
       <div class="flow-arrow"><span>▼ plus</span></div>
@@ -3697,21 +3773,27 @@
   <div class="da-suite-grid">
     <!-- DENSITY-AWARE AMP SIMS -->
     <div class="da-suite-card" style="border-color:var(--amber-dim);">
-      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (6)</div>
+      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (11)</div>
       <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Fender Twin Reverb / Deluxe Reverb (AB763 preamp, cathode follower, Fender tone stack, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
       <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— Marshall JCM800 (bright cap, Marshall tone stack, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
       <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— Fender Champ 5F1 (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
       <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— Ampeg SVT (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
       <div class="da-suite-item"><strong>Top Boost v2</strong> <span class="da-suite-item-desc">— Vox AC15 (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
       <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— Mesa Triple Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
-      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking</div>
+      <div class="da-suite-item"><strong>OJ 99 v2</strong> <span class="da-suite-item-desc">— Orange OR100 Rockerverb (Clean/Dirty channels, Orange tone stack, EL34 push-pull)</span></div>
+      <div class="da-suite-item"><strong>The Basswoman v2</strong> <span class="da-suite-item-desc">— Fender Bassman (Normal/Bright channels, Bassman tone stack, 6L6 push-pull)</span></div>
+      <div class="da-suite-item"><strong>Area 50/51 v2</strong> <span class="da-suite-item-desc">— Peavey 5150 (cold-biased 6L6, Clean/Lead channels, resonance/presence controls, noise gate)</span></div>
+      <div class="da-suite-item"><strong>The Fucking Nightmare v2</strong> <span class="da-suite-item-desc">— Orange Terror Bass (Warm/Aggressive channels, Orange tone stack)</span></div>
+      <div class="da-suite-item"><strong>TOMASTEKNIK v2</strong> <span class="da-suite-item-desc">— Ampeg SVT + Boss ODB-3 + LA-2A (Swedish hardcore bass rig, Blindside tribute)</span></div>
+      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking / Spring + Tremolo + Tape Echo on all amps</div>
     </div>
 
     <!-- INSTRUMENTS -->
     <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
-      <div class="da-suite-card-header da-green">INSTRUMENTS (5)</div>
+      <div class="da-suite-card-header da-green">INSTRUMENTS (6)</div>
       <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Moog-style analog synthesizer (24dB ladder filter, 3 oscillators)</span></div>
       <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
+      <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
       <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
       <div class="da-suite-item"><strong>Drone FX</strong> <span class="da-suite-item-desc">— FX processing satellite (sidechain, delay, flanger via gmem)</span></div>
       <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
@@ -3720,22 +3802,25 @@
 
     <!-- CHANNEL TOOLS -->
     <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
-      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (6)</div>
+      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (7)</div>
       <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— Channel strip (EQ + compression + gate)</span></div>
       <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
-      <div class="da-suite-item"><strong>PEQ4U</strong> <span class="da-suite-item-desc">— 4-band parametric EQ</span></div>
-      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation</span></div>
+      <div class="da-suite-item"><strong>Silver Sixty Nine</strong> <span class="da-suite-item-desc">— Density-aware LA-2A opto compressor (program-dependent attack/release)</span></div>
+      <div class="da-suite-item"><strong>Smart Gate</strong> <span class="da-suite-item-desc">— Density-aware noise gate (single + drum mode with cross-mic phase correction)</span></div>
+      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation (5 modes)</span></div>
       <div class="da-suite-item"><strong>Density Limiter</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
-      <div class="da-suite-item"><strong>Matchering</strong> <span class="da-suite-item-desc">— Mastering reference matching (FIR convolution)</span></div>
-      <div class="da-suite-footer">Density-aware compressors coming</div>
+      <div class="da-suite-item"><strong>Pitch Detector</strong> <span class="da-suite-item-desc">— Monophonic YIN pitch tracker (MIDI output, shared pitch bus)</span></div>
+      <div class="da-suite-footer">Density-aware dynamics across the board</div>
     </div>
 
     <!-- EFFECTS -->
     <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
-      <div class="da-suite-card-header da-blue">EFFECTS (3)</div>
-      <div class="da-suite-item"><strong>Henge Delay</strong> <span class="da-suite-item-desc">— Tape echo with wow/flutter/feedback</span></div>
+      <div class="da-suite-card-header da-blue">EFFECTS (5)</div>
+      <div class="da-suite-item"><strong>Henge Delay</strong> <span class="da-suite-item-desc">— Space Echo tape delay (wow/flutter/spring reverb)</span></div>
       <div class="da-suite-item"><strong>Tape Machine</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
-      <div class="da-suite-item"><strong>Black In Bluhm Special</strong> <span class="da-suite-item-desc">— Physical room modeler + compressor</span></div>
+      <div class="da-suite-item"><strong>Density Reverb</strong> <span class="da-suite-item-desc">— FDN reverb with modal filtering (8 room presets, density-aware)</span></div>
+      <div class="da-suite-item"><strong>Black In Bluhm Special</strong> <span class="da-suite-item-desc">— Physical room modeler (geometry-based acoustics + LA2A/1176/Distressor)</span></div>
+      <div class="da-suite-item"><strong>Autotune</strong> <span class="da-suite-item-desc">— Real-time pitch correction (YIN detection, vibrato preserve, scale snap)</span></div>
       <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
     </div>
 
@@ -3747,6 +3832,14 @@
       <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one instance to another</span></div>
       <div class="da-suite-footer">Session management via Reaper Actions</div>
     </div>
+  </div>
+</div>
+
+<!-- UPDATE NOTICE -->
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 2026 UPDATE</div>
+  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
+    Full suite updated and stable. 11 density-aware amp sims, physical room modeler (Black In Bluhm Special), LA-2A opto compressor, smart drum gate with cross-mic phase correction, pitch detection and correction, and 30+ plugins total. All free. All open source.
   </div>
 </div>
 
