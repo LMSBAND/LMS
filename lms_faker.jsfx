@@ -1,5 +1,5 @@
-desc:LMS Autotune
-//tags: pitch correction autotune vocal tuning
+desc:LMS - The Faker (Pitch Correction)
+//tags: pitch correction vocal tuning
 //author: LMS
 //version: 2.0
 filename:0,shakebot_logo.png
@@ -900,7 +900,7 @@ logo_img_w > 0 ? (
 gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
 gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
-gfx_drawstr("LMS AUTOTUNE");
+gfx_drawstr("THE FAKER");
 
 // ============================================================================
 //  LEFT COLUMN: CORRECTION CONTROLS
