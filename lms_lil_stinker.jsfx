@@ -1153,9 +1153,9 @@ db_timeout = 0;
 last_heartbeat = 0;
 db_trig_active = 0;
 
-// Preset tracking
-last_preset = -1;
-last_randomize = 0;
+// Preset tracking (sync to current slider so transport stop/start doesn't reload)
+last_preset = slider41;
+last_randomize = slider43;
 
 // GUI state
 rand_flash = 0;
