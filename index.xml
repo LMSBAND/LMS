@@ -521,14 +521,14 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_autotune.jsfx" type="effect" desc="LMS - Autotune — Intelligent Pitch Correction">
+    <reapack name="lms_faker.jsfx" type="effect" desc="LMS - The Faker — Intelligent Pitch Correction">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
         <changelog><![CDATA[Initial release — Real-time pitch correction reading from LMS Pitch Detector via shared memory (zero detection overhead). Dual-tap variable delay with sin^2 crossfade for click-free pitch shifting. Speed control: 0% = bypass, 50% = smooth natural correction, 100% = hard tune (T-Pain). Key selection (C-B) with Chromatic, Major, and Minor scale modes. Bitmask scale snapping. Dry/wet mix. Output gain. IN/OUT pitch display with correction amount visualization. Broadcast follow/steal.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_autotune.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
       <version name="2.0" author="LMS" time="2026-02-25T12:00:00Z">
         <changelog><![CDATA[v2.0 — Embedded pitch detection + Vocal Intelligence. No longer requires standalone pitch detector — detects and corrects in one plugin. Full YIN detector with 4-band density tracker, voiced/unvoiced classification, YIN decimation, auto-ranging. Lookahead buffer (0-15ms) lets detection results arrive before audio hits the pitch shifter for cleaner note transitions. Signal conditioning: input HPF (80Hz), output DC blocker, tone filter (16kHz). Velocity-aware speed modulation (backs off during fast transitions). Onset snap (tighter correction on note attacks). Vibrato preservation (reduces correction during detected vibrato). Pitch Tendencies: per-note bias tracking learns singer's pitch habits (auto-locks after 10 observations per note), right-click bias editor for manual adjustment, LOCK/RESET buttons. Dry/wet as ratio fold (eliminates comb filtering). Compact PSOLA buffer (1024 samples, ~10ms delay). Still publishes to gmem pitch bus for vocoder compatibility. Serialization v2 with backward compat.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_autotune.jsfx</source>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
@@ -569,7 +569,7 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_area51_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — Density-Aware Cold-Bias 6L6 Amp Sim">
+    <reapack name="lms_area51_v2.jsfx" type="effect" desc="LMS - Area 50/51 v2 — the tone is out there...">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
         <changelog><![CDATA[Initial release — Density-aware EVH 5150/6505 amp sim. High-gain cold-bias 6L6 architecture. Two channels: Rhythm (tight crunch, moderate gain) and Lead (cascaded stages, saturated high-gain). Cold-biased power tubes (Class AB running cold — crossover notch distortion at low volumes, aggressive bite). 4-stage 12AX7 preamp with bright cap. Shared post-EQ, resonance, presence controls. 6L6 push-pull power amp. Built-in noise gate, spring reverb, tape echo. 12 selectable cabinets. Full density monitor.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
