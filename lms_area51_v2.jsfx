@@ -6,7 +6,7 @@ desc:LMS - Area 50/51 v2 (the tone is out there...)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R

@@ -1,0 +1,577 @@
+desc:LMS - Punk Idol Test (JCM800 + Inter-Stage Coupling)
+//tags: test amp guitar marshall
+//author: LMS
+import lms_core.jsfx-inc
+options:gmem=DrumBanger
+
+slider1:0<-24,24,0.1>Input Level (dB)
+slider2:50<0,100,0.1>Gain (%)
+slider3:1<0,2,1{Clean,Crunch,Lead}>Channel
+slider4:50<0,100,1>Bass (%)
+slider5:50<0,100,1>Mid (%)
+slider6:50<0,100,1>Treble (%)
+slider7:50<0,100,1>Presence (%)
+slider8:50<0,100,1>Master (%)
+slider9:50<0,100,1>Input Stage (%)
+slider10:0<0,1,1{Off,On}>Dynamic Miller LP
+slider11:50<0,100,1>PSU Sag (%)
+slider12:0<-24,24,0.1>Output Level (dB)
+slider13:0<0,1,1{Off,On}>Monitor
+
+@init
+
+// === MATH PRIMITIVES (matching lms_core) ===
+
+function tanh_approx(x) local(e2x) ( x > 10 ? 1 : x < -10 ? -1 : ( e2x = exp(2*x); (e2x-1)/(e2x+1); ); );
+
+// ADAA antiderivatives
+function F_tanh(x) ( abs(x) > 10 ? abs(x) - 0.6931471805599453 : log(exp(x)*0.5 + exp(-x)*0.5); );
+function F_atan(x) local(r) ( r = (2/$pi) * (x * atan(x) - 0.5 * log(1 + x*x)); r; );
+
+// ADAA core eval with crossfade zone
+function adaa_eval(x_now, x_prev, Fx_now, Fx_prev, f_mid) local(dx, adx, adaa_out, blend) (
+  dx = x_now - x_prev; adx = abs(dx);
+  adx < 0.00001 ? ( f_mid; )
+  : adx > 0.0001 ? ( (Fx_now - Fx_prev) / dx; )
+  : ( adaa_out = (Fx_now - Fx_prev) / dx; blend = (adx - 0.00001) / 0.00009; f_mid + blend * (adaa_out - f_mid); );
+);
+
+// === BIQUAD FILTERS ===
+
+function bq_init() ( this.b0=1; this.b1=0; this.b2=0; this.a1=0; this.a2=0; this.x1=0; this.x2=0; this.y1=0; this.y2=0; );
+
+function bq_set_lp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1-cs)/2*a0_inv; this.b1=(1-cs)*a0_inv; this.b2=(1-cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+
+function bq_set_hp(freq, q) local(w0, cs, sn, alpha, a0_inv) ( w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); a0_inv=1/(1+alpha); this.b0=(1+cs)/2*a0_inv; this.b1=-(1+cs)*a0_inv; this.b2=(1+cs)/2*a0_inv; this.a1=-2*cs*a0_inv; this.a2=(1-alpha)*a0_inv; );
+
+function bq_set_peak(freq, gain_db, q) local(a, w0, alpha, a0_inv) ( a=10^(gain_db/20); w0=2*$pi*freq/srate; alpha=sin(w0)/(2*q); a0_inv=1/(1+alpha/a); this.b0=(1+alpha*a)*a0_inv; this.b1=(-2*cos(w0))*a0_inv; this.b2=(1-alpha*a)*a0_inv; this.a1=this.b1; this.a2=(1-alpha/a)*a0_inv; );
+
+function bq_set_loshelf(freq, gain_db, q) local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv) ( a=10^(gain_db/40); w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); ap1=a+1; am1=a-1; beta=2*sqrt(a)*alpha; a0_inv=1/(ap1+am1*cs+beta); this.b0=a*(ap1-am1*cs+beta)*a0_inv; this.b1=2*a*(am1-ap1*cs)*a0_inv; this.b2=a*(ap1-am1*cs-beta)*a0_inv; this.a1=-2*(am1+ap1*cs)*a0_inv; this.a2=(ap1+am1*cs-beta)*a0_inv; );
+
+function bq_set_hishelf(freq, gain_db, q) local(a, w0, cs, sn, alpha, ap1, am1, beta, a0_inv) ( a=10^(gain_db/40); w0=2*$pi*freq/srate; cs=cos(w0); sn=sin(w0); alpha=sn/(2*q); ap1=a+1; am1=a-1; beta=2*sqrt(a)*alpha; a0_inv=1/(ap1-am1*cs+beta); this.b0=a*(ap1+am1*cs+beta)*a0_inv; this.b1=-2*a*(am1+ap1*cs)*a0_inv; this.b2=a*(ap1+am1*cs-beta)*a0_inv; this.a1=2*(am1-ap1*cs)*a0_inv; this.a2=(ap1-am1*cs-beta)*a0_inv; );
+
+function bq_proc(x) local(o) ( o=this.b0*x + this.b1*this.x1 + this.b2*this.x2 - this.a1*this.y1 - this.a2*this.y2; this.x2=this.x1; this.x1=x; this.y2=this.y1; this.y1=o; o; );
+
+function dc_init() ( this.xp=0; this.yp=0; this.r=1-(20/srate); );
+function dc_proc(x) ( this.yp=x-this.xp+this.r*this.yp; this.xp=x; this.yp; );
+
+// === INPUT STAGE MODEL (grid physics) ===
+function input_stage_init() (
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1/(srate * 0.0005));
+  this.cap_drain_rate = exp(-1/(srate * 0.030));
+  this.input_lp.bq_init();
+  this.input_lp.bq_set_lp(4500, 0.6);
+  this.cathode_shelf.bq_init();
+  this.cathode_shelf.bq_set_hishelf(800, -2.5, 0.5);
+  this.peak_env = 0;
+  this.peak_att = exp(-1/(srate * 0.0002));
+  this.peak_rel = exp(-1/(srate * 0.050));
+);
+
+function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
+  loaded = this.input_lp.bq_proc(x);
+  loaded = x + intensity * (loaded - x);
+  loaded > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * loaded * 0.15 * intensity;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  biased = loaded - bias_shift;
+  grid_thresh = 1.0 - intensity * 0.85;
+  biased > grid_thresh ? (
+    conducted = grid_thresh + tanh_approx((biased - grid_thresh) * (1.0 + intensity * 3.0)) * (0.05 + intensity * 0.15);
+  ) : (
+    conducted = biased;
+  );
+  dry = conducted;
+  conducted = this.cathode_shelf.bq_proc(conducted);
+  conducted = dry + intensity * (conducted - dry);
+  abs(x) > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * abs(x);
+  ) : (
+    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * abs(x);
+  );
+  conducted;
+);
+
+// === V1B TRIODE (JCM800 first stage, unbypassed cathode, atan clipping, ADAA) ===
+function v1b_init() (
+  this.hpx = 0; this.hpy = 0;
+  this.hp_r = 1 - (2 * $pi * 35 / srate);
+  this.xp_pos = 0; this.Fp_pos = 0;
+  this.xp_neg = 0; this.Fp_neg = 0;
+  this.xp_gc = 0; this.Fp_gc = 0;
+);
+
+function v1b_proc(x, drive) local(gain, b, b_in, Fb, mid, f_mid, b_gc, Fb_gc) (
+  this.hpy = x - this.hpx + this.hp_r * this.hpy;
+  this.hpx = x;
+  b = this.hpy;
+  gain = 1.0 + drive * 3.0;
+  b = b * gain;
+  b_in = b;
+  b >= 0 ? (
+    mid = (b + this.xp_pos) * 0.5;
+    Fb = F_atan(b * 1.2) * 0.85 / 1.2;
+    f_mid = (2/$pi) * atan(mid * 1.2) * 0.85;
+    b = adaa_eval(b, this.xp_pos, Fb, this.Fp_pos, f_mid);
+    this.xp_pos = b_in; this.Fp_pos = Fb;
+    this.xp_neg = b_in; this.Fp_neg = F_atan(b_in * 1.5) / 1.5;
+  ) : (
+    mid = (b + this.xp_neg) * 0.5;
+    Fb = F_atan(b * 1.5) / 1.5;
+    f_mid = (2/$pi) * atan(mid * 1.5);
+    b = adaa_eval(b, this.xp_neg, Fb, this.Fp_neg, f_mid);
+    this.xp_neg = b_in; this.Fp_neg = Fb;
+    this.xp_pos = b_in; this.Fp_pos = F_atan(b_in * 1.2) * 0.85 / 1.2;
+  );
+  b > 0.3 ? (
+    b_gc = b / 0.55;
+    mid = (b_gc + this.xp_gc) * 0.5;
+    Fb_gc = F_tanh(b_gc) * 0.55;
+    b = adaa_eval(b_gc, this.xp_gc, Fb_gc, this.Fp_gc, tanh_approx(mid)) * 0.55;
+    this.xp_gc = b_gc; this.Fp_gc = Fb_gc;
+  ) : (
+    this.xp_gc = b / 0.55; this.Fp_gc = F_tanh(b / 0.55) * 0.55;
+  );
+  b * 0.8;
+);
+
+// === V1A TRIODE (JCM800 second stage, bypassed cathode, 1-exp clipping, ADAA) ===
+function v1a_init() (
+  this.hpx = 0; this.hpy = 0;
+  this.hp_r = 1 - (2 * $pi * 35 / srate);
+  this.xp_pos = 0; this.Fp_pos = 0;
+  this.xp_neg = 0; this.Fp_neg = 0;
+  this.xp_gc = 0; this.Fp_gc = 0;
+);
+
+function v1a_proc(x, drive) local(gain, b, b_in, ab, Fb, mid, f_mid, b_gc, Fb_gc) (
+  this.hpy = x - this.hpx + this.hp_r * this.hpy;
+  this.hpx = x;
+  b = this.hpy;
+  gain = 1.0 + drive * 5.5;
+  b = b * gain;
+  b_in = b;
+  b >= 0 ? (
+    mid = (b + this.xp_pos) * 0.5;
+    Fb = b + exp(-1.1 * b) / 1.1;
+    f_mid = mid >= 0 ? 1.0 - exp(-abs(mid) * 1.1) : 0;
+    b = adaa_eval(b, this.xp_pos, Fb, this.Fp_pos, f_mid);
+    this.xp_pos = b_in; this.Fp_pos = Fb;
+    this.xp_neg = b_in; ab = abs(b_in); this.Fp_neg = 1.05 * (ab - exp(-0.85 * ab) / 0.85);
+  ) : (
+    ab = abs(b);
+    mid = (b + this.xp_neg) * 0.5;
+    Fb = 1.05 * (ab - exp(-0.85 * ab) / 0.85);
+    f_mid = -(1.0 - exp(-abs(mid) * 0.85)) * 1.05;
+    b = adaa_eval(b, this.xp_neg, Fb, this.Fp_neg, f_mid);
+    this.xp_neg = b_in; this.Fp_neg = Fb;
+    this.xp_pos = b_in; this.Fp_pos = b_in + exp(-1.1 * b_in) / 1.1;
+  );
+  b > 0.35 ? (
+    b_gc = b / 0.60;
+    mid = (b_gc + this.xp_gc) * 0.5;
+    Fb_gc = F_tanh(b_gc) * 0.60;
+    b = adaa_eval(b_gc, this.xp_gc, Fb_gc, this.Fp_gc, tanh_approx(mid)) * 0.60;
+    this.xp_gc = b_gc; this.Fp_gc = Fb_gc;
+  ) : (
+    this.xp_gc = b / 0.60; this.Fp_gc = F_tanh(b / 0.60) * 0.60;
+  );
+  b * 0.85;
+);
+
+// === JCM800 TONE STACK (passive Baxandall, 3 interactive biquads) ===
+function tonestack_init() (
+  this.f_bass.bq_init();
+  this.f_mid.bq_init();
+  this.f_treb.bq_init();
+);
+
+function tonestack_set(bass, mid, treble) local(bass_db, mid_db, treb_db, bass_freq, mid_freq, treb_freq, mid_q, bass_mid_xcouple, treb_mid_xcouple) (
+  bass_freq = 60 + bass * 140;
+  bass_db = (bass - 0.5) * 18;
+  mid_freq = 370;
+  mid_q = 1.0 + mid * 1.5;
+  mid_db = (0.5 - mid) * 14;
+  treb_freq = 900 + treble * 600;
+  treb_db = (treble - 0.5) * 16;
+  bass_mid_xcouple = (bass - 0.5) * 3.0;
+  treb_mid_xcouple = (treble - 0.5) * 2.5;
+  mid_db -= bass_mid_xcouple + treb_mid_xcouple;
+  this.f_bass.bq_set_loshelf(bass_freq, bass_db, 0.6);
+  this.f_mid.bq_set_peak(mid_freq, mid_db, mid_q);
+  this.f_treb.bq_set_hishelf(treb_freq, treb_db, 0.75);
+);
+
+function tonestack_proc(x) local(b) (
+  b = this.f_bass.bq_proc(x);
+  b = this.f_mid.bq_proc(b);
+  b = this.f_treb.bq_proc(b);
+  b;
+);
+
+// === EL34 PUSH-PULL POWER AMP (ADAA, sag, presence) ===
+function el34_init() (
+  this.sag_env = 0;
+  this.sag_att = exp(-1/(srate * 0.015));
+  this.sag_rel = exp(-1/(srate * 0.250));
+  this.sag_smooth = 0;
+  this.sag_smooth_c = exp(-1/(srate * 0.005));
+  this.pres_f.bq_init();
+  this.dc.dc_init();
+  this.push_xp = 0; this.push_Fp = 0;
+  this.pull_xp = 0; this.pull_Fp = 0;
+  this.drive = 0;
+);
+
+function el34_set(drive, presence) local(pres_freq, pres_db) (
+  this.drive = drive;
+  pres_freq = 2000 + presence * 6000;
+  pres_db = presence * 8;
+  this.pres_f.bq_set_hishelf(pres_freq, pres_db, 0.9);
+);
+
+function el34_proc(x, shared_sag) local(b, peak, sag_gain, push, pull, out, Fb, mid, f_mid) (
+  // Sag — blend local EL34 sag with shared preamp sag
+  peak = abs(x);
+  peak > this.sag_env ? (
+    this.sag_env = this.sag_att * this.sag_env + (1 - this.sag_att) * peak;
+  ) : (
+    this.sag_env = this.sag_rel * this.sag_env;
+  );
+  sag_gain = 1.0 / (1.0 + this.sag_env * 0.35);
+  // Blend shared PSU sag into power amp (they share the same supply)
+  sag_gain *= shared_sag;
+  this.sag_smooth = this.sag_smooth_c * this.sag_smooth + (1 - this.sag_smooth_c) * sag_gain;
+  b = x * this.sag_smooth * (1.0 + this.drive * 2.5);
+  push = b > 0 ? b : 0;
+  pull = b < 0 ? -b : 0;
+  // EL34 push tube — 1-exp*1.4 — ADAA
+  push > 0 ? (
+    Fb = push + exp(-1.4 * push) / 1.4;
+    mid = (push + this.push_xp) * 0.5;
+    f_mid = 1.0 - exp(-1.4 * mid);
+    push = adaa_eval(push, this.push_xp, Fb, this.push_Fp, f_mid);
+    this.push_xp = b > 0 ? b : 0; this.push_Fp = Fb;
+  ) : (
+    this.push_xp = 0; this.push_Fp = 1.0 / 1.4;
+  );
+  // EL34 pull tube — 1-exp*1.35 — ADAA
+  pull > 0 ? (
+    Fb = pull + exp(-1.35 * pull) / 1.35;
+    mid = (pull + this.pull_xp) * 0.5;
+    f_mid = 1.0 - exp(-1.35 * mid);
+    pull = adaa_eval(pull, this.pull_xp, Fb, this.pull_Fp, f_mid);
+    this.pull_xp = b < 0 ? -b : 0; this.pull_Fp = Fb;
+  ) : (
+    this.pull_xp = 0; this.pull_Fp = 1.0 / 1.35;
+  );
+  out = push - pull;
+  out = this.pres_f.bq_proc(out);
+  out = this.dc.dc_proc(out);
+  out * 0.85;
+);
+
+// === PSU SAG MODEL (shared between preamp + power amp) ===
+function psu_init() (
+  this.voltage = 1.0;
+  this.att = exp(-1/(srate * 0.001));
+  this.rel = exp(-1/(srate * 0.080));
+  this.droop_amount = 0.0;
+);
+
+function psu_proc(signal_level, sag_depth) local(draw) (
+  draw = signal_level * signal_level;
+  draw > this.droop_amount ? (
+    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
+  ) : (
+    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
+  );
+  this.voltage = 1.0 - this.droop_amount * 0.25 * sag_depth;
+  this.voltage = max(0.6, min(1.0, this.voltage));
+  this.voltage;
+);
+
+// === SOFT GATE (kills ADAA crackle on dying tails) ===
+function sgate_init() (
+  this.env = 0;
+  this.att = exp(-1/(srate * 0.0005));  // 0.5ms attack (opens fast)
+  this.rel = exp(-1/(srate * 0.150));    // 150ms release (closes smoothly)
+);
+
+function sgate_proc(x) local(ax, gate_gain) (
+  ax = abs(x);
+  ax > this.env ? (
+    this.env = this.att * this.env + (1-this.att) * ax;
+  ) : (
+    this.env = this.rel * this.env + (1-this.rel) * ax;
+  );
+  // Soft gate: full open above 0.001, fully closed below 0.0002
+  // Smooth cubic taper in between
+  this.env > 0.001 ? ( gate_gain = 1.0; )
+  : this.env < 0.0002 ? ( gate_gain = 0.0; )
+  : (
+    gate_gain = (this.env - 0.0002) / 0.0008;
+    gate_gain = gate_gain * gate_gain * (3.0 - 2.0 * gate_gain);
+  );
+  x * gate_gain;
+);
+
+// === 4-BAND HARMONIC DENSITY TRACKER ===
+function hd_init() (
+  this.f_lo.bq_init(); this.f_lo.bq_set_lp(250,0.7);
+  this.f_mid_lo.bq_init(); this.f_mid_lo.bq_set_lp(2000,0.7);
+  this.f_mid_hi.bq_init(); this.f_mid_hi.bq_set_hp(250,0.7);
+  this.f_hi.bq_init(); this.f_hi.bq_set_hp(2000,0.7);
+  this.f_air.bq_init(); this.f_air.bq_set_hp(5000,0.7);
+  this.env_lo=0; this.env_mid=0; this.env_hi=0; this.env_air=0; this.env_total=0;
+  this.att=exp(-1/(srate*0.002)); this.rel=exp(-1/(srate*0.080));
+  this.density=1.0; this.mid_density=0.0; this.hi_density=0.0; this.air_density=0.0;
+  this.smooth=exp(-1/(srate*0.030));
+);
+
+function hd_proc(x) local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total, raw, raw_mid, raw_hi, raw_air) (
+  lo=this.f_lo.bq_proc(x);
+  mid=this.f_mid_hi.bq_proc(this.f_mid_lo.bq_proc(x));
+  hi=this.f_hi.bq_proc(x);
+  air=this.f_air.bq_proc(x);
+  abs_lo=abs(lo); abs_mid=abs(mid); abs_hi=abs(hi); abs_air=abs(air); abs_total=abs(x);
+  abs_lo > this.env_lo ? ( this.env_lo=this.att*this.env_lo+(1-this.att)*abs_lo; ) : ( this.env_lo=this.rel*this.env_lo+(1-this.rel)*abs_lo; );
+  abs_mid > this.env_mid ? ( this.env_mid=this.att*this.env_mid+(1-this.att)*abs_mid; ) : ( this.env_mid=this.rel*this.env_mid+(1-this.rel)*abs_mid; );
+  abs_hi > this.env_hi ? ( this.env_hi=this.att*this.env_hi+(1-this.att)*abs_hi; ) : ( this.env_hi=this.rel*this.env_hi+(1-this.rel)*abs_hi; );
+  abs_air > this.env_air ? ( this.env_air=this.att*this.env_air+(1-this.att)*abs_air; ) : ( this.env_air=this.rel*this.env_air+(1-this.rel)*abs_air; );
+  abs_total > this.env_total ? ( this.env_total=this.att*this.env_total+(1-this.att)*abs_total; ) : ( this.env_total=this.rel*this.env_total+(1-this.rel)*abs_total; );
+  this.env_lo > 0.0001 ? ( raw=this.env_total/this.env_lo; raw=min(2.5,max(1.0,raw)); ) : ( raw=1.0; );
+  this.env_total > 0.0001 ? (
+    raw_mid=this.env_mid/this.env_total; raw_mid=min(1.0,max(0.0,raw_mid));
+    raw_hi=this.env_hi/this.env_total; raw_hi=min(1.0,max(0.0,raw_hi));
+    raw_air=this.env_air/this.env_total; raw_air=min(1.0,max(0.0,raw_air));
+  ) : ( raw_mid=0.0; raw_hi=0.0; raw_air=0.0; );
+  this.density=this.smooth*this.density+(1-this.smooth)*raw;
+  this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
+  this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
+  this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
+);
+
+// === INIT INSTANCES ===
+
+// Input
+inp.input_stage_init();
+input_hp.bq_init();
+input_hp.bq_set_hp(100, 0.7);
+
+// Preamp
+jcm_v1b.v1b_init();
+jcm_v1a.v1a_init();
+
+// Inter-stage coupling
+hd.hd_init();
+miller_lp.bq_init();
+miller_lp.bq_set_lp(8000, 0.6);
+air_shelf.bq_init();
+air_shelf.bq_set_hishelf(5000, 0.0, 0.7);
+last_lp_freq = 8000;
+last_lp_q = 0.6;
+last_air_cut = 0.0;
+
+// PSU
+psu.psu_init();
+
+// Tone stack
+ts.tonestack_init();
+ts.tonestack_set(0.5, 0.5, 0.5);
+
+// Power amp
+pa.el34_init();
+pa.el34_set(0.5, 0.5);
+
+// DC block after preamp
+dc_pre.dc_init();
+
+// Soft gate (kills ADAA crackle on tails)
+gate.sgate_init();
+
+// Marshall 4x12 Celestion G12T-75
+cab1.bq_init(); cab1.bq_set_hp(80, 0.55);
+cab2.bq_init(); cab2.bq_set_peak(100, 3.0, 1.8);
+cab3.bq_init(); cab3.bq_set_peak(1200, -4.0, 0.9);
+cab4.bq_init(); cab4.bq_set_peak(3500, 5.0, 1.4);
+cab5.bq_init(); cab5.bq_set_lp(6500, 0.65);
+
+// State
+gain = 0.5;
+in_level = 1;
+out_level = 1;
+master = 0.5;
+channel = 1;
+input_intensity = 0.5;
+miller_on = 0;
+sag_depth = 0.5;
+monitor_on = 0;
+log_counter = 0;
+log_interval = 0;
+
+@slider
+in_level = 10 ^ (slider1 / 20);
+gain = slider2 / 100;
+channel = slider3;
+ts.tonestack_set(slider4/100, slider5/100, slider6/100);
+pa.el34_set(master, slider7/100);
+master = slider8 / 100;
+input_intensity = slider9 / 100;
+miller_on = slider10;
+sag_depth = slider11 / 100;
+out_level = 10 ^ (slider12 / 20);
+monitor_on = slider13;
+monitor_on == 1 ? ( log_interval = (srate * 0.25)|0; log_counter = 0; );
+
+@sample
+mono = (spl0 + spl1) * 0.5 * in_level;
+
+// === 1. INPUT STAGE (grid physics) ===
+input_intensity > 0.0 ? (
+  mono = inp.input_stage_proc(mono, input_intensity);
+);
+
+// === 2. INPUT COUPLING CAP (100Hz HP) ===
+mono = input_hp.bq_proc(mono);
+
+// === 3. SHARED PSU SAG (preamp + power amp share supply) ===
+// Feed the sag tracker from post-tonestack level (closer to actual current draw)
+bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth);
+
+// === 4. V1B (first triode, atan clipping) ===
+// Drive scaled by channel — Crunch needs to push well into the atan curve
+channel == 0 ? ( v1b_drive = gain * 0.35; )
+: channel == 1 ? ( v1b_drive = gain * 0.90; )
+: ( v1b_drive = gain * 0.85; );
+v1b_out = jcm_v1b.v1b_proc(mono, v1b_drive);
+
+// === 5. MILLER LP (dynamic interstage filter, between V1B and V1A) ===
+miller_on == 1 ? (
+  hd.hd_proc(v1b_out);
+  lp_freq = 8000 - (hd.density - 1.0) * 500;
+  lp_freq = max(7000, min(8500, lp_freq));
+  lp_q = 0.6 + hd.hi_density * 0.35;
+  lp_q = max(0.6, min(0.95, lp_q));
+  abs(lp_freq - last_lp_freq) > 30 || abs(lp_q - last_lp_q) > 0.02 ? (
+    miller_lp.bq_set_lp(lp_freq, lp_q);
+    last_lp_freq = lp_freq;
+    last_lp_q = lp_q;
+  );
+  air_cut = -hd.air_density * 3.0;
+  air_cut = max(-3.0, min(0.0, air_cut));
+  abs(air_cut - last_air_cut) > 0.1 ? (
+    air_shelf.bq_set_hishelf(5000, air_cut, 0.7);
+    last_air_cut = air_cut;
+  );
+);
+v1b_filtered = miller_lp.bq_proc(v1b_out);
+
+// === 6. V1A (second triode, 1-exp clipping — Lead channel only) ===
+// PSU sag applied ONCE here to V1A ceiling (not to V1B — V1B is earlier in chain)
+channel == 2 ? (
+  v1a_drive = gain * 0.55;
+  amp_out = jcm_v1a.v1a_proc(v1b_filtered, v1a_drive);
+  amp_out *= bplus;
+) : (
+  amp_out = v1b_filtered;
+  // Apply sag to crunch/clean output instead (only once either way)
+  amp_out *= bplus;
+);
+
+// === 7. AIR SHELF (post-clipping fizz control) ===
+miller_on == 1 ? ( amp_out = air_shelf.bq_proc(amp_out); );
+
+// === 8. TONE STACK (passive, ~18dB insertion loss) ===
+amp_out = ts.tonestack_proc(amp_out);
+amp_out *= 8.0;  // recovery gain
+
+// === 9. EL34 POWER AMP (push-pull, ADAA, shared PSU sag) ===
+amp_out *= master;
+amp_out = pa.el34_proc(amp_out, bplus);
+
+// === 10. SOFT GATE (kills ADAA crackle on dying signal tails) ===
+amp_out = gate.sgate_proc(amp_out);
+
+// === 11. MARSHALL 4x12 CABINET ===
+amp_out = cab1.bq_proc(amp_out);
+amp_out = cab2.bq_proc(amp_out);
+amp_out = cab3.bq_proc(amp_out);
+amp_out = cab4.bq_proc(amp_out);
+amp_out = cab5.bq_proc(amp_out);
+
+amp_out *= out_level;
+spl0 = amp_out;
+spl1 = amp_out;
+
+// === MONITOR ===
+monitor_on == 1 ? (
+  log_counter += 1;
+  log_counter >= log_interval ? (
+    log_counter = 0;
+    gmem[50000] = inp.peak_env;
+    gmem[50001] = inp.cap_charge;
+    gmem[50002] = hd.density;
+    gmem[50003] = hd.mid_density;
+    gmem[50004] = hd.hi_density;
+    gmem[50005] = hd.air_density;
+    gmem[50006] = last_lp_freq;
+    gmem[50007] = last_lp_q;
+    gmem[50008] = last_air_cut;
+    gmem[50009] = psu.voltage;
+    gmem[50010] = abs(v1b_out);
+    gmem[50011] = abs(amp_out);
+    gmem[50012] = channel;
+    gmem[50013] = v1b_drive;
+  );
+);
+
+@gfx 420 240
+monitor_on == 1 ? (
+  gfx_set(1,1,1);
+  gfx_x=10; gfx_y=10;
+  gfx_drawstr("=== PUNK IDOL TEST MONITOR ===");
+  gfx_x=10; gfx_y=30;
+  gfx_set(0.7,0.7,0.7);
+  gfx_drawstr("Channel: ");
+  gfx_set(1,1,0);
+  gmem[50012] == 0 ? gfx_drawstr("CLEAN") : gmem[50012] == 1 ? gfx_drawstr("CRUNCH") : gfx_drawstr("LEAD");
+  gfx_set(1,1,1);
+  gfx_drawstr("  V1B Drive: "); gfx_drawnumber(gmem[50013], 3);
+
+  gfx_x=10; gfx_y=50;
+  gfx_drawstr("Input Peak: "); gfx_drawnumber(gmem[50000], 4);
+  gfx_drawstr("  Bias Shift: "); gfx_drawnumber(gmem[50001], 4);
+
+  gfx_x=10; gfx_y=70;
+  gfx_drawstr("Density Lo: "); gfx_drawnumber(gmem[50002], 3);
+  gfx_drawstr("  Mid: "); gfx_drawnumber(gmem[50003], 3);
+  gfx_drawstr("  Hi: "); gfx_drawnumber(gmem[50004], 3);
+  gfx_drawstr("  Air: "); gfx_drawnumber(gmem[50005], 3);
+
+  gfx_x=10; gfx_y=90;
+  gfx_drawstr("Miller LP: "); gfx_drawnumber(gmem[50006], 0);
+  gfx_drawstr(" Hz  Q: "); gfx_drawnumber(gmem[50007], 3);
+  gfx_drawstr("  Air Cut: "); gfx_drawnumber(gmem[50008], 1);
+  gfx_drawstr(" dB");
+
+  gfx_x=10; gfx_y=120;
+  gfx_set(1,0.6,0.3);
+  gfx_drawstr("B+ Voltage: "); gfx_drawnumber(gmem[50009] * 100, 1); gfx_drawstr("%");
+
+  gfx_x=10; gfx_y=150;
+  gfx_set(0.5,1,0.5);
+  gfx_drawstr("V1B out: "); gfx_drawnumber(gmem[50010], 3);
+  gfx_drawstr("  Final: "); gfx_drawnumber(gmem[50011], 3);
+
+  gfx_x=10; gfx_y=180;
+  gfx_set(1,1,0);
+  gfx_drawstr("INPUT STAGE: "); gfx_drawnumber(input_intensity * 100, 0); gfx_drawstr("%");
+  gfx_drawstr("  ");
+  miller_on == 1 ? gfx_drawstr("MILLER: ON") : gfx_drawstr("MILLER: OFF");
+  gfx_drawstr("  SAG: "); gfx_drawnumber(sag_depth * 100, 0); gfx_drawstr("%");
+);

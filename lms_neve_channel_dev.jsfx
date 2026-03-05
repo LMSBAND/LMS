@@ -6,7 +6,7 @@ desc:LMS Neve 1073 + 2254 (Density-Aware Channel Strip)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 slider1:0<-12,60,0.1>-Input Gain (dB)
 slider2:0<0,100,0.1>-Drive (%)
