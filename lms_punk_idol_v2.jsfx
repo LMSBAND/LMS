@@ -6,7 +6,7 @@ desc:LMS - Punk Idol v2 (Density-Aware British Crunch)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R

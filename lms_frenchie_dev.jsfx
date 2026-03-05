@@ -6,7 +6,7 @@ desc:LMS - The Frenchie v3 (Density-Aware 5W Class A — Full Hog)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 slider1:-12<-24,24,0.1>-Input Level (dB)
 slider2:50<0,100,0.1>-Gain (%)

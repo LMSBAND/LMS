@@ -6,7 +6,7 @@ desc:LMS - MEGA INCREASINATOR (Auto-Makeup Brick-Wall Limiter)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 slider1:0<-12,12,0.1>-Input Gain (dB)
 slider2:-0.3<-3,0,0.1>-Ceiling (dBFS)

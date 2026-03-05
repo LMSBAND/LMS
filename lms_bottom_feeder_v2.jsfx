@@ -6,7 +6,7 @@ desc:LMS - Bottom Feeder v2 (Density-Aware Tweed Bass)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R

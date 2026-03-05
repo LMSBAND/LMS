@@ -6,7 +6,7 @@ desc:LMS - The TRSOB v2 (Density-Aware High-Gain Rectifier)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R

@@ -6,7 +6,7 @@ desc:LMS - Density Sequencer (gmem reactive)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBagger
+options:gmem=DrumBanger
 
 // Reads density state from any LMS amp plugin via gmem
 // Generates rhythmic/melodic output driven by the harmonic content
