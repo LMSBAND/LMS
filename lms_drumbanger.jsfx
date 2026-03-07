@@ -474,6 +474,29 @@ function resolve_pad_pool_names() local(i, j, resolved) (
   bar_follow_locked = 0;
   copy_src_bar = -1;
   copy_src_pattern = -1;
+  // Bus on/off state (store last value for toggle)
+  bus_lp_on = slider73 < 0.999 ? 1 : 0;
+  bus_lp_last = slider73 < 0.999 ? slider73 : 0.5;
+  bus_hp_on = slider74 > 0.001 ? 1 : 0;
+  bus_hp_last = slider74 > 0.001 ? slider74 : 0.5;
+  bus_comp_on = slider71 > 0 ? 1 : 0;
+  bus_comp_last = slider71 > 0 ? slider71 : 50;
+  // Note repeat state: rpt_mode 0=off, 1=free, 2=synced (downbeat)
+  rpt_mode = 0;
+  rpt_on = 0;         // compat: 1 when mode > 0
+  rpt_div_idx = 2;    // 0=1/64, 1=1/32, 2=1/16, 3=1/8, 4=1/4, 5=1/2, 6=1
+  rpt_triplet = 0;
+  rpt_counter = 0;
+  rpt_vel = 100;
+  rpt_held = 0;       // is a MIDI note currently held?
+  rpt_held_pad = 0;
+  rpt_pending_div = -1;    // queued division change (synced mode)
+  rpt_pending_trip = -1;   // queued triplet change (synced mode)
+  rpt_last_step = -1;
+  // Initialize Launchpad gmem input slots (200-208 continuous, 210-222 triggers)
+  i = 200; loop(9, gmem[i] = -1; i += 1;);
+  i = 210; loop(13, gmem[i] = 0; i += 1;);
+  gmem[223] = -1;
   // Initialize link groups, choke groups, ties
   i = 0;
   loop(NUM_PADS,
@@ -1123,6 +1146,11 @@ while(midirecv(offset, msg1, msg2, msg3)) (
     note = msg2;
     pad = note - MIDI_NOTE_BASE;
     pad >= 0 && pad < NUM_PADS ? (
+      ui_selected_pad = pad;
+      rpt_held = 1;
+      rpt_held_pad = pad;
+      rpt_vel = msg3;
+      rpt_counter = 0;
       trigger_pad(pad, msg3);
       // REC: write to pattern at sub-step resolution when sequencer is running
       seq_mode && slider6 == 1 && transport_playing ? (
@@ -1139,6 +1167,14 @@ while(midirecv(offset, msg1, msg2, msg3)) (
       );
     );
   );
+  // Note Off — release held pad for repeat gate
+  (status == 0x80 || (status == 0x90 && msg3 == 0)) ? (
+    note = msg2;
+    pad = note - MIDI_NOTE_BASE;
+    pad >= 0 && pad < NUM_PADS && pad == rpt_held_pad ? (
+      rpt_held = 0;
+    );
+  );
   // Program Change → pattern select (PC 0-7 = Pattern 1-8)
   status == 0xC0 ? (
     msg2 >= 0 && msg2 < NUM_PATTERNS ? (
@@ -1146,8 +1182,414 @@ while(midirecv(offset, msg1, msg2, msg3)) (
       slider_automate(slider3);
     );
   );
+  // CC 20-26 on ch1 → Launchpad X controls
+  status == 0xB0 && (msg1 & 0x0F) == 0 ? (
+    msg2 == 20 ? (
+      slider(10 + ui_selected_pad) = msg3 / 127;             // vol: 0-1
+      slider_automate(slider(10 + ui_selected_pad));
+    );
+    msg2 == 21 ? (
+      slider(30 + ui_selected_pad) = (msg3 - 64) / 64;      // pan: -1 to +1
+      slider_automate(slider(30 + ui_selected_pad));
+    );
+    msg2 == 22 ? (
+      slider(50 + ui_selected_pad) = (msg3 - 64) / 64 * 24; // pitch: -24 to +24
+      slider_automate(slider(50 + ui_selected_pad));
+    );
+    // CC 23: Record toggle (on press only)
+    msg2 == 23 && msg3 > 0 ? (
+      slider6 = 1 - slider6;
+      slider_automate(slider6);
+    );
+    // CC 24: Duplicate pattern to next empty slot (on press only)
+    msg2 == 24 && msg3 > 0 ? (
+      _dup_src = slider3;
+      _dup_dst = -1;
+      _dup_i = 1;
+      loop(NUM_PATTERNS - 1,
+        _dup_check = (_dup_src + _dup_i) % NUM_PATTERNS;
+        _dup_dst < 0 ? (
+          _dup_empty = 1;
+          _dup_p = 0;
+          loop(NUM_PADS,
+            _dup_s = 0;
+            loop(MAX_STEPS,
+              get_seq_step(_dup_check, _dup_s, _dup_p) > 0 ? _dup_empty = 0;
+              _dup_s += 1;
+            );
+            _dup_p += 1;
+          );
+          _dup_empty ? _dup_dst = _dup_check;
+        );
+        _dup_i += 1;
+      );
+      _dup_dst >= 0 ? (
+        _dup_p = 0;
+        loop(NUM_PADS,
+          _dup_s = 0;
+          loop(MAX_STEPS,
+            set_seq_step(_dup_dst, _dup_s, _dup_p, get_seq_step(_dup_src, _dup_s, _dup_p));
+            set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 1, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 1));
+            set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 2, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 2));
+            set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 3, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 3));
+            set_plock_lp(_dup_dst, _dup_s, _dup_p, get_plock_lp(_dup_src, _dup_s, _dup_p));
+            set_plock_hp(_dup_dst, _dup_s, _dup_p, get_plock_hp(_dup_src, _dup_s, _dup_p));
+            set_plock_vol(_dup_dst, _dup_s, _dup_p, get_plock_vol(_dup_src, _dup_s, _dup_p));
+            set_plock_pan(_dup_dst, _dup_s, _dup_p, get_plock_pan(_dup_src, _dup_s, _dup_p));
+            set_plock_pitch(_dup_dst, _dup_s, _dup_p, get_plock_pitch(_dup_src, _dup_s, _dup_p));
+            _dup_s += 1;
+          );
+          _dup_p += 1;
+        );
+        PAT_BAR_COUNT[_dup_dst] = PAT_BAR_COUNT[_dup_src];
+        slider3 = _dup_dst;
+        slider_automate(slider3);
+        PAT_DISPLAY_BAR[_dup_dst] = 0;
+      );
+    );
+    // CC 25: Pattern length + (add bar, max 4)
+    msg2 == 25 && msg3 > 0 ? (
+      PAT_BAR_COUNT[slider3] < MAX_BARS ? (
+        PAT_BAR_COUNT[slider3] += 1;
+      );
+    );
+    // CC 26: Pattern length - (remove bar, min 1)
+    msg2 == 26 && msg3 > 0 ? (
+      PAT_BAR_COUNT[slider3] > 1 ? (
+        PAT_BAR_COUNT[slider3] -= 1;
+        PAT_DISPLAY_BAR[slider3] = min(PAT_DISPLAY_BAR[slider3], PAT_BAR_COUNT[slider3] - 1);
+      );
+    );
+    // CC 27: Note repeat mode cycle (off → free → synced → off)
+    msg2 == 27 && msg3 > 0 ? (
+      rpt_mode = (rpt_mode + 1) % 3;
+      rpt_on = rpt_mode > 0 ? 1 : 0;
+      rpt_counter = 0;
+      rpt_pending_div = -1;
+      rpt_pending_trip = -1;
+    );
+    // CC 28: Repeat division up (1/64 → 1/32 → 1/16 → 1/8 → 1/4 → 1/2 → 1)
+    msg2 == 28 && msg3 > 0 ? (
+      rpt_mode == 2 ? (
+        rpt_pending_div = min((rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx) + 1, 6);
+      ) : (
+        rpt_div_idx = min(rpt_div_idx + 1, 6);
+      );
+    );
+    // CC 30: Repeat division down (1 → 1/2 → 1/4 → 1/8 → 1/16 → 1/32 → 1/64)
+    msg2 == 30 && msg3 > 0 ? (
+      rpt_mode == 2 ? (
+        rpt_pending_div = max((rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx) - 1, 0);
+      ) : (
+        rpt_div_idx = max(rpt_div_idx - 1, 0);
+      );
+    );
+    // CC 33: Swing (0-100%)
+    msg2 == 33 ? (
+      slider2 = (msg3 / 127) * 100;
+      slider_automate(slider2);
+    );
+    // CC 34: Saturation Drive (0-100%)
+    msg2 == 34 ? (
+      slider70 = (msg3 / 127) * 100;
+      slider_automate(slider70);
+    );
+    // CC 35: Bus LP Cutoff (0-1)
+    msg2 == 35 ? (
+      slider73 = msg3 / 127;
+      slider73 < 0.999 ? ( bus_lp_on = 1; bus_lp_last = slider73; );
+      slider_automate(slider73);
+    );
+    // CC 36: Bus HP Cutoff (0-1)
+    msg2 == 36 ? (
+      slider74 = msg3 / 127;
+      slider74 > 0.001 ? ( bus_hp_on = 1; bus_hp_last = slider74; );
+      slider_automate(slider74);
+    );
+    // CC 37: Comp Peak Reduction (0-100%)
+    msg2 == 37 ? (
+      slider71 = (msg3 / 127) * 100;
+      slider71 > 0 ? ( bus_comp_on = 1; bus_comp_last = slider71; );
+      slider_automate(slider71);
+    );
+    // CC 38: Comp Gain (-12 to +12 dB)
+    msg2 == 38 ? (
+      slider72 = (msg3 - 64) / 64 * 12;
+      slider_automate(slider72);
+    );
+    // CC 40: Bus LP on/off (momentary: toggle on press)
+    msg2 == 40 && msg3 > 0 ? (
+      bus_lp_on ? (
+        bus_lp_last = slider73;
+        slider73 = 1;
+        bus_lp_on = 0;
+      ) : (
+        slider73 = bus_lp_last;
+        bus_lp_on = 1;
+      );
+      slider_automate(slider73);
+    );
+    // CC 41: Bus HP on/off (momentary: toggle on press)
+    msg2 == 41 && msg3 > 0 ? (
+      bus_hp_on ? (
+        bus_hp_last = slider74;
+        slider74 = 0;
+        bus_hp_on = 0;
+      ) : (
+        slider74 = bus_hp_last;
+        bus_hp_on = 1;
+      );
+      slider_automate(slider74);
+    );
+    // CC 42: Comp on/off (momentary: toggle on press)
+    msg2 == 42 && msg3 > 0 ? (
+      bus_comp_on ? (
+        bus_comp_last = slider71;
+        slider71 = 0;
+        bus_comp_on = 0;
+      ) : (
+        slider71 = bus_comp_last;
+        bus_comp_on = 1;
+      );
+      slider_automate(slider71);
+    );
+    // CC 31: Kit select up
+    msg2 == 31 && msg3 > 0 ? (
+      _kit_max = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
+      slider7 = slider7 < _kit_max ? slider7 + 1 : 0;
+      slider_automate(slider7);
+    );
+    // CC 32: Kit select down
+    msg2 == 32 && msg3 > 0 ? (
+      _kit_max = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
+      slider7 = slider7 > 0 ? slider7 - 1 : _kit_max;
+      slider_automate(slider7);
+    );
+    // CC 29: Triplet toggle
+    msg2 == 29 && msg3 > 0 ? (
+      rpt_mode == 2 ? (
+        rpt_pending_trip = 1 - (rpt_pending_trip >= 0 ? rpt_pending_trip : rpt_triplet);
+      ) : (
+        rpt_triplet = 1 - rpt_triplet;
+      );
+    );
+  );
   // Always pass MIDI through
   midisend(offset, msg1, msg2, msg3);
+);
+
+// ---- Note repeat engine (fires only while pad is held) ----
+rpt_on && rpt_held ? (
+  // Synced mode: apply pending changes on downbeat (step 0 of each bar)
+  rpt_mode == 2 && transport_playing && seq_step != rpt_last_step ? (
+    (seq_step % steps_per_bar) == 0 ? (
+      rpt_pending_div >= 0 ? (
+        rpt_div_idx = rpt_pending_div;
+        rpt_pending_div = -1;
+      );
+      rpt_pending_trip >= 0 ? (
+        rpt_triplet = rpt_pending_trip;
+        rpt_pending_trip = -1;
+      );
+    );
+    rpt_last_step = seq_step;
+  );
+  // Division in beats: 1/64=0.0625, 1/32=0.125, 1/16=0.25, 1/8=0.5, 1/4=1, 1/2=2, 1=4
+  rpt_beats = 0.0625;
+  rpt_div_idx == 1 ? rpt_beats = 0.125;
+  rpt_div_idx == 2 ? rpt_beats = 0.25;
+  rpt_div_idx == 3 ? rpt_beats = 0.5;
+  rpt_div_idx == 4 ? rpt_beats = 1.0;
+  rpt_div_idx == 5 ? rpt_beats = 2.0;
+  rpt_div_idx == 6 ? rpt_beats = 4.0;
+  rpt_triplet ? rpt_beats = rpt_beats * 2 / 3;
+  // Interval in samples
+  rpt_bpm = tempo > 0 ? tempo : max(slider1, 30);
+  rpt_interval = (rpt_beats * 60.0 / rpt_bpm) * srate;
+  rpt_counter += samplesblock;
+  rpt_counter >= rpt_interval ? (
+    trigger_pad(rpt_held_pad, rpt_vel);
+    rpt_counter -= rpt_interval;
+  );
+);
+
+// ---- Read Launchpad control inputs from gmem[200+] ----
+// Pad select (0-15, -1 = no change)
+gmem[223] >= 0 ? ( ui_selected_pad = gmem[223] | 0; gmem[223] = -1; );
+
+// Continuous values (0-127 scaled to param range, -1 = no change)
+gmem[200] >= 0 ? (
+  slider(10 + ui_selected_pad) = gmem[200] / 127;
+  slider_automate(slider(10 + ui_selected_pad));
+  gmem[200] = -1;
+);
+gmem[201] >= 0 ? (
+  slider(30 + ui_selected_pad) = (gmem[201] - 64) / 64;
+  slider_automate(slider(30 + ui_selected_pad));
+  gmem[201] = -1;
+);
+gmem[202] >= 0 ? (
+  slider(50 + ui_selected_pad) = (gmem[202] - 64) / 64 * 24;
+  slider_automate(slider(50 + ui_selected_pad));
+  gmem[202] = -1;
+);
+gmem[203] >= 0 ? (
+  slider2 = gmem[203] / 127 * 100;
+  slider_automate(slider2);
+  gmem[203] = -1;
+);
+gmem[204] >= 0 ? (
+  slider70 = gmem[204] / 127 * 100;
+  slider_automate(slider70);
+  gmem[204] = -1;
+);
+gmem[205] >= 0 ? (
+  slider73 = gmem[205] / 127;
+  slider73 < 0.999 ? ( bus_lp_on = 1; bus_lp_last = slider73; );
+  slider_automate(slider73);
+  gmem[205] = -1;
+);
+gmem[206] >= 0 ? (
+  slider74 = gmem[206] / 127;
+  slider74 > 0.001 ? ( bus_hp_on = 1; bus_hp_last = slider74; );
+  slider_automate(slider74);
+  gmem[206] = -1;
+);
+gmem[207] >= 0 ? (
+  slider71 = gmem[207] / 127 * 100;
+  slider71 > 0 ? ( bus_comp_on = 1; bus_comp_last = slider71; );
+  slider_automate(slider71);
+  gmem[207] = -1;
+);
+gmem[208] >= 0 ? (
+  slider72 = (gmem[208] - 64) / 64 * 12;
+  slider_automate(slider72);
+  gmem[208] = -1;
+);
+
+// Trigger actions (1 = fire, cleared to 0)
+gmem[210] > 0 ? ( slider6 = 1 - slider6; slider_automate(slider6); gmem[210] = 0; );
+gmem[211] > 0 ? (
+  // Duplicate pattern to next empty slot
+  _dup_src = slider3;
+  _dup_dst = -1;
+  _dup_i = 1;
+  loop(NUM_PATTERNS - 1,
+    _dup_check = (_dup_src + _dup_i) % NUM_PATTERNS;
+    _dup_dst < 0 ? (
+      _dup_empty = 1;
+      _dup_p = 0;
+      loop(NUM_PADS,
+        _dup_s = 0;
+        loop(MAX_STEPS,
+          get_seq_step(_dup_check, _dup_s, _dup_p) > 0 ? _dup_empty = 0;
+          _dup_s += 1;
+        );
+        _dup_p += 1;
+      );
+      _dup_empty ? _dup_dst = _dup_check;
+    );
+    _dup_i += 1;
+  );
+  _dup_dst >= 0 ? (
+    _dup_p = 0;
+    loop(NUM_PADS,
+      _dup_s = 0;
+      loop(MAX_STEPS,
+        set_seq_step(_dup_dst, _dup_s, _dup_p, get_seq_step(_dup_src, _dup_s, _dup_p));
+        set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 1, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 1));
+        set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 2, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 2));
+        set_sub_seq_step(_dup_dst, _dup_s, _dup_p, 3, get_sub_seq_step(_dup_src, _dup_s, _dup_p, 3));
+        set_plock_lp(_dup_dst, _dup_s, _dup_p, get_plock_lp(_dup_src, _dup_s, _dup_p));
+        set_plock_hp(_dup_dst, _dup_s, _dup_p, get_plock_hp(_dup_src, _dup_s, _dup_p));
+        set_plock_vol(_dup_dst, _dup_s, _dup_p, get_plock_vol(_dup_src, _dup_s, _dup_p));
+        set_plock_pan(_dup_dst, _dup_s, _dup_p, get_plock_pan(_dup_src, _dup_s, _dup_p));
+        set_plock_pitch(_dup_dst, _dup_s, _dup_p, get_plock_pitch(_dup_src, _dup_s, _dup_p));
+        _dup_s += 1;
+      );
+      _dup_p += 1;
+    );
+    PAT_BAR_COUNT[_dup_dst] = PAT_BAR_COUNT[_dup_src];
+    slider3 = _dup_dst;
+    slider_automate(slider3);
+    PAT_DISPLAY_BAR[_dup_dst] = 0;
+  );
+  gmem[211] = 0;
+);
+gmem[212] > 0 ? (
+  PAT_BAR_COUNT[slider3] < MAX_BARS ? PAT_BAR_COUNT[slider3] += 1;
+  gmem[212] = 0;
+);
+gmem[213] > 0 ? (
+  PAT_BAR_COUNT[slider3] > 1 ? (
+    PAT_BAR_COUNT[slider3] -= 1;
+    PAT_DISPLAY_BAR[slider3] = min(PAT_DISPLAY_BAR[slider3], PAT_BAR_COUNT[slider3] - 1);
+  );
+  gmem[213] = 0;
+);
+gmem[214] > 0 ? (
+  rpt_mode = (rpt_mode + 1) % 3;
+  rpt_on = rpt_mode > 0 ? 1 : 0;
+  rpt_counter = 0;
+  rpt_pending_div = -1;
+  rpt_pending_trip = -1;
+  gmem[214] = 0;
+);
+gmem[215] > 0 ? (
+  rpt_mode == 2 ? (
+    rpt_pending_div = min((rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx) + 1, 6);
+  ) : (
+    rpt_div_idx = min(rpt_div_idx + 1, 6);
+  );
+  gmem[215] = 0;
+);
+gmem[216] > 0 ? (
+  rpt_mode == 2 ? (
+    rpt_pending_div = max((rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx) - 1, 0);
+  ) : (
+    rpt_div_idx = max(rpt_div_idx - 1, 0);
+  );
+  gmem[216] = 0;
+);
+gmem[217] > 0 ? ( rpt_triplet = 1 - rpt_triplet; gmem[217] = 0; );
+gmem[218] > 0 ? (
+  _kit_max = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
+  slider7 = slider7 < _kit_max ? slider7 + 1 : 0;
+  slider_automate(slider7);
+  gmem[218] = 0;
+);
+gmem[219] > 0 ? (
+  _kit_max = KIT_COUNT[] > 0 ? KIT_COUNT[] - 1 : 7;
+  slider7 = slider7 > 0 ? slider7 - 1 : _kit_max;
+  slider_automate(slider7);
+  gmem[219] = 0;
+);
+gmem[220] > 0 ? (
+  bus_lp_on ? (
+    bus_lp_last = slider73; slider73 = 1; bus_lp_on = 0;
+  ) : (
+    slider73 = bus_lp_last; bus_lp_on = 1;
+  );
+  slider_automate(slider73);
+  gmem[220] = 0;
+);
+gmem[221] > 0 ? (
+  bus_hp_on ? (
+    bus_hp_last = slider74; slider74 = 0; bus_hp_on = 0;
+  ) : (
+    slider74 = bus_hp_last; bus_hp_on = 1;
+  );
+  slider_automate(slider74);
+  gmem[221] = 0;
+);
+gmem[222] > 0 ? (
+  bus_comp_on ? (
+    bus_comp_last = slider71; slider71 = 0; bus_comp_on = 0;
+  ) : (
+    slider71 = bus_comp_last; bus_comp_on = 1;
+  );
+  slider_automate(slider71);
+  gmem[222] = 0;
 );
 
 // ---- Broadcast state to gmem[] for DrumbangerDrone instances ----
@@ -1180,6 +1622,25 @@ loop(NUM_PATTERNS * MAX_STEPS * NUM_PADS,
   gmem[1000 + gm_i] = SEQ_BASE[gm_i];
   gm_i += 1;
 );
+
+// ---- Launchpad state feedback to gmem[300+] ----
+gmem[300] = bus_lp_on;
+gmem[301] = bus_hp_on;
+gmem[302] = bus_comp_on;
+gmem[303] = slider6;                           // record state
+gmem[304] = ui_selected_pad;
+gmem[305] = rpt_mode;
+gmem[306] = rpt_div_idx;
+gmem[307] = rpt_triplet;
+gmem[308] = slider7;                           // current kit
+gmem[309] = slider3;                           // current pattern
+gmem[310] = PAT_BAR_COUNT[slider3];            // pattern bar count
+gmem[311] = (slider73 * 127) | 0;              // LP cutoff (0-127)
+gmem[312] = (slider74 * 127) | 0;              // HP cutoff (0-127)
+gmem[313] = (slider71 / 100 * 127) | 0;        // comp peak (0-127)
+gmem[314] = ((slider72 + 12) / 24 * 127) | 0;  // comp gain (0-127)
+gmem[315] = (slider70 / 100 * 127) | 0;        // saturation (0-127)
+gmem[316] = (slider2 / 100 * 127) | 0;         // swing (0-127)
 
 // ============================================================
 // @SAMPLE — Audio generation (runs per sample)
@@ -2496,6 +2957,79 @@ mouse_cap & 1 && !last_mouse_cap ? (
   );
 );
 
+// -- NOTE REPEAT controls --
+gfx_fbx += gfx_dup_w + 8;
+gfx_rpt_w = 42;
+// RPT button: off → free → synced → off
+rpt_mode == 0 ? (
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+) : rpt_mode == 1 ? (
+  gfx_r = 0.10; gfx_g = 0.35; gfx_b = 0.10;
+) : (
+  gfx_r = 0.10; gfx_g = 0.20; gfx_b = 0.40;
+);
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_rpt_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 4; gfx_y = gfx_fill_btn_y + 4;
+rpt_mode == 0 ? gfx_drawstr("RPT") :
+rpt_mode == 1 ? gfx_drawstr("RPT") :
+gfx_drawstr("SYNC");
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_rpt_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    rpt_mode = (rpt_mode + 1) % 3;
+    rpt_on = rpt_mode > 0 ? 1 : 0;
+    rpt_counter = 0;
+    rpt_pending_div = -1;
+    rpt_pending_trip = -1;
+  );
+);
+
+// Division display + click to cycle
+gfx_fbx += gfx_rpt_w + 4;
+gfx_div_w = 46;
+// Show pending state in synced mode
+rpt_pending_div >= 0 || rpt_pending_trip >= 0 ? (
+  gfx_r = 0.20; gfx_g = 0.15; gfx_b = 0.08;  // amber when pending
+) : (
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.20;
+);
+gfx_rect(gfx_fbx, gfx_fill_btn_y, gfx_div_w, gfx_fill_btn_h);
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+gfx_x = gfx_fbx + 4; gfx_y = gfx_fill_btn_y + 4;
+_show_div = rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx;
+_show_trip = rpt_pending_trip >= 0 ? rpt_pending_trip : rpt_triplet;
+_show_div == 0 ? gfx_drawstr("1/64") :
+_show_div == 1 ? gfx_drawstr("1/32") :
+_show_div == 2 ? gfx_drawstr("1/16") :
+_show_div == 3 ? gfx_drawstr(" 1/8") :
+_show_div == 4 ? gfx_drawstr(" 1/4") :
+_show_div == 5 ? gfx_drawstr(" 1/2") :
+gfx_drawstr("   1");
+_show_trip ? (
+  gfx_drawstr("T");
+);
+mouse_cap & 1 && !last_mouse_cap ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_div_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    rpt_mode == 2 ? (
+      rpt_pending_div = ((rpt_pending_div >= 0 ? rpt_pending_div : rpt_div_idx) + 1) % 7;
+    ) : (
+      rpt_div_idx = (rpt_div_idx + 1) % 7;
+    );
+  );
+);
+mouse_cap & 2 && !(last_mouse_cap & 2) ? (
+  mouse_x >= gfx_fbx && mouse_x < gfx_fbx + gfx_div_w &&
+  mouse_y >= gfx_fill_btn_y && mouse_y < gfx_fill_btn_y + gfx_fill_btn_h ? (
+    rpt_mode == 2 ? (
+      rpt_pending_trip = 1 - (rpt_pending_trip >= 0 ? rpt_pending_trip : rpt_triplet);
+    ) : (
+      rpt_triplet = 1 - rpt_triplet;
+    );
+  );
+);
+
 // -- REC button (right-aligned) --
 gfx_rec_w = 50;
 gfx_rec_x = gfx_w - margin - gfx_rec_w;
@@ -3431,9 +3965,31 @@ mouse_cap & 1 && (drag_id == 6 || (drag_id == 0 && drag_cooldown == 0)) ? (
 // ---- Bus LP Filter bar ----
 ctrl_y_blp = ctrl_y4 + ctrl_h + 6;
 cur_bus_lp = slider73;
+// LP on/off button
+bus_lp_on ? (
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+) : (
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+);
+gfx_rect(margin, ctrl_y_blp, 22, ctrl_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-gfx_x = margin; gfx_y = ctrl_y_blp + 2;
-gfx_drawstr("LP   ");
+gfx_x = margin + 4; gfx_y = ctrl_y_blp + 2;
+gfx_drawstr("LP");
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= margin && mouse_x < margin + 22 &&
+  mouse_y >= ctrl_y_blp && mouse_y < ctrl_y_blp + ctrl_h ? (
+    bus_lp_on ? (
+      bus_lp_last = slider73;
+      slider73 = 1;
+      bus_lp_on = 0;
+    ) : (
+      slider73 = bus_lp_last;
+      bus_lp_on = 1;
+    );
+    slider_automate(slider73);
+  );
+);
+gfx_x = margin + 26; gfx_y = ctrl_y_blp + 2;
 cur_bus_lp < 0.999 ? (
   bus_lp_hz_disp = 20 * pow(1000, cur_bus_lp);
   bus_lp_hz_disp >= 1000 ? (
@@ -3462,6 +4018,7 @@ mouse_cap & 1 && (drag_id == 9 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y_blp && mouse_y < ctrl_y_blp + ctrl_h ? (
     drag_id = 9;
     slider73 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider73 < 0.999 ? ( bus_lp_on = 1; bus_lp_last = slider73; );
     slider_automate(slider73);
   );
 );
@@ -3469,9 +4026,31 @@ mouse_cap & 1 && (drag_id == 9 || (drag_id == 0 && drag_cooldown == 0)) ? (
 // ---- Bus HP Filter bar ----
 ctrl_y_bhp = ctrl_y_blp + ctrl_h + 6;
 cur_bus_hp = slider74;
+// HP on/off button
+bus_hp_on ? (
+  gfx_r = COL_MAGENTA_R; gfx_g = COL_MAGENTA_G; gfx_b = COL_MAGENTA_B;
+) : (
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+);
+gfx_rect(margin, ctrl_y_bhp, 22, ctrl_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-gfx_x = margin; gfx_y = ctrl_y_bhp + 2;
-gfx_drawstr("HP   ");
+gfx_x = margin + 4; gfx_y = ctrl_y_bhp + 2;
+gfx_drawstr("HP");
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= margin && mouse_x < margin + 22 &&
+  mouse_y >= ctrl_y_bhp && mouse_y < ctrl_y_bhp + ctrl_h ? (
+    bus_hp_on ? (
+      bus_hp_last = slider74;
+      slider74 = 0;
+      bus_hp_on = 0;
+    ) : (
+      slider74 = bus_hp_last;
+      bus_hp_on = 1;
+    );
+    slider_automate(slider74);
+  );
+);
+gfx_x = margin + 26; gfx_y = ctrl_y_bhp + 2;
 cur_bus_hp > 0.001 ? (
   bus_hp_hz_disp = 20 * pow(1000, cur_bus_hp);
   bus_hp_hz_disp >= 1000 ? (
@@ -3500,6 +4079,7 @@ mouse_cap & 1 && (drag_id == 10 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y_bhp && mouse_y < ctrl_y_bhp + ctrl_h ? (
     drag_id = 10;
     slider74 = max(0, min(1, (mouse_x - ctrl_x) / ctrl_bar_w));
+    slider74 > 0.001 ? ( bus_hp_on = 1; bus_hp_last = slider74; );
     slider_automate(slider74);
   );
 );
@@ -3540,9 +4120,31 @@ mouse_cap & 1 && (drag_id == 11 || (drag_id == 0 && drag_cooldown == 0)) ? (
 // ---- Comp Peak Reduction bar ----
 ctrl_y5 = ctrl_y_cin + ctrl_h + 6;
 cur_comp = slider71;
+// Comp on/off button
+bus_comp_on ? (
+  gfx_r = 0.9; gfx_g = 0.4; gfx_b = 0.15;
+) : (
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
+);
+gfx_rect(margin, ctrl_y5, 34, ctrl_h);
 gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
-gfx_x = margin; gfx_y = ctrl_y5 + 2;
-gfx_drawstr("Comp ");
+gfx_x = margin + 2; gfx_y = ctrl_y5 + 2;
+gfx_drawstr("Comp");
+mouse_cap & 1 && !(last_mouse_cap & 1) ? (
+  mouse_x >= margin && mouse_x < margin + 34 &&
+  mouse_y >= ctrl_y5 && mouse_y < ctrl_y5 + ctrl_h ? (
+    bus_comp_on ? (
+      bus_comp_last = slider71;
+      slider71 = 0;
+      bus_comp_on = 0;
+    ) : (
+      slider71 = bus_comp_last;
+      bus_comp_on = 1;
+    );
+    slider_automate(slider71);
+  );
+);
+gfx_x = margin + 38; gfx_y = ctrl_y5 + 2;
 gfx_drawnumber(floor(cur_comp + 0.5), 0);
 gfx_drawstr("%");
 
@@ -3564,6 +4166,7 @@ mouse_cap & 1 && (drag_id == 7 || (drag_id == 0 && drag_cooldown == 0)) ? (
   mouse_y >= ctrl_y5 && mouse_y < ctrl_y5 + ctrl_h ? (
     drag_id = 7;
     slider71 = max(0, min(100, (mouse_x - ctrl_x) / ctrl_bar_w * 100));
+    slider71 > 0 ? ( bus_comp_on = 1; bus_comp_last = slider71; );
     slider_automate(slider71);
   );
 );
@@ -3980,6 +4583,7 @@ notice_show ? (
   gfx_x = notice_btn_x + 4; gfx_y = notice_btn_y + 2;
   gfx_drawstr("NOTICE");
 );
+
 
 // ============================================================
 // @SERIALIZE — Save/restore sequencer patterns
