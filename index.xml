@@ -255,8 +255,8 @@
         <changelog><![CDATA[v2.3 — Tuner module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-03-07T06:00:00Z">
-        <changelog><![CDATA[v1.2 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
+          <version name="2.4" author="LMS" time="2026-03-07T06:00:00Z">
+        <changelog><![CDATA[v2.4 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
     </reapack>
@@ -297,8 +297,8 @@
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
-          <version name="2.1" author="LMS" time="2026-03-07T06:00:00Z">
-        <changelog><![CDATA[v2.1 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
+          <version name="2.4" author="LMS" time="2026-03-07T06:00:00Z">
+        <changelog><![CDATA[v2.4 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
     </reapack>
@@ -391,8 +391,8 @@
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
-          <version name="1.1" author="LMS" time="2026-03-07T06:00:00Z">
-        <changelog><![CDATA[v1.1 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
+          <version name="2.4" author="LMS" time="2026-03-07T06:00:00Z">
+        <changelog><![CDATA[v2.4 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
     </reapack>
@@ -429,8 +429,8 @@
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-03-07T06:00:00Z">
-        <changelog><![CDATA[v1.2 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
+          <version name="2.4" author="LMS" time="2026-03-07T06:00:00Z">
+        <changelog><![CDATA[v2.4 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
     </reapack>
@@ -463,8 +463,8 @@
         <changelog><![CDATA[v2.3 — CPU optimization + core module refactoring. Tuner toggleable on/off (click tuner strip, zero CPU when off). Bright cap filter recalculation moved from per-sample to per-block. Tuner code now calls centralized core module (lms_core v5.3).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
-          <version name="1.2" author="LMS" time="2026-03-07T06:00:00Z">
-        <changelog><![CDATA[v1.2 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
+          <version name="2.4" author="LMS" time="2026-03-07T06:00:00Z">
+        <changelog><![CDATA[v2.4 — Effects moved to lms_core: spring reverb, tremolo, and tape echo now use shared core functions with per-sample parameter smoothing and soft clamp on wet signals. Eliminates zipper noise during automation and prevents clipping at high mix levels.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
     </reapack>
