@@ -72,6 +72,11 @@ slider20:50<0,100,1>-Dry/Wet (%)
   sp_lp_l = 0; sp_lp_r = 0;
   sp_damp_coeff = exp(-2 * $pi * 4000 / srate);
 
+  // === Parameter smoothing ===
+  sm_coeff = 1.0 - exp(-1.0 / (0.01 * srate));
+  sm_intensity = 0; sm_delay_ms = 300; sm_echo_vol = 0;
+  sm_dry_wet = 0.5; sm_spring_mix = 0;
+
   // === Shared DSP instances ===
   dc.lms_dc_init_freq(220);
   tone.lms_tone_init();
@@ -433,6 +438,19 @@ loop(BC_MAX_INST,
 );
 
 @sample
+  // Smooth automatable parameters
+  sm_intensity += (intensity - sm_intensity) * sm_coeff;
+  sm_delay_ms += (delay_ms - sm_delay_ms) * sm_coeff;
+  sm_echo_vol += (echo_vol - sm_echo_vol) * sm_coeff;
+  sm_dry_wet += (dry_wet - sm_dry_wet) * sm_coeff;
+  sm_spring_mix += (spring_mix - sm_spring_mix) * sm_coeff;
+
+  // Update delay from smoothed time
+  delay_base = sm_delay_ms / 1000 * srate;
+  head1_delay = delay_base;
+  head2_delay = delay_base * 1.5;
+  head3_delay = delay_base * 2.0;
+
   dry_l = spl0;
   dry_r = spl1;
 
@@ -469,8 +487,8 @@ loop(BC_MAX_INST,
     total_mod = wow_mod + flutter_mod;
 
     // Write to delay buffer (input + feedback with tape character)
-    tape_in_l = proc_l + fb_l * intensity;
-    tape_in_r = proc_r + fb_r * intensity;
+    tape_in_l = proc_l + fb_l * sm_intensity;
+    tape_in_r = proc_r + fb_r * sm_intensity;
 
     tape_age > 0.01 ? (
       tape_in_l = tape_char(tape_in_l, tape_age);
@@ -523,11 +541,11 @@ loop(BC_MAX_INST,
     );
 
     // Echo volume
-    wet_l *= echo_vol;
-    wet_r *= echo_vol;
+    wet_l *= sm_echo_vol;
+    wet_r *= sm_echo_vol;
 
     // Spring Reverb (post echo)
-    spring_mix > 0 ? (
+    sm_spring_mix > 0 ? (
       sp_in = (wet_l + wet_r) * 0.5;
 
       sp_in = lms_spring_ap(sp_ap1_buf, sp_ap1_pos, sp_ap1_len, sp_in, 0.6);
@@ -557,8 +575,8 @@ loop(BC_MAX_INST,
       sp_out_l = cm1_out * 0.6 + cm2_out * 0.4;
       sp_out_r = cm1_out * 0.4 + cm2_out * 0.6;
 
-      wet_l += sp_out_l * spring_mix;
-      wet_r += sp_out_r * spring_mix;
+      wet_l += sp_out_l * sm_spring_mix;
+      wet_r += sp_out_r * sm_spring_mix;
     );
 
     // Advance write position
@@ -578,8 +596,8 @@ loop(BC_MAX_INST,
   );
 
   // === Dry/Wet mix ===
-  out_l = dry_l * (1 - dry_wet) + wet_l * dry_wet;
-  out_r = dry_r * (1 - dry_wet) + wet_r * dry_wet;
+  out_l = dry_l * (1 - sm_dry_wet) + wet_l * sm_dry_wet;
+  out_r = dry_r * (1 - sm_dry_wet) + wet_r * sm_dry_wet;
 
   // === FINAL STAGE SATURATION (blended signal) ===
   (sat_on && sat_routing == 3) ? (
