@@ -800,8 +800,7 @@ function lms_spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   wet = (ap_out + wet * this.spring_wet) * 0.7;
   wet = wet * mix;
   // Soft clamp wet signal to prevent clipping at high mix
-  wet > 1.0 ? wet = 1.0 - 2.0 / (1.0 + exp(2.0 * wet)) :
-  wet < -1.0 ? wet = -1.0 + 2.0 / (1.0 + exp(-2.0 * wet));
+  wet = max(-1.0, min(1.0, wet));
   x + wet;
 );
 
@@ -872,10 +871,9 @@ function lms_tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos,
   (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
   this.write_pos += 1;
   this.write_pos >= this.buf_len ? this.write_pos = 0;
-  // Output: dry + soft-clamped wet
+  // Output: dry + clamped wet
   wet = delayed * mix;
-  wet > 1.0 ? wet = 1.0 - 2.0 / (1.0 + exp(2.0 * wet)) :
-  wet < -1.0 ? wet = -1.0 + 2.0 / (1.0 + exp(-2.0 * wet));
+  wet = max(-1.0, min(1.0, wet));
   x + wet;
 );
 
@@ -1721,7 +1719,7 @@ function lms_lim_proc(l, r)
 //    Usage:
 //      @init:   pd.lms_yin_init(buf_offset);
 //                 // buf_offset = starting memory address for buffers
-//                 // reserves ~4300 slots from buf_offset
+//                 // reserves ~5500 slots from buf_offset (scales with srate)
 //      @sample: pd.lms_yin_write(mono_sample);
 //      @block:  pd.lms_yin_detect();
 //                 // pd.freq        = detected frequency in Hz (0 if none)
@@ -1793,7 +1791,7 @@ function lms_yin_init(buf_offset)
   this.tau_max = ceil(srate / 80);    // ~80 Hz min
   this.W = 480;                       // integration window
 
-  // YIN threshold (adjustable via slider in the plugin)
+  // YIN threshold
   this.threshold = 0.15;
 
   // Output state
@@ -2770,58 +2768,90 @@ function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
 
 
 // ============================================================================
-//  SECTION 13: Tuner Module (high-level wrapper around YIN detector)
+//  SECTION 13: Tuner Module (zero-crossing pitch detector)
 //
-//  Wraps YIN pitch detection + display smoothing + toggle UI into a single
-//  module. Each amp calls four functions instead of inlining 40+ lines.
+//  Simple, reliable chromatic tuner using zero-crossing detection with
+//  LP-filtered input for clean fundamental tracking.
 //
 //  Usage:
-//    @init:   tuner.lms_tuner_init(20000);
-//    @sample: tuner.lms_tuner_write(mono);
+//    @init:   tuner.lms_tuner_init();
+//    @sample: tuner.lms_tuner_write((spl0 + spl1) * 0.5);
 //    @block:  tuner.lms_tuner_block();
 //    @gfx:   tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
+//    @sample (output): amp_out *= tuner.mute_gain;
 // ============================================================================
 
-// Initialize tuner module — YIN detector + display state + on/off toggle.
-// buf_offset = starting memory address for YIN buffers (reserves 4300 slots).
-function lms_tuner_init(buf_offset)
+// Initialize tuner module.
+function lms_tuner_init()
 (
-  this.lms_yin_init(buf_offset);
   this.on = 0;
+  // Mute fade (5ms)
+  this.mute_gain = 1.0;
+  this.mute_coeff = 1.0 / (0.005 * srate);
+  // Zero-crossing state
+  this.zc_prev = 0;
+  this.zc_count = 0;
+  this.zc_timer = 0;
+  this.zc_freq = 0;
+  this.zc_conf = 0;
+  this.zc_env = 0;
+  // LP filter for clean crossings
+  this.zc_lp.lms_bq_init();
+  this.zc_lp.lms_bq_set_lp(900, 0.7);
+  // Display state
   this.disp_freq = 0;
   this.disp_conf = 0;
   this.disp_cents = 0;
   this.disp_note = -1;
-  this.smooth = 0;
 );
 
-// Feed one sample to the pitch detector. Call in @sample.
-// Guarded by on/off toggle — zero cost when tuner is off.
+// Feed one raw mono sample. Call in @sample.
+// Pass raw input: (spl0 + spl1) * 0.5 — before gain scaling.
 function lms_tuner_write(x)
-(
-  this.on ? this.lms_yin_write(x);
-);
-
-// Run pitch detection + smooth display values. Call in @block.
-// Guarded by on/off toggle — zero cost when tuner is off.
-function lms_tuner_block()
+  local(zc_in)
 (
   this.on ? (
-    this.lms_yin_detect();
-    this.smooth == 0 ? this.smooth = exp(-1 / (srate / samplesblock * 0.080));
-    this.freq > 20 && this.confidence > 0.3 ? (
-      this.disp_freq = this.smooth * this.disp_freq + (1 - this.smooth) * this.freq;
-      this.disp_conf = this.smooth * this.disp_conf + (1 - this.smooth) * this.confidence;
-      this.disp_cents = this.smooth * this.disp_cents + (1 - this.smooth) * this.cents;
-      this.disp_note = this.midi_int;
-    ) : (
-      this.disp_conf *= 0.9;
+    this.mute_gain = max(0, this.mute_gain - this.mute_coeff);
+    this.zc_env = max(abs(x), this.zc_env * 0.9999);
+    zc_in = this.zc_lp.lms_bq_proc(x);
+    this.zc_timer += 1;
+    // Positive-going zero crossing
+    this.zc_prev <= 0 && zc_in > 0 && this.zc_env > 0.003 ? (
+      this.zc_count += 1;
+      this.zc_count >= 4 ? (
+        this.zc_freq = srate * this.zc_count / this.zc_timer;
+        this.zc_conf = this.zc_freq >= 60 && this.zc_freq <= 1200 ? 1 : 0;
+        this.zc_count = 0;
+        this.zc_timer = 0;
+      );
     );
+    this.zc_prev = zc_in;
+    // No signal — reset
+    this.zc_env < 0.002 ? (
+      this.zc_conf = 0; this.zc_count = 0; this.zc_timer = 0;
+    );
+  ) : (
+    this.mute_gain = min(1, this.mute_gain + this.mute_coeff);
+  );
+);
+
+// Smooth display values. Call in @block.
+function lms_tuner_block()
+  local(zc_midi, zc_midi_int)
+(
+  this.on && this.zc_conf > 0 && this.zc_freq > 30 ? (
+    this.disp_freq = this.disp_freq * 0.7 + this.zc_freq * 0.3;
+    this.disp_conf = 1.0;
+    zc_midi = 69 + 12 * log(this.disp_freq / 440) / log(2);
+    zc_midi_int = floor(zc_midi + 0.5);
+    this.disp_note = zc_midi_int;
+    this.disp_cents = (zc_midi - zc_midi_int) * 100;
+  ) : this.on ? (
+    this.disp_conf *= 0.92;
   );
 );
 
 // Draw tuner strip with click-to-toggle. Call in @gfx.
-// tx, ty, tw, th = strip rectangle. S = UI scale. lc = previous mouse_cap.
 function lms_tuner_draw(tx, ty, tw, th, S, lc)
   local(f_small)
 (
@@ -2839,7 +2869,6 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
     gfx_y = ty + floor((th - f_small) / 2);
     gfx_drawstr("TUNER OFF");
   );
-  // Click anywhere on the strip to toggle
   (mouse_cap & 1) && !(lc & 1) && mouse_y >= ty && mouse_y <= ty + th ? (
     this.on = 1 - this.on;
   );
