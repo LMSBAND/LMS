@@ -175,6 +175,10 @@
         <changelog><![CDATA[v5.0 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
+      <version name="5.1" author="LMS" time="2026-03-07T00:00:00Z">
+        <changelog><![CDATA[v5.1 — Per-sample parameter smoothing on intensity, repeat rate, echo volume, spring mix, and dry/wet to eliminate zipper noise from automation envelopes.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_henge.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
