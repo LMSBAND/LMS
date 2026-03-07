@@ -564,9 +564,13 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Analog Synth">
+    <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Mono/Poly Analog Synth">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
-        <changelog><![CDATA[Initial release — Lil Stinker analog synthesizer.]]></changelog>
+        <changelog><![CDATA[Initial release — Phatty-inspired mono/poly analog synth. 2 PolyBLEP oscillators (saw/square/tri/pulse) with sub osc, pre-filter Multidrive (warm/grit/growl), 4-pole Moog ladder filter with kbd tracking and overload, 2 ADSR envelopes (filter + amp), LFO with 6 shapes (sine/tri/saw/square/S&H/random), glide/portamento, switchable 8-voice polyphony with per-voice filters and envelopes, 74 built-in presets with category-based randomizer, DrumBanger pad trigger integration via gmem, waveform scope. Full GUI with LMS house palette.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-03-04T15:00:00Z">
+        <changelog><![CDATA[v1.1 — Fix preset reset on transport stop/start. Syncs preset tracking to current slider values in @init so play/pause doesn't trigger a full preset reload and overwrite manual tweaks.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
       </version>
     </reapack>
@@ -901,6 +905,44 @@
       </version>
       <version name="1.6" author="LMS" time="2026-03-01T22:00:00Z">
         <changelog><![CDATA[v1.6 — Per-pad timing nudge (0-50ms push-back delay for groove/feel), sub-step timing fixes (swing-adjusted subdivisions, no more dropped beats at step boundaries), pool browser fix (menu items now select the correct sample), stable pool persistence (presets survive manifest changes — filenames serialized in v11), pool index resolution on rescan (pad assignments stay correct after adding/removing samples), compressor pre-computed coefficients (3 fewer exp() calls per sample). MIDI Program Change now calls slider_automate. Serialize v11.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-rimshot.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hihat-808.wav</source>
+        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-openhat-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-analog.wav</source>
+        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-fm.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-808.wav</source>
+        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-laser.wav</source>
+        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-perc-chirpy.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-juicy.wav</source>
+        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-papercut.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
+      <version name="1.7" author="LMS" time="2026-03-07T12:00:00Z">
+        <changelog><![CDATA[v1.7 — Launchpad X CC mapping (CCs 20-42 on ch1): per-pad vol/pan/pitch, record toggle, pattern duplicate, pattern length +/-, kit select up/down, swing, saturation drive, bus LP/HP cutoff, comp peak/gain, bus LP/HP/comp on/off toggles. Note repeat engine (free + beat-synced modes, 1/64 to whole note divisions, triplet toggle, pending changes apply on downbeat in synced mode). Note repeat GUI (RPT button cycles off/free/sync, division display with click/right-click). Bus LP/HP/Comp on/off toggle buttons in GUI. Launchpad gmem feedback (state broadcast to gmem[300+] for LED control). Pad select on MIDI note-on for CC-targeted editing.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
         <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
         <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
