@@ -428,100 +428,6 @@ function sgate_proc(x) local(ax, gate_gain) (
   x * gate_gain;
 );
 
-// === SPRING REVERB (Fender 3-spring tank — long, warm, drippy) ===
-// Bassman reverb: same Fender 3-spring tank design.
-// 3-spring tank: longer decay, more diffuse, more "boing" than Champ's single spring.
-// Slightly brighter feedback LP (springs are longer = more HF return).
-function spring_init() (
-  this.buf_base = 50000;
-  this.pd_off = 0;       this.pd_len = 337;    this.pd_pos = 0;
-  this.ap1_off = 400;    this.ap1_len = 1087;  this.ap1_pos = 0;
-  this.ap2_off = 1500;   this.ap2_len = 1483;  this.ap2_pos = 0;
-  this.ap3_off = 3000;   this.ap3_len = 1801;  this.ap3_pos = 0;
-  this.ap4_off = 4900;   this.ap4_len = 2213;  this.ap4_pos = 0;
-  this.fb_off = 7200;    this.fb_len = 3571;   this.fb_pos = 0;
-  this.fb_val = 0;
-  this.fb_lp.bq_init();
-  this.fb_lp.bq_set_lp(3000, 0.5);  // brighter than Champ (3-spring = more HF return)
-  this.in_lp.bq_init();
-  this.in_lp.bq_set_lp(4500, 0.6);  // brighter input (Fender reverb driver tube)
-  memset(this.buf_base, 0, 11000);
-);
-function spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
-  input = this.in_lp.bq_proc(x);
-  coeff = 0.30;
-  delayed = (this.buf_base + this.pd_off)[this.pd_pos];
-  (this.buf_base + this.pd_off)[this.pd_pos] = input + this.fb_val * coeff;
-  this.pd_pos += 1; this.pd_pos >= this.pd_len ? this.pd_pos = 0;
-  ap_out = delayed;
-  fb = (this.buf_base + this.ap1_off)[this.ap1_pos];
-  (this.buf_base + this.ap1_off)[this.ap1_pos] = ap_out + fb * 0.50;
-  ap_out = fb - ap_out * 0.50;
-  this.ap1_pos += 1; this.ap1_pos >= this.ap1_len ? this.ap1_pos = 0;
-  fb = (this.buf_base + this.ap2_off)[this.ap2_pos];
-  (this.buf_base + this.ap2_off)[this.ap2_pos] = ap_out + fb * 0.50;
-  ap_out = fb - ap_out * 0.50;
-  this.ap2_pos += 1; this.ap2_pos >= this.ap2_len ? this.ap2_pos = 0;
-  fb = (this.buf_base + this.ap3_off)[this.ap3_pos];
-  (this.buf_base + this.ap3_off)[this.ap3_pos] = ap_out + fb * 0.45;
-  ap_out = fb - ap_out * 0.45;
-  this.ap3_pos += 1; this.ap3_pos >= this.ap3_len ? this.ap3_pos = 0;
-  fb = (this.buf_base + this.ap4_off)[this.ap4_pos];
-  (this.buf_base + this.ap4_off)[this.ap4_pos] = ap_out + fb * 0.40;
-  ap_out = fb - ap_out * 0.40;
-  this.ap4_pos += 1; this.ap4_pos >= this.ap4_len ? this.ap4_pos = 0;
-  this.fb_val = this.fb_lp.bq_proc(ap_out);
-  this.fb_val = max(-0.9, min(0.9, this.fb_val));
-  wet = (this.buf_base + this.fb_off)[this.fb_pos];
-  (this.buf_base + this.fb_off)[this.fb_pos] = ap_out;
-  this.fb_pos += 1; this.fb_pos >= this.fb_len ? this.fb_pos = 0;
-  wet = (ap_out + wet * 0.35) * 0.7;  // slightly longer tail than Champ
-  x + wet * mix;
-);
-
-// === TREMOLO (Fender bias tremolo — oscillates output tube bias) ===
-function trem_init() ( this.phase = 0; );
-function trem_proc(x, depth, speed) local(rate, lfo) (
-  rate = 1.0 + speed * 9.0;
-  this.phase += rate / srate;
-  this.phase >= 1.0 ? this.phase -= 1.0;
-  lfo = sin(this.phase * 2.0 * $pi);
-  x * (1.0 - depth * 0.8 * (0.5 + lfo * 0.5));
-);
-
-// === TAPE ECHO ===
-function tape_echo_init() (
-  this.buf_base = 200000;
-  this.buf_len = (srate * 1.0)|0;
-  this.buf_len = min(this.buf_len, 48000);
-  this.write_pos = 0;
-  this.fb_lp.bq_init();
-  this.fb_lp.bq_set_lp(3000, 0.5);
-  this.fb_val = 0;
-  this.wow_phase = 0;
-  memset(this.buf_base, 0, 50000);
-);
-function tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos, wow, delayed, wet, frac, idx, s0, s1) (
-  delay_samps = (0.050 + time * 0.550) * srate;
-  delay_samps = min(delay_samps, this.buf_len - 2);
-  this.wow_phase += 0.7 / srate;
-  this.wow_phase >= 1.0 ? this.wow_phase -= 1.0;
-  wow = sin(this.wow_phase * 2.0 * $pi) * 0.002 * srate;
-  read_pos = this.write_pos - delay_samps + wow;
-  read_pos < 0 ? read_pos += this.buf_len;
-  idx = floor(read_pos);
-  frac = read_pos - idx;
-  idx < 0 ? idx += this.buf_len;
-  s0 = (this.buf_base)[idx % this.buf_len];
-  s1 = (this.buf_base)[(idx + 1) % this.buf_len];
-  delayed = s0 + frac * (s1 - s0);
-  this.fb_val = this.fb_lp.bq_proc(delayed);
-  (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
-  this.write_pos += 1;
-  this.write_pos >= this.buf_len ? this.write_pos = 0;
-  x + delayed * mix;
-);
-
 // === INSTANCES ===
 inp.input_stage_init();
 input_hp.bq_init();
@@ -564,13 +470,18 @@ bassman_pa.bassman_poweramp_set(0.5, 0.5);
 gate.sgate_init();
 
 // Spring reverb
-spring.spring_init();
+spring.lms_spring_init();
+// Fender 3-spring tank — brighter, longer tail
+spring.fb_lp.lms_bq_set_lp(3000, 0.5);
+spring.in_lp.lms_bq_set_lp(4500, 0.6);
+spring.spring_coeff = 0.30;
+spring.spring_wet = 0.35;
 
 // Tremolo
-trem.trem_init();
+trem.lms_trem_init();
 
 // Tape echo
-echo.tape_echo_init();
+echo.lms_tape_echo_init();
 
 // Cabinet simulation (shared presets from core)
 lms_cab_table_init();
@@ -993,15 +904,15 @@ amp_out = pi.triode_proc(amp_out, pi_drive, bplus,
 fx_bypass == 0 ? (
   // Tremolo (bias trem)
   trem_depth > 0 ? (
-    amp_out = trem.trem_proc(amp_out, trem_depth, trem_speed);
+    amp_out = trem.lms_trem_proc(amp_out, trem_depth, trem_speed);
   );
   // Spring reverb (Fender 3-spring tank)
   spring_mix > 0 ? (
-    amp_out = spring.spring_proc(amp_out, spring_mix);
+    amp_out = spring.lms_spring_proc(amp_out, spring_mix);
   );
   // Tape echo
   echo_mix > 0 ? (
-    amp_out = echo.tape_echo_proc(amp_out, echo_mix, echo_time, echo_feedback);
+    amp_out = echo.lms_tape_echo_proc(amp_out, echo_mix, echo_time, echo_feedback);
   );
   // Safety clamp — catches runaway feedback before it hits power tubes
   amp_out = max(-0.95, min(0.95, amp_out));
