@@ -798,7 +798,11 @@ function lms_spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
   (this.buf_base + this.fb_off)[this.fb_pos] = ap_out;
   this.fb_pos += 1; this.fb_pos >= this.fb_len ? this.fb_pos = 0;
   wet = (ap_out + wet * this.spring_wet) * 0.7;
-  x + wet * mix;
+  wet = wet * mix;
+  // Soft clamp wet signal to prevent clipping at high mix
+  wet > 1.0 ? wet = 1.0 - 2.0 / (1.0 + exp(2.0 * wet)) :
+  wet < -1.0 ? wet = -1.0 + 2.0 / (1.0 + exp(-2.0 * wet));
+  x + wet;
 );
 
 // === TREMOLO (bias tremolo) ===
@@ -868,8 +872,11 @@ function lms_tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos,
   (this.buf_base)[this.write_pos] = x + this.fb_val * feedback * 0.85;
   this.write_pos += 1;
   this.write_pos >= this.buf_len ? this.write_pos = 0;
-  // Output: dry + wet
-  x + delayed * mix;
+  // Output: dry + soft-clamped wet
+  wet = delayed * mix;
+  wet > 1.0 ? wet = 1.0 - 2.0 / (1.0 + exp(2.0 * wet)) :
+  wet < -1.0 ? wet = -1.0 + 2.0 / (1.0 + exp(-2.0 * wet));
+  x + wet;
 );
 
 
