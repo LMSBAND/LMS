@@ -68,6 +68,10 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+          <version name="6.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_rtw.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -100,6 +104,10 @@
       </version>
       <version name="5.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v5.1 — Renamed from Channel Strip to RTW (Reinvents The Wheel). Notice updated to manifesto. gmem namespace fix.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
+      </version>
+          <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
     </reapack>
@@ -136,6 +144,10 @@
         <changelog><![CDATA[v5.1 — Renamed from Distressor to KITTY KATS BIG KRUSH. Notice updated to manifesto. gmem namespace fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
+          <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -164,6 +176,10 @@
       </version>
       <version name="6.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v6.1 — Notice updated to manifesto. Author tags cleaned.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
+          <version name="6.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
     </reapack>
@@ -196,6 +212,10 @@
         <changelog><![CDATA[v5.1 — Per-sample parameter smoothing on intensity, repeat rate, echo volume, spring mix, and dry/wet to eliminate zipper noise from automation envelopes.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
+          <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_henge.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -224,6 +244,10 @@
       </version>
       <version name="5.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v5.1 — Renamed from Tape Echo to HENGE DELAY. Notice updated to manifesto.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
+      </version>
+          <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
     </reapack>
@@ -292,6 +316,10 @@
         <changelog><![CDATA[v2.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+          <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -338,6 +366,10 @@
         <changelog><![CDATA[v2.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
+          <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -380,6 +412,10 @@
         <changelog><![CDATA[v1.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+          <version name="1.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -396,6 +432,10 @@
       </version>
       <version name="1.7" author="LMS" time="2026-03-07T20:00:00Z">
         <changelog><![CDATA[v1.7 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+          <version name="1.8" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -444,6 +484,10 @@
         <changelog><![CDATA[v2.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
+          <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -486,6 +530,10 @@
         <changelog><![CDATA[v2.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+          <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -524,6 +572,10 @@
         <changelog><![CDATA[v2.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
+          <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -544,6 +596,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v1.2 — Renamed from Density Limiter to MEGA INCREASINATOR. Fix gmem namespace typo.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
+          <version name="1.3" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
     </reapack>
@@ -570,6 +626,10 @@
         <changelog><![CDATA[v1.1 — Renamed from LA-2A to Silver Sixty Nine. Notice updated to manifesto.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
       </version>
+          <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_smart_gate.jsfx" type="effect" desc="LMS - Smart Gate — Density-Aware Noise Gate">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -584,6 +644,10 @@
         <changelog><![CDATA[v2.1 — Hide single-mode peers from phase correction system. Notice updated to manifesto.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+          <version name="2.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
@@ -592,6 +656,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-02-25T12:00:00Z">
         <changelog><![CDATA[v2.0 — Vocal Intelligence upgrade. 4-band density tracker for voiced/unvoiced classification (skips YIN when unvoiced, ~60% CPU savings on speech). YIN decimation gate (skip redundant detections when locked on confident note). Pitch velocity tracking (semitones/sec, smoothed). Onset detection (3dB rise threshold for note attacks). Vibrato detection (ring buffer zero-crossing rate + depth estimation, 3-12Hz). Auto-ranging (learns singer's frequency range, narrows YIN search bounds with asymmetric smoothing). Publishes all intelligence data to pitch bus slots 8-15. Fixed voiced threshold for reliable detection across input levels. Safety net: YIN runs every 4th block even when unvoiced to prevent stale lockups.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+          <version name="2.1" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
@@ -608,6 +676,10 @@
         <changelog><![CDATA[v2.1 — Renamed from Autotune to The Faker.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
+          <version name="2.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -616,6 +688,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v1.1 — Notice updated to manifesto. Author tags cleaned.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
+      </version>
+          <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
       </version>
     </reapack>
@@ -648,6 +724,10 @@
         <changelog><![CDATA[v1.6 — Fix preset reset on transport stop/start (play/pause no longer overwrites manual tweaks). Trademark references removed from product names.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
+          <version name="1.7" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Mono/Poly Analog Synth">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -656,6 +736,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-03-04T15:00:00Z">
         <changelog><![CDATA[v1.1 — Fix preset reset on transport stop/start. Syncs preset tracking to current slider values in @init so play/pause doesn't trigger a full preset reload and overwrite manual tweaks.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+          <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
       </version>
     </reapack>
@@ -680,6 +764,10 @@
         <changelog><![CDATA[v1.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+          <version name="1.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -700,6 +788,10 @@
       </version>
       <version name="1.5" author="LMS" time="2026-03-07T20:00:00Z">
         <changelog><![CDATA[v1.5 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
+          <version name="1.6" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
@@ -724,6 +816,10 @@
         <changelog><![CDATA[v1.6 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+          <version name="1.7" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -744,6 +840,10 @@
       </version>
       <version name="1.6" author="LMS" time="2026-03-07T20:00:00Z">
         <changelog><![CDATA[v1.6 — Zero-crossing tuner with mute. Click tuner strip to toggle — output fades to silence over 5ms while tuning. Feeds raw input for reliable pitch detection.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
+      </version>
+          <version name="1.7" author="LMS" time="2026-03-07T22:00:00Z">
+        <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
@@ -1101,28 +1201,6 @@
       <version name="1.4" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v1.4 — PRINT button for stamping MIDI patterns as items. Slot-based pattern UI with click-drag painting for step and overview grids. Default Chord Mode changed to Single. Layout overflow fix.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="DrumbangerDroneFX.jsfx" type="effect" desc="LMS Drone FX Satellite — FET Comp + Tape Delay + Flanger">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — Audio FX satellite for DRUMBANGER. FET compressor with sidechain ducking from pad triggers, tape delay with wow/flutter and saturation in feedback, exaggerated through-zero flanger with tanh self-oscillation. Pattern grid display, waveform scope, GR meter. All in-house DSP.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v1.1 — Added in-plugin NOTICE button with usage instructions (sidechain/gate modes, filter/flanger/delay controls, watch pad selection).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-      </version>
-      <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-      </version>
-      <version name="1.3" author="LMS" time="2026-03-03T00:00:00Z">
-        <changelog><![CDATA[v1.3 — HiDPI scaling fix (S = min(w/h) prevents vertical layout overflow on wide windows). Slot-based lock mode UI with 8 numbered buttons.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
-      </version>
-      <version name="1.4" author="LMS" time="2026-03-07T13:00:00Z">
-        <changelog><![CDATA[v1.4 — Band Space integration (room reverb send). Layout overflow fix.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneFX.jsfx</source>
       </version>
     </reapack>
   </category>
