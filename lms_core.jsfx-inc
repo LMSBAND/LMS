@@ -1856,8 +1856,8 @@ function lms_draw_toggle(tx, ty, is_on, label) (
   is_on;
 );
 
-// ---- draw_mode_sel — clickable mode selector (up to 4 options) ----
-function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3) (
+// ---- draw_mode_sel — clickable mode selector (up to 5 options) ----
+function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
   gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(mx, my, mw, mh);
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
@@ -1868,11 +1868,12 @@ function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3) (
   gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
   gfx_drawstr(label);
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = mx + mw - floor(72 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
+  gfx_x = mx + mw - floor(82 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
   val == 0 ? gfx_drawstr(v0);
   val == 1 ? gfx_drawstr(v1);
   val == 2 ? gfx_drawstr(v2);
   val == 3 ? gfx_drawstr(v3);
+  val == 4 ? gfx_drawstr(v4);
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= mx && mouse_x <= mx + mw &&
     mouse_y >= my && mouse_y <= my + mh ? (
