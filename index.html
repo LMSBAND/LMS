@@ -3337,11 +3337,11 @@
           <div class="core-footprint">~400 lines DUPLICATED</div>
         </div>
         <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">DRONE FX</div>
-          <div class="core-alg">FET comp <span class="version-bad">v2.0 ✕</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-bad">v1.5 ✕</span></div>
-          <div class="core-alg">Delay <span class="version-ok">v1.1</span></div>
-          <div class="core-alg">Flanger <span class="version-ok">v1.0</span></div>
+          <div class="core-plugin-name">AMP SIM</div>
+          <div class="core-alg">Triode <span class="version-bad">v2.0 ✕</span></div>
+          <div class="core-alg">Power amp <span class="version-bad">v1.5 ✕</span></div>
+          <div class="core-alg">Cab sim <span class="version-ok">v1.1</span></div>
+          <div class="core-alg">Density <span class="version-ok">v1.0</span></div>
           <div class="core-footprint">~400 lines DUPLICATED</div>
         </div>
         <div class="core-plugin-box old-box">
@@ -3363,7 +3363,7 @@
       <!-- The core box -->
       <div class="the-core">
         <div class="the-core-name">lms_core.jsfx-inc</div>
-        <div class="the-core-subtitle">ONE FILE — 69 FUNCTIONS — THE ORGAN OF TRUTH</div>
+        <div class="the-core-subtitle">ONE FILE — 132 FUNCTIONS — 4,166 LINES — THE ORGAN OF TRUTH</div>
         <div class="core-alg-grid">
           <span class="core-chip">FET comp</span>
           <span class="core-chip">LA-2A opto</span>
@@ -3392,6 +3392,12 @@
           <span class="core-chip">DC block</span>
           <span class="core-chip">Cubic interp</span>
           <span class="core-chip">Density tracker</span>
+          <span class="core-chip">Triode stage</span>
+          <span class="core-chip">Push-pull PA</span>
+          <span class="core-chip">Single-ended PA</span>
+          <span class="core-chip">Class D PA</span>
+          <span class="core-chip">Tremolo</span>
+          <span class="core-chip">Tape echo</span>
           <span class="core-chip">GFX toolkit</span>
         </div>
         <div class="the-core-community">
@@ -3414,7 +3420,7 @@
       <div class="core-grid new-grid">
         <div class="core-plugin-box new-box">
           <div class="core-plugin-name new-name">11 AMP SIMS</div>
-          <div class="core-thin-desc">preamp + tonestack only</div>
+          <div class="core-thin-desc">preamp + tonestack + voicing only</div>
         </div>
         <div class="core-plugin-box new-box">
           <div class="core-plugin-name new-name">CHANNEL STRIP</div>
@@ -3785,18 +3791,17 @@
       <div class="da-suite-item"><strong>Area 50/51 v2</strong> <span class="da-suite-item-desc">— the tone is out there... (cold-biased 6L6, Clean/Lead channels, resonance/presence controls, noise gate)</span></div>
       <div class="da-suite-item"><strong>The Fucking Nightmare v2</strong> <span class="da-suite-item-desc">— Hybrid Bass (Warm/Aggressive channels)</span></div>
       <div class="da-suite-item"><strong>TOMASTEKNIK v2</strong> <span class="da-suite-item-desc">— All-Tube Bass + OD (Swedish hardcore bass rig, Blindside tribute)</span></div>
-      <div class="da-suite-footer">Grid physics / Dynamic Miller LP / Shared PSU / 4-band density tracking / Spring + Tremolo + Tape Echo on all amps</div>
+      <div class="da-suite-footer">All shared DSP in lms_core: triode / power amp / density tracker / spring + tremolo + tape echo / cab sim / GUI — each amp is just preamp voicing + tonestack</div>
     </div>
 
     <!-- INSTRUMENTS -->
     <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
-      <div class="da-suite-card-header da-green">INSTRUMENTS (7)</div>
+      <div class="da-suite-card-header da-green">INSTRUMENTS (6)</div>
       <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Analog mono synth (24dB ladder filter, 3 oscillators, unison, chorus, delay)</span></div>
       <div class="da-suite-item"><strong>Lil Stinker</strong> <span class="da-suite-item-desc">— Analog mono/poly synth (ladder filter, Multidrive, 74 presets, 8-voice poly)</span></div>
       <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
       <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
       <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
-      <div class="da-suite-item"><strong>Drone FX</strong> <span class="da-suite-item-desc">— FX processing satellite (sidechain, delay, flanger via gmem)</span></div>
       <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
       <div class="da-suite-footer">All interconnected via gmem bus</div>
     </div>
@@ -3839,7 +3844,7 @@
 <div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
   <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 2026 UPDATE</div>
   <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    Full suite updated and stable. 11 density-aware amp sims, 2 analog synths, physical room modeler (The Space), opto compressor, smart drum gate with cross-mic phase correction, pitch detection and correction, and 30+ plugins total. All free. All open source.
+    Full suite refactored. All shared DSP — triode stages, power amps (push-pull / single-ended / Class D), density tracking, effects, cab sim, GUI — extracted into lms_core (132 functions, 4,166 lines). Each amp is now just preamp voicing + tonestack. 30% less code, zero audible change. 11 amps, 2 synths, room modeler, opto comp, smart gate, pitch correction, and more. All free. All open source.
   </div>
 </div>
 
