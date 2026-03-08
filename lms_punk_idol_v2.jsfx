@@ -50,8 +50,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (grid physics — proven from Miller test) ===
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -64,7 +62,6 @@ function input_stage_init() (
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -91,14 +88,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (shared across all stages) ===
-function psu_init() (
   this.voltage = 1.0;
   this.att = exp(-1/(srate * 0.001));
   this.rel = exp(-1/(srate * 0.080));
   this.droop_amount = 0.0;
 );
-function psu_proc(signal_level, sag_depth) local(draw) (
   draw = signal_level * signal_level;
   draw > this.droop_amount ? (
     this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
@@ -294,11 +288,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === CATHODE FOLLOWER (12AX7 — buffers plate output before tone stack) ===
-// Real JCM800 has a CF between preamp and tone stack.
-// Unity-gain, low output Z. Without it, tone stack loads the plate and
-// loses treble. Adds gentle programme-dependent compression.
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(15, 0.7);
   this.dc.lms_dc_init();
@@ -308,7 +297,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -405,7 +393,7 @@ function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, l
 );
 
 // === INIT ===
-inp.input_stage_init();
+inp.lms_input_stage_init(4500, 0.6, 800, -2.5, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(100, 0.7);
 
@@ -428,14 +416,14 @@ v1b.triode_init(35, 8000);
 v1a.triode_init(35, 7500);
 
 // Cathode follower — buffers preamp output before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(15, 0.060, 0.20, 15000);
 
 // Phase inverter — 12AX7 long-tail pair drives EL34 grids
 // Soft, round — pre-compresses signal before power tubes at high master
 // This is the JCM800 equivalent of the SVT's 12AU7 driver
 pi.triode_init(15, 10000);
 
-psu.psu_init();
+psu.lms_psu_init(0.001, 0.080, 0.25, 0.60, 1.0);
 ts.lms_tmb_init();
 ts.lms_tmb_config(60,140, 18,0.6,   370, 1.0,1.5, 14,  900,600,  16,0.75,  3.0,2.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
@@ -697,14 +685,14 @@ mono = max(-1.0, min(1.0, mono));
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (shared rail)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 3b. Bright cap — gain-dependent treble boost (120pF across 1M pot)
 // At low gain: +3dB at 3kHz. At high gain: swamped by pot.
@@ -728,7 +716,7 @@ channel == 2 ? (
 
 // 5b. Cathode follower — buffers preamp before tone stack
 // Prevents tone stack from loading plate, adds gentle compression
-amp_out = cf.cathode_follower_proc(amp_out, bplus);
+amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack
 amp_out = ts.lms_tmb_proc(amp_out);

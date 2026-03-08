@@ -50,9 +50,6 @@ slider24:0<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (AB763 grid physics — 1M grid leak, 68k grid stopper) ===
-// Fender input: bright, open input impedance
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -64,7 +61,6 @@ function input_stage_init() (
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
 );
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -91,39 +87,6 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (Twin: silicon, Deluxe: 5U4GB tube rectifier) ===
-// Twin silicon: tight, near-instant, minimal sag.
-// Deluxe 5U4GB: moderate sag, moderate recovery — between Champ's massive and Twin's tight.
-function psu_init() (
-  this.voltage = 1.0;
-  this.droop_amount = 0.0;
-  this.att = exp(-1/(srate * 0.0005));
-  this.rel = exp(-1/(srate * 0.040));
-);
-function psu_proc(signal_level, sag_depth, amp_channel)
-  local(draw, max_droop)
-(
-  draw = signal_level * signal_level;
-  amp_channel == 1 ? (
-    // DELUXE: 5U4GB tube rectifier — moderate sag, moderate recovery
-    this.att = exp(-1/(srate * 0.004));
-    this.rel = exp(-1/(srate * 0.120));
-    max_droop = 0.18;
-  ) : (
-    // TWIN: silicon rectifier — near-instant, minimal sag
-    this.att = exp(-1/(srate * 0.0005));
-    this.rel = exp(-1/(srate * 0.040));
-    max_droop = 0.08;
-  );
-  draw > this.droop_amount ? (
-    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
-  ) : (
-    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
-  );
-  this.voltage = 1.0 - this.droop_amount * max_droop * sag_depth;
-  this.voltage = max(0.70, min(1.0, this.voltage));
-  this.voltage;
-);
 
 // === 4-BAND HARMONIC DENSITY TRACKER ===
 function hd_init() (
@@ -236,10 +199,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === CATHODE FOLLOWER (V1b — unity-gain buffer before tone stack) ===
-// AB763: CF between V1a plate and tone stack. Prevents loading.
-// Fender CF: less compression than Mesa (smaller coupling cap effects).
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(10, 0.7);
   this.dc.lms_dc_init();
@@ -249,7 +208,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -491,7 +449,7 @@ function deluxe_poweramp_proc(x, bplus)
 );
 
 // === INSTANCES ===
-inp.input_stage_init();
+inp.lms_input_stage_init(5000, 0.55, 1200, -1.5, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(35, 0.7);  // AB763 input coupling: 0.1uF × 1M = ~1.6Hz (practically DC)
 
@@ -510,7 +468,7 @@ bright_cap.lms_bq_set_hishelf(3500, 0.0, 0.7);
 v1a.triode_init(35, 8500);
 
 // Cathode follower (V1b) — unity-gain buffer before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(10, 0.070, 0.18, 15000);
 
 // Phase inverter (12AT7 LTP) — LOWER gain than Marshall's 12AX7
 // 12AT7: mu=60 (vs 12AX7 mu=100). More headroom at PI = cleaner power amp drive.
@@ -524,7 +482,7 @@ ts.lms_tmb_config(50,130, 18,0.55,  700, 0.8,1.5, 16, 1000,4000, 16,0.70,  2.0,1
 ts.lms_tmb_set(0.5, 0.5, 0.5);
 
 // PSU
-psu.psu_init();
+psu.lms_psu_init(0.0005, 0.040, 0.08, 0.70, 1.0);
 
 // Twin power amp
 twin_pa.twin_poweramp_init();
@@ -596,6 +554,8 @@ in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
 bright_cap.lms_bq_set_hishelf(3500, (1.0 - gain) * (1.0 - gain) * 3.5, 0.7);
 amp_channel = slider3;
+amp_channel == 1 ? psu.lms_psu_init(0.004, 0.120, 0.18, 0.70, 1.0)  // Deluxe 5U4GB tube
+                 : psu.lms_psu_init(0.0005, 0.040, 0.08, 0.70, 1.0); // Twin silicon
 ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 master = slider8 / 100;
 twin_pa.twin_poweramp_set(master, slider7/100);
@@ -656,6 +616,8 @@ in_level = 10 ^ (slider1 / 20);
 gain = slider2 / 100;
 bright_cap.lms_bq_set_hishelf(3500, (1.0 - gain) * (1.0 - gain) * 3.5, 0.7);
 amp_channel = slider3;
+amp_channel == 1 ? psu.lms_psu_init(0.004, 0.120, 0.18, 0.70, 1.0)  // Deluxe 5U4GB tube
+                 : psu.lms_psu_init(0.0005, 0.040, 0.08, 0.70, 1.0); // Twin silicon
 ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 master = slider8 / 100;
 twin_pa.twin_poweramp_set(master, slider7/100);
@@ -806,14 +768,14 @@ mono = rf_filter.lms_bq_proc(mono);
 
 // 1. Input stage (grid physics — AB763 1M grid leak)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (Twin=silicon tight, Deluxe=5U4GB moderate bloom)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.5), sag_depth * ohm_sag_mult, amp_channel);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.5), sag_depth * ohm_sag_mult);
 
 // 4. Bright cap — gain-dependent (120pF across 1M pot)
 // At low gain: +3.5dB at 3.5kHz. At high gain: swamped.
@@ -828,7 +790,7 @@ v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
 
 // 6. Cathode follower (V1b) — unity-gain buffer before tone stack
 // Prevents tone stack loading, adds gentle programme-dependent compression
-amp_out = cf.cathode_follower_proc(v1a_out, bplus);
+amp_out = cf.lms_cf_proc(v1a_out, bplus);
 
 // 7. Fender tone stack (AB763 — different from Marshall)
 amp_out = ts.lms_tmb_proc(amp_out);

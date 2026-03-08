@@ -49,12 +49,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (Orange 12AX7 grid physics — no bright cap, no treble peaking) ===
-// Orange OR100/Rockerverb: NO bright cap across volume pot.
-// NO treble peaking. Large cathode bypass caps = full gain at all frequencies.
-// Small coupling caps between stages = tight bass, no flub.
-// Result: warm, full, mid-forward character.
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -67,7 +61,6 @@ function input_stage_init() (
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -94,17 +87,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (Orange OR100 — fixed bias EL34, moderate sag) ===
-// OR100 runs EL34s hot (~90% max dissipation). Fixed bias.
-// Less stiff supply than Marshall = more sag under load.
-// Low NFB means sag is MORE audible (less correction).
-function psu_init() (
   this.voltage = 1.0;
   this.att = exp(-1/(srate * 0.002));
   this.rel = exp(-1/(srate * 0.100));
   this.droop_amount = 0.0;
 );
-function psu_proc(signal_level, sag_depth) local(draw) (
   draw = signal_level * signal_level;
   draw > this.droop_amount ? (
     this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
@@ -313,13 +300,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POST-TONE-STACK RECOVERY (12AX7 — Orange has NO cathode follower) ===
-// Orange amps do NOT have a cathode follower before the tone stack.
-// The tone stack is driven from the plate directly (high source impedance).
-// This stage recovers signal after passive tone stack insertion loss.
-// The higher driving impedance into the tone stack changes its response
-// and is a key part of the Orange "voice".
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(15, 0.7);
   this.dc.lms_dc_init();
@@ -329,7 +309,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -452,7 +431,7 @@ function poweramp_proc(x, bplus) local(b, push, pull, out, cathode_shift, signal
 
 // === SPRING REVERB (allpass diffusion network) ===
 // === INIT ===
-inp.input_stage_init();
+inp.lms_input_stage_init(4000, 0.55, 700, -2.0, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(60, 0.7);  // small coupling caps between stages (tight bass, no flub)
 
@@ -478,7 +457,7 @@ v1b.triode_init(60, 7000);  // small coupling cap HP + warmer Miller LP
 v1a.triode_init(60, 6500);
 
 // Cathode follower — buffers preamp output before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(15, 0.060, 0.20, 15000);
 
 // Phase inverter — 12AX7 long-tail pair drives EL34 grids
 // Soft, round — pre-compresses signal before power tubes at high master
@@ -486,7 +465,7 @@ cf.cathode_follower_init();
 // Phase inverter (12AX7 LTP — slightly warmer than Marshall)
 pi.triode_init(15, 8000);
 
-psu.psu_init();
+psu.lms_psu_init(0.002, 0.100, 0.20, 0.65, 1.0);
 ts.lms_tmb_init();
 ts.lms_tmb_config(55,125, 16,0.55,  700, 0.9,1.3, 10,  900,3100, 14,0.70,  2.0,1.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
@@ -747,14 +726,14 @@ mono = max(-1.0, min(1.0, mono));
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (shared rail — impedance-scaled: lower load = more current = more sag)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 3b. NO bright cap — Orange has no treble bypass across volume pot.
 // This is part of why Orange sounds warmer and less "fizzy" than Marshall.
@@ -783,7 +762,7 @@ channel == 1 ? (
 // 5b. Post-tone-stack recovery (Orange: NO cathode follower before tone stack)
 // The tone stack sees high source impedance from the plate directly.
 // This changes the tone stack's actual frequency response.
-amp_out = cf.cathode_follower_proc(amp_out, bplus);
+amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack (Orange FMV — 39k slope, mid-forward)
 amp_out = ts.lms_tmb_proc(amp_out);

@@ -50,9 +50,6 @@ slider24:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (5F6-A grid physics — 1M grid leak, tweed Bassman) ===
-// Bassman input: warm, fat, designed for bass & guitar
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.035));  // slightly slower drain (tweed caps)
@@ -64,7 +61,6 @@ function input_stage_init() (
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
 );
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -91,19 +87,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (5U4 tube rectifier — the saggiest Fender rectifier) ===
-// 5U4: high internal resistance, slow recovery. Notes "bloom" as supply recovers.
-// More sag than Deluxe's 5U4GB, less than Champ's 5Y3.
-// Attack ~4ms (tube takes time to conduct under load).
-// Recovery ~150ms (moderate filter caps + tube rectifier resistance).
-// Max droop 22% — between Champ's 30% and Deluxe's 18%.
-function psu_init() (
   this.voltage = 1.0;
   this.droop_amount = 0.0;
   this.att = exp(-1/(srate * 0.004));
   this.rel = exp(-1/(srate * 0.150));
 );
-function psu_proc(signal_level, sag_depth)
   local(draw)
 (
   draw = signal_level * signal_level;
@@ -228,10 +216,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === CATHODE FOLLOWER (V1b — unity-gain buffer before tone stack) ===
-// 5F6-A: CF between V1a plate and tone stack. Prevents loading.
-// Bassman CF: slightly more compression than blackface (warmer cathode bias).
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(10, 0.7);
   this.dc.lms_dc_init();
@@ -241,7 +225,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -401,7 +384,7 @@ function bassman_poweramp_proc(x, bplus)
 );
 
 // === INSTANCES ===
-inp.input_stage_init();
+inp.lms_input_stage_init(4200, 0.55, 1000, -2.0, 0.035);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(30, 0.7);  // 5F6-A input coupling: deeper bass (designed for bass guitar)
 
@@ -420,7 +403,7 @@ bright_cap.lms_bq_set_hishelf(3000, 0.0, 0.7);
 v1a.triode_init(30, 7000);
 
 // Cathode follower (V1b) — unity-gain buffer before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(10, 0.070, 0.18, 15000);
 
 // Phase inverter (12AX7 LTP) — Bassman uses 12AX7 (unlike Twin's 12AT7)
 // More gain at PI than Twin = power amp sees more signal = earlier breakup.
@@ -433,7 +416,7 @@ ts.lms_tmb_config(40,130, 20,0.50,  600, 0.7,1.2, 12,  800,3200, 16,0.65,  2.5,1
 ts.lms_tmb_set(0.5, 0.5, 0.5);
 
 // PSU
-psu.psu_init();
+psu.lms_psu_init(0.004, 0.150, 0.22, 0.65, 1.0);
 
 // Bassman power amp (single — both channels share the same power section)
 bassman_pa.bassman_poweramp_init();
@@ -710,14 +693,14 @@ mono = rf_filter.lms_bq_proc(mono);
 
 // 1. Input stage (grid physics — 5F6-A tweed, 1M grid leak)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (5U4 tube rectifier — always saggy, the Bassman bloom)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.5), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.5), sag_depth * ohm_sag_mult);
 
 // 4. Bright cap — channel-dependent (120pF, only on Bright channel)
 mono = bright_cap.lms_bq_proc(mono);
@@ -732,7 +715,7 @@ v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
 
 // 6. Cathode follower (V1b) — unity-gain buffer before tone stack
 // Prevents tone stack loading, adds gentle programme-dependent compression
-amp_out = cf.cathode_follower_proc(v1a_out, bplus);
+amp_out = cf.lms_cf_proc(v1a_out, bplus);
 
 // 7. Bassman tone stack (5F6-A — THE original Fender TMB)
 amp_out = ts.lms_tmb_proc(amp_out);

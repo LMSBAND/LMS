@@ -63,10 +63,6 @@ slider39:100<0,100,1>-Comp Mix (%)
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (grid physics — proven from Miller test) ===
-// SVT input: 12AX7 grid, but bass guitar = lower impedance pickup,
-// higher input loading capacitance, different grid leak characteristics
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -84,7 +80,6 @@ function input_stage_init() (
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -111,16 +106,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG ===
-// SVT has a massive power supply (tube rectifier in CL, SS in later models)
-// Less sag than a Champ, but still present. Recovery is slower due to larger caps.
-function psu_init() (
   this.voltage = 1.0;
   this.att = exp(-1/(srate * 0.002));    // 2ms droop (slower than Champ)
   this.rel = exp(-1/(srate * 0.120));    // 120ms recovery (big filter caps)
   this.droop_amount = 0.0;
 );
-function psu_proc(signal_level, sag_depth) local(draw) (
   draw = signal_level * signal_level;
   draw > this.droop_amount ? (
     this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
@@ -449,7 +439,7 @@ function odb3_proc(x, drive, blend) local(clean, dirty, b, g) (
 );
 
 // === INIT ===
-inp.input_stage_init();
+inp.lms_input_stage_init(3800, 0.5, 400, -3.0, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(30, 0.7);  // SVT goes lower than guitar amps
 
@@ -477,7 +467,7 @@ v1b.triode_init(20, 7000);
 // Softer, rounder clipping — this is where "pillow" overdrive comes from
 driver.triode_init(15, 12000);
 
-psu.psu_init();
+psu.lms_psu_init(0.002, 0.120, 0.15, 0.70, 1.0);
 ts.lms_svt_eq_init();
 ts.lms_svt_eq_set(0.5, 0.5, 2, 0.5, 0, 0);
 pa.poweramp_init();
@@ -796,14 +786,14 @@ fx_bypass == 0 ? (
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap (lower than guitar amps)
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (shared rail — SVT sags less than small amps)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 4. V1a preamp (single 12AX7 — SVT is NOT a cascaded gain design)
 //    The SVT gets its drive from pushing ONE tube hard, not stacking stages.

@@ -42,8 +42,6 @@ slider17:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
 @init
 
-// === INPUT STAGE (proven from Miller test) ===
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -56,7 +54,6 @@ function input_stage_init() (
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -83,19 +80,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (5Y3 tube rectifier — one of the saggiest ever made) ===
-// The 5Y3 is a full-wave tube rectifier with high internal resistance.
-// Attack is SLOW (5ms — tube takes time to conduct under load).
-// Recovery is VERY slow (200ms — tiny filter caps + tube rectifier resistance).
-// Max droop 30% — this is a huge part of the Champ feel.
-// Notes "bloom" as the supply recovers from transients.
-function psu_init() (
   this.voltage = 1.0;
   this.att = exp(-1/(srate * 0.005));
   this.rel = exp(-1/(srate * 0.200));
   this.droop_amount = 0.0;
 );
-function psu_proc(signal_level, sag_depth) local(draw) (
   draw = signal_level * signal_level;
   draw > this.droop_amount ? (
     this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
@@ -322,7 +311,7 @@ function se_poweramp_proc(x, bplus)
 );
 
 // === INIT ===
-inp.input_stage_init();
+inp.lms_input_stage_init(4500, 0.6, 800, -2.5, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(80, 0.7);
 
@@ -334,7 +323,7 @@ rf_filter.lms_bq_set_lp(10000, 0.5);
 // V1a: first triode (Champ preamp). HP 30Hz, Miller LP 8000Hz
 v1a.triode_init(30, 8000);
 
-psu.psu_init();
+psu.lms_psu_init(0.005, 0.200, 0.30, 0.55, 1.0);
 gate.lms_sgate_init(0.001, 0.0002);
 spring.lms_spring_init();
 trem.lms_trem_init();
@@ -580,14 +569,14 @@ mono = rf_filter.lms_bq_proc(mono);
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (5Y3 tube rectifier — MASSIVE sag, slow bloom)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 3.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 3.0), sag_depth * ohm_sag_mult);
 
 // 4. V1a (first triode — Champ preamp)
 v1a_drive = gain * 0.65;

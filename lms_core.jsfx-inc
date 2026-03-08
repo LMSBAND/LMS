@@ -822,6 +822,149 @@ function lms_topboost_proc(x)
 
 
 // ============================================================================
+//  SECTION 5d: Input Stage — Grid Physics (12AX7 front-end)
+//
+//  Models: coupling cap bias shift, grid conduction, cathode bypass shelf,
+//  input loading LP filter. Parameters set amp-specific character.
+//
+//  Usage:
+//    @init:   inp.lms_input_stage_init(4000, 0.55, 700, -2.0, 0.030);
+//    @sample: x = inp.lms_input_stage_proc(x, intensity);
+// ============================================================================
+
+function lms_input_stage_init(lp_freq, lp_q, shelf_freq, shelf_db, drain_ms)
+(
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1 / (srate * 0.0005));
+  this.cap_drain_rate = exp(-1 / (srate * drain_ms));
+  this.input_lp.lms_bq_init();
+  this.input_lp.lms_bq_set_lp(lp_freq, lp_q);
+  this.cathode_shelf.lms_bq_init();
+  this.cathode_shelf.lms_bq_set_hishelf(shelf_freq, shelf_db, 0.5);
+  this.peak_env = 0;
+  this.peak_att = exp(-1 / (srate * 0.0002));
+  this.peak_rel = exp(-1 / (srate * 0.050));
+);
+
+function lms_input_stage_proc(x, intensity)
+  local(loaded, dry, bias_shift, biased, grid_thresh, conducted)
+(
+  loaded = this.input_lp.lms_bq_proc(x);
+  loaded = x + intensity * (loaded - x);
+  loaded > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge
+                    + (1 - this.cap_charge_rate) * loaded * 0.15 * intensity;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  biased = loaded - bias_shift;
+  grid_thresh = 1.0 - intensity * 0.85;
+  biased > grid_thresh ? (
+    conducted = grid_thresh
+              + lms_tanh((biased - grid_thresh) * (1.0 + intensity * 3.0))
+              * (0.05 + intensity * 0.15);
+  ) : (
+    conducted = biased;
+  );
+  dry = conducted;
+  conducted = this.cathode_shelf.lms_bq_proc(conducted);
+  conducted = dry + intensity * (conducted - dry);
+  abs(x) > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1 - this.peak_att) * abs(x);
+  ) : (
+    this.peak_env = this.peak_rel * this.peak_env + (1 - this.peak_rel) * abs(x);
+  );
+  conducted;
+);
+
+
+// ============================================================================
+//  SECTION 5e: PSU Sag — Power Supply Voltage Droop
+//
+//  Signal-dependent B+ voltage droop. Parameters set rectifier character:
+//  tube rectifiers = slow + saggy, silicon = fast + stiff.
+//
+//  Usage:
+//    @init:    psu.lms_psu_init(0.002, 0.100, 0.20, 0.65, 1.0);
+//    @sample:  bplus = psu.lms_psu_proc(signal_level, sag_depth);
+// ============================================================================
+
+function lms_psu_init(att_ms, rel_ms, max_droop, min_v, base_v)
+(
+  this.voltage = 1.0;
+  this.droop_amount = 0.0;
+  this.att = exp(-1 / (srate * att_ms));
+  this.rel = exp(-1 / (srate * rel_ms));
+  this.psu_max_droop = max_droop;
+  this.psu_min_v = min_v;
+  this.psu_base_v = base_v;
+);
+
+function lms_psu_proc(signal_level, sag_depth)
+  local(draw)
+(
+  draw = signal_level * signal_level;
+  draw > this.droop_amount ? (
+    this.droop_amount = this.att * this.droop_amount + (1 - this.att) * draw;
+  ) : (
+    this.droop_amount = this.rel * this.droop_amount + (1 - this.rel) * draw;
+  );
+  this.voltage = this.psu_base_v - this.droop_amount * this.psu_max_droop * sag_depth;
+  this.voltage = max(this.psu_min_v, min(this.psu_base_v, this.voltage));
+  this.voltage;
+);
+
+
+// ============================================================================
+//  SECTION 5f: Cathode Follower — Passive Buffer with Bias Tracking
+//
+//  Unity-gain buffer between preamp and tonestack. Adds programme-dependent
+//  compression via bias envelope tracking. 7 of 11 amps use this.
+//
+//  Usage:
+//    @init:   cf.lms_cf_init(15, 0.060, 0.20, 15000);
+//    @sample: x = cf.lms_cf_proc(x, bplus);
+// ============================================================================
+
+function lms_cf_init(hp_freq, bias_rel_ms, bias_factor, lp_freq)
+(
+  this.hp.lms_bq_init();
+  this.hp.lms_bq_set_hp(hp_freq, 0.7);
+  this.dc.lms_dc_init();
+  this.bias_env = 0;
+  this.bias_att = exp(-1 / (srate * 0.002));
+  this.bias_rel = exp(-1 / (srate * bias_rel_ms));
+  this.bias_factor = bias_factor;
+  this.cf_lp.lms_bq_init();
+  this.cf_lp.lms_bq_set_lp(lp_freq, 0.5);
+);
+
+function lms_cf_proc(x, bplus)
+  local(b, ax, bias_shift)
+(
+  b = this.hp.lms_bq_proc(x);
+  ax = abs(b);
+  ax > this.bias_env ? (
+    this.bias_env = this.bias_att * this.bias_env + (1 - this.bias_att) * ax;
+  ) : (
+    this.bias_env = this.bias_rel * this.bias_env + (1 - this.bias_rel) * ax;
+  );
+  bias_shift = this.bias_env * this.bias_factor;
+  b > 0.7 * bplus ? (
+    b = 0.7 * bplus + lms_tanh((b - 0.7 * bplus) * 2.0) * 0.25 * bplus;
+  );
+  b < -0.85 * bplus ? (
+    b = -0.85 * bplus;
+  );
+  b = b * (1.0 - bias_shift);
+  b = this.cf_lp.lms_bq_proc(b);
+  b = this.dc.lms_dc_proc_l(b);
+  b * 0.95;
+);
+
+
+// ============================================================================
 //  SECTION 6: Tone Filter — 1-pole Lowpass (stereo, this.* state)
 //
 //  Simple 1-pole lowpass for tone control.
