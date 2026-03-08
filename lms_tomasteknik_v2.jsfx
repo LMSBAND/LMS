@@ -63,42 +63,6 @@ slider39:100<0,100,1>-Comp Mix (%)
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === 4-BAND HARMONIC DENSITY TRACKER ===
-// Same math as Punk v2, but band splits tuned for bass guitar spectrum
-function hd_init() (
-  this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(150, 0.7);       // Sub/low bass (below 150Hz)
-  this.f_mid_lo.lms_bq_init(); this.f_mid_lo.lms_bq_set_lp(1200, 0.7);
-  this.f_mid_hi.lms_bq_init(); this.f_mid_hi.lms_bq_set_hp(150, 0.7);
-  this.f_hi.lms_bq_init(); this.f_hi.lms_bq_set_hp(1200, 0.7);       // Upper mids/harmonics
-  this.f_air.lms_bq_init(); this.f_air.lms_bq_set_hp(3500, 0.7);     // Clank/string noise
-  this.env_lo=0; this.env_mid=0; this.env_hi=0; this.env_air=0; this.env_total=0;
-  this.att=exp(-1/(srate*0.002)); this.rel=exp(-1/(srate*0.080));
-  this.density=1.0; this.mid_density=0.0; this.hi_density=0.0; this.air_density=0.0;
-  this.smooth=exp(-1/(srate*0.030));
-);
-function hd_proc(x) local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total, raw, raw_mid, raw_hi, raw_air) (
-  lo=this.f_lo.lms_bq_proc(x);
-  mid=this.f_mid_hi.lms_bq_proc(this.f_mid_lo.lms_bq_proc(x));
-  hi=this.f_hi.lms_bq_proc(x);
-  air=this.f_air.lms_bq_proc(x);
-  abs_lo=abs(lo); abs_mid=abs(mid); abs_hi=abs(hi); abs_air=abs(air); abs_total=abs(x);
-  abs_lo > this.env_lo ? ( this.env_lo=this.att*this.env_lo+(1-this.att)*abs_lo; ) : ( this.env_lo=this.rel*this.env_lo+(1-this.rel)*abs_lo; );
-  abs_mid > this.env_mid ? ( this.env_mid=this.att*this.env_mid+(1-this.att)*abs_mid; ) : ( this.env_mid=this.rel*this.env_mid+(1-this.rel)*abs_mid; );
-  abs_hi > this.env_hi ? ( this.env_hi=this.att*this.env_hi+(1-this.att)*abs_hi; ) : ( this.env_hi=this.rel*this.env_hi+(1-this.rel)*abs_hi; );
-  abs_air > this.env_air ? ( this.env_air=this.att*this.env_air+(1-this.att)*abs_air; ) : ( this.env_air=this.rel*this.env_air+(1-this.rel)*abs_air; );
-  abs_total > this.env_total ? ( this.env_total=this.att*this.env_total+(1-this.att)*abs_total; ) : ( this.env_total=this.rel*this.env_total+(1-this.rel)*abs_total; );
-  this.env_lo > 0.0001 ? ( raw=this.env_total/this.env_lo; raw=min(2.5,max(1.0,raw)); ) : ( raw=1.0; );
-  this.env_total > 0.0001 ? (
-    raw_mid=this.env_mid/this.env_total; raw_mid=min(1.0,max(0.0,raw_mid));
-    raw_hi=this.env_hi/this.env_total; raw_hi=min(1.0,max(0.0,raw_hi));
-    raw_air=this.env_air/this.env_total; raw_air=min(1.0,max(0.0,raw_air));
-  ) : ( raw_mid=0.0; raw_hi=0.0; raw_air=0.0; );
-  this.density=this.smooth*this.density+(1-this.smooth)*raw;
-  this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
-  this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
-  this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
-);
-
 // =========================================================================
 // === DENSITY-AWARE TRIODE (v2b — proven from Punk v2) ===
 // FIXED clipping curves. Density drives filters and drive, not curve shape.
@@ -117,7 +81,7 @@ function triode_init(hp_freq, lp_freq) (
   this.air_shelf.lms_bq_init();
   this.air_shelf.lms_bq_set_hishelf(3500, 0.0, 0.7);
   this.last_air_cut = 0.0;
-  this.hd.hd_init();
+  this.hd.lms_hd_init(150, 1200, 3500);
   this.dc.lms_dc_init();
   this.peak_env = 0;
   this.peak_att = exp(-1/(srate * 0.0002));
@@ -138,7 +102,7 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   drive_boost = 1.0 + this.hd.mid_density * 0.4;
   gain = (1.0 + drive * 4.0) * drive_boost;
   b = b * gain;
-  this.hd.hd_proc(b);
+  this.hd.lms_hd_proc(b);
   p_ceil = pos_ceil * bplus;
   n_ceil = neg_ceil * bplus;
   b >= 0 ? (
@@ -182,7 +146,7 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
 // When they do clip, it's more symmetrical (less even harmonics than EL34)
 // NFB loop is tighter on SVT — more "solid state" feel at low gain
 function poweramp_init() (
-  this.hd.hd_init();
+  this.hd.lms_hd_init(150, 1200, 3500);
   this.dc.lms_dc_init();
   this.pres_f.lms_bq_init();
   this.nfb_lp.lms_bq_init();
@@ -200,7 +164,7 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db) (
 );
 function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
   b = x * (1.0 + this.drive * 2.0);
-  this.hd.hd_proc(b);
+  this.hd.lms_hd_proc(b);
 
   // 6550 push-pull — MORE symmetrical than EL34
   // Both tubes clip at nearly same hardness (matched pair)

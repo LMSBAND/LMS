@@ -18,6 +18,7 @@
 //    3. Saturation Suite         (density-aware triode architecture, this.* state)
 //    4. Compressor               (stereo FET, this.* state)
 //    5. DC Blocker               (stereo, this.* state)
+//    5g. Harmonic Density Tracker (4-band spectral envelope, this.* state)
 //    6. Tone Filter              (stereo 1-pole LP, this.* state)
 //    7. Cubic Interpolation      (stateless)
 //    8. Spring Reverb Allpass    (stateless, buffer-based)
@@ -961,6 +962,67 @@ function lms_cf_proc(x, bplus)
   b = this.cf_lp.lms_bq_proc(b);
   b = this.dc.lms_dc_proc_l(b);
   b * 0.95;
+);
+
+
+// ============================================================================
+//  Harmonic Density Tracker — 4-band spectral envelope (this.* state)
+//
+//  Tracks energy distribution across frequency bands to detect harmonic density.
+//  Used by triode stages and power amps to modulate filter/drive parameters.
+//
+//  Two tunings:
+//    Guitar: lms_hd_init(250, 2000, 5000)
+//    Bass:   lms_hd_init(150, 1200, 3500)
+//
+//  Outputs (read after calling lms_hd_proc):
+//    this.density     — total harmonic density (1.0–2.5)
+//    this.mid_density — mid-band energy ratio (0.0–1.0)
+//    this.hi_density  — high-band energy ratio (0.0–1.0)
+//    this.air_density — air-band energy ratio (0.0–1.0)
+//
+//  Usage:
+//    @init:   hd.lms_hd_init(250, 2000, 5000);
+//    @sample: hd.lms_hd_proc(x);
+//             density = hd.density;
+// ============================================================================
+
+function lms_hd_init(lo_freq, mid_freq, air_freq)
+(
+  this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(lo_freq, 0.7);
+  this.f_mid_lo.lms_bq_init(); this.f_mid_lo.lms_bq_set_lp(mid_freq, 0.7);
+  this.f_mid_hi.lms_bq_init(); this.f_mid_hi.lms_bq_set_hp(lo_freq, 0.7);
+  this.f_hi.lms_bq_init(); this.f_hi.lms_bq_set_hp(mid_freq, 0.7);
+  this.f_air.lms_bq_init(); this.f_air.lms_bq_set_hp(air_freq, 0.7);
+  this.env_lo=0; this.env_mid=0; this.env_hi=0; this.env_air=0; this.env_total=0;
+  this.att=exp(-1/(srate*0.002)); this.rel=exp(-1/(srate*0.080));
+  this.density=1.0; this.mid_density=0.0; this.hi_density=0.0; this.air_density=0.0;
+  this.smooth=exp(-1/(srate*0.030));
+);
+
+function lms_hd_proc(x)
+  local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total, raw, raw_mid, raw_hi, raw_air)
+(
+  lo=this.f_lo.lms_bq_proc(x);
+  mid=this.f_mid_hi.lms_bq_proc(this.f_mid_lo.lms_bq_proc(x));
+  hi=this.f_hi.lms_bq_proc(x);
+  air=this.f_air.lms_bq_proc(x);
+  abs_lo=abs(lo); abs_mid=abs(mid); abs_hi=abs(hi); abs_air=abs(air); abs_total=abs(x);
+  abs_lo > this.env_lo ? ( this.env_lo=this.att*this.env_lo+(1-this.att)*abs_lo; ) : ( this.env_lo=this.rel*this.env_lo+(1-this.rel)*abs_lo; );
+  abs_mid > this.env_mid ? ( this.env_mid=this.att*this.env_mid+(1-this.att)*abs_mid; ) : ( this.env_mid=this.rel*this.env_mid+(1-this.rel)*abs_mid; );
+  abs_hi > this.env_hi ? ( this.env_hi=this.att*this.env_hi+(1-this.att)*abs_hi; ) : ( this.env_hi=this.rel*this.env_hi+(1-this.rel)*abs_hi; );
+  abs_air > this.env_air ? ( this.env_air=this.att*this.env_air+(1-this.att)*abs_air; ) : ( this.env_air=this.rel*this.env_air+(1-this.rel)*abs_air; );
+  abs_total > this.env_total ? ( this.env_total=this.att*this.env_total+(1-this.att)*abs_total; ) : ( this.env_total=this.rel*this.env_total+(1-this.rel)*abs_total; );
+  this.env_lo > 0.0001 ? ( raw=this.env_total/this.env_lo; raw=min(2.5,max(1.0,raw)); ) : ( raw=1.0; );
+  this.env_total > 0.0001 ? (
+    raw_mid=this.env_mid/this.env_total; raw_mid=min(1.0,max(0.0,raw_mid));
+    raw_hi=this.env_hi/this.env_total; raw_hi=min(1.0,max(0.0,raw_hi));
+    raw_air=this.env_air/this.env_total; raw_air=min(1.0,max(0.0,raw_air));
+  ) : ( raw_mid=0.0; raw_hi=0.0; raw_air=0.0; );
+  this.density=this.smooth*this.density+(1-this.smooth)*raw;
+  this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
+  this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
+  this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
 );
 
 
