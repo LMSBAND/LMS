@@ -621,6 +621,207 @@ function lms_dc_proc_r(x)
 
 
 // ============================================================================
+//  SECTION 5b: Soft Gate — Simple Envelope-Following Noise Gate
+//
+//  Fast attack, medium release, smoothstep interpolation zone.
+//  Used in amp sims after power amp / before cab.
+//
+//  Usage:
+//    @init:   sgate.lms_sgate_init(0.001, 0.0002);   // open, close thresholds
+//    @sample: x = sgate.lms_sgate_proc(x);
+// ============================================================================
+
+function lms_sgate_init(open_thresh, close_thresh)
+(
+  this.env = 0;
+  this.att = exp(-1 / (srate * 0.0005));
+  this.rel = exp(-1 / (srate * 0.150));
+  this.open_thresh = open_thresh;
+  this.close_thresh = close_thresh;
+);
+
+function lms_sgate_proc(x)
+  local(ax, gate_gain, t)
+(
+  ax = abs(x);
+  ax > this.env ? (
+    this.env = this.att * this.env + (1 - this.att) * ax;
+  ) : (
+    this.env = this.rel * this.env + (1 - this.rel) * ax;
+  );
+  this.env > this.open_thresh ? ( gate_gain = 1.0; )
+  : this.env < this.close_thresh ? ( gate_gain = 0.0; )
+  : (
+    t = (this.env - this.close_thresh) / (this.open_thresh - this.close_thresh);
+    gate_gain = t * t * (3.0 - 2.0 * t);
+  );
+  x * gate_gain;
+);
+
+
+// ============================================================================
+//  SECTION 5c: Tone Stacks — Amp EQ Topologies
+//
+//  Three families covering all amp sims:
+//    TMB:      Parameterized passive Marshall/Fender/Mesa/Orange style (7 amps)
+//    SVT EQ:   Ampeg 5-band with selectable mid + ultra switches (2 amps)
+//    TopBoost: Vox 2-control with fixed mid presence (1 amp)
+//
+//  Usage (TMB example):
+//    @init:   ts.lms_tmb_init();
+//             ts.lms_tmb_config(55,125, 16,0.55, 700,0.9,1.3,10, 900,3100, 14,0.70, 2.0,1.5);
+//    @slider: ts.lms_tmb_set(bass, mid, treble);
+//    @sample: x = ts.lms_tmb_proc(x);
+// ============================================================================
+
+// --- TMB Tonestack (Bass Shelf → Mid Peak → Treble Shelf + Cross-Coupling) ---
+
+function lms_tmb_init()
+(
+  this.f_bass.lms_bq_init();
+  this.f_mid.lms_bq_init();
+  this.f_treb.lms_bq_init();
+);
+
+function lms_tmb_config(
+  bass_lo, bass_range, bass_db, bass_q,
+  mid_freq, mid_q_lo, mid_q_range, mid_db,
+  treb_lo, treb_range, treb_db, treb_q,
+  xcouple_bass, xcouple_treb
+)
+(
+  this.bass_lo = bass_lo; this.bass_range = bass_range;
+  this.bass_db = bass_db; this.bass_q = bass_q;
+  this.mid_freq = mid_freq;
+  this.mid_q_lo = mid_q_lo; this.mid_q_range = mid_q_range;
+  this.mid_db = mid_db;
+  this.treb_lo = treb_lo; this.treb_range = treb_range;
+  this.treb_db = treb_db; this.treb_q = treb_q;
+  this.xcouple_bass = xcouple_bass;
+  this.xcouple_treb = xcouple_treb;
+);
+
+function lms_tmb_set(bass, mid, treble)
+  local(bass_freq, bass_gain, mid_q, mid_gain, treb_freq, treb_gain)
+(
+  bass_freq = this.bass_lo + bass * this.bass_range;
+  bass_gain = (bass - 0.5) * this.bass_db;
+  this.f_bass.lms_bq_set_loshelf(bass_freq, bass_gain, this.bass_q);
+
+  mid_q = this.mid_q_lo + mid * this.mid_q_range;
+  mid_gain = (0.5 - mid) * this.mid_db;
+  mid_gain -= (bass - 0.5) * this.xcouple_bass + (treble - 0.5) * this.xcouple_treb;
+  this.f_mid.lms_bq_set_peak(this.mid_freq, mid_gain, mid_q);
+
+  treb_freq = this.treb_lo + treble * this.treb_range;
+  treb_gain = (treble - 0.5) * this.treb_db;
+  this.f_treb.lms_bq_set_hishelf(treb_freq, treb_gain, this.treb_q);
+);
+
+function lms_tmb_proc(x)
+  local(b)
+(
+  b = this.f_bass.lms_bq_proc(x);
+  b = this.f_mid.lms_bq_proc(b);
+  b = this.f_treb.lms_bq_proc(b);
+  b;
+);
+
+
+// --- SVT EQ (Bass/Mid/Treble + Ultra Lo/Hi switches) ---
+
+function lms_svt_eq_init()
+(
+  this.f_bass.lms_bq_init();
+  this.f_mid.lms_bq_init();
+  this.f_treb.lms_bq_init();
+  this.f_pres.lms_bq_init();
+  this.f_ulo_shelf.lms_bq_init();
+  this.f_ulo_notch.lms_bq_init();
+  this.f_uhi.lms_bq_init();
+);
+
+function lms_svt_eq_set(bass, mid, mid_freq_sel, treble, ulo_on, uhi_on)
+  local(bass_db, mid_db, treb_db, mid_freq, mid_q_base, mid_q)
+(
+  // Bass: 80Hz low shelf, ±12dB
+  bass_db = (bass - 0.5) * 24;
+  this.f_bass.lms_bq_set_loshelf(80, bass_db, 0.6);
+
+  // Mid: selectable frequency peak, ±15dB
+  mid_freq_sel == 0 ? ( mid_freq = 220; mid_q_base = 1.2; );
+  mid_freq_sel == 1 ? ( mid_freq = 450; mid_q_base = 1.5; );
+  mid_freq_sel == 2 ? ( mid_freq = 800; mid_q_base = 2.0; );
+  mid_freq_sel == 3 ? ( mid_freq = 1600; mid_q_base = 2.5; );
+  mid_freq_sel == 4 ? ( mid_freq = 3000; mid_q_base = 3.0; );
+  mid_q = mid_q_base + (1.0 - mid) * 0.5;
+  mid_db = (mid - 0.5) * 30;
+  this.f_mid.lms_bq_set_peak(mid_freq, mid_db, mid_q);
+
+  // Treble: 6kHz high shelf, ±10dB
+  treb_db = (treble - 0.5) * 20;
+  this.f_treb.lms_bq_set_hishelf(6000, treb_db, 0.707);
+
+  // Ultra Lo: +2dB@40Hz shelf + -10dB@500Hz notch (when on)
+  ulo_on == 1 ? (
+    this.f_ulo_shelf.lms_bq_set_loshelf(40, 2, 0.7);
+    this.f_ulo_notch.lms_bq_set_peak(500, -10, 1.5);
+  ) : (
+    this.f_ulo_shelf.lms_bq_set_loshelf(40, 0, 0.7);
+    this.f_ulo_notch.lms_bq_set_peak(500, 0, 1.5);
+  );
+
+  // Ultra Hi: +9dB@8kHz (when on)
+  uhi_on == 1 ? (
+    this.f_uhi.lms_bq_set_hishelf(8000, 9, 0.7);
+  ) : (
+    this.f_uhi.lms_bq_set_hishelf(8000, 0, 0.7);
+  );
+);
+
+function lms_svt_eq_proc(x)
+  local(b)
+(
+  b = this.f_bass.lms_bq_proc(x);
+  b = this.f_mid.lms_bq_proc(b);
+  b = this.f_treb.lms_bq_proc(b);
+  b = this.f_ulo_shelf.lms_bq_proc(b);
+  b = this.f_ulo_notch.lms_bq_proc(b);
+  b = this.f_uhi.lms_bq_proc(b);
+  b;
+);
+
+
+// --- Vox Top Boost (2-control EQ + fixed mid presence) ---
+
+function lms_topboost_init()
+(
+  this.f_bass.lms_bq_init();
+  this.f_treb.lms_bq_init();
+  this.f_mid.lms_bq_init();
+  this.f_mid.lms_bq_set_peak(1000, 2.0, 0.8);
+);
+
+function lms_topboost_set(bass, treble)
+  local(bass_db, treb_db)
+(
+  bass_db = (bass - 0.5) * -16;
+  this.f_bass.lms_bq_set_loshelf(120, bass_db, 0.6);
+  treb_db = (treble - 0.5) * 14;
+  this.f_treb.lms_bq_set_hishelf(3000, treb_db, 0.7);
+);
+
+function lms_topboost_proc(x)
+  local(b)
+(
+  b = this.f_bass.lms_bq_proc(x);
+  b = this.f_mid.lms_bq_proc(b);
+  b = this.f_treb.lms_bq_proc(b);
+  b;
+);
+
+
+// ============================================================================
 //  SECTION 6: Tone Filter — 1-pole Lowpass (stereo, this.* state)
 //
 //  Simple 1-pole lowpass for tone control.
