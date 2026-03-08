@@ -52,8 +52,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (grid physics) ===
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -65,7 +63,6 @@ function input_stage_init() (
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
 );
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -92,14 +89,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (5150 — Silicon only, very stiff) ===
-function psu_init() (
   this.voltage = 1.0;
   this.droop_amount = 0.0;
   this.att = exp(-1/(srate * 0.0003));
   this.rel = exp(-1/(srate * 0.025));
 );
-function psu_proc(signal_level, sag_depth)
   local(draw, max_droop)
 (
   draw = signal_level * signal_level;
@@ -237,8 +231,6 @@ function cold_clipper_proc(x, drive, bplus, intensity) local(cathode_signal, ble
   this.triode.triode_proc(blended, drive, bplus, 2.5, 0.5, 0.40, 0.85, 0.20, 0.25);
 );
 
-// === CATHODE FOLLOWER (V3b — unity-gain buffer before tone stack) ===
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(10, 0.7);
   this.dc.lms_dc_init();
@@ -248,7 +240,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -374,7 +365,7 @@ function poweramp_proc(x, bplus) local(b, dead_zone, push, pull, out, nfb_freq, 
 
 
 // === INSTANCES ===
-inp.input_stage_init();
+inp.lms_input_stage_init(5000, 0.55, 1500, -1.5, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(50, 0.7);
 
@@ -402,7 +393,7 @@ v2b.triode_init(72, 7500);
 v3a.triode_init(72, 7000);
 
 // Cathode follower before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(10, 0.080, 0.25, 15000);
 
 // DC block after preamp
 preamp_dc.lms_dc_init();
@@ -416,7 +407,7 @@ ts.lms_tmb_set(0.5, 0.5, 0.5);
 v4.triode_init(16, 8000);
 
 // PSU (silicon only)
-psu.psu_init();
+psu.lms_psu_init(0.0003, 0.025, 0.05, 0.80, 1.0);
 
 // Power amp (cold-biased 6L6GC)
 pa.poweramp_init();
@@ -695,14 +686,14 @@ mono = rf_filter.lms_bq_proc(mono);
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (silicon only — very stiff)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 4. Bright cap — gain-dependent treble boost
 mono = bright_cap.lms_bq_proc(mono);
@@ -729,7 +720,7 @@ channel == 0 ? (
   amp_out = preamp_dc.lms_dc_proc_l(amp_out);
 
   // Cathode follower
-  amp_out = cf.cathode_follower_proc(amp_out, bplus);
+  amp_out = cf.lms_cf_proc(amp_out, bplus);
 
   // Tone stack
   amp_out = ts.lms_tmb_proc(amp_out);
@@ -771,7 +762,7 @@ channel == 0 ? (
   amp_out = preamp_dc.lms_dc_proc_l(amp_out);
 
   // Cathode follower
-  amp_out = cf.cathode_follower_proc(amp_out, bplus);
+  amp_out = cf.lms_cf_proc(amp_out, bplus);
 
   // Tone stack
   amp_out = ts.lms_tmb_proc(amp_out);

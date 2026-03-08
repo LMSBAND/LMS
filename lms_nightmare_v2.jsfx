@@ -49,11 +49,6 @@ slider24:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (Orange 12AX7 grid physics — Terror Bass preamp) ===
-// Terror Bass: 12AX7 preamp designed for bass guitar. Warmer input than Marshall.
-// No bright cap, no treble peaking. Large cathode bypass caps = full bass gain.
-// Small coupling caps between stages = tight bass, no flub.
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.035));
@@ -66,7 +61,6 @@ function input_stage_init() (
   this.peak_rel = exp(-1/(srate * 0.050));
 );
 
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -93,17 +87,11 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (preamp tubes only — Class D power section has no sag) ===
-// Terror Bass: tube preamp shares a single B+ rail. The preamp tubes CAN sag
-// slightly under heavy drive, but the Class D power section is rock-solid.
-// This creates a unique feel: preamp sag/compression with tight, punchy power.
-function psu_init() (
   this.voltage = 1.0;
   this.att = exp(-1/(srate * 0.001));
   this.rel = exp(-1/(srate * 0.060));
   this.droop_amount = 0.0;
 );
-function psu_proc(signal_level, sag_depth) local(draw) (
   draw = signal_level * signal_level;
   draw > this.droop_amount ? (
     this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
@@ -308,11 +296,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === CATHODE FOLLOWER (12AX7 — V2a post-tone-stack recovery) ===
-// Terror Bass: V2a recovers signal after passive tone stack.
-// Not a traditional CF before the tone stack (Orange doesn't use one).
-// We repurpose this as the post-tone-stack recovery stage.
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(15, 0.7);
   this.dc.lms_dc_init();
@@ -322,7 +305,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -390,7 +372,7 @@ function poweramp_proc(x, bplus) local(b, out) (
 );
 
 // === INIT ===
-inp.input_stage_init();
+inp.lms_input_stage_init(3800, 0.55, 600, -2.0, 0.035);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(25, 0.7);  // deep bass coupling (bass guitar fundamentals)
 
@@ -418,7 +400,7 @@ v1b.triode_init(25, 6500);
 v1a.triode_init(25, 6000);
 
 // Cathode follower — buffers preamp output before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(15, 0.060, 0.20, 15000);
 
 // Phase inverter — 12AX7 long-tail pair drives EL34 grids
 // Soft, round — pre-compresses signal before power tubes at high master
@@ -426,7 +408,7 @@ cf.cathode_follower_init();
 // V2b: 12AT7 (MK2) — final tube stage before Class D, lower gain
 pi.triode_init(15, 7000);
 
-psu.psu_init();
+psu.lms_psu_init(0.001, 0.060, 0.10, 0.85, 1.0);
 ts.lms_tmb_init();
 ts.lms_tmb_config(35,125, 20,0.55,  500, 0.8,1.2, 10,  800,2700, 14,0.65,  2.0,1.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
@@ -687,14 +669,14 @@ mono = max(-1.0, min(1.0, mono));
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (shared rail)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 3b. NO bright cap — Orange Terror Bass has no treble bypass circuit.
 // This is part of the warm Orange character.
@@ -718,7 +700,7 @@ channel == 1 ? (
 // 5b. V2a — post-tone-stack recovery (Orange: no CF before tone stack)
 // The tone stack is driven from the plate directly (higher source impedance).
 // V2a recovers the signal after the passive tone stack loss.
-amp_out = cf.cathode_follower_proc(amp_out, bplus);
+amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack (Orange FMV — bass-shifted, mid-forward)
 amp_out = ts.lms_tmb_proc(amp_out);

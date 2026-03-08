@@ -52,9 +52,6 @@ slider24:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === INPUT STAGE (grid physics — Mesa-specific) ===
-// Mesa input: 1M grid leak, 68k grid stopper, brighter than SVT/Marshall
-function input_stage_init() (
   this.cap_charge = 0.0;
   this.cap_charge_rate = exp(-1/(srate * 0.0005));
   this.cap_drain_rate = exp(-1/(srate * 0.030));
@@ -66,7 +63,6 @@ function input_stage_init() (
   this.peak_att = exp(-1/(srate * 0.0002));
   this.peak_rel = exp(-1/(srate * 0.050));
 );
-function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, grid_thresh, conducted) (
   loaded = this.input_lp.lms_bq_proc(x);
   loaded = x + intensity * (loaded - x);
   loaded > 0.1 ? (
@@ -93,47 +89,6 @@ function input_stage_proc(x, intensity) local(loaded, dry, bias_shift, biased, g
   conducted;
 );
 
-// === PSU SAG (Mesa — rectifier type + bold/spongy interaction) ===
-// Silicon: stiff, fast. Tube: saggy, slow. Bold: full B+. Spongy: reduced B+.
-function psu_init() (
-  this.voltage = 1.0;
-  this.droop_amount = 0.0;
-  // defaults — overridden per-sample by rect/bold settings
-  this.att = exp(-1/(srate * 0.0005));
-  this.rel = exp(-1/(srate * 0.040));
-);
-function psu_proc(signal_level, sag_depth, rect_type, bold_spongy)
-  local(draw, max_droop, base_voltage)
-(
-  draw = signal_level * signal_level;
-  // Rectifier type changes sag character
-  rect_type == 1 ? (
-    // TUBE rectifier: slow attack, slow recovery, more sag
-    this.att = exp(-1/(srate * 0.003));
-    this.rel = exp(-1/(srate * 0.180));
-    max_droop = 0.22;
-  ) : (
-    // SILICON rectifier: near-instant, fast recovery, minimal sag
-    this.att = exp(-1/(srate * 0.0005));
-    this.rel = exp(-1/(srate * 0.040));
-    max_droop = 0.08;
-  );
-  draw > this.droop_amount ? (
-    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
-  ) : (
-    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
-  );
-  // Bold = full B+, Spongy = reduced B+ and more sag susceptibility
-  bold_spongy == 0 ? (
-    base_voltage = 1.0;
-  ) : (
-    base_voltage = 0.92;
-    max_droop *= 1.4;
-  );
-  this.voltage = base_voltage - this.droop_amount * max_droop * sag_depth;
-  this.voltage = max(0.65, min(base_voltage, this.voltage));
-  this.voltage;
-);
 
 // === 4-BAND HARMONIC DENSITY TRACKER (guitar-tuned) ===
 function hd_init() (
@@ -246,11 +201,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === CATHODE FOLLOWER (V3b — unity-gain buffer before tone stack) ===
-// NOT a gain stage. Low output Z, programme-dependent compression.
-// On loud signals: cathode bias rises, reducing gain — natural compressor.
-// Positive: soft clip (cathode current limiting). Negative: harder cutoff.
-function cathode_follower_init() (
   this.hp.lms_bq_init();
   this.hp.lms_bq_set_hp(10, 0.7);
   this.dc.lms_dc_init();
@@ -260,7 +210,6 @@ function cathode_follower_init() (
   this.cf_lp.lms_bq_init();
   this.cf_lp.lms_bq_set_lp(15000, 0.5);
 );
-function cathode_follower_proc(x, bplus) local(b, ax, bias_shift) (
   b = this.hp.lms_bq_proc(x);
   ax = abs(b);
   ax > this.bias_env ? (
@@ -382,7 +331,7 @@ function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, l
 );
 
 // === INSTANCES ===
-inp.input_stage_init();
+inp.lms_input_stage_init(5000, 0.55, 1500, -1.5, 0.030);
 input_hp.lms_bq_init();
 input_hp.lms_bq_set_hp(50, 0.7);  // Mesa input HP — slightly higher than SVT, lower than Marshall
 
@@ -410,7 +359,7 @@ v2a_cathode_hp.lms_bq_set_hp(86, 0.5);
 v2b.triode_init(72, 7000);
 
 // Cathode follower (V3b) — before tone stack
-cf.cathode_follower_init();
+cf.lms_cf_init(10, 0.080, 0.30, 15000);
 
 // DC block after preamp (V2b asymmetry creates DC offset)
 preamp_dc.lms_dc_init();
@@ -424,7 +373,7 @@ ts.lms_tmb_set(0.5, 0.5, 0.5);
 v4a.triode_init(16, 8000);
 
 // PSU
-psu.psu_init();
+psu.lms_psu_init(0.0005, 0.040, 0.08, 0.65, 1.0);
 
 // Power amp
 pa.poweramp_init();
@@ -491,6 +440,9 @@ master = slider8 / 100;
 pa.poweramp_set(master, slider7/100);
 rect_type = slider9;
 bold_spongy = slider10;
+// PSU config: rectifier type + bold/spongy interaction
+rect_type == 1 ? psu.lms_psu_init(0.003, 0.180, bold_spongy == 1 ? 0.308 : 0.22, 0.65, bold_spongy == 1 ? 0.92 : 1.0)
+               : psu.lms_psu_init(0.0005, 0.040, bold_spongy == 1 ? 0.112 : 0.08, 0.65, bold_spongy == 1 ? 0.92 : 1.0);
 input_intensity = slider11 / 100;
 sag_depth = slider12 / 100;
 out_level = 10 ^ (slider13 / 20);
@@ -553,6 +505,9 @@ master = slider8 / 100;
 pa.poweramp_set(master, slider7/100);
 rect_type = slider9;
 bold_spongy = slider10;
+// PSU config: rectifier type + bold/spongy interaction
+rect_type == 1 ? psu.lms_psu_init(0.003, 0.180, bold_spongy == 1 ? 0.308 : 0.22, 0.65, bold_spongy == 1 ? 0.92 : 1.0)
+               : psu.lms_psu_init(0.0005, 0.040, bold_spongy == 1 ? 0.112 : 0.08, 0.65, bold_spongy == 1 ? 0.92 : 1.0);
 input_intensity = slider11 / 100;
 sag_depth = slider12 / 100;
 out_level = 10 ^ (slider13 / 20);
@@ -704,14 +659,14 @@ mono = rf_filter.lms_bq_proc(mono);
 
 // 1. Input stage (grid physics)
 input_intensity > 0.0 ? (
-  mono = inp.input_stage_proc(mono, input_intensity);
+  mono = inp.lms_input_stage_proc(mono, input_intensity);
 );
 
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
 // 3. PSU sag (rectifier type + bold/spongy interaction)
-bplus = psu.psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult, rect_type, bold_spongy);
+bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
 // 4. Bright cap — gain-dependent treble boost
 // At low gain: +4dB at 2kHz (picks bypass pot). At high gain: swamped.
@@ -775,7 +730,7 @@ channel > 0 ? (
 
 // Cathode follower (V3b) — programme-dependent compression before tone stack
 channel > 0 ? (
-  amp_out = cf.cathode_follower_proc(amp_out, bplus);
+  amp_out = cf.lms_cf_proc(amp_out, bplus);
 );
 
 // === TONE STACK ===
