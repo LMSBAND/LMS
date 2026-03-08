@@ -128,22 +128,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POWER AMP (6L6 push-pull, Mesa-specific) ===
-// More headroom than EL34, presence as resonant peak in NFB loop,
-// output transformer saturation + winding resonance
-function poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(5500, 0.5);
-  this.last_nfb_freq = 5500;
-  this.drive = 0;
-  this.xfmr_lp = 0;
-  // Transformer winding resonance (subtle 4.5kHz peak)
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(4500, 2.0, 2.5);
-);
 function poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   this.drive = drive;
   // Mesa presence: resonant peak in NFB loop (not a shelf)
@@ -152,43 +136,6 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   pres_q = 1.5 + presence * 1.5;
   this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
 );
-function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
-  b = x * (1.0 + this.drive * 2.0);
-  this.hd.lms_hd_proc(b);
-  // 6L6 push-pull — more headroom than EL34, brighter character
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.3) * bplus;
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.28) * bplus;  // slight mismatch
-  out = push - pull;
-  // Output transformer saturation — density-driven low-freq core loading
-  // Smaller guitar transformer = more sensitive than SVT, saturates earlier
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 2.5);
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.985 + out * 0.015;  // ~100Hz one-pole LP
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.2))
-                   / (1.0 + xfmr_sat * 0.25);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-  // Transformer winding resonance
-  out = this.xfmr_res.lms_bq_proc(out);
-  // NFB: Mesa has LESS NFB than Fender/SVT — more power amp character
-  nfb_freq = 5500 - (this.hd.density - 1.0) * 700;
-  nfb_freq = max(3500, min(6500, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.88;
-);
-
 // === INSTANCES ===
 inp.lms_input_stage_init(5000, 0.55, 1500, -1.5, 0.030);
 input_hp.lms_bq_init();
@@ -235,7 +182,11 @@ v4a.triode_init(16, 8000);
 psu.lms_psu_init(0.0005, 0.040, 0.08, 0.65, 1.0);
 
 // Power amp
-pa.poweramp_init();
+pa.lms_pp_pa_init(2.0, 1.3, 1.28, 0.88);
+pa.lms_pp_pa_xfmr(2.5, 0.985, 1.2, 0.25);
+pa.lms_pp_pa_xfmr_res(4500, 2.0, 2.5);
+pa.lms_pp_pa_nfb(5500, 700, 3500, 6500);
+pa.pres_f.lms_bq_init();
 pa.poweramp_set(0.5, 0.5);
 
 // Noise gate
@@ -628,7 +579,9 @@ fx_bypass == 0 ? (
 
 // === POWER AMP (6L6 push-pull) ===
 amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, bplus);
+amp_out = pa.lms_pp_pa_proc(amp_out, bplus);
+
+amp_out = pa.pres_f.lms_bq_proc(amp_out);
 
 // === NOISE GATE ===
 gate_on == 1 ? (

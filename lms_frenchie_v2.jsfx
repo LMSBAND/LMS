@@ -117,100 +117,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === SINGLE-ENDED 6V6 CLASS A POWER AMP ===
-// The Champ is NOT push-pull. Single 6V6 tube, Class A.
-// Key differences from push-pull:
-// - Asymmetric clipping by nature (one tube does everything)
-// - Even harmonics preserved (push-pull cancels evens; single-ended keeps them)
-// - Lower headroom — breaks up earlier than any push-pull design
-// - No NFB (Champ has minimal/no NFB)
-// - Cathode bias shift: idle current shifts with signal = natural compression
-// - Output transformer saturation: tiny 5W transformer saturates EARLY
-// - Winding resonance: small transformer has HF resonance peak
-function se_poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.drive = 0;
-
-  // Cathode bias shift: 6V6 cathode cap charges with signal level
-  // This shifts the operating point colder = natural compression
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.005));
-  this.cathode_rel = exp(-1/(srate * 0.150));
-
-  // Output transformer saturation state (one-pole LP for LF extraction)
-  this.xfmr_lp = 0;
-
-  // Transformer winding resonance (small transformer = 3.5kHz, the Champ "sparkle")
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(3500, 2.5, 2.0);
-
-  // Minimal alias LP (no NFB, just tame ultrasonic content)
-  this.alias_lp.lms_bq_init();
-  this.alias_lp.lms_bq_set_lp(10000, 0.4);
-);
-
-function se_poweramp_proc(x, bplus)
-  local(b, out, cathode_shift, signal_level, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 2.0);
-
-  // Density tracker (for monitor + transformer saturation)
-  this.hd.lms_hd_proc(b);
-
-  // Cathode bias shift — the 6V6 cathode cap charges with signal
-  // On loud signals, the bias shifts colder = gain reduction = compression
-  signal_level = abs(b);
-  signal_level > this.cathode_charge ? (
-    this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
-  ) : (
-    this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
-  );
-  cathode_shift = this.cathode_charge * 0.20;
-  b = b * (1.0 - cathode_shift);
-
-  // SINGLE-ENDED CLIPPING — NOT push-pull!
-  // One tube clips both halves of the waveform, but asymmetrically.
-  // Positive: plate current limiting (tube runs out of current gradually)
-  //   Hard clip, compressed ceiling — 6V6 plate saturation is stiff
-  // Negative: grid cutoff (tube turns off gradually)
-  //   Soft clip, open ceiling — cutoff is gradual, not abrupt
-  // This asymmetry preserves even harmonics (2nd harmonic dominant)
-  // which is THE single-ended sound.
-  b >= 0 ? (
-    out = lms_tanh(b * 1.8) * 0.7 * bplus;
-  ) : (
-    out = lms_tanh(b * 0.6) * 1.0 * bplus;
-  );
-
-  // Output transformer saturation — TINY Champ transformer (5W rated)
-  // Saturates MUCH earlier than any other amp in the suite.
-  // This is why Champs sound "fat" and "compressed" when cranked.
-  // The transformer core is so small that even moderate bass content
-  // partially saturates it, adding even harmonics and compressing lows.
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 4.0);
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.988 + out * 0.012;
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.5))
-                   / (1.0 + xfmr_sat * 0.3);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // Transformer winding resonance (3.5kHz peak — Champ's "sparkle")
-  out = this.xfmr_res.lms_bq_proc(out);
-
-  // NO NFB — Champ has minimal/no negative feedback
-  // Just gentle alias LP (like AC15)
-  out = this.alias_lp.lms_bq_proc(out);
-
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
 // === INIT ===
 inp.lms_input_stage_init(4500, 0.6, 800, -2.5, 0.030);
 input_hp.lms_bq_init();
@@ -231,7 +137,11 @@ trem.lms_trem_init();
 echo.lms_tape_echo_init();
 
 // Single-ended 6V6 Class A power amp (replaces V2b triode_proc)
-pa.se_poweramp_init();
+pa.lms_se_pa_init(2.0, 1.8, 0.7, 0.6, 1.0, 0.85);
+pa.lms_se_pa_cathode(0.005, 0.150, 0.20);
+pa.lms_se_pa_xfmr(4.0, 0.988, 1.5, 0.3);
+pa.lms_se_pa_xfmr_res(3500, 2.5, 2.0);
+pa.lms_se_pa_alias_lp(10000, 0.4);
 
 // Simple Champ tone control (just a LP that sweeps)
 tone_lp.lms_bq_init();
@@ -508,7 +418,7 @@ fx_bypass == 0 ? (
 //    Includes: asymmetric single-tube clipping, cathode bias shift,
 //    output transformer saturation, winding resonance, no NFB
 pa.drive = gain * 0.55;
-amp_out = pa.se_poweramp_proc(v1a_out, bplus);
+amp_out = pa.lms_se_pa_proc(v1a_out, bplus);
 
 // 8. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);

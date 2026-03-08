@@ -126,32 +126,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === BASSMAN POWER AMP (2×6L6 push-pull, 50W — cathode-biased, saggy, warm) ===
-// 5F6-A tweed Bassman: cathode-biased 6L6 (unlike Twin's fixed bias).
-// Cathode bias = more compression, more sag, more "bloom" on transients.
-// 50W output transformer: between Twin (85W) and Deluxe (22W).
-// Saturates earlier than Twin, later than Deluxe — the sweet spot.
-// LESS NFB than blackface (6dB vs Twin's 10dB) = more alive, warmer, touch-sensitive.
-// Transformer winding resonance at 3.2kHz (medium-sized transformer).
-function bassman_poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(4000, 0.5);
-  this.last_nfb_freq = 4000;
-  this.drive = 0;
-  // Output transformer saturation (50W OT — medium, moderate saturation)
-  this.xfmr_lp = 0;
-  // Winding resonance: 3.2kHz +2.0dB Q=1.8 (medium transformer)
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(3200, 2.0, 1.8);
-  // Cathode bias shift (6L6 cathode-biased — MORE compression than fixed-bias Twin)
-  // This is the "spongy" feel that defines the tweed Bassman
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.004));
-  this.cathode_rel = exp(-1/(srate * 0.100));
-);
 function bassman_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   this.drive = drive;
   // Presence in NFB loop (less NFB = presence has more effect)
@@ -160,66 +134,6 @@ function bassman_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q)
   pres_q = 0.9 + presence * 0.9;
   this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
 );
-function bassman_poweramp_proc(x, bplus)
-  local(b, push, pull, out, cathode_shift, signal_level, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 2.2);
-  this.hd.lms_hd_proc(b);
-
-  // Cathode bias shift — cathode-biased 6L6 = significant compression
-  // This is the "spongy" response: loud transients shift the bias colder
-  signal_level = abs(b);
-  signal_level > this.cathode_charge ? (
-    this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
-  ) : (
-    this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
-  );
-  cathode_shift = this.cathode_charge * 0.14;  // 14% — between Twin (8%) and Deluxe (15%)
-  b = b * (1.0 - cathode_shift);
-
-  // 6L6 push-pull (cathode-biased) — moderate headroom, warm breakup
-  // More headroom than Deluxe 6V6 but breaks up earlier than fixed-bias Twin.
-  // Cathode bias creates subtle asymmetry in push-pull = more even harmonics.
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.5) * bplus;  // softer than fixed-bias Twin (1.6)
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.45) * bplus;  // more mismatch (cathode bias drift)
-
-  out = push - pull;
-
-  // Output transformer saturation — 50W OT, moderate saturation
-  // Between Twin (85W, ×1.8) and Deluxe (22W, ×3.0)
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 2.4);  // medium sensitivity
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.984 + out * 0.016;  // ~125Hz one-pole LP
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.0))
-                   / (1.0 + xfmr_sat * 0.20);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // Transformer winding resonance (3.2kHz — medium transformer)
-  out = this.xfmr_res.lms_bq_proc(out);
-
-  // NFB: Bassman has LESS NFB than any blackface (6dB vs Twin's 10dB)
-  // This is why it feels "alive" and touch-sensitive — less correction.
-  nfb_freq = 4000 - (this.hd.density - 1.0) * 800;
-  nfb_freq = max(2500, min(5000, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-
-  // Presence (in NFB loop — more effect due to less overall NFB)
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
 // === INSTANCES ===
 inp.lms_input_stage_init(4200, 0.55, 1000, -2.0, 0.035);
 input_hp.lms_bq_init();
@@ -256,7 +170,12 @@ ts.lms_tmb_set(0.5, 0.5, 0.5);
 psu.lms_psu_init(0.004, 0.150, 0.22, 0.65, 1.0);
 
 // Bassman power amp (single — both channels share the same power section)
-bassman_pa.bassman_poweramp_init();
+bassman_pa.lms_pp_pa_init(2.2, 1.5, 1.45, 0.85);
+bassman_pa.lms_pp_pa_cathode(0.004, 0.100, 0.14);
+bassman_pa.lms_pp_pa_xfmr(2.4, 0.984, 1.0, 0.20);
+bassman_pa.lms_pp_pa_xfmr_res(3200, 2.0, 1.8);
+bassman_pa.lms_pp_pa_nfb(4000, 800, 2500, 5000);
+bassman_pa.pres_f.lms_bq_init();
 bassman_pa.bassman_poweramp_set(0.5, 0.5);
 
 // Soft gate
@@ -587,7 +506,9 @@ fx_bypass == 0 ? (
 
 // 10. POWER AMP (Bassman 6L6 push-pull, cathode-biased — both channels share this)
 amp_out *= master;
-amp_out = bassman_pa.bassman_poweramp_proc(amp_out, bplus);
+amp_out = bassman_pa.lms_pp_pa_proc(amp_out, bplus);
+
+amp_out = bassman_pa.pres_f.lms_bq_proc(amp_out);
 
 // 11. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);
