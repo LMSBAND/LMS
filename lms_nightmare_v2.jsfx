@@ -175,42 +175,10 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POWER AMP (Class D solid-state — 500W, transparent, MASSIVE headroom) ===
-// Terror Bass Class D: no tubes, no sag, no transformer saturation.
-// Acts as a transparent amplifier below clipping. When it clips: hard, symmetric.
-// All the tone comes from the tube preamp — the power section just makes it LOUD.
-// No NFB modeling needed (internal to the Class D module).
-// We still track density for the cab sim and GFX.
-function poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.drive = 0;
-  // Gentle output LP — Class D switching artifacts filtered at ~8kHz
-  this.out_lp.lms_bq_init();
-  this.out_lp.lms_bq_set_lp(8000, 0.5);
-);
 function poweramp_set(drive, presence) (
   this.drive = drive;
   // No presence control in Class D — presence is handled in preamp EQ
 );
-function poweramp_proc(x, bplus) local(b, out) (
-  b = x * (1.0 + this.drive * 1.5);
-
-  // Density tracker (for cab sim and GFX, not for power amp behavior)
-  this.hd.lms_hd_proc(b);
-
-  // Class D: transparent below clipping, hard symmetric clip at rails.
-  // 500W into 4 ohms = massive headroom. In practice, rarely clips.
-  // When it does: harsh, unmusical — you don't WANT this to clip.
-  out = b * bplus;
-  out = max(-0.95, min(0.95, out));  // hard clip (Class D rails)
-
-  // Output filter (Class D reconstruction filter)
-  out = this.out_lp.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.90;
-);
-
 // === INIT ===
 inp.lms_input_stage_init(3800, 0.55, 600, -2.0, 0.035);
 input_hp.lms_bq_init();
@@ -252,7 +220,7 @@ psu.lms_psu_init(0.001, 0.060, 0.10, 0.85, 1.0);
 ts.lms_tmb_init();
 ts.lms_tmb_config(35,125, 20,0.55,  500, 0.8,1.2, 10,  800,2700, 14,0.65,  2.0,1.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
-pa.poweramp_init();
+pa.lms_classd_pa_init(1.5, 8000, 0.90);
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
 spring.lms_spring_init();
@@ -573,7 +541,7 @@ fx_bypass == 0 ? (
 
 // 8. Power amp (Class D — transparent, massive headroom, no sag)
 amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, 1.0);  // bplus=1.0 always (solid-state)
+amp_out = pa.lms_classd_pa_proc(amp_out, 1.0);  // bplus=1.0 always (solid-state)
 
 // 9. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);

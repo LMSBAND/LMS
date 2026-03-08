@@ -141,20 +141,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POWER AMP (6550 push-pull, FIXED clipping, density drives NFB) ===
-// 6550s have MORE headroom than EL34s — harder to push into clipping
-// When they do clip, it's more symmetrical (less even harmonics than EL34)
-// NFB loop is tighter on SVT — more "solid state" feel at low gain
-function poweramp_init() (
-  this.hd.lms_hd_init(150, 1200, 3500);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(5000, 0.5);
-  this.last_nfb_freq = 5000;
-  this.drive = 0;
-  this.xfmr_lp = 0;  // output transformer core saturation LP state
-);
 function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   this.drive = drive;
   // SVT presence is subtle — applied in NFB loop
@@ -162,53 +148,6 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   pres_db = presence * 6;
   this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
 );
-function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
-  b = x * (1.0 + this.drive * 2.0);
-  this.hd.lms_hd_proc(b);
-
-  // 6550 push-pull — MORE symmetrical than EL34
-  // Both tubes clip at nearly same hardness (matched pair)
-  // Higher headroom: 1.2x hardness vs EL34's 1.4x
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.2) * bplus;
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.2) * bplus;
-
-  out = push - pull;
-
-  // Output transformer saturation — low frequency core loading
-  // When low_energy is high (big bass notes), the transformer core
-  // partially saturates, adding even harmonics to the low end
-  // and slightly compressing the fundamental.
-  // THIS IS THE SVT GROWL.
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 2.0);
-  xfmr_sat > 0.05 ? (
-    // Extract low content via one-pole LP (~80Hz)
-    this.xfmr_lp = this.xfmr_lp * 0.988 + out * 0.012;
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    // Saturate ONLY the low content, proportional to core loading
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.5))
-                   / (1.0 + xfmr_sat * 0.3);
-    // Blend: more saturation when core is more loaded
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // SVT NFB is tighter than Marshall — more controlled at all times
-  nfb_freq = 5000 - (this.hd.density - 1.0) * 600;
-  nfb_freq = max(3000, min(6000, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.9;
-);
-
 // === ODB-3 BASS OVERDRIVE (Boss ODB-3 emulation) ===
 // Bass preservation: HPF before clipper — low end stays clean.
 // Only mids and highs enter the dirty path. Bass fundamentals
@@ -305,7 +244,10 @@ driver.triode_init(15, 12000);
 psu.lms_psu_init(0.002, 0.120, 0.15, 0.70, 1.0);
 ts.lms_svt_eq_init();
 ts.lms_svt_eq_set(0.5, 0.5, 2, 0.5, 0, 0);
-pa.poweramp_init();
+pa.lms_pp_pa_init(2.0, 1.2, 1.2, 0.9);
+pa.lms_pp_pa_xfmr(2.0, 0.988, 1.5, 0.3);
+pa.lms_pp_pa_nfb(5000, 600, 3000, 6000);
+pa.pres_f.lms_bq_init();
 pa.poweramp_set(0.5, 0.3);
 gate.lms_sgate_init(0.001, 0.0002);
 
@@ -674,7 +616,9 @@ fx_bypass == 0 ? (
 
 // 7. Power amp (6550 push-pull)
 amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, bplus);
+amp_out = pa.lms_pp_pa_proc(amp_out, bplus);
+
+amp_out = pa.pres_f.lms_bq_proc(amp_out);
 
 // 8. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);

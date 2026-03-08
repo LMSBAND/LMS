@@ -176,18 +176,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POWER AMP (EL34 push-pull, FIXED clipping, density drives NFB/presence) ===
-// Now includes output transformer saturation (density-driven low-freq core loading)
-function poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(6000, 0.5);
-  this.last_nfb_freq = 6000;
-  this.drive = 0;
-  this.xfmr_lp = 0;  // output transformer core saturation state
-);
 function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   this.drive = drive;
   // Presence in NFB loop: more presence = less HF NFB = more bite
@@ -195,52 +183,6 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   pres_db = presence * 8;
   this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
 );
-function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
-  b = x * (1.0 + this.drive * 2.5);
-
-  // Density tracker on power amp input (drives NFB, not clipping)
-  this.hd.lms_hd_proc(b);
-
-  // Push tube — FIXED hardness 1.4, only bplus scales ceiling
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.4) * bplus;
-
-  // Pull tube — FIXED hardness 1.35 (real EL34 push/pull mismatch)
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.35) * bplus;
-
-  out = push - pull;
-
-  // Output transformer saturation — density-driven, guitar-tuned
-  // Marshall OT is smaller than SVT = saturates earlier on low content
-  // Extraction at ~120Hz (guitar power chords, not bass fundamentals)
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 3.0);  // more sensitive than SVT (smaller core)
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.984 + out * 0.016;  // ~120Hz one-pole LP
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.0))
-                   / (1.0 + xfmr_sat * 0.2);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // Density drives NFB loop bandwidth (more harmonics = tighter NFB = darker)
-  nfb_freq = 6000 - (this.hd.density - 1.0) * 800;
-  nfb_freq = max(3500, min(7000, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-
-  // Presence (in NFB loop — applied after NFB LP)
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
 // === INIT ===
 inp.lms_input_stage_init(4500, 0.6, 800, -2.5, 0.030);
 input_hp.lms_bq_init();
@@ -276,7 +218,10 @@ psu.lms_psu_init(0.001, 0.080, 0.25, 0.60, 1.0);
 ts.lms_tmb_init();
 ts.lms_tmb_config(60,140, 18,0.6,   370, 1.0,1.5, 14,  900,600,  16,0.75,  3.0,2.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
-pa.poweramp_init();
+pa.lms_pp_pa_init(2.5, 1.4, 1.35, 0.85);
+pa.lms_pp_pa_xfmr(3.0, 0.984, 1.0, 0.2);
+pa.lms_pp_pa_nfb(6000, 800, 3500, 7000);
+pa.pres_f.lms_bq_init();
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
 spring.lms_spring_init();
@@ -597,7 +542,9 @@ fx_bypass == 0 ? (
 
 // 8. Power amp (with output transformer saturation)
 amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, bplus);
+amp_out = pa.lms_pp_pa_proc(amp_out, bplus);
+
+amp_out = pa.pres_f.lms_bq_proc(amp_out);
 
 // 9. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);

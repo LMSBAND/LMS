@@ -126,29 +126,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === TWIN POWER AMP (6L6GC push-pull, 85W — THE Fender clean sound) ===
-// Massive headroom. Silicon rectifier = tight response.
-// Lots of NFB = controlled, hifi-like at clean. Less "alive" than EL84/EL34
-// but compensated by HUGE output transformer headroom.
-// Output transformer saturation + winding resonance at 3.8kHz.
-function twin_poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(5000, 0.5);
-  this.last_nfb_freq = 5000;
-  this.drive = 0;
-  // Output transformer saturation (85W OT — large, hard to saturate)
-  this.xfmr_lp = 0;
-  // Winding resonance: 3.8kHz +1.5dB Q=2.0 (subtle — big transformer = less resonance)
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(3800, 1.5, 2.0);
-  // Cathode bias shift (6L6 — minimal, Class AB)
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.003));
-  this.cathode_rel = exp(-1/(srate * 0.060));
-);
 function twin_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   this.drive = drive;
   // Presence in NFB loop: resonant peak (Fender-style)
@@ -157,87 +134,6 @@ function twin_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   pres_q = 1.0 + presence * 1.0;
   this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
 );
-function twin_poweramp_proc(x, bplus)
-  local(b, push, pull, out, cathode_shift, signal_level, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 2.0);
-  this.hd.lms_hd_proc(b);
-
-  // Cathode bias shift — minimal on Twin (Class AB, stiff supply)
-  signal_level = abs(b);
-  signal_level > this.cathode_charge ? (
-    this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
-  ) : (
-    this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
-  );
-  cathode_shift = this.cathode_charge * 0.08;  // <8% — Twin stays stiff
-  b = b * (1.0 - cathode_shift);
-
-  // 6L6GC push-pull — LOTS of headroom. The "Fender clean" comes from
-  // these tubes NOT clipping until very loud.
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.6) * bplus;  // hard — 6L6 has stiff plate curve
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.58) * bplus;  // slight mismatch
-
-  out = push - pull;
-
-  // Output transformer saturation — 85W OT, HARD to saturate
-  // Least sensitive of any guitar amp in the suite (huge core)
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 1.8);  // least sensitive (big transformer)
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.982 + out * 0.018;  // ~140Hz one-pole LP
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 0.8))
-                   / (1.0 + xfmr_sat * 0.15);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // Transformer winding resonance
-  out = this.xfmr_res.lms_bq_proc(out);
-
-  // NFB: Twin has MORE NFB than Marshall/Mesa — tighter, more "controlled"
-  // 10dB of NFB. Density drives bandwidth.
-  nfb_freq = 5000 - (this.hd.density - 1.0) * 600;
-  nfb_freq = max(3000, min(6000, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-
-  // Presence (in NFB loop)
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
-// === DELUXE POWER AMP (6V6GT push-pull, 22W — breaks up beautifully) ===
-// Same topology as Twin but MUCH less headroom.
-// 6V6: softer, earlier breakup, more even harmonics under drive.
-// Smaller 22W OT: saturates earlier = warmer, fatter at volume.
-// Less NFB than Twin = more "alive" and touch-sensitive.
-function deluxe_poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.pres_f.lms_bq_init();
-  this.nfb_lp.lms_bq_init();
-  this.nfb_lp.lms_bq_set_lp(4500, 0.5);
-  this.last_nfb_freq = 4500;
-  this.drive = 0;
-  // Output transformer saturation (22W OT — small, saturates earlier)
-  this.xfmr_lp = 0;
-  // Winding resonance: 3.5kHz +2.0dB Q=2.0 (smaller transformer = more resonance)
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(3500, 2.0, 2.0);
-  // Cathode bias shift (6V6 — more compression than 6L6)
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.004));
-  this.cathode_rel = exp(-1/(srate * 0.120));
-);
 function deluxe_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   this.drive = drive;
   pres_freq = 2000 + presence * 5000;
@@ -245,64 +141,6 @@ function deluxe_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) 
   pres_q = 0.9 + presence * 0.9;
   this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
 );
-function deluxe_poweramp_proc(x, bplus)
-  local(b, push, pull, out, cathode_shift, signal_level, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 2.5);  // more gain to compensate lower headroom
-  this.hd.lms_hd_proc(b);
-
-  // Cathode bias shift — 6V6 compresses more than 6L6
-  signal_level = abs(b);
-  signal_level > this.cathode_charge ? (
-    this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
-  ) : (
-    this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
-  );
-  cathode_shift = this.cathode_charge * 0.15;  // 15% — more compression than Twin
-  b = b * (1.0 - cathode_shift);
-
-  // 6V6GT push-pull — less headroom, softer clipping than 6L6
-  // Clips earlier = breakup at lower volumes = THE Deluxe sound
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.4) * bplus;  // softer than 6L6
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.35) * bplus;  // slight mismatch
-
-  out = push - pull;
-
-  // Output transformer saturation — 22W OT, saturates MUCH earlier than Twin
-  // More sensitive than Twin, less than Champ
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 3.0);  // between Champ (×4) and Twin (×1.8)
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.985 + out * 0.015;  // ~115Hz one-pole LP
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.2))
-                   / (1.0 + xfmr_sat * 0.25);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // Transformer winding resonance
-  out = this.xfmr_res.lms_bq_proc(out);
-
-  // NFB: Deluxe has LESS NFB than Twin — more alive, more touch-sensitive
-  // 8dB of NFB (vs Twin's 10dB)
-  nfb_freq = 4500 - (this.hd.density - 1.0) * 700;
-  nfb_freq = max(2800, min(5500, nfb_freq));
-  abs(nfb_freq - this.last_nfb_freq) > 50 ? (
-    this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
-    this.last_nfb_freq = nfb_freq;
-  );
-  out = this.nfb_lp.lms_bq_proc(out);
-
-  // Presence (in NFB loop)
-  out = this.pres_f.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
 // === INSTANCES ===
 inp.lms_input_stage_init(5000, 0.55, 1200, -1.5, 0.030);
 input_hp.lms_bq_init();
@@ -340,11 +178,21 @@ ts.lms_tmb_set(0.5, 0.5, 0.5);
 psu.lms_psu_init(0.0005, 0.040, 0.08, 0.70, 1.0);
 
 // Twin power amp
-twin_pa.twin_poweramp_init();
+twin_pa.lms_pp_pa_init(2.0, 1.6, 1.58, 0.85);
+twin_pa.lms_pp_pa_cathode(0.003, 0.060, 0.08);
+twin_pa.lms_pp_pa_xfmr(1.8, 0.982, 0.8, 0.15);
+twin_pa.lms_pp_pa_xfmr_res(3800, 1.5, 2.0);
+twin_pa.lms_pp_pa_nfb(5000, 600, 3000, 6000);
+twin_pa.pres_f.lms_bq_init();
 twin_pa.twin_poweramp_set(0.5, 0.5);
 
 // Deluxe power amp
-deluxe_pa.deluxe_poweramp_init();
+deluxe_pa.lms_pp_pa_init(2.5, 1.4, 1.35, 0.85);
+deluxe_pa.lms_pp_pa_cathode(0.004, 0.120, 0.15);
+deluxe_pa.lms_pp_pa_xfmr(3.0, 0.985, 1.2, 0.25);
+deluxe_pa.lms_pp_pa_xfmr_res(3500, 2.0, 2.0);
+deluxe_pa.lms_pp_pa_nfb(4500, 700, 2800, 5500);
+deluxe_pa.pres_f.lms_bq_init();
 deluxe_pa.deluxe_poweramp_set(0.5, 0.5);
 
 // Soft gate
@@ -681,10 +529,14 @@ fx_bypass == 0 ? (
 amp_out *= master;
 amp_channel == 0 ? (
   // TWIN REVERB: 6L6GC push-pull (85W) — THE Fender clean
-  amp_out = twin_pa.twin_poweramp_proc(amp_out, bplus);
+  amp_out = twin_pa.lms_pp_pa_proc(amp_out, bplus);
+
+  amp_out = twin_pa.pres_f.lms_bq_proc(amp_out);
 ) : (
   // DELUXE REVERB: 6V6GT push-pull (22W) — breaks up beautifully
-  amp_out = deluxe_pa.deluxe_poweramp_proc(amp_out, bplus);
+  amp_out = deluxe_pa.lms_pp_pa_proc(amp_out, bplus);
+
+  amp_out = deluxe_pa.pres_f.lms_bq_proc(amp_out);
 );
 
 // 11. Soft gate

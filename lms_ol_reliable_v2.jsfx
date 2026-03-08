@@ -123,83 +123,12 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === POWER AMP (EL84 cathode-biased push-pull, NO NFB) ===
-// v1.1: Added output transformer saturation + winding resonance
-function poweramp_init() (
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.tonecut.lms_bq_init();
-  this.tonecut.lms_bq_set_lp(20000, 0.5);
-  this.alias_lp.lms_bq_init();
-  this.alias_lp.lms_bq_set_lp(12000, 0.4);
-  this.drive = 0;
-  // Cathode bias shift
-  this.cathode_charge = 0;
-  this.cathode_att = exp(-1/(srate * 0.010));
-  this.cathode_rel = exp(-1/(srate * 0.200));
-  // v1.1: Output transformer saturation state
-  this.xfmr_lp = 0;
-  // v1.1: Transformer winding resonance (4kHz — Vox shimmer)
-  this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(4000, 2.0, 2.0);
-);
 function poweramp_set(drive, tonecut) local(tc_freq) (
   this.drive = drive;
   tc_freq = 20000 - tonecut * 18000;
   tc_freq = max(2000, tc_freq);
   this.tonecut.lms_bq_set_lp(tc_freq, 0.5);
 );
-function poweramp_proc(x, bplus)
-  local(b, push, pull, out, cathode_shift, signal_level, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
-(
-  b = x * (1.0 + this.drive * 3.0);
-
-  // Density tracker
-  this.hd.lms_hd_proc(b);
-
-  // Cathode bias shift — EL84 cathode cap charges with signal
-  signal_level = abs(b);
-  signal_level > this.cathode_charge ? (
-    this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
-  ) : (
-    this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
-  );
-  cathode_shift = this.cathode_charge * 0.15;
-  b = b * (1.0 - cathode_shift);
-
-  // EL84 push-pull — clips EARLIER than EL34
-  push = b > 0 ? b : 0;
-  push = lms_tanh(push * 1.6) * bplus;
-  pull = b < 0 ? -b : 0;
-  pull = lms_tanh(pull * 1.5) * bplus;
-
-  out = push - pull;
-
-  // v1.1: Output transformer saturation — EL84 + small 15W OT = creamy breakup
-  // Extraction at ~90Hz (between Champ's 80Hz and Marshall's 120Hz)
-  // Sensitivity ×3.5 — most sensitive guitar amp OT in the suite
-  xfmr_sat = this.hd.env_lo;
-  xfmr_sat = min(1.0, xfmr_sat * 3.5);
-  xfmr_sat > 0.05 ? (
-    this.xfmr_lp = this.xfmr_lp * 0.986 + out * 0.014;
-    lo_content = this.xfmr_lp;
-    hi_content = out - lo_content;
-    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * 1.2))
-                   / (1.0 + xfmr_sat * 0.25);
-    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
-    out = lo_final + hi_content;
-  );
-
-  // v1.1: Transformer winding resonance — Vox shimmer (4kHz peak)
-  out = this.xfmr_res.lms_bq_proc(out);
-
-  // NO NFB — just alias LP + tone cut
-  out = this.alias_lp.lms_bq_proc(out);
-  out = this.tonecut.lms_bq_proc(out);
-  out = this.dc.lms_dc_proc_l(out);
-  out * 0.85;
-);
-
 // === INIT ===
 inp.lms_input_stage_init(4500, 0.6, 1200, -2.0, 0.030);
 input_hp.lms_bq_init();
@@ -226,7 +155,14 @@ coupling_hp.lms_bq_set_hp(160, 0.7);
 psu.lms_psu_init(0.001, 0.100, 0.20, 0.65, 1.0);
 tb.lms_topboost_init();
 tb.lms_topboost_set(0.5, 0.5);
-pa.poweramp_init();
+pa.lms_pp_pa_init(3.0, 1.6, 1.5, 0.85);
+pa.lms_pp_pa_cathode(0.010, 0.200, 0.15);
+pa.lms_pp_pa_xfmr(3.5, 0.986, 1.2, 0.25);
+pa.lms_pp_pa_xfmr_res(4000, 2.0, 2.0);
+pa.alias_lp.lms_bq_init();
+pa.alias_lp.lms_bq_set_lp(12000, 0.4);
+pa.tonecut.lms_bq_init();
+pa.tonecut.lms_bq_set_lp(20000, 0.5);
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
 trem.lms_trem_init();
@@ -549,7 +485,11 @@ fx_bypass == 0 ? (
 // 7. Power amp (EL84 cathode-biased push-pull, NO NFB)
 //    v1.1: Now includes output transformer saturation + winding resonance
 amp_out *= master;
-amp_out = pa.poweramp_proc(amp_out, bplus);
+amp_out = pa.lms_pp_pa_proc(amp_out, bplus);
+
+amp_out = pa.alias_lp.lms_bq_proc(amp_out);
+
+amp_out = pa.tonecut.lms_bq_proc(amp_out);
 
 // 8. Soft gate
 amp_out = gate.lms_sgate_proc(amp_out);

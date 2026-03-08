@@ -19,6 +19,9 @@
 //    4. Compressor               (stereo FET, this.* state)
 //    5. DC Blocker               (stereo, this.* state)
 //    5g. Harmonic Density Tracker (4-band spectral envelope, this.* state)
+//    5h. Push-Pull Power Amp     (parameterized tube stage, this.* state)
+//    5i. Single-Ended Power Amp  (Class A asymmetric, this.* state)
+//    5j. Class D Power Amp       (solid-state hard clip, this.* state)
 //    6. Tone Filter              (stereo 1-pole LP, this.* state)
 //    7. Cubic Interpolation      (stateless)
 //    8. Spring Reverb Allpass    (stateless, buffer-based)
@@ -1023,6 +1026,304 @@ function lms_hd_proc(x)
   this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
   this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
   this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
+);
+
+
+// ============================================================================
+//  Push-Pull Power Amp — parameterized tube power stage (this.* state)
+//
+//  Covers EL34, 6L6, 6V6, 6550, EL84 push-pull topologies.
+//  Modular config: call base init, then optional config calls.
+//
+//  Init sequence:
+//    @init:
+//      pa.lms_pp_pa_init(drive_mult, push_hard, pull_hard, output_gain);
+//      pa.lms_pp_pa_cathode(att_ms, rel_ms, shift_pct);    // optional
+//      pa.lms_pp_pa_deadzone(base);                          // optional
+//      pa.lms_pp_pa_xfmr(sens, lp_coeff, sat_mult, sat_div);
+//      pa.lms_pp_pa_xfmr_res(freq, db, q);                  // optional
+//      pa.lms_pp_pa_nfb(base_freq, dens_range, min_f, max_f); // optional
+//    @slider/@block:
+//      pa.drive = slider_val;
+//      pa.pres_f.lms_bq_set_*(...)                           // amp-specific
+//    @sample:
+//      out = pa.lms_pp_pa_proc(x, bplus);
+//      out = pa.pres_f.lms_bq_proc(out);                    // if presence
+//      (any amp-specific post-filters)
+// ============================================================================
+
+function lms_pp_pa_init(drive_mult, push_hard, pull_hard, output_gain)
+(
+  this.dc.lms_dc_init();
+  this.pa_drive_mult = drive_mult;
+  this.pa_push_hard = push_hard;
+  this.pa_pull_hard = pull_hard;
+  this.pa_output_gain = output_gain;
+  this.drive = 0;
+  this.xfmr_lp = 0;
+  // Feature flags (set by optional config calls)
+  this.pa_has_cathode = 0;
+  this.pa_has_xfmr_res = 0;
+  this.pa_has_nfb = 0;
+  this.pa_has_deadzone = 0;
+);
+
+function lms_pp_pa_cathode(att_ms, rel_ms, shift_pct)
+(
+  this.cathode_charge = 0;
+  this.cathode_att = exp(-1/(srate * att_ms));
+  this.cathode_rel = exp(-1/(srate * rel_ms));
+  this.pa_cathode_pct = shift_pct;
+  this.pa_has_cathode = 1;
+);
+
+function lms_pp_pa_deadzone(base)
+(
+  this.pa_dz_base = base;
+  this.pa_has_deadzone = 1;
+);
+
+function lms_pp_pa_xfmr(sensitivity, lp_coeff, sat_mult, sat_div)
+(
+  this.pa_xfmr_sens = sensitivity;
+  this.pa_xfmr_lp_a = lp_coeff;
+  this.pa_xfmr_sat_mult = sat_mult;
+  this.pa_xfmr_sat_div = sat_div;
+);
+
+function lms_pp_pa_xfmr_res(freq, db, q)
+(
+  this.xfmr_res.lms_bq_init();
+  this.xfmr_res.lms_bq_set_peak(freq, db, q);
+  this.pa_has_xfmr_res = 1;
+);
+
+function lms_pp_pa_nfb(base_freq, density_range, min_freq, max_freq)
+(
+  this.nfb_lp.lms_bq_init();
+  this.nfb_lp.lms_bq_set_lp(base_freq, 0.5);
+  this.last_nfb_freq = base_freq;
+  this.pa_nfb_base = base_freq;
+  this.pa_nfb_range = density_range;
+  this.pa_nfb_min = min_freq;
+  this.pa_nfb_max = max_freq;
+  this.pa_has_nfb = 1;
+);
+
+function lms_pp_pa_proc(x, bplus)
+  local(b, push, pull, out, dead_zone, cathode_shift, signal_level,
+        nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
+(
+  b = x * (1.0 + this.drive * this.pa_drive_mult);
+  this.hd.lms_hd_proc(b);
+
+  // Optional: cathode bias shift
+  this.pa_has_cathode ? (
+    signal_level = abs(b);
+    signal_level > this.cathode_charge ? (
+      this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
+    ) : (
+      this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
+    );
+    cathode_shift = this.cathode_charge * this.pa_cathode_pct;
+    b = b * (1.0 - cathode_shift);
+  );
+
+  // Push-pull clipping (with optional dead zone)
+  this.pa_has_deadzone ? (
+    dead_zone = this.pa_dz_base * (1.0 - min(1.0, abs(b) * 2.0));
+    push = b > dead_zone ? b - dead_zone : 0;
+    pull = -b > dead_zone ? -b - dead_zone : 0;
+  ) : (
+    push = b > 0 ? b : 0;
+    pull = b < 0 ? -b : 0;
+  );
+  push = lms_tanh(push * this.pa_push_hard) * bplus;
+  pull = lms_tanh(pull * this.pa_pull_hard) * bplus;
+  out = push - pull;
+
+  // Transformer saturation
+  xfmr_sat = this.hd.env_lo;
+  xfmr_sat = min(1.0, xfmr_sat * this.pa_xfmr_sens);
+  xfmr_sat > 0.05 ? (
+    this.xfmr_lp = this.xfmr_lp * this.pa_xfmr_lp_a + out * (1.0 - this.pa_xfmr_lp_a);
+    lo_content = this.xfmr_lp;
+    hi_content = out - lo_content;
+    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * this.pa_xfmr_sat_mult))
+                   / (1.0 + xfmr_sat * this.pa_xfmr_sat_div);
+    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
+    out = lo_final + hi_content;
+  );
+
+  // Optional: transformer winding resonance
+  this.pa_has_xfmr_res ? (
+    out = this.xfmr_res.lms_bq_proc(out);
+  );
+
+  // Optional: density-driven NFB
+  this.pa_has_nfb ? (
+    nfb_freq = this.pa_nfb_base - (this.hd.density - 1.0) * this.pa_nfb_range;
+    nfb_freq = max(this.pa_nfb_min, min(this.pa_nfb_max, nfb_freq));
+    abs(nfb_freq - this.last_nfb_freq) > 50 ? (
+      this.nfb_lp.lms_bq_set_lp(nfb_freq, 0.5);
+      this.last_nfb_freq = nfb_freq;
+    );
+    out = this.nfb_lp.lms_bq_proc(out);
+  );
+
+  out = this.dc.lms_dc_proc_l(out);
+  out * this.pa_output_gain;
+);
+
+
+// ============================================================================
+//  Single-Ended Power Amp — Class A asymmetric clipping (this.* state)
+//
+//  Covers single-ended topologies (e.g., Fender Champ / 6V6).
+//  No push-pull — one tube clips both halves asymmetrically.
+//
+//  Usage:
+//    @init:
+//      pa.lms_se_pa_init(drive_mult, pos_hard, pos_ceil, neg_hard, neg_ceil, output_gain);
+//      pa.lms_se_pa_cathode(att_ms, rel_ms, shift_pct);
+//      pa.lms_se_pa_xfmr(sens, lp_coeff, sat_mult, sat_div);
+//      pa.lms_se_pa_xfmr_res(freq, db, q);
+//    @sample:
+//      out = pa.lms_se_pa_proc(x, bplus);
+// ============================================================================
+
+function lms_se_pa_init(drive_mult, pos_hard, pos_ceil, neg_hard, neg_ceil, output_gain)
+(
+  this.dc.lms_dc_init();
+  this.pa_drive_mult = drive_mult;
+  this.pa_pos_hard = pos_hard;
+  this.pa_pos_ceil = pos_ceil;
+  this.pa_neg_hard = neg_hard;
+  this.pa_neg_ceil = neg_ceil;
+  this.pa_output_gain = output_gain;
+  this.drive = 0;
+  this.xfmr_lp = 0;
+  this.pa_has_cathode = 0;
+  this.pa_has_xfmr_res = 0;
+  this.pa_has_alias_lp = 0;
+);
+
+function lms_se_pa_cathode(att_ms, rel_ms, shift_pct)
+(
+  this.cathode_charge = 0;
+  this.cathode_att = exp(-1/(srate * att_ms));
+  this.cathode_rel = exp(-1/(srate * rel_ms));
+  this.pa_cathode_pct = shift_pct;
+  this.pa_has_cathode = 1;
+);
+
+function lms_se_pa_xfmr(sensitivity, lp_coeff, sat_mult, sat_div)
+(
+  this.pa_xfmr_sens = sensitivity;
+  this.pa_xfmr_lp_a = lp_coeff;
+  this.pa_xfmr_sat_mult = sat_mult;
+  this.pa_xfmr_sat_div = sat_div;
+);
+
+function lms_se_pa_xfmr_res(freq, db, q)
+(
+  this.xfmr_res.lms_bq_init();
+  this.xfmr_res.lms_bq_set_peak(freq, db, q);
+  this.pa_has_xfmr_res = 1;
+);
+
+function lms_se_pa_alias_lp(freq, q)
+(
+  this.alias_lp.lms_bq_init();
+  this.alias_lp.lms_bq_set_lp(freq, q);
+  this.pa_has_alias_lp = 1;
+);
+
+function lms_se_pa_proc(x, bplus)
+  local(b, out, cathode_shift, signal_level,
+        xfmr_sat, lo_content, hi_content, lo_saturated, lo_final)
+(
+  b = x * (1.0 + this.drive * this.pa_drive_mult);
+  this.hd.lms_hd_proc(b);
+
+  // Cathode bias shift
+  this.pa_has_cathode ? (
+    signal_level = abs(b);
+    signal_level > this.cathode_charge ? (
+      this.cathode_charge = this.cathode_att * this.cathode_charge + (1-this.cathode_att) * signal_level;
+    ) : (
+      this.cathode_charge = this.cathode_rel * this.cathode_charge + (1-this.cathode_rel) * signal_level;
+    );
+    cathode_shift = this.cathode_charge * this.pa_cathode_pct;
+    b = b * (1.0 - cathode_shift);
+  );
+
+  // Single-ended asymmetric clipping
+  b >= 0 ? (
+    out = lms_tanh(b * this.pa_pos_hard) * this.pa_pos_ceil * bplus;
+  ) : (
+    out = lms_tanh(b * this.pa_neg_hard) * this.pa_neg_ceil * bplus;
+  );
+
+  // Transformer saturation
+  xfmr_sat = this.hd.env_lo;
+  xfmr_sat = min(1.0, xfmr_sat * this.pa_xfmr_sens);
+  xfmr_sat > 0.05 ? (
+    this.xfmr_lp = this.xfmr_lp * this.pa_xfmr_lp_a + out * (1.0 - this.pa_xfmr_lp_a);
+    lo_content = this.xfmr_lp;
+    hi_content = out - lo_content;
+    lo_saturated = lms_tanh(lo_content * (1.0 + xfmr_sat * this.pa_xfmr_sat_mult))
+                   / (1.0 + xfmr_sat * this.pa_xfmr_sat_div);
+    lo_final = lo_content + xfmr_sat * (lo_saturated - lo_content);
+    out = lo_final + hi_content;
+  );
+
+  // Optional: transformer winding resonance
+  this.pa_has_xfmr_res ? (
+    out = this.xfmr_res.lms_bq_proc(out);
+  );
+
+  // Optional: alias lowpass
+  this.pa_has_alias_lp ? (
+    out = this.alias_lp.lms_bq_proc(out);
+  );
+
+  out = this.dc.lms_dc_proc_l(out);
+  out * this.pa_output_gain;
+);
+
+
+// ============================================================================
+//  Class D Power Amp — solid-state hard clip (this.* state)
+//
+//  Transparent below clipping, hard symmetric clip at rail voltage.
+//  Minimal coloration — the sound is in the preamp, not here.
+//
+//  Usage:
+//    @init:   pa.lms_classd_pa_init(drive_mult, lp_freq, output_gain);
+//    @sample: out = pa.lms_classd_pa_proc(x, bplus);
+// ============================================================================
+
+function lms_classd_pa_init(drive_mult, lp_freq, output_gain)
+(
+  this.dc.lms_dc_init();
+  this.pa_drive_mult = drive_mult;
+  this.pa_output_gain = output_gain;
+  this.drive = 0;
+  this.out_lp.lms_bq_init();
+  this.out_lp.lms_bq_set_lp(lp_freq, 0.5);
+);
+
+function lms_classd_pa_proc(x, bplus)
+  local(b, out)
+(
+  b = x * (1.0 + this.drive * this.pa_drive_mult);
+  this.hd.lms_hd_proc(b);
+  out = b * bplus;
+  out = max(-0.95, min(0.95, out));
+  out = this.out_lp.lms_bq_proc(out);
+  out = this.dc.lms_dc_proc_l(out);
+  out * this.pa_output_gain;
 );
 
 
