@@ -57,84 +57,6 @@ slider28:0<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// =========================================================================
-// === DENSITY-AWARE TRIODE (v2b — proven from Punk v2) ===
-// FIXED clipping curves. Density drives filters and drive, not curve shape.
-// =========================================================================
-function triode_init(hp_freq, lp_freq) (
-  this.hp.lms_bq_init();
-  this.hp.lms_bq_set_hp(hp_freq, 0.7);
-  this.cap_charge = 0.0;
-  this.cap_charge_rate = exp(-1/(srate * 0.0005));
-  this.cap_drain_rate = exp(-1/(srate * 0.030));
-  this.miller.lms_bq_init();
-  this.miller.lms_bq_set_lp(lp_freq, 0.6);
-  this.miller_base_freq = lp_freq;
-  this.last_miller_freq = lp_freq;
-  this.last_miller_q = 0.6;
-  this.air_shelf.lms_bq_init();
-  this.air_shelf.lms_bq_set_hishelf(3500, 0.0, 0.7);
-  this.last_air_cut = 0.0;
-  this.hd.lms_hd_init(150, 1200, 3500);
-  this.dc.lms_dc_init();
-  this.peak_env = 0;
-  this.peak_att = exp(-1/(srate * 0.0002));
-  this.peak_rel = exp(-1/(srate * 0.050));
-);
-
-function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
-  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
-(
-  b = this.hp.lms_bq_proc(x);
-  b > 0.1 ? (
-    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
-  ) : (
-    this.cap_charge = this.cap_drain_rate * this.cap_charge;
-  );
-  bias_shift = this.cap_charge;
-  b = b - bias_shift;
-  drive_boost = 1.0 + this.hd.mid_density * 0.4;
-  gain = (1.0 + drive * 4.0) * drive_boost;
-  b = b * gain;
-  this.hd.lms_hd_proc(b);
-  p_ceil = pos_ceil * bplus;
-  n_ceil = neg_ceil * bplus;
-  b >= 0 ? (
-    b = lms_tanh(b * pos_hard) * p_ceil;
-  ) : (
-    b = lms_tanh(b * neg_hard) * n_ceil;
-  );
-  ax = abs(b);
-  ax > this.peak_env ? (
-    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
-  ) : (
-    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * ax;
-  );
-  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
-    gc_out = gc_thresh + lms_tanh((b - gc_thresh) * 3.0) * gc_amount;
-    b = gc_out;
-  );
-  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
-  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
-  lp_q = 0.6 + this.hd.hi_density * 0.35;
-  lp_q = max(0.6, min(0.95, lp_q));
-  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
-    this.miller.lms_bq_set_lp(lp_freq, lp_q);
-    this.last_miller_freq = lp_freq;
-    this.last_miller_q = lp_q;
-  );
-  b = this.miller.lms_bq_proc(b);
-  air_cut = -this.hd.air_density * 3.0;
-  air_cut = max(-3.0, min(0.0, air_cut));
-  abs(air_cut - this.last_air_cut) > 0.1 ? (
-    this.air_shelf.lms_bq_set_hishelf(3500, air_cut, 0.7);
-    this.last_air_cut = air_cut;
-  );
-  b = this.air_shelf.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-  b;
-);
-
 function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   this.drive = drive;
   // SVT presence is subtle — applied in NFB loop
@@ -227,17 +149,17 @@ rf_filter.lms_bq_set_lp(12000, 0.5);
 // pos_hard=1.0, neg_hard=0.8 (neg side is SOFTER = even harmonics)
 // pos_ceil=0.9, neg_ceil=1.1 (neg ceiling higher = asymmetric output)
 // gc_thresh=0.35, gc_amount=0.12 (less grid conduction than guitar — more headroom)
-v1.triode_init(25, 6500);
+v1.lms_triode_init(25, 6500, 3500, 150, 1200, 3500);
 
 // V1b: recovery stage — low gain, soft clip, mostly a buffer
 // SVT V1b has a partially bypassed cathode (25µF across 1.5kΩ)
 // At low gain: nearly transparent. At high gain: adds warm even-harmonic saturation
-v1b.triode_init(20, 7000);
+v1b.lms_triode_init(20, 7000, 3500, 150, 1200, 3500);
 
 // 12AU7 driver — lower gain, softer clip, drives power tubes
 // 12AU7 has lower mu (~20 vs ~100 for 12AX7), higher plate current capability
 // Softer, rounder clipping — this is where "pillow" overdrive comes from
-driver.triode_init(15, 12000);
+driver.lms_triode_init(15, 12000, 3500, 150, 1200, 3500);
 
 psu.lms_psu_init(0.002, 0.120, 0.15, 0.70, 1.0);
 ts.lms_svt_eq_init();
@@ -552,14 +474,14 @@ bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mul
 //    The SVT gets its drive from pushing ONE tube hard, not stacking stages.
 //    This is why SVTs have that warm, round breakup instead of JCM800 razors.
 v1_drive = gain * 0.70;
-v1_out = v1.triode_proc(mono, v1_drive, bplus, 1.0, 0.8, 0.9, 1.1, 0.35, 0.12);
+v1_out = v1.lms_triode_proc(mono, v1_drive, bplus, 1.0, 0.8, 0.9, 1.1, 0.35, 0.12);
 
 // 4b. V1b recovery stage — low gain, soft clip, mostly a buffer
 //     At low gain: nearly transparent (warm buffer)
 //     At high gain: adds a layer of soft even-harmonic saturation
 //     The density tracker interaction between V1a and V1b IS the SVT progressive breakup
 v1b_drive = gain * 0.25;
-v1b_out = v1b.triode_proc(v1_out, v1b_drive, bplus, 0.8, 0.7, 0.95, 1.05, 0.50, 0.08);
+v1b_out = v1b.lms_triode_proc(v1_out, v1b_drive, bplus, 0.8, 0.7, 0.95, 1.05, 0.50, 0.08);
 
 // 5. Tone stack (after preamp, before power amp — like real SVT)
 amp_out = ts.lms_svt_eq_proc(v1b_out);
@@ -570,7 +492,7 @@ amp_out *= 6.0;
 //     At master past 60%: pre-compresses signal before 6550s
 //     Power tubes then clip on an already-soft waveform = less harsh harmonics
 driver_drive = master * 0.40;
-amp_out = driver.triode_proc(amp_out, driver_drive, bplus, 0.7, 0.65, 0.90, 0.95, 0.55, 0.06);
+amp_out = driver.lms_triode_proc(amp_out, driver_drive, bplus, 0.7, 0.65, 0.90, 0.95, 0.55, 0.06);
 
 // 6. Effects loop (pre-power-amp — tape echo returns through 6550s + cab)
 fx_bypass == 0 ? (

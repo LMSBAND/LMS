@@ -52,92 +52,18 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === DENSITY-AWARE TRIODE ===
-function triode_init(hp_freq, lp_freq) (
-  this.hp.lms_bq_init();
-  this.hp.lms_bq_set_hp(hp_freq, 0.7);
-  this.cap_charge = 0.0;
-  this.cap_charge_rate = exp(-1/(srate * 0.0005));
-  this.cap_drain_rate = exp(-1/(srate * 0.030));
-  this.miller.lms_bq_init();
-  this.miller.lms_bq_set_lp(lp_freq, 0.6);
-  this.miller_base_freq = lp_freq;
-  this.last_miller_freq = lp_freq;
-  this.last_miller_q = 0.6;
-  this.air_shelf.lms_bq_init();
-  this.air_shelf.lms_bq_set_hishelf(3500, 0.0, 0.7);
-  this.last_air_cut = 0.0;
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.peak_env = 0;
-  this.peak_att = exp(-1/(srate * 0.0002));
-  this.peak_rel = exp(-1/(srate * 0.050));
-);
-function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
-  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
-(
-  b = this.hp.lms_bq_proc(x);
-  b > 0.1 ? (
-    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
-  ) : (
-    this.cap_charge = this.cap_drain_rate * this.cap_charge;
-  );
-  bias_shift = this.cap_charge;
-  b = b - bias_shift;
-  drive_boost = 1.0 + this.hd.mid_density * 0.4;
-  gain = (1.0 + drive * 4.0) * drive_boost;
-  b = b * gain;
-  this.hd.lms_hd_proc(b);
-  p_ceil = pos_ceil * bplus;
-  n_ceil = neg_ceil * bplus;
-  b >= 0 ? (
-    b = lms_tanh(b * pos_hard) * p_ceil;
-  ) : (
-    b = lms_tanh(b * neg_hard) * n_ceil;
-  );
-  ax = abs(b);
-  ax > this.peak_env ? (
-    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
-  ) : (
-    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * ax;
-  );
-  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
-    gc_out = gc_thresh + lms_tanh((b - gc_thresh) * 3.0) * gc_amount;
-    b = gc_out;
-  );
-  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
-  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
-  lp_q = 0.6 + this.hd.hi_density * 0.35;
-  lp_q = max(0.6, min(0.95, lp_q));
-  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
-    this.miller.lms_bq_set_lp(lp_freq, lp_q);
-    this.last_miller_freq = lp_freq;
-    this.last_miller_q = lp_q;
-  );
-  b = this.miller.lms_bq_proc(b);
-  air_cut = -this.hd.air_density * 3.0;
-  air_cut = max(-3.0, min(0.0, air_cut));
-  abs(air_cut - this.last_air_cut) > 0.1 ? (
-    this.air_shelf.lms_bq_set_hishelf(3500, air_cut, 0.7);
-    this.last_air_cut = air_cut;
-  );
-  b = this.air_shelf.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-  b;
-);
-
 // === COLD CLIPPER (V2A — 5150's defining stage) ===
 // 39k unbypassed cathode: cathode HP at ~100Hz, reduced gain (~12x),
 // extreme even-order harmonics (2nd harmonic dominant)
 function cold_clipper_init() (
-  this.triode.triode_init(72, 7000);
+  this.triode.lms_triode_init(72, 7000, 3500, 250, 2000, 5000);
   this.cathode_hp.lms_bq_init();
   this.cathode_hp.lms_bq_set_hp(100, 0.5);
 );
 function cold_clipper_proc(x, drive, bplus, intensity) local(cathode_signal, blended) (
   cathode_signal = this.cathode_hp.lms_bq_proc(x);
   blended = x * (1.0 - intensity) + cathode_signal * intensity;
-  this.triode.triode_proc(blended, drive, bplus, 2.5, 0.5, 0.40, 0.85, 0.20, 0.25);
+  this.triode.lms_triode_proc(blended, drive, bplus, 2.5, 0.5, 0.40, 0.85, 0.20, 0.25);
 );
 
 function poweramp_set(drive, presence, resonance) local(pres_freq, pres_db, pres_q, res_freq, res_db, res_q) (
@@ -167,19 +93,19 @@ bright_cap.lms_bq_init();
 bright_cap.lms_bq_set_hishelf(2000, 0.0, 0.7);
 
 // V1A: first gain stage — 12AX7
-v1a.triode_init(72, 8000);
+v1a.lms_triode_init(72, 8000, 3500, 250, 2000, 5000);
 
 // V1B: second gain stage — 12AX7
-v1b.triode_init(68, 7500);
+v1b.lms_triode_init(68, 7500, 3500, 250, 2000, 5000);
 
 // Cold Clipper (V2A) — 39k unbypassed cathode, the 5150's signature
 cc.cold_clipper_init();
 
 // V2B: third gain stage (Lead only) — 12AX7
-v2b.triode_init(72, 7500);
+v2b.lms_triode_init(72, 7500, 3500, 250, 2000, 5000);
 
 // V3A: fourth gain stage (Lead only) — 12AX7
-v3a.triode_init(72, 7000);
+v3a.lms_triode_init(72, 7000, 3500, 250, 2000, 5000);
 
 // Cathode follower before tone stack
 cf.lms_cf_init(10, 0.080, 0.25, 15000);
@@ -193,7 +119,7 @@ ts.lms_tmb_config(60,140, 18,0.6,   370, 1.0,1.5, 14,  900,600,  16,0.75,  3.0,2
 ts.lms_tmb_set(0.5, 0.5, 0.5);
 
 // V4: recovery/post-gain stage after tone stack
-v4.triode_init(16, 8000);
+v4.lms_triode_init(16, 8000, 3500, 250, 2000, 5000);
 
 // PSU (silicon only)
 psu.lms_psu_init(0.0003, 0.025, 0.05, 0.80, 1.0);
@@ -499,11 +425,11 @@ channel == 0 ? (
   // V1A(0.40) → V1B(0.35) → Cold Clipper(0.25, mild) → DC Block → CF → Tone Stack → V4(post*0.15)
   // ========================================
   v1a_drive = gain * 0.40;
-  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+  v1a_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
     1.3, 1.1, 0.85, 1.0, 0.35, 0.12);
 
   v1b_drive = gain * 0.35;
-  v1b_out = v1b.triode_proc(v1a_out, v1b_drive, bplus,
+  v1b_out = v1b.lms_triode_proc(v1a_out, v1b_drive, bplus,
     1.3, 1.0, 0.85, 1.0, 0.35, 0.10);
 
   // Cold clipper — mild intensity (0.3)
@@ -522,7 +448,7 @@ channel == 0 ? (
 
   // V4 recovery — Post Gain stage
   v4_drive = post_gain * 0.15;
-  amp_out = v4.triode_proc(amp_out, v4_drive, bplus,
+  amp_out = v4.lms_triode_proc(amp_out, v4_drive, bplus,
     1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
 
 ) : (
@@ -531,11 +457,11 @@ channel == 0 ? (
   // V1A(0.85) → V1B(0.80) → Cold Clipper(0.70, crushed) → V2B(0.55) → V3A(0.60) → DC Block → CF → Tone Stack → V4(post*0.30)
   // ========================================
   v1a_drive = gain * 0.85;
-  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+  v1a_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
     1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
 
   v1b_drive = gain * 0.80;
-  v1b_out = v1b.triode_proc(v1a_out, v1b_drive, bplus,
+  v1b_out = v1b.lms_triode_proc(v1a_out, v1b_drive, bplus,
     1.4, 1.1, 0.82, 1.0, 0.30, 0.15);
 
   // Cold clipper — crushed intensity (0.7)
@@ -544,12 +470,12 @@ channel == 0 ? (
 
   // V2B
   v2b_drive = gain * 0.55;
-  v2b_out = v2b.triode_proc(cc_out, v2b_drive, bplus,
+  v2b_out = v2b.lms_triode_proc(cc_out, v2b_drive, bplus,
     1.3, 1.0, 0.85, 1.0, 0.35, 0.12);
 
   // V3A
   v3a_drive = gain * 0.60;
-  amp_out = v3a.triode_proc(v2b_out, v3a_drive, bplus,
+  amp_out = v3a.lms_triode_proc(v2b_out, v3a_drive, bplus,
     1.4, 1.1, 0.80, 0.95, 0.30, 0.15);
 
   // DC block
@@ -564,7 +490,7 @@ channel == 0 ? (
 
   // V4 recovery — Post Gain stage (higher drive on Lead)
   v4_drive = post_gain * 0.30;
-  amp_out = v4.triode_proc(amp_out, v4_drive, bplus,
+  amp_out = v4.lms_triode_proc(amp_out, v4_drive, bplus,
     1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
 );
 

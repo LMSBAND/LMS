@@ -52,82 +52,6 @@ slider24:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// =========================================================================
-// === DENSITY-AWARE TRIODE (v2b — proven architecture) ===
-// =========================================================================
-function triode_init(hp_freq, lp_freq) (
-  this.hp.lms_bq_init();
-  this.hp.lms_bq_set_hp(hp_freq, 0.7);
-  this.cap_charge = 0.0;
-  this.cap_charge_rate = exp(-1/(srate * 0.0005));
-  this.cap_drain_rate = exp(-1/(srate * 0.030));
-  this.miller.lms_bq_init();
-  this.miller.lms_bq_set_lp(lp_freq, 0.6);
-  this.miller_base_freq = lp_freq;
-  this.last_miller_freq = lp_freq;
-  this.last_miller_q = 0.6;
-  this.air_shelf.lms_bq_init();
-  this.air_shelf.lms_bq_set_hishelf(3500, 0.0, 0.7);
-  this.last_air_cut = 0.0;
-  this.hd.lms_hd_init(250, 2000, 5000);
-  this.dc.lms_dc_init();
-  this.peak_env = 0;
-  this.peak_att = exp(-1/(srate * 0.0002));
-  this.peak_rel = exp(-1/(srate * 0.050));
-);
-function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
-  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
-(
-  b = this.hp.lms_bq_proc(x);
-  b > 0.1 ? (
-    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
-  ) : (
-    this.cap_charge = this.cap_drain_rate * this.cap_charge;
-  );
-  bias_shift = this.cap_charge;
-  b = b - bias_shift;
-  drive_boost = 1.0 + this.hd.mid_density * 0.4;
-  gain = (1.0 + drive * 4.0) * drive_boost;
-  b = b * gain;
-  this.hd.lms_hd_proc(b);
-  p_ceil = pos_ceil * bplus;
-  n_ceil = neg_ceil * bplus;
-  b >= 0 ? (
-    b = lms_tanh(b * pos_hard) * p_ceil;
-  ) : (
-    b = lms_tanh(b * neg_hard) * n_ceil;
-  );
-  ax = abs(b);
-  ax > this.peak_env ? (
-    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
-  ) : (
-    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * ax;
-  );
-  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
-    gc_out = gc_thresh + lms_tanh((b - gc_thresh) * 3.0) * gc_amount;
-    b = gc_out;
-  );
-  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
-  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
-  lp_q = 0.6 + this.hd.hi_density * 0.35;
-  lp_q = max(0.6, min(0.95, lp_q));
-  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
-    this.miller.lms_bq_set_lp(lp_freq, lp_q);
-    this.last_miller_freq = lp_freq;
-    this.last_miller_q = lp_q;
-  );
-  b = this.miller.lms_bq_proc(b);
-  air_cut = -this.hd.air_density * 3.0;
-  air_cut = max(-3.0, min(0.0, air_cut));
-  abs(air_cut - this.last_air_cut) > 0.1 ? (
-    this.air_shelf.lms_bq_set_hishelf(3500, air_cut, 0.7);
-    this.last_air_cut = air_cut;
-  );
-  b = this.air_shelf.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-  b;
-);
-
 function poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   this.drive = drive;
   // Mesa presence: resonant peak in NFB loop (not a shelf)
@@ -151,18 +75,18 @@ bright_cap.lms_bq_set_hishelf(2000, 0.0, 0.7);
 
 // V1a: input gain stage — 12AX7, fully bypassed cathode (25uF/1.5k)
 // 0.022uF × 100k grid leak = ~72Hz HP. Harder positive clip, asymmetric.
-v1a.triode_init(68, 8000);
+v1a.lms_triode_init(68, 8000, 3500, 250, 2000, 5000);
 
 // V2a: second stage — 12AX7, PARTIALLY bypassed cathode (0.68uF/2.7k = 86Hz)
 // Below 86Hz, gain drops ~12dB. THE MESA TIGHTNESS mechanism.
-v2a.triode_init(72, 7500);
+v2a.lms_triode_init(72, 7500, 3500, 250, 2000, 5000);
 // V2a cathode bypass HP — models the partially bypassed cathode
 v2a_cathode_hp.lms_bq_init();
 v2a_cathode_hp.lms_bq_set_hp(86, 0.5);
 
 // V2b: cold-bias stage — 12AX7, unbypassed (2.7k, no cap)
 // Extreme asymmetry, massive 2nd harmonics, "brown" character
-v2b.triode_init(72, 7000);
+v2b.lms_triode_init(72, 7000, 3500, 250, 2000, 5000);
 
 // Cathode follower (V3b) — before tone stack
 cf.lms_cf_init(10, 0.080, 0.30, 15000);
@@ -176,7 +100,7 @@ ts.lms_tmb_config(50,80,  16,0.55,  750, 0.8,1.2, 16, 1200,800,  14,0.65,  1.5,1
 ts.lms_tmb_set(0.5, 0.5, 0.5);
 
 // V4a: recovery after tone stack — clean-ish, restores level
-v4a.triode_init(16, 8000);
+v4a.lms_triode_init(16, 8000, 3500, 250, 2000, 5000);
 
 // PSU
 psu.lms_psu_init(0.0005, 0.040, 0.08, 0.65, 1.0);
@@ -488,7 +412,7 @@ channel == 0 ? (
   // CLEAN CHANNEL — single V1a, Fender-like
   // ========================================
   v1a_drive = gain * 0.50;
-  amp_out = v1a.triode_proc(mono, v1a_drive, bplus,
+  amp_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
     1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
 
 ) : channel == 1 ? (
@@ -496,7 +420,7 @@ channel == 0 ? (
   // VINTAGE — V1a → V2a → V2b (creamy lead)
   // ========================================
   v1a_drive = gain * 0.80;
-  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+  v1a_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
     1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
 
   // V2a cathode bypass HP: 0.68uF/2.7k = 86Hz. Lows get ~12dB less gain.
@@ -505,11 +429,11 @@ channel == 0 ? (
   v2a_input = v1a_out * 0.25 + v2a_input * 0.75;
 
   v2a_drive = gain * 0.70;
-  v2a_out = v2a.triode_proc(v2a_input, v2a_drive, bplus,
+  v2a_out = v2a.lms_triode_proc(v2a_input, v2a_drive, bplus,
     1.4, 1.1, 0.85, 1.05, 0.35, 0.12);
 
   v2b_drive = gain * 0.60;
-  amp_out = v2b.triode_proc(v2a_out, v2b_drive, bplus,
+  amp_out = v2b.lms_triode_proc(v2a_out, v2b_drive, bplus,
     2.0, 0.7, 0.55, 0.95, 0.25, 0.20);
 
 ) : (
@@ -518,18 +442,18 @@ channel == 0 ? (
   // Wall of brown. Crushing chug. Maximum saturation.
   // ========================================
   v1a_drive = gain * 0.95;
-  v1a_out = v1a.triode_proc(mono, v1a_drive, bplus,
+  v1a_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
     1.5, 1.2, 0.80, 1.0, 0.30, 0.15);
 
   v2a_input = v2a_cathode_hp.lms_bq_proc(v1a_out);
   v2a_input = v1a_out * 0.25 + v2a_input * 0.75;
 
   v2a_drive = gain * 0.90;
-  v2a_out = v2a.triode_proc(v2a_input, v2a_drive, bplus,
+  v2a_out = v2a.lms_triode_proc(v2a_input, v2a_drive, bplus,
     1.4, 1.1, 0.85, 1.05, 0.35, 0.12);
 
   v2b_drive = gain * 0.85;
-  amp_out = v2b.triode_proc(v2a_out, v2b_drive, bplus,
+  amp_out = v2b.lms_triode_proc(v2a_out, v2b_drive, bplus,
     2.0, 0.7, 0.55, 0.95, 0.25, 0.20);
 );
 
@@ -555,7 +479,7 @@ channel == 0 ? (
   amp_out *= 5.5;
   v4a_drive = gain * 0.20;
 );
-amp_out = v4a.triode_proc(amp_out, v4a_drive, bplus,
+amp_out = v4a.lms_triode_proc(amp_out, v4a_drive, bplus,
   1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
 
 // === EFFECTS LOOP (pre-power-amp — tape echo returns through 6L6s + cab) ===
