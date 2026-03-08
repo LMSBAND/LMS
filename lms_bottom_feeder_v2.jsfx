@@ -50,61 +50,6 @@ slider24:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-  this.cap_charge = 0.0;
-  this.cap_charge_rate = exp(-1/(srate * 0.0005));
-  this.cap_drain_rate = exp(-1/(srate * 0.035));  // slightly slower drain (tweed caps)
-  this.input_lp.lms_bq_init();
-  this.input_lp.lms_bq_set_lp(4200, 0.55);  // warmer than blackface (tweed input)
-  this.cathode_shelf.lms_bq_init();
-  this.cathode_shelf.lms_bq_set_hishelf(1000, -2.0, 0.5);  // 12AY7 cathode shelf (warmer)
-  this.peak_env = 0;
-  this.peak_att = exp(-1/(srate * 0.0002));
-  this.peak_rel = exp(-1/(srate * 0.050));
-);
-  loaded = this.input_lp.lms_bq_proc(x);
-  loaded = x + intensity * (loaded - x);
-  loaded > 0.1 ? (
-    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * loaded * 0.15 * intensity;
-  ) : (
-    this.cap_charge = this.cap_drain_rate * this.cap_charge;
-  );
-  bias_shift = this.cap_charge;
-  biased = loaded - bias_shift;
-  grid_thresh = 1.0 - intensity * 0.85;
-  biased > grid_thresh ? (
-    conducted = grid_thresh + lms_tanh((biased - grid_thresh) * (1.0 + intensity * 3.0)) * (0.05 + intensity * 0.15);
-  ) : (
-    conducted = biased;
-  );
-  dry = conducted;
-  conducted = this.cathode_shelf.lms_bq_proc(conducted);
-  conducted = dry + intensity * (conducted - dry);
-  abs(x) > this.peak_env ? (
-    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * abs(x);
-  ) : (
-    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * abs(x);
-  );
-  conducted;
-);
-
-  this.voltage = 1.0;
-  this.droop_amount = 0.0;
-  this.att = exp(-1/(srate * 0.004));
-  this.rel = exp(-1/(srate * 0.150));
-);
-  local(draw)
-(
-  draw = signal_level * signal_level;
-  draw > this.droop_amount ? (
-    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
-  ) : (
-    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
-  );
-  this.voltage = 1.0 - this.droop_amount * 0.22 * sag_depth;
-  this.voltage = max(0.65, min(1.0, this.voltage));
-  this.voltage;
-);
-
 // === 4-BAND HARMONIC DENSITY TRACKER ===
 function hd_init() (
   this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(250, 0.7);
@@ -216,69 +161,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-  this.hp.lms_bq_init();
-  this.hp.lms_bq_set_hp(10, 0.7);
-  this.dc.lms_dc_init();
-  this.bias_env = 0;
-  this.bias_att = exp(-1/(srate * 0.002));
-  this.bias_rel = exp(-1/(srate * 0.070));
-  this.cf_lp.lms_bq_init();
-  this.cf_lp.lms_bq_set_lp(15000, 0.5);
-);
-  b = this.hp.lms_bq_proc(x);
-  ax = abs(b);
-  ax > this.bias_env ? (
-    this.bias_env = this.bias_att * this.bias_env + (1-this.bias_att) * ax;
-  ) : (
-    this.bias_env = this.bias_rel * this.bias_env + (1-this.bias_rel) * ax;
-  );
-  bias_shift = this.bias_env * 0.18;  // up to 18% gain reduction (Fender CF)
-  // Positive: soft clip (cathode current limiting)
-  b > 0.7 * bplus ? (
-    b = 0.7 * bplus + lms_tanh((b - 0.7 * bplus) * 2.0) * 0.25 * bplus;
-  );
-  // Negative: harder cutoff
-  b < -0.85 * bplus ? (
-    b = -0.85 * bplus;
-  );
-  b = b * (1.0 - bias_shift);
-  b = this.cf_lp.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-  b * 0.95;
-);
-
-// === BASSMAN TONE STACK (5F6-A passive — THE original Fender TMB) ===
-// Bass: 250k pot, 0.1uF cap → ~40-180Hz (deeper than blackface)
-// Mid: 10k pot, 0.047uF cap → ~600Hz (less scoop than AB763)
-// Treble: 250k pot, 250pF cap → ~800-4kHz
-// The Bassman tone stack is THE circuit that Marshall copied for the JTM45.
-// More bass, less mid scoop than blackface Twin. Warm and full at noon.
-  this.f_bass.lms_bq_init();
-  this.f_mid.lms_bq_init();
-  this.f_treb.lms_bq_init();
-);
-  // Bass: 40-170Hz shelf, ±10dB (deeper than blackface — designed for bass guitar)
-  bass_freq = 40 + bass * 130;
-  bass_db = (bass - 0.5) * 20;
-  this.f_bass.lms_bq_set_loshelf(bass_freq, bass_db, 0.50);
-  // Mid: 600Hz peak, ±6dB (LESS scoop than blackface — warmer, fuller mids)
-  // The Bassman mid is what makes it feel "thick" and "present"
-  mid_q = 0.7 + mid * 1.2;
-  mid_db = (0.5 - mid) * 12;  // mid knob is a CUT but less extreme than Twin
-  // Slight cross-coupling (tweed controls interact more than blackface)
-  mid_db -= (bass - 0.5) * 2.5 + (treble - 0.5) * 1.0;
-  this.f_mid.lms_bq_set_peak(600, mid_db, mid_q);
-  // Treble: 800-4000Hz shelf, ±8dB (slightly warmer top than Twin)
-  treb_freq = 800 + treble * 3200;
-  treb_db = (treble - 0.5) * 16;
-  this.f_treb.lms_bq_set_hishelf(treb_freq, treb_db, 0.65);
-);
-  b = this.f_bass.lms_bq_proc(x);
-  b = this.f_mid.lms_bq_proc(b);
-  b = this.f_treb.lms_bq_proc(b);
-  b;
-);
-
 // === BASSMAN POWER AMP (2×6L6 push-pull, 50W — cathode-biased, saggy, warm) ===
 // 5F6-A tweed Bassman: cathode-biased 6L6 (unlike Twin's fixed bias).
 // Cathode bias = more compression, more sag, more "bloom" on transients.
@@ -371,16 +253,6 @@ function bassman_poweramp_proc(x, bplus)
   out = this.pres_f.lms_bq_proc(out);
   out = this.dc.lms_dc_proc_l(out);
   out * 0.85;
-);
-
-// === SOFT GATE ===
-  this.env > 0.001 ? ( gate_gain = 1.0; )
-  : this.env < 0.0002 ? ( gate_gain = 0.0; )
-  : (
-    gate_gain = (this.env - 0.0002) / 0.0008;
-    gate_gain = gate_gain * gate_gain * (3.0 - 2.0 * gate_gain);
-  );
-  x * gate_gain;
 );
 
 // === INSTANCES ===

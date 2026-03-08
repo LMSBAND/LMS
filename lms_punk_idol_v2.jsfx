@@ -50,60 +50,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-  this.cap_charge = 0.0;
-  this.cap_charge_rate = exp(-1/(srate * 0.0005));
-  this.cap_drain_rate = exp(-1/(srate * 0.030));
-  this.input_lp.lms_bq_init();
-  this.input_lp.lms_bq_set_lp(4500, 0.6);
-  this.cathode_shelf.lms_bq_init();
-  this.cathode_shelf.lms_bq_set_hishelf(800, -2.5, 0.5);
-  this.peak_env = 0;
-  this.peak_att = exp(-1/(srate * 0.0002));
-  this.peak_rel = exp(-1/(srate * 0.050));
-);
-
-  loaded = this.input_lp.lms_bq_proc(x);
-  loaded = x + intensity * (loaded - x);
-  loaded > 0.1 ? (
-    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * loaded * 0.15 * intensity;
-  ) : (
-    this.cap_charge = this.cap_drain_rate * this.cap_charge;
-  );
-  bias_shift = this.cap_charge;
-  biased = loaded - bias_shift;
-  grid_thresh = 1.0 - intensity * 0.85;
-  biased > grid_thresh ? (
-    conducted = grid_thresh + lms_tanh((biased - grid_thresh) * (1.0 + intensity * 3.0)) * (0.05 + intensity * 0.15);
-  ) : (
-    conducted = biased;
-  );
-  dry = conducted;
-  conducted = this.cathode_shelf.lms_bq_proc(conducted);
-  conducted = dry + intensity * (conducted - dry);
-  abs(x) > this.peak_env ? (
-    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * abs(x);
-  ) : (
-    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * abs(x);
-  );
-  conducted;
-);
-
-  this.voltage = 1.0;
-  this.att = exp(-1/(srate * 0.001));
-  this.rel = exp(-1/(srate * 0.080));
-  this.droop_amount = 0.0;
-);
-  draw = signal_level * signal_level;
-  draw > this.droop_amount ? (
-    this.droop_amount = this.att * this.droop_amount + (1-this.att) * draw;
-  ) : (
-    this.droop_amount = this.rel * this.droop_amount + (1-this.rel) * draw;
-  );
-  this.voltage = 1.0 - this.droop_amount * 0.25 * sag_depth;
-  this.voltage = max(0.6, min(1.0, this.voltage));
-  this.voltage;
-);
-
 // === 4-BAND HARMONIC DENSITY TRACKER ===
 function hd_init() (
   this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(250,0.7);
@@ -265,58 +211,6 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b;
 );
 
-// === TONE STACK (JCM800 passive Baxandall) ===
-  this.f_bass.lms_bq_init(); this.f_mid.lms_bq_init(); this.f_treb.lms_bq_init();
-);
-  bass_freq = 60 + bass * 140;
-  bass_db = (bass - 0.5) * 18;
-  mid_freq = 370;
-  mid_q = 1.0 + mid * 1.5;
-  mid_db = (0.5 - mid) * 14;
-  treb_freq = 900 + treble * 600;
-  treb_db = (treble - 0.5) * 16;
-  bass_mid_xcouple = (bass - 0.5) * 3.0;
-  treb_mid_xcouple = (treble - 0.5) * 2.5;
-  mid_db -= bass_mid_xcouple + treb_mid_xcouple;
-  this.f_bass.lms_bq_set_loshelf(bass_freq, bass_db, 0.6);
-  this.f_mid.lms_bq_set_peak(mid_freq, mid_db, mid_q);
-  this.f_treb.lms_bq_set_hishelf(treb_freq, treb_db, 0.75);
-);
-  b = this.f_bass.lms_bq_proc(x);
-  b = this.f_mid.lms_bq_proc(b);
-  b = this.f_treb.lms_bq_proc(b);
-  b;
-);
-
-  this.hp.lms_bq_init();
-  this.hp.lms_bq_set_hp(15, 0.7);
-  this.dc.lms_dc_init();
-  this.bias_env = 0;
-  this.bias_att = exp(-1/(srate * 0.002));
-  this.bias_rel = exp(-1/(srate * 0.060));
-  this.cf_lp.lms_bq_init();
-  this.cf_lp.lms_bq_set_lp(15000, 0.5);
-);
-  b = this.hp.lms_bq_proc(x);
-  ax = abs(b);
-  ax > this.bias_env ? (
-    this.bias_env = this.bias_att * this.bias_env + (1-this.bias_att) * ax;
-  ) : (
-    this.bias_env = this.bias_rel * this.bias_env + (1-this.bias_rel) * ax;
-  );
-  bias_shift = this.bias_env * 0.20;  // up to 20% gain reduction (less than Mesa)
-  b > 0.7 * bplus ? (
-    b = 0.7 * bplus + lms_tanh((b - 0.7 * bplus) * 2.0) * 0.25 * bplus;
-  );
-  b < -0.85 * bplus ? (
-    b = -0.85 * bplus;
-  );
-  b = b * (1.0 - bias_shift);
-  b = this.cf_lp.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-  b * 0.95;
-);
-
 // === POWER AMP (EL34 push-pull, FIXED clipping, density drives NFB/presence) ===
 // Now includes output transformer saturation (density-driven low-freq core loading)
 function poweramp_init() (
@@ -380,16 +274,6 @@ function poweramp_proc(x, bplus) local(b, push, pull, out, nfb_freq, xfmr_sat, l
   out = this.pres_f.lms_bq_proc(out);
   out = this.dc.lms_dc_proc_l(out);
   out * 0.85;
-);
-
-// === SOFT GATE ===
-  this.env > 0.001 ? ( gate_gain = 1.0; )
-  : this.env < 0.0002 ? ( gate_gain = 0.0; )
-  : (
-    gate_gain = (this.env - 0.0002) / 0.0008;
-    gate_gain = gate_gain * gate_gain * (3.0 - 2.0 * gate_gain);
-  );
-  x * gate_gain;
 );
 
 // === INIT ===
