@@ -520,57 +520,9 @@ d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
 d_miller_freq = 7000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
-  // ============================================================
-  // BROADCAST SYSTEM — Instance Registry
-  // ============================================================
-  BC_BASE = 100000;
-  BC_MY_TYPE = 24;
-  BC_SLOT_SIZE = 512;
-  BC_MAX_INST = 32;
-  BC_PARAM_COUNT = 24;
-  BC_MY_REGION = BC_BASE + BC_MY_TYPE * 16384;
-  BC_STALE_TIMEOUT = 2;
-
-  bc_my_id == 0 ? bc_my_id = floor(rand() * 1073741824) + 1;
-  bc_my_slot = -1;
-  bc_follow_slot = -1;
-  bc_steal_pending = 0;
-  bc_steal_target = 0;
-  bc_panel_expanded = 0;
-  bc_page = 0;
-  bc_steal_mode = 0;
-  bc_instance_count = 0;
+  // Broadcast system (instance manager) — type 24, 24 synced params, stale @ 870000
+  bc.lms_bc_init(24, 24, 870000);
   notice_show = 0;
-
-  BC_STALE_HB = 870000;
-  BC_STALE_CT = 870032;
-  i = 0;
-  loop(BC_MAX_INST,
-    BC_STALE_HB[i] = -1;
-    BC_STALE_CT[i] = 0;
-    i += 1;
-  );
-
-  bc_i = 0;
-  loop(BC_MAX_INST,
-    bc_my_slot < 0 ? (
-      sb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
-      sid = gmem[sb + 1];
-      (sid == 0 || sid == bc_my_id) ? (
-        bc_my_slot = bc_i;
-      );
-    );
-    bc_i += 1;
-  );
-
-  bc_my_slot >= 0 ? (
-    sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
-    gmem[sb + 0] = 0;
-    gmem[sb + 1] = bc_my_id;
-    gmem[sb + 2] = BC_MY_TYPE;
-    gmem[sb + 3] = 0;
-    gmem[sb + 4] = BC_PARAM_COUNT;
-  );
 
 @slider
 in_level = 10 ^ (slider1 / 20);
@@ -688,167 +640,88 @@ cab_load_ohms > 0 ? (
 
 tuner.lms_tuner_block();
 
-bc_my_slot >= 0 ? (
-  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
-  gmem[sb + 1] != bc_my_id ? (
-    bc_my_id = floor(rand() * 1073741824) + 1;
-    bc_my_slot = -1;
-    bc_i = 0;
-    loop(BC_MAX_INST,
-      bc_my_slot < 0 ? (
-        tsb = BC_MY_REGION + bc_i * BC_SLOT_SIZE;
-        (gmem[tsb + 1] == 0) ? bc_my_slot = bc_i;
-      );
-      bc_i += 1;
-    );
-    bc_my_slot >= 0 ? (
-      sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
-      gmem[sb + 0] = 0;
-      gmem[sb + 1] = bc_my_id;
-      gmem[sb + 2] = BC_MY_TYPE;
-      gmem[sb + 3] = bc_following;
-      gmem[sb + 4] = BC_PARAM_COUNT;
-    );
-  );
+// Broadcast: heartbeat, follow, steal, stale detection
+bc.lms_bc_block();
+
+// Follow: copy leader's params to our sliders
+bc.bc_leader_pbase > 0 ? (
+  slider1 = gmem[bc.bc_leader_pbase + 0];
+  slider2 = gmem[bc.bc_leader_pbase + 1];
+  slider3 = gmem[bc.bc_leader_pbase + 2];
+  slider4 = gmem[bc.bc_leader_pbase + 3];
+  slider5 = gmem[bc.bc_leader_pbase + 4];
+  slider6 = gmem[bc.bc_leader_pbase + 5];
+  slider7 = gmem[bc.bc_leader_pbase + 6];
+  slider8 = gmem[bc.bc_leader_pbase + 7];
+  slider9 = gmem[bc.bc_leader_pbase + 8];
+  slider10 = gmem[bc.bc_leader_pbase + 9];
+  slider11 = gmem[bc.bc_leader_pbase + 10];
+  slider12 = gmem[bc.bc_leader_pbase + 11];
+  slider13 = gmem[bc.bc_leader_pbase + 12];
+  slider15 = gmem[bc.bc_leader_pbase + 14];
+  slider16 = gmem[bc.bc_leader_pbase + 15];
+  slider17 = gmem[bc.bc_leader_pbase + 16];
+  slider18 = gmem[bc.bc_leader_pbase + 17];
+  slider19 = gmem[bc.bc_leader_pbase + 18];
+  slider20 = gmem[bc.bc_leader_pbase + 19];
+  slider21 = gmem[bc.bc_leader_pbase + 20];
+  slider22 = gmem[bc.bc_leader_pbase + 21];
+  slider23 = gmem[bc.bc_leader_pbase + 22];
+  slider24 = gmem[bc.bc_leader_pbase + 23];
 );
 
-bc_my_slot >= 0 && bc_following > 0 ? (
-  bc_found_leader = 0;
-  bc_scan = 0;
-  loop(BC_MAX_INST,
-    bc_scan != bc_my_slot ? (
-      lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
-      gmem[lsb + 1] == bc_following ? (
-        bc_found_leader = 1;
-        bc_follow_slot = bc_scan;
-        lbase = lsb + 8;
-        slider1 = gmem[lbase + 0];
-        slider2 = gmem[lbase + 1];
-        slider3 = gmem[lbase + 2];
-        slider4 = gmem[lbase + 3];
-        slider5 = gmem[lbase + 4];
-        slider6 = gmem[lbase + 5];
-        slider7 = gmem[lbase + 6];
-        slider8 = gmem[lbase + 7];
-        slider9 = gmem[lbase + 8];
-        slider10 = gmem[lbase + 9];
-        slider11 = gmem[lbase + 10];
-        slider12 = gmem[lbase + 11];
-        slider13 = gmem[lbase + 12];
-        slider15 = gmem[lbase + 14];
-        slider16 = gmem[lbase + 15];
-        slider17 = gmem[lbase + 16];
-        slider18 = gmem[lbase + 17];
-        slider19 = gmem[lbase + 18];
-        slider20 = gmem[lbase + 19];
-        slider21 = gmem[lbase + 20];
-        slider22 = gmem[lbase + 21];
-        slider23 = gmem[lbase + 22];
-        slider24 = gmem[lbase + 23];
-        bc_scan = BC_MAX_INST;
-      );
-    );
-    bc_scan += 1;
-  );
-  !bc_found_leader ? (
-    bc_following = 0;
-    bc_follow_slot = -1;
-  );
+// Steal: one-shot copy from target
+bc.bc_did_steal ? (
+  slider1 = gmem[bc.bc_steal_pbase + 0];
+  slider2 = gmem[bc.bc_steal_pbase + 1];
+  slider3 = gmem[bc.bc_steal_pbase + 2];
+  slider4 = gmem[bc.bc_steal_pbase + 3];
+  slider5 = gmem[bc.bc_steal_pbase + 4];
+  slider6 = gmem[bc.bc_steal_pbase + 5];
+  slider7 = gmem[bc.bc_steal_pbase + 6];
+  slider8 = gmem[bc.bc_steal_pbase + 7];
+  slider9 = gmem[bc.bc_steal_pbase + 8];
+  slider10 = gmem[bc.bc_steal_pbase + 9];
+  slider11 = gmem[bc.bc_steal_pbase + 10];
+  slider12 = gmem[bc.bc_steal_pbase + 11];
+  slider13 = gmem[bc.bc_steal_pbase + 12];
+  slider15 = gmem[bc.bc_steal_pbase + 14];
+  slider16 = gmem[bc.bc_steal_pbase + 15];
+  slider17 = gmem[bc.bc_steal_pbase + 16];
+  slider18 = gmem[bc.bc_steal_pbase + 17];
+  slider19 = gmem[bc.bc_steal_pbase + 18];
+  slider20 = gmem[bc.bc_steal_pbase + 19];
+  slider21 = gmem[bc.bc_steal_pbase + 20];
+  slider22 = gmem[bc.bc_steal_pbase + 21];
+  slider23 = gmem[bc.bc_steal_pbase + 22];
+  slider24 = gmem[bc.bc_steal_pbase + 23];
 );
 
-bc_my_slot >= 0 && bc_steal_pending ? (
-  bc_scan = 0;
-  loop(BC_MAX_INST,
-    lsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
-    gmem[lsb + 1] == bc_steal_target ? (
-      lbase = lsb + 8;
-      slider1 = gmem[lbase + 0];
-      slider2 = gmem[lbase + 1];
-      slider3 = gmem[lbase + 2];
-      slider4 = gmem[lbase + 3];
-      slider5 = gmem[lbase + 4];
-      slider6 = gmem[lbase + 5];
-      slider7 = gmem[lbase + 6];
-      slider8 = gmem[lbase + 7];
-      slider9 = gmem[lbase + 8];
-      slider10 = gmem[lbase + 9];
-      slider11 = gmem[lbase + 10];
-      slider12 = gmem[lbase + 11];
-      slider13 = gmem[lbase + 12];
-      slider15 = gmem[lbase + 14];
-      slider16 = gmem[lbase + 15];
-      slider17 = gmem[lbase + 16];
-      slider18 = gmem[lbase + 17];
-      slider19 = gmem[lbase + 18];
-      slider20 = gmem[lbase + 19];
-      slider21 = gmem[lbase + 20];
-      slider22 = gmem[lbase + 21];
-      slider23 = gmem[lbase + 22];
-      slider24 = gmem[lbase + 23];
-      bc_scan = BC_MAX_INST;
-    );
-    bc_scan += 1;
-  );
-  bc_steal_pending = 0;
-  bc_steal_target = 0;
-  bc_steal_mode = 0;
-);
-
-bc_my_slot >= 0 ? (
-  sb = BC_MY_REGION + bc_my_slot * BC_SLOT_SIZE;
-  gmem[sb + 0] += 1;
-  gmem[sb + 3] = bc_following;
-  pbase = sb + 8;
-  gmem[pbase + 0] = slider1;
-  gmem[pbase + 1] = slider2;
-  gmem[pbase + 2] = slider3;
-  gmem[pbase + 3] = slider4;
-  gmem[pbase + 4] = slider5;
-  gmem[pbase + 5] = slider6;
-  gmem[pbase + 6] = slider7;
-  gmem[pbase + 7] = slider8;
-  gmem[pbase + 8] = slider9;
-  gmem[pbase + 9] = slider10;
-  gmem[pbase + 10] = slider11;
-  gmem[pbase + 11] = slider12;
-  gmem[pbase + 12] = slider13;
-  gmem[pbase + 14] = slider15;
-  gmem[pbase + 15] = slider16;
-  gmem[pbase + 16] = slider17;
-  gmem[pbase + 17] = slider18;
-  gmem[pbase + 18] = slider19;
-  gmem[pbase + 19] = slider20;
-  gmem[pbase + 20] = slider21;
-  gmem[pbase + 21] = slider22;
-  gmem[pbase + 22] = slider23;
-  gmem[pbase + 23] = slider24;
-);
-
-
-bc_instance_count = 0;
-bc_scan = 0;
-loop(BC_MAX_INST,
-  tsb = BC_MY_REGION + bc_scan * BC_SLOT_SIZE;
-  tsid = gmem[tsb + 1];
-  tsid > 0 ? (
-    bc_scan == bc_my_slot ? (
-      bc_instance_count += 1;
-    ) : (
-      tshb = gmem[tsb + 0];
-      tshb == BC_STALE_HB[bc_scan] ? (
-        BC_STALE_CT[bc_scan] += samplesblock / srate;
-        BC_STALE_CT[bc_scan] > BC_STALE_TIMEOUT ? (
-          gmem[tsb + 1] = 0;
-          BC_STALE_CT[bc_scan] = 0;
-        );
-      ) : (
-        BC_STALE_HB[bc_scan] = tshb;
-        BC_STALE_CT[bc_scan] = 0;
-        bc_instance_count += 1;
-      );
-    );
-  );
-  bc_scan += 1;
+// Write our params for others to read
+bc.bc_my_pbase > 0 ? (
+  gmem[bc.bc_my_pbase + 0] = slider1;
+  gmem[bc.bc_my_pbase + 1] = slider2;
+  gmem[bc.bc_my_pbase + 2] = slider3;
+  gmem[bc.bc_my_pbase + 3] = slider4;
+  gmem[bc.bc_my_pbase + 4] = slider5;
+  gmem[bc.bc_my_pbase + 5] = slider6;
+  gmem[bc.bc_my_pbase + 6] = slider7;
+  gmem[bc.bc_my_pbase + 7] = slider8;
+  gmem[bc.bc_my_pbase + 8] = slider9;
+  gmem[bc.bc_my_pbase + 9] = slider10;
+  gmem[bc.bc_my_pbase + 10] = slider11;
+  gmem[bc.bc_my_pbase + 11] = slider12;
+  gmem[bc.bc_my_pbase + 12] = slider13;
+  gmem[bc.bc_my_pbase + 14] = slider15;
+  gmem[bc.bc_my_pbase + 15] = slider16;
+  gmem[bc.bc_my_pbase + 16] = slider17;
+  gmem[bc.bc_my_pbase + 17] = slider18;
+  gmem[bc.bc_my_pbase + 18] = slider19;
+  gmem[bc.bc_my_pbase + 19] = slider20;
+  gmem[bc.bc_my_pbase + 20] = slider21;
+  gmem[bc.bc_my_pbase + 21] = slider22;
+  gmem[bc.bc_my_pbase + 22] = slider23;
+  gmem[bc.bc_my_pbase + 23] = slider24;
 );
 
 @sample
@@ -1447,265 +1320,8 @@ slider18 != _old ? slider_automate(2^17);
   gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
   gfx_drawstr("B+");
 
-// ============================================================================
-//  INSTANCE MANAGER PANEL
-// ============================================================================
-  bc_rows_per_page = 5;
-  bc_row_h = floor(14 * S);
-  bc_bar_h = floor(30 * S);
-  bc_btn_h = floor(20 * S);
-  bc_panel_h = bc_panel_expanded ? (bc_bar_h + bc_rows_per_page * bc_row_h + floor(18 * S)) : bc_bar_h;
-  bc_panel_y = gfx_h - bc_panel_h;
-
-  gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
-  gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
-  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-  gfx_rect(0, bc_panel_y, gfx_w, 1);
-
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-  gfx_x = floor(8 * S); gfx_y = bc_panel_y + floor(8 * S);
-  bc_my_slot >= 0 ? (
-    gfx_drawstr("I");
-    gfx_drawnumber(bc_my_slot + 1, 0);
-    gfx_drawstr("/");
-    gfx_drawnumber(bc_instance_count, 0);
-  ) : (
-    gfx_drawstr("--");
-  );
-
-  bc_following > 0 ? (
-    gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
-    gfx_drawstr("  Following: I");
-    bc_fs = 0;
-    loop(BC_MAX_INST,
-      fsb = BC_MY_REGION + bc_fs * BC_SLOT_SIZE;
-      gmem[fsb + 1] == bc_following ? (
-        gfx_drawnumber(bc_fs + 1, 0);
-        bc_fs = BC_MAX_INST;
-      );
-      bc_fs += 1;
-    );
-  ) : (
-    gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
-    gfx_drawstr("  Following: --");
-  );
-
-  exp_x = gfx_w - floor(200 * S);
-  exp_y = bc_panel_y + floor(4 * S);
-  exp_w = floor(65 * S);
-  exp_h = floor(20 * S);
-  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
-  gfx_rect(exp_x, exp_y, exp_w, exp_h);
-  gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.6;
-  gfx_x = exp_x + floor(5 * S); gfx_y = exp_y + floor(4 * S);
-  bc_panel_expanded ? gfx_drawstr("COLLAPSE") : gfx_drawstr("EXPAND");
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
-    mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
-    bc_panel_expanded = !bc_panel_expanded;
-    bc_steal_mode = 0;
-  );
-
-  stl_x = gfx_w - floor(125 * S);
-  stl_y = bc_panel_y + floor(4 * S);
-  stl_w = floor(50 * S);
-  stl_h = floor(20 * S);
-  bc_steal_mode ? (
-    gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
-  ) : (
-    gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
-  );
-  gfx_rect(stl_x, stl_y, stl_w, stl_h);
-  gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
-  gfx_x = stl_x + floor(6 * S); gfx_y = stl_y + floor(4 * S);
-  gfx_drawstr("STEAL");
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
-    mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
-    bc_steal_mode = !bc_steal_mode;
-    !bc_panel_expanded ? bc_panel_expanded = 1;
-  );
-
-  bc_following > 0 ? (
-    unf_x = gfx_w - floor(65 * S);
-    unf_y = bc_panel_y + floor(4 * S);
-    unf_w = floor(55 * S);
-    unf_h = floor(20 * S);
-    gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
-    gfx_rect(unf_x, unf_y, unf_w, unf_h);
-    gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
-    gfx_x = unf_x + floor(4 * S); gfx_y = unf_y + floor(4 * S);
-    gfx_drawstr("UNFLW");
-    (mouse_cap & 1) && !(last_cap & 1) &&
-      mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
-      mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
-      bc_following = 0;
-      bc_follow_slot = -1;
-    );
-  );
-
-  bc_panel_expanded ? (
-    row_y = bc_panel_y + bc_bar_h;
-    row_h = bc_row_h;
-
-    bc_my_page = bc_my_slot >= 0 ? floor(bc_my_slot / bc_rows_per_page) : 0;
-    bc_page < 0 ? bc_page = 0;
-
-    bc_active_slots = 0;
-    bc_si = 0;
-    loop(BC_MAX_INST,
-      gmem[BC_MY_REGION + bc_si * BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
-      bc_si += 1;
-    );
-    bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
-    bc_page >= bc_total_pages ? bc_page = bc_total_pages - 1;
-
-    pg_btn_w = floor(18 * S); pg_btn_h = floor(14 * S);
-    pg_prev_x = floor(8 * S); pg_prev_y = bc_panel_y + bc_bar_h + bc_rows_per_page * row_h + floor(2 * S);
-    bc_total_pages > 1 ? (
-      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
-      gfx_rect(pg_prev_x, pg_prev_y, pg_btn_w, pg_btn_h);
-      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-      gfx_x = pg_prev_x + floor(4 * S); gfx_y = pg_prev_y + floor(2 * S);
-      gfx_drawstr("<");
-      (mouse_cap & 1) && !(last_cap & 1) &&
-        mouse_x >= pg_prev_x && mouse_x < pg_prev_x + pg_btn_w &&
-        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
-        bc_page > 0 ? bc_page -= 1;
-      );
-
-      gfx_r = 0.25; gfx_g = 0.25; gfx_b = 0.32;
-      gfx_rect(pg_prev_x + pg_btn_w + 2, pg_prev_y, pg_btn_w, pg_btn_h);
-      gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-      gfx_x = pg_prev_x + pg_btn_w + floor(6 * S); gfx_y = pg_prev_y + floor(2 * S);
-      gfx_drawstr(">");
-      (mouse_cap & 1) && !(last_cap & 1) &&
-        mouse_x >= pg_prev_x + pg_btn_w + 2 && mouse_x < pg_prev_x + pg_btn_w * 2 + 2 &&
-        mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
-        bc_page < bc_total_pages - 1 ? bc_page += 1;
-      );
-
-      gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5;
-      gfx_x = pg_prev_x + pg_btn_w * 2 + floor(8 * S); gfx_y = pg_prev_y + floor(2 * S);
-      gfx_drawnumber(bc_page + 1, 0);
-      gfx_drawstr("/");
-      gfx_drawnumber(bc_total_pages, 0);
-
-      bc_page != bc_my_page ? (
-        you_x = pg_prev_x + pg_btn_w * 2 + floor(40 * S);
-        gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-        gfx_rect(you_x, pg_prev_y, floor(30 * S), pg_btn_h);
-        gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-        gfx_x = you_x + floor(3 * S); gfx_y = pg_prev_y + floor(2 * S);
-        gfx_drawstr("YOU");
-        (mouse_cap & 1) && !(last_cap & 1) &&
-          mouse_x >= you_x && mouse_x < you_x + floor(30 * S) &&
-          mouse_y >= pg_prev_y && mouse_y < pg_prev_y + pg_btn_h ? (
-          bc_page = bc_my_page;
-        );
-      );
-    );
-
-    bc_page_start = bc_page * bc_rows_per_page;
-    bc_page_end = bc_page_start + bc_rows_per_page - 1;
-    bc_visible = 0;
-    bc_s = 0;
-    loop(BC_MAX_INST,
-      isb = BC_MY_REGION + bc_s * BC_SLOT_SIZE;
-      isid = gmem[isb + 1];
-
-      isid > 0 ? (
-        bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
-          draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
-
-          mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
-            mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) &&
-            bc_s != bc_my_slot ? (
-            gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
-            gfx_rect(floor(4 * S), draw_row_y, gfx_w - floor(8 * S), row_h);
-          );
-
-          gfx_setfont(1, "Arial", F_TINY);
-          bc_s == bc_my_slot ? (
-            gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
-          ) : (
-            gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
-          );
-          gfx_x = floor(12 * S); gfx_y = draw_row_y + floor(1 * S);
-          gfx_drawstr("I");
-          gfx_drawnumber(bc_s + 1, 0);
-          gfx_drawstr("  ");
-
-          bc_s == bc_my_slot ? (
-            gfx_drawstr("[YOU]");
-          ) : (
-            iwho = gmem[isb + 3];
-            bc_has_follower = 0;
-            bc_fsc = 0;
-            loop(BC_MAX_INST,
-              fsb2 = BC_MY_REGION + bc_fsc * BC_SLOT_SIZE;
-              gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
-              bc_fsc += 1;
-            );
-            iwho > 0 ? (
-              gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
-              gfx_drawstr("[FOLLOWER]");
-            ) : bc_has_follower ? (
-              gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
-              gfx_drawstr("[LEADER]");
-            ) : (
-              gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
-              gfx_drawstr("[UNASSIGNED]");
-            );
-            gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
-            bc_steal_mode ? (
-              gfx_drawstr("  click: steal");
-            ) : (
-              gfx_drawstr("  click: follow");
-            );
-            (mouse_cap & 1) && !(last_cap & 1) &&
-              mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
-              mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) ? (
-              bc_steal_mode ? (
-                bc_steal_target = isid;
-                bc_steal_pending = 1;
-                bc_steal_mode = 0;
-              ) : (
-                bc_can_follow = 1;
-                bc_cursor = isid;
-                bc_hops = 0;
-                while(bc_cursor > 0 && bc_hops < BC_MAX_INST) (
-                  bc_cursor == bc_my_id ? (
-                    bc_can_follow = 0;
-                    bc_cursor = 0;
-                  ) : (
-                    bc_next = 0;
-                    bc_cs = 0;
-                    loop(BC_MAX_INST,
-                      csb = BC_MY_REGION + bc_cs * BC_SLOT_SIZE;
-                      gmem[csb + 1] == bc_cursor ? (
-                        bc_next = gmem[csb + 3];
-                        bc_cs = BC_MAX_INST;
-                      );
-                      bc_cs += 1;
-                    );
-                    bc_cursor = bc_next;
-                  );
-                  bc_hops += 1;
-                );
-                bc_can_follow ? (
-                  bc_following = isid;
-                );
-              );
-            );
-          );
-        );
-        bc_visible += 1;
-      );
-      bc_s += 1;
-    );
-  );
+// Instance Manager Panel (from lms_core broadcast system)
+  bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
   last_cap = mouse_cap;
 
@@ -1801,5 +1417,5 @@ slider18 != _old ? slider_automate(2^17);
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc_following);
-file_var(0, bc_my_id);
+file_var(0, bc.bc_following);
+file_var(0, bc.bc_my_id);
