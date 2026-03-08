@@ -19,9 +19,10 @@
 //    4. Compressor               (stereo FET, this.* state)
 //    5. DC Blocker               (stereo, this.* state)
 //    5g. Harmonic Density Tracker (4-band spectral envelope, this.* state)
-//    5h. Push-Pull Power Amp     (parameterized tube stage, this.* state)
-//    5i. Single-Ended Power Amp  (Class A asymmetric, this.* state)
-//    5j. Class D Power Amp       (solid-state hard clip, this.* state)
+//    5h. Triode Stage            (density-aware preamp tube, this.* state)
+//    5i. Push-Pull Power Amp     (parameterized tube stage, this.* state)
+//    5j. Single-Ended Power Amp  (Class A asymmetric, this.* state)
+//    5k. Class D Power Amp       (solid-state hard clip, this.* state)
 //    6. Tone Filter              (stereo 1-pole LP, this.* state)
 //    7. Cubic Interpolation      (stateless)
 //    8. Spring Reverb Allpass    (stateless, buffer-based)
@@ -1026,6 +1027,114 @@ function lms_hd_proc(x)
   this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
   this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
   this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
+);
+
+
+// ============================================================================
+//  Triode Stage — density-aware preamp tube (this.* state)
+//
+//  Universal triode model: coupling cap → grid leak bias → drive → density →
+//  asymmetric tanh clipping → grid conduction → Miller LP → air shelf → DC
+//
+//  Character comes from parameters, not code. Same function models 12AX7,
+//  12AY7, 12AT7, 12AU7, EF86 pentode, and cathodyne PI.
+//
+//  Usage:
+//    @init:   v1.lms_triode_init(60, 7000, 5000, 250, 2000, 5000);
+//    @sample: out = v1.lms_triode_proc(x, drive, bplus,
+//               pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount);
+// ============================================================================
+
+function lms_triode_init(hp_freq, lp_freq, air_freq, hd_lo, hd_mid, hd_air)
+(
+  // Coupling cap HP
+  this.hp.lms_bq_init();
+  this.hp.lms_bq_set_hp(hp_freq, 0.7);
+  // Grid leak bias shift
+  this.cap_charge = 0.0;
+  this.cap_charge_rate = exp(-1/(srate * 0.0005));
+  this.cap_drain_rate = exp(-1/(srate * 0.030));
+  // Interstage Miller LP (density-driven cutoff)
+  this.miller.lms_bq_init();
+  this.miller.lms_bq_set_lp(lp_freq, 0.6);
+  this.miller_base_freq = lp_freq;
+  this.last_miller_freq = lp_freq;
+  this.last_miller_q = 0.6;
+  // Air shelf (density-driven fizz control)
+  this.air_shelf.lms_bq_init();
+  this.air_shelf.lms_bq_set_hishelf(air_freq, 0.0, 0.7);
+  this.air_freq = air_freq;
+  this.last_air_cut = 0.0;
+  // Own density tracker (each stage sees its own harmonic picture)
+  this.hd.lms_hd_init(hd_lo, hd_mid, hd_air);
+  // DC block
+  this.dc.lms_dc_init();
+  // Peak envelope for grid conduction
+  this.peak_env = 0;
+  this.peak_att = exp(-1/(srate * 0.0002));
+  this.peak_rel = exp(-1/(srate * 0.050));
+);
+
+function lms_triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc_thresh, gc_amount)
+  local(b, gain, bias_shift, p_ceil, n_ceil, gc_out, lp_freq, lp_q, air_cut, drive_boost, ax)
+(
+  // 1. Coupling cap HP
+  b = this.hp.lms_bq_proc(x);
+  // 2. Grid leak bias shift
+  b > 0.1 ? (
+    this.cap_charge = this.cap_charge_rate * this.cap_charge + (1-this.cap_charge_rate) * b * 0.12;
+  ) : (
+    this.cap_charge = this.cap_drain_rate * this.cap_charge;
+  );
+  bias_shift = this.cap_charge;
+  b = b - bias_shift;
+  // 3. Drive with density boost
+  drive_boost = 1.0 + this.hd.mid_density * 0.4;
+  gain = (1.0 + drive * 4.0) * drive_boost;
+  b = b * gain;
+  // 4. Density tracker on pre-clip signal
+  this.hd.lms_hd_proc(b);
+  // 5. Fixed clipping curves (bplus scales ceiling)
+  p_ceil = pos_ceil * bplus;
+  n_ceil = neg_ceil * bplus;
+  b >= 0 ? (
+    b = lms_tanh(b * pos_hard) * p_ceil;
+  ) : (
+    b = lms_tanh(b * neg_hard) * n_ceil;
+  );
+  // 6. Grid conduction (peak envelope based)
+  ax = abs(b);
+  ax > this.peak_env ? (
+    this.peak_env = this.peak_att * this.peak_env + (1-this.peak_att) * ax;
+  ) : (
+    this.peak_env = this.peak_rel * this.peak_env + (1-this.peak_rel) * ax;
+  );
+  b > gc_thresh && this.peak_env > gc_thresh * 0.8 ? (
+    gc_out = gc_thresh + lms_tanh((b - gc_thresh) * 3.0) * gc_amount;
+    b = gc_out;
+  );
+  // 7. Miller LP (density-driven cutoff and Q)
+  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
+  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
+  lp_q = 0.6 + this.hd.hi_density * 0.35;
+  lp_q = max(0.6, min(0.95, lp_q));
+  abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
+    this.miller.lms_bq_set_lp(lp_freq, lp_q);
+    this.last_miller_freq = lp_freq;
+    this.last_miller_q = lp_q;
+  );
+  b = this.miller.lms_bq_proc(b);
+  // 8. Air shelf (density-driven fizz control)
+  air_cut = -this.hd.air_density * 3.0;
+  air_cut = max(-3.0, min(0.0, air_cut));
+  abs(air_cut - this.last_air_cut) > 0.1 ? (
+    this.air_shelf.lms_bq_set_hishelf(this.air_freq, air_cut, 0.7);
+    this.last_air_cut = air_cut;
+  );
+  b = this.air_shelf.lms_bq_proc(b);
+  // 9. DC block
+  b = this.dc.lms_dc_proc_l(b);
+  b;
 );
 
 
