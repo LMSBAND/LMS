@@ -49,41 +49,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 // === TUNER ===
 tuner.lms_tuner_init();
 
-// === 4-BAND HARMONIC DENSITY TRACKER ===
-function hd_init() (
-  this.f_lo.lms_bq_init(); this.f_lo.lms_bq_set_lp(250,0.7);
-  this.f_mid_lo.lms_bq_init(); this.f_mid_lo.lms_bq_set_lp(2000,0.7);
-  this.f_mid_hi.lms_bq_init(); this.f_mid_hi.lms_bq_set_hp(250,0.7);
-  this.f_hi.lms_bq_init(); this.f_hi.lms_bq_set_hp(2000,0.7);
-  this.f_air.lms_bq_init(); this.f_air.lms_bq_set_hp(5000,0.7);
-  this.env_lo=0; this.env_mid=0; this.env_hi=0; this.env_air=0; this.env_total=0;
-  this.att=exp(-1/(srate*0.002)); this.rel=exp(-1/(srate*0.080));
-  this.density=1.0; this.mid_density=0.0; this.hi_density=0.0; this.air_density=0.0;
-  this.smooth=exp(-1/(srate*0.030));
-);
-function hd_proc(x) local(lo, mid, hi, air, abs_lo, abs_mid, abs_hi, abs_air, abs_total, raw, raw_mid, raw_hi, raw_air) (
-  lo=this.f_lo.lms_bq_proc(x);
-  mid=this.f_mid_hi.lms_bq_proc(this.f_mid_lo.lms_bq_proc(x));
-  hi=this.f_hi.lms_bq_proc(x);
-  air=this.f_air.lms_bq_proc(x);
-  abs_lo=abs(lo); abs_mid=abs(mid); abs_hi=abs(hi); abs_air=abs(air); abs_total=abs(x);
-  abs_lo > this.env_lo ? ( this.env_lo=this.att*this.env_lo+(1-this.att)*abs_lo; ) : ( this.env_lo=this.rel*this.env_lo+(1-this.rel)*abs_lo; );
-  abs_mid > this.env_mid ? ( this.env_mid=this.att*this.env_mid+(1-this.att)*abs_mid; ) : ( this.env_mid=this.rel*this.env_mid+(1-this.rel)*abs_mid; );
-  abs_hi > this.env_hi ? ( this.env_hi=this.att*this.env_hi+(1-this.att)*abs_hi; ) : ( this.env_hi=this.rel*this.env_hi+(1-this.rel)*abs_hi; );
-  abs_air > this.env_air ? ( this.env_air=this.att*this.env_air+(1-this.att)*abs_air; ) : ( this.env_air=this.rel*this.env_air+(1-this.rel)*abs_air; );
-  abs_total > this.env_total ? ( this.env_total=this.att*this.env_total+(1-this.att)*abs_total; ) : ( this.env_total=this.rel*this.env_total+(1-this.rel)*abs_total; );
-  this.env_lo > 0.0001 ? ( raw=this.env_total/this.env_lo; raw=min(2.5,max(1.0,raw)); ) : ( raw=1.0; );
-  this.env_total > 0.0001 ? (
-    raw_mid=this.env_mid/this.env_total; raw_mid=min(1.0,max(0.0,raw_mid));
-    raw_hi=this.env_hi/this.env_total; raw_hi=min(1.0,max(0.0,raw_hi));
-    raw_air=this.env_air/this.env_total; raw_air=min(1.0,max(0.0,raw_air));
-  ) : ( raw_mid=0.0; raw_hi=0.0; raw_air=0.0; );
-  this.density=this.smooth*this.density+(1-this.smooth)*raw;
-  this.mid_density=this.smooth*this.mid_density+(1-this.smooth)*raw_mid;
-  this.hi_density=this.smooth*this.hi_density+(1-this.smooth)*raw_hi;
-  this.air_density=this.smooth*this.air_density+(1-this.smooth)*raw_air;
-);
-
 // =========================================================================
 // === DENSITY-AWARE TRIODE STAGE (v2b) ===
 // LESSON LEARNED: density must drive filters and drive levels, NOT the
@@ -118,7 +83,7 @@ function triode_init(hp_freq, lp_freq) (
   this.air_shelf.lms_bq_set_hishelf(5000, 0.0, 0.7);
   this.last_air_cut = 0.0;
   // Own density tracker (each stage sees its own harmonic picture)
-  this.hd.hd_init();
+  this.hd.lms_hd_init(250, 2000, 5000);
   // DC block
   this.dc.lms_dc_init();
   // Peak envelope for grid conduction (smooth, no density jitter)
@@ -154,7 +119,7 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
   b = b * gain;
 
   // 4. Run density tracker on pre-clip signal
-  this.hd.hd_proc(b);
+  this.hd.lms_hd_proc(b);
 
   // 5. FIXED CLIPPING CURVES — same shape every sample
   //    Only bplus (PSU sag) scales the ceiling. The hardness is constant.
@@ -220,7 +185,7 @@ function triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil, gc
 // - The low NFB is what gives Orange the "spongy", "saggy" feel even with
 //   fixed bias. Less correction = more dynamic compression from the tubes.
 function poweramp_init() (
-  this.hd.hd_init();
+  this.hd.lms_hd_init(250, 2000, 5000);
   this.dc.lms_dc_init();
   this.nfb_lp.lms_bq_init();
   this.nfb_lp.lms_bq_set_lp(4500, 0.5);  // lower NFB bandwidth than Marshall
@@ -243,7 +208,7 @@ function poweramp_set(drive, presence) (
 function poweramp_proc(x, bplus) local(b, push, pull, out, cathode_shift, signal_level, nfb_freq, xfmr_sat, lo_content, hi_content, lo_saturated, lo_final) (
   b = x * (1.0 + this.drive * 2.2);
 
-  this.hd.hd_proc(b);
+  this.hd.lms_hd_proc(b);
 
   // Cathode shift — EL34 running hot, moderate compression
   signal_level = abs(b);
