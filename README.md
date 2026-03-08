@@ -89,7 +89,6 @@ All plugins share state through a common memory bus (gmem). The amp's density tr
    - All `lms_*.jsfx` files
 4. Create a subfolder called `DRUMBANGER` inside Effects and copy into it:
    - `lms_drumbanger.jsfx`
-   - `DrumbangerDroneFX.jsfx`
    - `DrumbangerDroneMIDI2.jsfx`
    - The `kits/` and `pool/` folders
 5. Open REAPER → Options → Preferences → Plug-ins → JS → click **Re-scan**
