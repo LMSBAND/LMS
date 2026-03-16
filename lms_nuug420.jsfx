@@ -668,6 +668,101 @@ last_randomize = slider51;
 // ============================================================================
 
 @block
+// ---- Preset loading (GFX changes don't trigger @slider) ----
+slider49 != last_preset ? (
+  last_preset = slider49;
+  slider49 == 11 ? (
+    slider50 = 1;
+    slider51 = 1;
+  ) : slider49 == 12 ? (
+    slider50 = 2;
+    slider51 = 1;
+  ) : slider49 > 0 && slider49 <= 10 ? (
+    p = PRESET_DATA + (slider49) * PRESET_STRIDE;
+    slider1 = p[0]; slider2 = p[1]; slider3 = p[2]; slider4 = p[3]; slider5 = p[4];
+    slider6 = p[5]; slider7 = p[6]; slider8 = p[7]; slider9 = p[8];
+    slider10 = p[9]; slider11 = p[10]; slider12 = p[11]; slider13 = p[12]; slider14 = p[13];
+    slider15 = p[14]; slider16 = p[15]; slider17 = p[16]; slider18 = p[17];
+    slider19 = p[18]; slider20 = p[19]; slider21 = p[20]; slider22 = p[21];
+    slider23 = p[22]; slider24 = p[23]; slider25 = p[24]; slider26 = p[25];
+    slider27 = p[26]; slider28 = p[27]; slider29 = p[28]; slider30 = p[29];
+    slider31 = p[30]; slider32 = p[31]; slider33 = p[32];
+    slider34 = p[33]; slider35 = p[34]; slider36 = p[35]; slider37 = p[36];
+    slider38 = p[37]; slider39 = p[38]; slider40 = p[39]; slider41 = p[40]; slider42 = p[41];
+    slider43 = p[42]; slider44 = p[43]; slider45 = p[44]; slider46 = p[45];
+    slider47 = p[46];
+    slider50 = p[49]; slider51 = p[50]; slider52 = p[51];
+  );
+);
+
+// ---- Randomizer (GFX changes don't trigger @slider) ----
+slider51 == 1 && last_randomize == 0 ? (
+  rand_flash = 60;
+  cat = slider50;
+  cat == 1 ? ( slider1 = floor(rand() * 2); slider6 = floor(rand() * 2); )
+  : cat == 3 ? ( w = floor(rand() * 3); slider1 = w == 0 ? 0 : w == 1 ? 2 : 3; w = floor(rand() * 3); slider6 = w == 0 ? 0 : w == 1 ? 2 : 3; )
+  : ( slider1 = floor(rand() * 5); slider6 = floor(rand() * 5); );
+  cat == 1 ? ( slider2 = rand() > 0.5 ? 0 : -12; slider7 = rand() > 0.5 ? 0 : -12; slider8 = floor(rand() * 15); )
+  : cat == 2 ? ( slider2 = floor(rand() * 25) - 12; slider7 = floor(rand() * 25) - 12; slider8 = floor(rand() * 30); )
+  : cat == 3 ? ( slider2 = 0; t = floor(rand() * 4); slider7 = t == 0 ? 0 : t == 1 ? 7 : t == 2 ? -7 : 12; slider8 = floor(rand() * 20); )
+  : ( slider2 = floor(rand() * 49) - 24; slider7 = floor(rand() * 49) - 24; slider8 = floor(rand() * 100); );
+  slider3 = 0;
+  slider4 = 60 + floor(rand() * 40); slider9 = 40 + floor(rand() * 60); slider5 = 20 + floor(rand() * 60);
+  cat == 1 ? ( slider10 = 1; slider11 = 40 + floor(rand() * 60); slider12 = floor(rand() * 20); )
+  : cat == 4 ? ( slider10 = floor(rand() * 2); slider11 = floor(rand() * 80); slider12 = floor(rand() * 100); )
+  : ( slider10 = floor(rand() * 2); slider11 = floor(rand() * 60); slider12 = floor(rand() * 40); );
+  cat == 1 ? ( slider13 = 1 + floor(rand() * 4); slider14 = floor(rand() * 40); )
+  : cat == 2 ? ( slider13 = 1 + floor(rand() * 6); slider14 = floor(rand() * 50); )
+  : cat == 3 ? ( slider13 = 2 + floor(rand() * 3); slider14 = 20 + floor(rand() * 40); )
+  : ( slider13 = 1 + floor(rand() * 8); slider14 = floor(rand() * 80); );
+  cat == 1 ? ( slider15 = 60 + floor(rand() * 340); )
+  : cat == 2 ? ( slider15 = 200 + floor(rand() * 7800); )
+  : cat == 3 ? ( slider15 = 800 + floor(rand() * 5200); )
+  : ( slider15 = 100 + floor(rand() * 14900); );
+  cat == 1 ? ( slider16 = floor(rand() * 40); )
+  : cat == 2 ? ( slider16 = 10 + floor(rand() * 70); )
+  : cat == 3 ? ( slider16 = floor(rand() * 30); )
+  : ( slider16 = 20 + floor(rand() * 80); );
+  cat == 1 ? ( slider17 = 0; slider18 = 20 + floor(rand() * 60); )
+  : cat == 2 ? ( slider17 = 0; slider18 = 10 + floor(rand() * 80); )
+  : cat == 3 ? ( slider17 = 0; slider18 = 5 + floor(rand() * 25); )
+  : ( slider17 = floor(rand() * 4); slider18 = floor(rand() * 100); );
+  cat == 1 ? ( slider19 = floor(rand() * 50); slider20 = 100 + floor(rand() * 400); slider21 = floor(rand() * 30); slider22 = 100 + floor(rand() * 200); )
+  : cat == 2 ? ( slider19 = floor(rand() * 200); slider20 = 50 + floor(rand() * 750); slider21 = floor(rand() * 60); slider22 = 50 + floor(rand() * 300); )
+  : cat == 3 ? ( slider19 = 100 + floor(rand() * 1900); slider20 = 500 + floor(rand() * 4500); slider21 = 30 + floor(rand() * 50); slider22 = 500 + floor(rand() * 2000); )
+  : ( slider19 = floor(rand() * 2000); slider20 = 50 + floor(rand() * 4950); slider21 = floor(rand() * 100); slider22 = 50 + floor(rand() * 3000); );
+  cat == 1 ? ( slider23 = floor(rand() * 10); slider24 = 100 + floor(rand() * 400); slider25 = 50 + floor(rand() * 50); slider26 = 100 + floor(rand() * 200); )
+  : cat == 2 ? ( slider23 = floor(rand() * 50); slider24 = 100 + floor(rand() * 900); slider25 = 30 + floor(rand() * 60); slider26 = 100 + floor(rand() * 400); )
+  : cat == 3 ? ( slider23 = 100 + floor(rand() * 900); slider24 = 500 + floor(rand() * 2500); slider25 = 50 + floor(rand() * 40); slider26 = 500 + floor(rand() * 2000); )
+  : ( slider23 = floor(rand() * 2000); slider24 = 50 + floor(rand() * 4950); slider25 = floor(rand() * 100); slider26 = 50 + floor(rand() * 3000); );
+  slider27 = floor(rand() * 6);
+  cat == 1 ? ( slider28 = 0.5 + rand() * 7.5; )
+  : cat == 2 ? ( slider28 = 0.1 + rand() * 19.9; )
+  : ( slider28 = 0.01 + rand() * 49.99; );
+  slider29 = 0;
+  cat == 1 ? ( slider30 = 0; slider31 = floor(rand() * 30); )
+  : cat == 2 ? ( slider30 = floor(rand() * 20); slider31 = floor(rand() * 60); )
+  : ( slider30 = floor(rand() * 100); slider31 = floor(rand() * 100); );
+  slider32 = floor(rand() * 20); slider33 = floor(rand() * 30);
+  cat == 1 ? ( slider34 = floor(rand() * 100); )
+  : cat == 2 ? ( slider34 = floor(rand() * 200); )
+  : ( slider34 = floor(rand() * 500); );
+  slider35 = slider34 > 10 ? 1 : 0;
+  slider36 = 60 + floor(rand() * 40); slider37 = floor(rand() * 60);
+  cat == 1 ? ( slider38 = rand() > 0.5 ? 1 : 0; slider39 = floor(rand() * 40); )
+  : cat == 2 ? ( slider38 = floor(rand() * 4); slider39 = floor(rand() * 70); )
+  : ( slider38 = floor(rand() * 4); slider39 = floor(rand() * 100); );
+  cat == 3 ? ( slider40 = 1; slider41 = 40 + floor(rand() * 40); slider42 = 0.5 + rand() * 2; )
+  : ( slider40 = rand() > 0.6 ? 1 : 0; slider41 = 30 + floor(rand() * 50); slider42 = 0.5 + rand() * 3; );
+  cat == 3 ? ( slider43 = rand() > 0.4 ? 1 : 0; )
+  : cat == 2 ? ( slider43 = rand() > 0.6 ? 1 : 0; )
+  : ( slider43 = rand() > 0.7 ? 1 : 0; );
+  slider44 = 100 + floor(rand() * 600); slider45 = 20 + floor(rand() * 50); slider46 = 30 + floor(rand() * 40);
+  slider47 = 0; slider52 = 40 + floor(rand() * 30);
+  slider51 = 0;
+);
+last_randomize = slider51;
+
 // ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
 osc1_wave = slider1;
 osc1_tune_semi = slider2;
