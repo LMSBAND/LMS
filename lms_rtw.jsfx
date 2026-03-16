@@ -12,34 +12,48 @@ slider1:0<-12,36,0.1>-Preamp Drive (dB)
 slider2:0<0,2,1{Clean,Warm,Hot}>-Saturation Mode
 slider3:0<0,1,1{Off,On}>-HPF
 slider4:80<20,500,1>-HPF Freq (Hz)
-slider5:0<-18,18,0.5>-Low Shelf (dB)
-slider6:200<40,1000,1>-Low Freq (Hz)
-slider7:0<-18,18,0.5>-Low-Mid (dB)
-slider8:800<200,3000,1>-Low-Mid Freq (Hz)
-slider9:1.0<0.3,4.0,0.1>-Low-Mid Q
-slider10:0<-18,18,0.5>-Hi-Mid (dB)
-slider11:3000<1000,8000,10>-Hi-Mid Freq (Hz)
-slider12:1.0<0.3,4.0,0.1>-Hi-Mid Q
-slider13:0<-18,18,0.5>-High Shelf (dB)
-slider14:8000<2000,16000,100>-High Freq (Hz)
-slider15:0<0,1,1{Off,On}>-Compressor
-slider16:-18<-40,0,0.5>-Comp Threshold (dB)
-slider17:4<0,3,1{2:1,4:1,6:1,10:1}>-Comp Ratio
-slider18:5<0.1,30,0.1>-Comp Attack (ms)
-slider19:100<10,1000,5>-Comp Release (ms)
-slider20:0<-12,12,0.1>-Output Gain (dB)
+slider5:0<0,1,1{Off,On}>-LPF
+slider6:8000<1000,20000,10>-LPF Freq (Hz)
+slider7:0<-18,18,0.5>-Low Shelf (dB)
+slider8:200<40,1000,1>-Low Freq (Hz)
+slider9:0<-18,18,0.5>-Low-Mid (dB)
+slider10:800<200,3000,1>-Low-Mid Freq (Hz)
+slider11:1.0<0.3,4.0,0.1>-Low-Mid Q
+slider12:0<-18,18,0.5>-Hi-Mid (dB)
+slider13:3000<1000,8000,10>-Hi-Mid Freq (Hz)
+slider14:1.0<0.3,4.0,0.1>-Hi-Mid Q
+slider15:0<-18,18,0.5>-High Shelf (dB)
+slider16:8000<2000,16000,100>-High Freq (Hz)
+slider17:0<0,1,1{Off,On}>-Compressor
+slider18:-18<-40,0,0.5>-Comp Threshold (dB)
+slider19:4<0,3,1{2:1,4:1,6:1,10:1}>-Comp Ratio
+slider20:5<0.1,30,0.1>-Comp Attack (ms)
+slider21:100<10,1000,5>-Comp Release (ms)
+slider22:0<0,1,1{Off,On}>-Sidechain HPF
+slider23:100<20,500,1>-SC HPF Freq (Hz)
+slider24:0<0,1,1{Off,On}>-Auto Release
+slider25:0<0,24,0.5>-Comp Makeup (dB)
+slider26:100<0,100,1>-Comp Mix (%)
+slider27:0<-12,12,0.1>-Output Gain (dB)
 
 @init
   // Biquad filter instances (shared library)
   hp.lms_bq_init();
+  lp.lms_bq_init();
   ls.lms_bq_init();
   lm.lms_bq_init();
   hm.lms_bq_init();
   hs.lms_bq_init();
 
+  // Sidechain HPF for compressor
+  sc_hp.lms_bq_init();
+
   // Saturation instances (shared library)
   sat_l.lms_sat_warm_init();
   sat_r.lms_sat_warm_init();
+
+  // DC blocker (removes offset from biased saturation)
+  dc.lms_dc_init();
 
   // Compressor instance (shared library)
   comp.lms_comp_init();
@@ -48,38 +62,59 @@ slider20:0<-12,12,0.1>-Output Gain (dB)
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(4, 20, 10000);
+  bc.lms_bc_init(4, 27, 10000);
 
 @slider
   preamp_gain = lms_db2lin(slider1);
   sat_mode = slider2;
   hpf_on = slider3;
-  output_gain = lms_db2lin(slider20);
+  output_gain = lms_db2lin(slider27);
 
   // HPF - 2nd order Butterworth
   hpf_on ? (
     hp.lms_bq_set_hp(slider4, 0.707);
   );
 
+  // LPF - 2nd order Butterworth
+  lpf_on = slider5;
+  lpf_on ? (
+    lp.lms_bq_set_lp(slider6, 0.707);
+  );
+
   // Low shelf
-  ls.lms_bq_set_loshelf(slider6, slider5, 0.707);
+  ls.lms_bq_set_loshelf(slider8, slider7, 0.707);
 
   // Low-mid parametric
-  lm.lms_bq_set_peak(slider8, slider7, slider9);
+  lm.lms_bq_set_peak(slider10, slider9, slider11);
 
   // Hi-mid parametric
-  hm.lms_bq_set_peak(slider11, slider10, slider12);
+  hm.lms_bq_set_peak(slider13, slider12, slider14);
 
   // High shelf
-  hs.lms_bq_set_hishelf(slider14, slider13, 0.707);
+  hs.lms_bq_set_hishelf(slider16, slider15, 0.707);
 
   // Compressor
-  comp_on = slider15;
-  slider17 == 0 ? comp_ratio = 2;
-  slider17 == 1 ? comp_ratio = 4;
-  slider17 == 2 ? comp_ratio = 6;
-  slider17 == 3 ? comp_ratio = 10;
-  comp.lms_comp_set(slider16, comp_ratio, slider18, slider19);
+  comp_on = slider17;
+  slider19 == 0 ? comp_ratio = 2;
+  slider19 == 1 ? comp_ratio = 4;
+  slider19 == 2 ? comp_ratio = 6;
+  slider19 == 3 ? comp_ratio = 10;
+  comp.lms_comp_set(slider18, comp_ratio, slider20, slider21);
+
+  // Sidechain HPF
+  sc_hpf_on = slider22;
+  sc_hpf_on ? (
+    sc_hp.lms_bq_set_hp(slider23, 0.707);
+  );
+
+  // Auto-release coefficients (SSL-style dual time constant)
+  auto_rel_on = slider24;
+  comp_rel_fast = exp(-1.0 / (0.050 * srate));  // 50ms — transient recovery
+  comp_rel_slow = exp(-1.0 / (0.600 * srate));  // 600ms — sustained compression
+
+  // Comp makeup + mix
+  comp_makeup = lms_db2lin(slider25);
+  comp_mix = slider26 / 100;
 
 // ============================================================
 // @BLOCK — Recalculate coefficients + Broadcast
@@ -89,26 +124,43 @@ notice_show = 0;
 preamp_gain = lms_db2lin(slider1);
 sat_mode = slider2;
 hpf_on = slider3;
-output_gain = lms_db2lin(slider20);
+output_gain = lms_db2lin(slider27);
 
 hpf_on ? (
   hp.lms_bq_set_hp(slider4, 0.707);
 );
 
-ls.lms_bq_set_loshelf(slider6, slider5, 0.707);
+lpf_on = slider5;
+lpf_on ? (
+  lp.lms_bq_set_lp(slider6, 0.707);
+);
 
-lm.lms_bq_set_peak(slider8, slider7, slider9);
+ls.lms_bq_set_loshelf(slider8, slider7, 0.707);
 
-hm.lms_bq_set_peak(slider11, slider10, slider12);
+lm.lms_bq_set_peak(slider10, slider9, slider11);
 
-hs.lms_bq_set_hishelf(slider14, slider13, 0.707);
+hm.lms_bq_set_peak(slider13, slider12, slider14);
 
-comp_on = slider15;
-slider17 == 0 ? comp_ratio = 2;
-slider17 == 1 ? comp_ratio = 4;
-slider17 == 2 ? comp_ratio = 6;
-slider17 == 3 ? comp_ratio = 10;
-comp.lms_comp_set(slider16, comp_ratio, slider18, slider19);
+hs.lms_bq_set_hishelf(slider16, slider15, 0.707);
+
+comp_on = slider17;
+slider19 == 0 ? comp_ratio = 2;
+slider19 == 1 ? comp_ratio = 4;
+slider19 == 2 ? comp_ratio = 6;
+slider19 == 3 ? comp_ratio = 10;
+comp.lms_comp_set(slider18, comp_ratio, slider20, slider21);
+
+sc_hpf_on = slider22;
+sc_hpf_on ? (
+  sc_hp.lms_bq_set_hp(slider23, 0.707);
+);
+
+auto_rel_on = slider24;
+comp_rel_fast = exp(-1.0 / (0.050 * srate));
+comp_rel_slow = exp(-1.0 / (0.600 * srate));
+
+comp_makeup = lms_db2lin(slider25);
+comp_mix = slider26 / 100;
 
 // Broadcast: heartbeat, follow, steal, stale detection
 bc.lms_bc_block();
@@ -135,6 +187,13 @@ bc.bc_leader_pbase > 0 ? (
   slider18 = gmem[bc.bc_leader_pbase + 17];
   slider19 = gmem[bc.bc_leader_pbase + 18];
   slider20 = gmem[bc.bc_leader_pbase + 19];
+  slider21 = gmem[bc.bc_leader_pbase + 20];
+  slider22 = gmem[bc.bc_leader_pbase + 21];
+  slider23 = gmem[bc.bc_leader_pbase + 22];
+  slider24 = gmem[bc.bc_leader_pbase + 23];
+  slider25 = gmem[bc.bc_leader_pbase + 24];
+  slider26 = gmem[bc.bc_leader_pbase + 25];
+  slider27 = gmem[bc.bc_leader_pbase + 26];
 );
 
 // Steal: one-shot copy from target
@@ -159,6 +218,13 @@ bc.bc_did_steal ? (
   slider18 = gmem[bc.bc_steal_pbase + 17];
   slider19 = gmem[bc.bc_steal_pbase + 18];
   slider20 = gmem[bc.bc_steal_pbase + 19];
+  slider21 = gmem[bc.bc_steal_pbase + 20];
+  slider22 = gmem[bc.bc_steal_pbase + 21];
+  slider23 = gmem[bc.bc_steal_pbase + 22];
+  slider24 = gmem[bc.bc_steal_pbase + 23];
+  slider25 = gmem[bc.bc_steal_pbase + 24];
+  slider26 = gmem[bc.bc_steal_pbase + 25];
+  slider27 = gmem[bc.bc_steal_pbase + 26];
 );
 
 // Write our params for others to read
@@ -183,6 +249,13 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 17] = slider18;
   gmem[bc.bc_my_pbase + 18] = slider19;
   gmem[bc.bc_my_pbase + 19] = slider20;
+  gmem[bc.bc_my_pbase + 20] = slider21;
+  gmem[bc.bc_my_pbase + 21] = slider22;
+  gmem[bc.bc_my_pbase + 22] = slider23;
+  gmem[bc.bc_my_pbase + 23] = slider24;
+  gmem[bc.bc_my_pbase + 24] = slider25;
+  gmem[bc.bc_my_pbase + 25] = slider26;
+  gmem[bc.bc_my_pbase + 26] = slider27;
 );
 
 @sample
@@ -204,10 +277,20 @@ bc.bc_my_pbase > 0 ? (
     r = sat_r.lms_sat_warm(r, 1.5, 0.3);
   );
 
+  // === DC BLOCKER (removes offset from biased saturation) ===
+  l = dc.lms_dc_proc_l(l);
+  r = dc.lms_dc_proc_r(r);
+
   // === HPF ===
   hpf_on ? (
     l = hp.lms_bq_proc_l(l);
     r = hp.lms_bq_proc_r(r);
+  );
+
+  // === LPF ===
+  lpf_on ? (
+    l = lp.lms_bq_proc_l(l);
+    r = lp.lms_bq_proc_r(r);
   );
 
   // === 4-BAND EQ ===
@@ -227,19 +310,66 @@ bc.bc_my_pbase > 0 ? (
   l = hs.lms_bq_proc_l(l);
   r = hs.lms_bq_proc_r(r);
 
-  // === COMPRESSOR ===
+  // === COMPRESSOR (inlined for sidechain HPF + auto-release + makeup + mix) ===
   comp_on ? (
-    comp.lms_comp_proc(l, r);
-    l *= comp.gr;
-    r *= comp.gr;
+    // Capture dry signal for parallel mix
+    dry_l = l;
+    dry_r = r;
+
+    // Sidechain: filter detection path (not audio path)
+    sc_l = l; sc_r = r;
+    sc_hpf_on ? (
+      sc_l = sc_hp.lms_bq_proc_l(sc_l);
+      sc_r = sc_hp.lms_bq_proc_r(sc_r);
+    );
+
+    // Stereo-linked peak detection
+    det = max(abs(sc_l), abs(sc_r));
+    det_db = det > 0.0000001 ? 20 * log10(det) : -140;
+    over = det_db - comp.thresh;
+
+    // Gain computer
+    over > 0 ? (
+      target_gr = over - over / comp.ratio;
+    ) : (
+      target_gr = 0;
+    );
+
+    // Envelope follower with auto-release
+    target_gr > comp.env ? (
+      // Attack
+      comp.env = comp.att * comp.env + (1 - comp.att) * target_gr;
+    ) : (
+      // Release
+      auto_rel_on ? (
+        // SSL-style dual time constant:
+        // >6dB GR = transient peak, use fast 50ms recovery
+        // <6dB GR = sustained compression, use slow 600ms tail
+        rel_coeff = comp.env > 6 ? comp_rel_fast : comp_rel_slow;
+        comp.env = rel_coeff * comp.env + (1 - rel_coeff) * target_gr;
+      ) : (
+        comp.env = comp.rel * comp.env + (1 - comp.rel) * target_gr;
+      );
+    );
+
+    comp.gr = 10 ^ (-comp.env / 20);
+    comp.gr_db = comp.env;
     comp_gr_db = comp.gr_db;
+
+    // Apply gain reduction + makeup
+    l *= comp.gr * comp_makeup;
+    r *= comp.gr * comp_makeup;
+
+    // Parallel compression blend
+    l = dry_l + comp_mix * (l - dry_l);
+    r = dry_r + comp_mix * (r - dry_r);
   );
 
   // === OUTPUT ===
   spl0 = l * output_gain;
   spl1 = r * output_gain;
 
-@gfx 560 420
+@gfx 560 520
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -436,10 +566,11 @@ gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("LMS Reinvents The Wheel");
 
 // ============================================================================
-//  COLUMN 1: PREAMP + EQ LOW
+//  COLUMN 1: PREAMP + FILTERS + EQ LOW
 // ============================================================================
 c1x = margin;
-draw_panel(c1x, body_y, col_w, floor(200 * S), "PREAMP / EQ");
+c1_panel_h = floor(242 * S);
+draw_panel(c1x, body_y, col_w, c1_panel_h, "PREAMP / EQ");
 cy = body_y + floor(26 * S);
 _old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, -12, 36, "Drive", 1);
 slider1 != _old ? slider_automate(2^0);
@@ -453,17 +584,23 @@ cy += bar_sp;
 _old = slider4; slider4 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider4, 20, 500, "HPF Hz", 1);
 slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
-_old = slider5; slider5 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider5, -18, 18, "Lo Shelf", 1);
+_old = slider5; slider5 = draw_toggle(c1x + pad2, cy + floor(2 * S), slider5, "LPF");
 slider5 != _old ? slider_automate(2^4);
 cy += bar_sp;
-_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 40, 1000, "Lo Freq", 1);
+_old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 1000, 20000, "LPF Hz", 1);
 slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-_old = slider7; slider7 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider7, -18, 18, "Lo-Mid", 1);
+_old = slider7; slider7 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider7, -18, 18, "Lo Shelf", 1);
 slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
-_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 200, 3000, "LM Freq", 1);
+_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 40, 1000, "Lo Freq", 1);
 slider8 != _old ? slider_automate(2^7);
+cy += bar_sp;
+_old = slider9; slider9 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider9, -18, 18, "Lo-Mid", 1);
+slider9 != _old ? slider_automate(2^8);
+cy += bar_sp;
+_old = slider10; slider10 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider10, 200, 3000, "LM Freq", 1);
+slider10 != _old ? slider_automate(2^9);
 
 // ============================================================================
 //  COLUMN 2: EQ HIGH
@@ -471,44 +608,60 @@ slider8 != _old ? slider_automate(2^7);
 c2x = margin + col_w + gap;
 draw_panel(c2x, body_y, col_w, floor(200 * S), "EQ HIGH");
 cy = body_y + floor(26 * S);
-_old = slider9; slider9 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider9, 0.3, 4.0, "LM Q", 1);
-slider9 != _old ? slider_automate(2^8);
-cy += bar_sp;
-_old = slider10; slider10 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider10, -18, 18, "Hi-Mid", 1);
-slider10 != _old ? slider_automate(2^9);
-cy += bar_sp;
-_old = slider11; slider11 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider11, 1000, 8000, "HM Freq", 1);
+_old = slider11; slider11 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider11, 0.3, 4.0, "LM Q", 1);
 slider11 != _old ? slider_automate(2^10);
 cy += bar_sp;
-_old = slider12; slider12 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider12, 0.3, 4.0, "HM Q", 1);
+_old = slider12; slider12 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider12, -18, 18, "Hi-Mid", 1);
 slider12 != _old ? slider_automate(2^11);
 cy += bar_sp;
-_old = slider13; slider13 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider13, -18, 18, "Hi Shelf", 1);
+_old = slider13; slider13 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider13, 1000, 8000, "HM Freq", 1);
 slider13 != _old ? slider_automate(2^12);
 cy += bar_sp;
-_old = slider14; slider14 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider14, 2000, 16000, "Hi Freq", 1);
+_old = slider14; slider14 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider14, 0.3, 4.0, "HM Q", 1);
 slider14 != _old ? slider_automate(2^13);
-
-// ============================================================================
-//  COLUMN 3: COMPRESSOR + OUTPUT
-// ============================================================================
-c3x = margin + (col_w + gap) * 2;
-draw_panel(c3x, body_y, col_w, floor(200 * S), "COMPRESSOR");
-cy = body_y + floor(26 * S);
-_old = slider15; slider15 = draw_toggle(c3x + pad2, cy + floor(2 * S), slider15, "Comp On");
+cy += bar_sp;
+_old = slider15; slider15 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider15, -18, 18, "Hi Shelf", 1);
 slider15 != _old ? slider_automate(2^14);
 cy += bar_sp;
-_old = slider16; slider16 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider16, -40, 0, "Thresh", 1);
+_old = slider16; slider16 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider16, 2000, 16000, "Hi Freq", 1);
 slider16 != _old ? slider_automate(2^15);
-cy += bar_sp;
-_old = slider17; slider17 = draw_mode_sel(c3x + pad, cy, col_w - pad2, bar_h, slider17, 3, "Ratio", "2:1", "4:1", "6:1", "10:1");
+
+// ============================================================================
+//  COLUMN 3: COMPRESSOR
+// ============================================================================
+c3x = margin + (col_w + gap) * 2;
+c3_panel_h = floor(310 * S);
+draw_panel(c3x, body_y, col_w, c3_panel_h, "COMPRESSOR");
+cy = body_y + floor(26 * S);
+_old = slider17; slider17 = draw_toggle(c3x + pad2, cy + floor(2 * S), slider17, "Comp On");
 slider17 != _old ? slider_automate(2^16);
 cy += bar_sp;
-_old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, 0.1, 30, "Attack", 1);
+_old = slider18; slider18 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider18, -40, 0, "Thresh", 1);
 slider18 != _old ? slider_automate(2^17);
 cy += bar_sp;
-_old = slider19; slider19 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider19, 10, 1000, "Release", 1);
+_old = slider19; slider19 = draw_mode_sel(c3x + pad, cy, col_w - pad2, bar_h, slider19, 3, "Ratio", "2:1", "4:1", "6:1", "10:1");
 slider19 != _old ? slider_automate(2^18);
+cy += bar_sp;
+_old = slider20; slider20 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider20, 0.1, 30, "Attack", 1);
+slider20 != _old ? slider_automate(2^19);
+cy += bar_sp;
+_old = slider21; slider21 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider21, 10, 1000, "Release", 1);
+slider21 != _old ? slider_automate(2^20);
+cy += bar_sp;
+_old = slider22; slider22 = draw_toggle(c3x + pad2, cy + floor(2 * S), slider22, "SC HPF");
+slider22 != _old ? slider_automate(2^21);
+cy += bar_sp;
+_old = slider23; slider23 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider23, 20, 500, "SC Freq", 1);
+slider23 != _old ? slider_automate(2^22);
+cy += bar_sp;
+_old = slider24; slider24 = draw_toggle(c3x + pad2, cy + floor(2 * S), slider24, "Auto Rel");
+slider24 != _old ? slider_automate(2^23);
+cy += bar_sp;
+_old = slider25; slider25 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider25, 0, 24, "Makeup", 1);
+slider25 != _old ? slider_automate(2^24);
+cy += bar_sp;
+_old = slider26; slider26 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider26, 0, 100, "Mix %", 1);
+slider26 != _old ? slider_automate(2^25);
 cy += bar_sp;
 
 // GR meter
@@ -532,11 +685,11 @@ comp_on ? (
   );
 );
 
-// Output bar (below all three panels)
-out_y = body_y + 208;
+// Output bar (below tallest panel)
+out_y = body_y + c3_panel_h + floor(6 * S);
 draw_panel(margin, out_y, gfx_w - margin * 2, floor(46 * S), "OUTPUT");
-_old = slider20; slider20 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider20, -12, 12, "Output dB", 1);
-slider20 != _old ? slider_automate(2^19);
+_old = slider27; slider27 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider27, -12, 12, "Output dB", 1);
+slider27 != _old ? slider_automate(2^26);
   // Instance Manager Panel (from lms_core broadcast system)
   bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
