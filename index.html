@@ -3810,7 +3810,7 @@
     <!-- CHANNEL TOOLS -->
     <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
       <div class="da-suite-card-header da-purple">CHANNEL TOOLS (7)</div>
-      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— Channel strip (EQ + compression + gate)</span></div>
+      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— SSL-grade channel strip (4-band EQ, LPF/HPF, VCA comp w/ sidechain HPF + auto-release + parallel mix, spring &amp; room reverb, pre/post routing)</span></div>
       <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
       <div class="da-suite-item"><strong>Silver Sixty Nine</strong> <span class="da-suite-item-desc">— Density-aware LA-2A opto compressor (program-dependent attack/release)</span></div>
       <div class="da-suite-item"><strong>Smart Gate</strong> <span class="da-suite-item-desc">— Density-aware noise gate (single + drum mode with cross-mic phase correction)</span></div>
@@ -3822,7 +3822,8 @@
 
     <!-- EFFECTS -->
     <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
-      <div class="da-suite-card-header da-blue">EFFECTS (4)</div>
+      <div class="da-suite-card-header da-blue">EFFECTS (5)</div>
+      <div class="da-suite-item"><strong>Density Reverb</strong> <span class="da-suite-item-desc">— 8-line FDN algorithmic reverb (8 presets, density-aware harmonic saturation, modal filtering)</span></div>
       <div class="da-suite-item"><strong>Henge</strong> <span class="da-suite-item-desc">— Tape delay (wow/flutter/spring reverb)</span></div>
       <div class="da-suite-item"><strong>Henge On Crack</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
       <div class="da-suite-item"><strong>The Space</strong> <span class="da-suite-item-desc">— Physical room modeler (geometry-based acoustics)</span></div>
@@ -3843,9 +3844,9 @@
 
 <!-- UPDATE NOTICE -->
 <div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 2026 UPDATE</div>
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 16, 2026</div>
   <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    Full suite refactored. All shared DSP — triode stages, power amps (push-pull / single-ended / Class D), density tracking, effects, cab sim, GUI — extracted into lms_core (132 functions, 4,166 lines). Each amp is now just preamp voicing + tonestack. 30% less code, zero audible change. 11 amps, 2 synths, room modeler, opto comp, smart gate, pitch correction, and more. All free. All open source.
+    <strong>RTW v7.0</strong> — SSL-grade channel strip upgrade. Added LPF, DC blocker after saturation, sidechain HPF on compressor (no more bass pumping), SSL-style dual-time-constant auto-release, compressor makeup gain, parallel compression mix, and built-in spring &amp; room reverb with dark/neutral/bright tone and pre/post compressor routing. <strong>NUUG 420</strong> — Fixed presets and randomizer not firing from the GUI. <strong>Density Reverb</strong> — Added to ReaPack (8-line FDN, 8 presets, density-aware harmonic saturation). All free. All open source.
   </div>
 </div>
 
