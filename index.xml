@@ -73,6 +73,12 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
     </reapack>
+    <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
+      <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
+        <changelog><![CDATA[Initial release — 8-line FDN algorithmic reverb with density-aware harmonic saturation. 8 presets (Plate, Spring, Pop Ambient, Basement, Studio Live, Studio Dampened, Cathedral, Garage). 4-stage input diffusion, early reflections, modal filtering, pre-delay, low cut, stereo width. Broadcast system.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
+    </reapack>
     <reapack name="lms_rtw.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
         <changelog><![CDATA[Initial release]]></changelog>
@@ -108,6 +114,10 @@
       </version>
           <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
+      </version>
+      <version name="6.0" author="LMS" time="2026-03-16T00:00:00Z">
+        <changelog><![CDATA[v6.0 — SSL-grade upgrade. DC blocker after saturation (fixes Hot mode DC offset). LPF (1k-20kHz). Sidechain HPF on compressor (prevents bass pumping). SSL-style auto-release (dual time constant: 50ms transient / 600ms sustained). Compressor makeup gain (0-24dB). Parallel compression mix (0-100%). Sliders renumbered 5-27.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
     </reapack>
