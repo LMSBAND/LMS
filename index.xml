@@ -120,6 +120,10 @@
         <changelog><![CDATA[v6.0 — SSL-grade upgrade. DC blocker after saturation (fixes Hot mode DC offset). LPF (1k-20kHz). Sidechain HPF on compressor (prevents bass pumping). SSL-style auto-release (dual time constant: 50ms transient / 600ms sustained). Compressor makeup gain (0-24dB). Parallel compression mix (0-100%). Sliders renumbered 5-27.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
+      <version name="7.0" author="LMS" time="2026-03-16T12:00:00Z">
+        <changelog><![CDATA[v7.0 — Built-in reverb. Spring reverb (from core) and Schroeder room reverb (4 LP-damped comb filters + stereo allpass diffusion). Dark/Neutral/Bright tone control. Pre-comp or post-comp routing. Sliders 27-31.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_traumatizer.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">

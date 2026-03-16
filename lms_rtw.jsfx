@@ -34,7 +34,11 @@ slider23:100<20,500,1>-SC HPF Freq (Hz)
 slider24:0<0,1,1{Off,On}>-Auto Release
 slider25:0<0,24,0.5>-Comp Makeup (dB)
 slider26:100<0,100,1>-Comp Mix (%)
-slider27:0<-12,12,0.1>-Output Gain (dB)
+slider27:0<0,2,1{Off,Spring,Room}>-Reverb Type
+slider28:20<0,100,1>-Reverb Mix (%)
+slider29:1<0,2,1{Dark,Neutral,Bright}>-Reverb Tone
+slider30:1<0,1,1{Pre Comp,Post Comp}>-Reverb Position
+slider31:0<-12,12,0.1>-Output Gain (dB)
 
 @init
   // Biquad filter instances (shared library)
@@ -59,16 +63,38 @@ slider27:0<-12,12,0.1>-Output Gain (dB)
   comp.lms_comp_init();
   comp_gr_db = 0;
 
+  // Spring reverb (from core)
+  spring.lms_spring_init();
+
+  // Room reverb (inline Schroeder — 4 combs + 2 allpass, stereo)
+  ROOM_BASE = 70000;
+  COMB0_OFF = 0;    COMB0_LEN = 1117;
+  COMB1_OFF = 1200; COMB1_LEN = 1277;
+  COMB2_OFF = 2500; COMB2_LEN = 1487;
+  COMB3_OFF = 4000; COMB3_LEN = 1601;
+  AP0_OFF = 5700;   AP0_LEN = 241;
+  AP1_OFF = 6000;   AP1_LEN = 557;
+  AP0R_OFF = 6600;  AP0R_LEN = 251;
+  AP1R_OFF = 6900;  AP1R_LEN = 563;
+  memset(ROOM_BASE, 0, 7500);
+  comb0_pos = 0; comb1_pos = 0; comb2_pos = 0; comb3_pos = 0;
+  ap0_pos = 0; ap1_pos = 0; ap0r_pos = 0; ap1r_pos = 0;
+  comb0_lp = 0; comb1_lp = 0; comb2_lp = 0; comb3_lp = 0;
+  room_fb = 0.84;
+
+  // Reverb tone filter (post-verb shaping)
+  verb_tone.lms_bq_init();
+
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(4, 27, 10000);
+  bc.lms_bc_init(4, 31, 10000);
 
 @slider
   preamp_gain = lms_db2lin(slider1);
   sat_mode = slider2;
   hpf_on = slider3;
-  output_gain = lms_db2lin(slider27);
+  output_gain = lms_db2lin(slider31);
 
   // HPF - 2nd order Butterworth
   hpf_on ? (
@@ -116,6 +142,22 @@ notice_show = 0;
   comp_makeup = lms_db2lin(slider25);
   comp_mix = slider26 / 100;
 
+  // Reverb
+  verb_type = slider27;
+  verb_mix = slider28 / 100;
+  verb_tone_sel = slider29;
+  verb_pre = 1 - slider30;  // 0=pre comp, 1=post comp → verb_pre=1 means pre
+
+  // Room verb damping: Dark=high damp, Neutral=med, Bright=low
+  verb_tone_sel == 0 ? room_damp = 0.7;
+  verb_tone_sel == 1 ? room_damp = 0.4;
+  verb_tone_sel == 2 ? room_damp = 0.15;
+
+  // Post-verb tone shaping
+  verb_tone_sel == 0 ? verb_tone.lms_bq_set_lp(3000, 0.707);
+  verb_tone_sel == 1 ? verb_tone.lms_bq_set_lp(8000, 0.707);
+  verb_tone_sel == 2 ? verb_tone.lms_bq_set_hishelf(4000, 3, 0.707);
+
 // ============================================================
 // @BLOCK — Recalculate coefficients + Broadcast
 // ============================================================
@@ -124,7 +166,7 @@ notice_show = 0;
 preamp_gain = lms_db2lin(slider1);
 sat_mode = slider2;
 hpf_on = slider3;
-output_gain = lms_db2lin(slider27);
+output_gain = lms_db2lin(slider31);
 
 hpf_on ? (
   hp.lms_bq_set_hp(slider4, 0.707);
@@ -162,6 +204,17 @@ comp_rel_slow = exp(-1.0 / (0.600 * srate));
 comp_makeup = lms_db2lin(slider25);
 comp_mix = slider26 / 100;
 
+verb_type = slider27;
+verb_mix = slider28 / 100;
+verb_tone_sel = slider29;
+verb_pre = 1 - slider30;
+verb_tone_sel == 0 ? room_damp = 0.7;
+verb_tone_sel == 1 ? room_damp = 0.4;
+verb_tone_sel == 2 ? room_damp = 0.15;
+verb_tone_sel == 0 ? verb_tone.lms_bq_set_lp(3000, 0.707);
+verb_tone_sel == 1 ? verb_tone.lms_bq_set_lp(8000, 0.707);
+verb_tone_sel == 2 ? verb_tone.lms_bq_set_hishelf(4000, 3, 0.707);
+
 // Broadcast: heartbeat, follow, steal, stale detection
 bc.lms_bc_block();
 
@@ -194,6 +247,10 @@ bc.bc_leader_pbase > 0 ? (
   slider25 = gmem[bc.bc_leader_pbase + 24];
   slider26 = gmem[bc.bc_leader_pbase + 25];
   slider27 = gmem[bc.bc_leader_pbase + 26];
+  slider28 = gmem[bc.bc_leader_pbase + 27];
+  slider29 = gmem[bc.bc_leader_pbase + 28];
+  slider30 = gmem[bc.bc_leader_pbase + 29];
+  slider31 = gmem[bc.bc_leader_pbase + 30];
 );
 
 // Steal: one-shot copy from target
@@ -225,6 +282,10 @@ bc.bc_did_steal ? (
   slider25 = gmem[bc.bc_steal_pbase + 24];
   slider26 = gmem[bc.bc_steal_pbase + 25];
   slider27 = gmem[bc.bc_steal_pbase + 26];
+  slider28 = gmem[bc.bc_steal_pbase + 27];
+  slider29 = gmem[bc.bc_steal_pbase + 28];
+  slider30 = gmem[bc.bc_steal_pbase + 29];
+  slider31 = gmem[bc.bc_steal_pbase + 30];
 );
 
 // Write our params for others to read
@@ -256,6 +317,10 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 24] = slider25;
   gmem[bc.bc_my_pbase + 25] = slider26;
   gmem[bc.bc_my_pbase + 26] = slider27;
+  gmem[bc.bc_my_pbase + 27] = slider28;
+  gmem[bc.bc_my_pbase + 28] = slider29;
+  gmem[bc.bc_my_pbase + 29] = slider30;
+  gmem[bc.bc_my_pbase + 30] = slider31;
 );
 
 @sample
@@ -310,6 +375,75 @@ bc.bc_my_pbase > 0 ? (
   l = hs.lms_bq_proc_l(l);
   r = hs.lms_bq_proc_r(r);
 
+  // === REVERB (pre-comp position) ===
+  verb_type > 0 && verb_pre ? (
+    verb_type == 1 ? (
+      // Spring reverb (mono from core, applied to both channels)
+      l = spring.lms_spring_proc(l, verb_mix);
+      r = spring.lms_spring_proc(r, verb_mix);
+    ) : (
+      // Room reverb — Schroeder: 4 comb + 2 allpass, stereo
+      mono_in = (l + r) * 0.5;
+      damp_inv = 1 - room_damp;
+
+      // Comb 0 (→ Left)
+      c0_out = (ROOM_BASE + COMB0_OFF)[comb0_pos];
+      comb0_lp = comb0_lp * room_damp + c0_out * damp_inv;
+      (ROOM_BASE + COMB0_OFF)[comb0_pos] = mono_in + comb0_lp * room_fb;
+      comb0_pos += 1; comb0_pos >= COMB0_LEN ? comb0_pos = 0;
+
+      // Comb 1 (→ Left)
+      c1_out = (ROOM_BASE + COMB1_OFF)[comb1_pos];
+      comb1_lp = comb1_lp * room_damp + c1_out * damp_inv;
+      (ROOM_BASE + COMB1_OFF)[comb1_pos] = mono_in + comb1_lp * room_fb;
+      comb1_pos += 1; comb1_pos >= COMB1_LEN ? comb1_pos = 0;
+
+      // Comb 2 (→ Right)
+      c2_out = (ROOM_BASE + COMB2_OFF)[comb2_pos];
+      comb2_lp = comb2_lp * room_damp + c2_out * damp_inv;
+      (ROOM_BASE + COMB2_OFF)[comb2_pos] = mono_in + comb2_lp * room_fb;
+      comb2_pos += 1; comb2_pos >= COMB2_LEN ? comb2_pos = 0;
+
+      // Comb 3 (→ Right)
+      c3_out = (ROOM_BASE + COMB3_OFF)[comb3_pos];
+      comb3_lp = comb3_lp * room_damp + c3_out * damp_inv;
+      (ROOM_BASE + COMB3_OFF)[comb3_pos] = mono_in + comb3_lp * room_fb;
+      comb3_pos += 1; comb3_pos >= COMB3_LEN ? comb3_pos = 0;
+
+      // Sum combs → stereo
+      sum_l = (c0_out + c1_out) * 0.5;
+      sum_r = (c2_out + c3_out) * 0.5;
+
+      // Allpass diffuser L
+      ap_del = (ROOM_BASE + AP0_OFF)[ap0_pos];
+      (ROOM_BASE + AP0_OFF)[ap0_pos] = sum_l + ap_del * 0.5;
+      sum_l = ap_del - sum_l * 0.5;
+      ap0_pos += 1; ap0_pos >= AP0_LEN ? ap0_pos = 0;
+      ap_del = (ROOM_BASE + AP1_OFF)[ap1_pos];
+      (ROOM_BASE + AP1_OFF)[ap1_pos] = sum_l + ap_del * 0.5;
+      sum_l = ap_del - sum_l * 0.5;
+      ap1_pos += 1; ap1_pos >= AP1_LEN ? ap1_pos = 0;
+
+      // Allpass diffuser R (slightly different lengths for width)
+      ap_del = (ROOM_BASE + AP0R_OFF)[ap0r_pos];
+      (ROOM_BASE + AP0R_OFF)[ap0r_pos] = sum_r + ap_del * 0.5;
+      sum_r = ap_del - sum_r * 0.5;
+      ap0r_pos += 1; ap0r_pos >= AP0R_LEN ? ap0r_pos = 0;
+      ap_del = (ROOM_BASE + AP1R_OFF)[ap1r_pos];
+      (ROOM_BASE + AP1R_OFF)[ap1r_pos] = sum_r + ap_del * 0.5;
+      sum_r = ap_del - sum_r * 0.5;
+      ap1r_pos += 1; ap1r_pos >= AP1R_LEN ? ap1r_pos = 0;
+
+      // Tone filter on wet
+      sum_l = verb_tone.lms_bq_proc_l(sum_l);
+      sum_r = verb_tone.lms_bq_proc_r(sum_r);
+
+      // Mix
+      l = l * (1 - verb_mix) + sum_l * verb_mix;
+      r = r * (1 - verb_mix) + sum_r * verb_mix;
+    );
+  );
+
   // === COMPRESSOR (inlined for sidechain HPF + auto-release + makeup + mix) ===
   comp_on ? (
     // Capture dry signal for parallel mix
@@ -337,14 +471,9 @@ bc.bc_my_pbase > 0 ? (
 
     // Envelope follower with auto-release
     target_gr > comp.env ? (
-      // Attack
       comp.env = comp.att * comp.env + (1 - comp.att) * target_gr;
     ) : (
-      // Release
       auto_rel_on ? (
-        // SSL-style dual time constant:
-        // >6dB GR = transient peak, use fast 50ms recovery
-        // <6dB GR = sustained compression, use slow 600ms tail
         rel_coeff = comp.env > 6 ? comp_rel_fast : comp_rel_slow;
         comp.env = rel_coeff * comp.env + (1 - rel_coeff) * target_gr;
       ) : (
@@ -356,13 +485,69 @@ bc.bc_my_pbase > 0 ? (
     comp.gr_db = comp.env;
     comp_gr_db = comp.gr_db;
 
-    // Apply gain reduction + makeup
     l *= comp.gr * comp_makeup;
     r *= comp.gr * comp_makeup;
 
-    // Parallel compression blend
     l = dry_l + comp_mix * (l - dry_l);
     r = dry_r + comp_mix * (r - dry_r);
+  );
+
+  // === REVERB (post-comp position) ===
+  verb_type > 0 && !verb_pre ? (
+    verb_type == 1 ? (
+      l = spring.lms_spring_proc(l, verb_mix);
+      r = spring.lms_spring_proc(r, verb_mix);
+    ) : (
+      mono_in = (l + r) * 0.5;
+      damp_inv = 1 - room_damp;
+
+      c0_out = (ROOM_BASE + COMB0_OFF)[comb0_pos];
+      comb0_lp = comb0_lp * room_damp + c0_out * damp_inv;
+      (ROOM_BASE + COMB0_OFF)[comb0_pos] = mono_in + comb0_lp * room_fb;
+      comb0_pos += 1; comb0_pos >= COMB0_LEN ? comb0_pos = 0;
+
+      c1_out = (ROOM_BASE + COMB1_OFF)[comb1_pos];
+      comb1_lp = comb1_lp * room_damp + c1_out * damp_inv;
+      (ROOM_BASE + COMB1_OFF)[comb1_pos] = mono_in + comb1_lp * room_fb;
+      comb1_pos += 1; comb1_pos >= COMB1_LEN ? comb1_pos = 0;
+
+      c2_out = (ROOM_BASE + COMB2_OFF)[comb2_pos];
+      comb2_lp = comb2_lp * room_damp + c2_out * damp_inv;
+      (ROOM_BASE + COMB2_OFF)[comb2_pos] = mono_in + comb2_lp * room_fb;
+      comb2_pos += 1; comb2_pos >= COMB2_LEN ? comb2_pos = 0;
+
+      c3_out = (ROOM_BASE + COMB3_OFF)[comb3_pos];
+      comb3_lp = comb3_lp * room_damp + c3_out * damp_inv;
+      (ROOM_BASE + COMB3_OFF)[comb3_pos] = mono_in + comb3_lp * room_fb;
+      comb3_pos += 1; comb3_pos >= COMB3_LEN ? comb3_pos = 0;
+
+      sum_l = (c0_out + c1_out) * 0.5;
+      sum_r = (c2_out + c3_out) * 0.5;
+
+      ap_del = (ROOM_BASE + AP0_OFF)[ap0_pos];
+      (ROOM_BASE + AP0_OFF)[ap0_pos] = sum_l + ap_del * 0.5;
+      sum_l = ap_del - sum_l * 0.5;
+      ap0_pos += 1; ap0_pos >= AP0_LEN ? ap0_pos = 0;
+      ap_del = (ROOM_BASE + AP1_OFF)[ap1_pos];
+      (ROOM_BASE + AP1_OFF)[ap1_pos] = sum_l + ap_del * 0.5;
+      sum_l = ap_del - sum_l * 0.5;
+      ap1_pos += 1; ap1_pos >= AP1_LEN ? ap1_pos = 0;
+
+      ap_del = (ROOM_BASE + AP0R_OFF)[ap0r_pos];
+      (ROOM_BASE + AP0R_OFF)[ap0r_pos] = sum_r + ap_del * 0.5;
+      sum_r = ap_del - sum_r * 0.5;
+      ap0r_pos += 1; ap0r_pos >= AP0R_LEN ? ap0r_pos = 0;
+      ap_del = (ROOM_BASE + AP1R_OFF)[ap1r_pos];
+      (ROOM_BASE + AP1R_OFF)[ap1r_pos] = sum_r + ap_del * 0.5;
+      sum_r = ap_del - sum_r * 0.5;
+      ap1r_pos += 1; ap1r_pos >= AP1R_LEN ? ap1r_pos = 0;
+
+      sum_l = verb_tone.lms_bq_proc_l(sum_l);
+      sum_r = verb_tone.lms_bq_proc_r(sum_r);
+
+      l = l * (1 - verb_mix) + sum_l * verb_mix;
+      r = r * (1 - verb_mix) + sum_r * verb_mix;
+    );
   );
 
   // === OUTPUT ===
@@ -627,6 +812,24 @@ _old = slider16; slider16 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider1
 slider16 != _old ? slider_automate(2^15);
 
 // ============================================================================
+//  COLUMN 2 (continued): REVERB
+// ============================================================================
+verb_panel_y = body_y + floor(206 * S);
+draw_panel(c2x, verb_panel_y, col_w, floor(110 * S), "REVERB");
+cy = verb_panel_y + floor(26 * S);
+_old = slider27; slider27 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, slider27, 2, "Type", "Off", "Spring", "Room", "");
+slider27 != _old ? slider_automate(2^26);
+cy += bar_sp;
+_old = slider28; slider28 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider28, 0, 100, "Mix %", 1);
+slider28 != _old ? slider_automate(2^27);
+cy += bar_sp;
+_old = slider29; slider29 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, slider29, 2, "Tone", "Dark", "Neutral", "Bright", "");
+slider29 != _old ? slider_automate(2^28);
+cy += bar_sp;
+_old = slider30; slider30 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, slider30, 1, "Route", "Pre", "Post", "", "");
+slider30 != _old ? slider_automate(2^29);
+
+// ============================================================================
 //  COLUMN 3: COMPRESSOR
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
@@ -688,8 +891,8 @@ comp_on ? (
 // Output bar (below tallest panel)
 out_y = body_y + c3_panel_h + floor(6 * S);
 draw_panel(margin, out_y, gfx_w - margin * 2, floor(46 * S), "OUTPUT");
-_old = slider27; slider27 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider27, -12, 12, "Output dB", 1);
-slider27 != _old ? slider_automate(2^26);
+_old = slider31; slider31 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider31, -12, 12, "Output dB", 1);
+slider31 != _old ? slider_automate(2^30);
   // Instance Manager Panel (from lms_core broadcast system)
   bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
