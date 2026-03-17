@@ -19,9 +19,12 @@ options:gmem=DrumBanger
 slider1:0<0,8,1{Follow,Lock 1,Lock 2,Lock 3,Lock 4,Lock 5,Lock 6,Lock 7,Lock 8}>-Mode
 slider2:0<0,15,1>-MIDI Channel (0=1)
 slider3:60<0,127,1>-Root Note
-slider4:0<0,7,1{Chromatic,Major,Minor,Pentatonic Maj,Pentatonic Min,Blues,Dorian,Mixolydian}>-Scale
-slider5:1<0,4,1{Off,Single,Triad,7th,Power}>-Chord Mode
+slider4:0<0,11,1{Chromatic,Major,Minor,Pent Maj,Pent Min,Blues,Dorian,Mixolydian,Harm Min,Lydian,Phrygian,Whole Tone}>-Scale
+slider5:1<0,9,1{Off,Single,Triad,7th,Power,sus2,sus4,add9,dim,aug}>-Chord Mode
 slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>-Octave
+slider7:0<0,16,1{Off,MAJ Pop,MAJ Rock,MAJ Soul,MAJ Sad,MAJ Jazz,MAJ Bebop,MAJ Mixo,MAJ Blues,MIN Andal,MIN Dark,MIN Dorian,MIN Phryg,MIN Cine,MIN Blues,MIN Ambi,MIN Trap}>-Progression
+slider8:0<0,1,1{Advance,Assign}>-Prog Mode
+slider9:0<0,4,1{Off,Up,Down,Up-Down,Random}>-Arp
 
 // ============================================================
 // MEMORY MAP
@@ -33,9 +36,12 @@ slider6:4<0,7,1{-2,-1,0,+1,+2,+3,+4,+5}>-Octave
 // 2048-2111: NOTES_ON[64] — currently sounding MIDI notes
 // 2112-2175: STEP_NOTES[64] — notes to fire this step
 // 2176-2239: STEP_VELS[64] — velocities for STEP_NOTES
-// 2240-2495: SCALES[256] — scale interval tables (8 scales × 24 entries + padding)
-// 2496-2503: LOCK_HAS_DATA[8] — flag per lock slot (1 = has snapshot)
-// 2504-2519: prev_pad_playing[16] — previous pad playing state (for trigger detection)
+// 2240-2527: SCALES[288] — scale interval tables (12 scales × 24 entries)
+// 2530-2537: LOCK_HAS_DATA[8] — flag per lock slot (1 = has snapshot)
+// 2540-2555: prev_pad_playing[16] — previous pad playing state (for trigger detection)
+// 2600-2855: PROG_DATA[256] — 16 progressions × 8 chords × 2 values
+// 2860-2875: PROG_LEN[16] — chord count per progression
+// 2880-2895: PAD_ASSIGN[16] — pad-to-chord assignment (assign mode)
 
 @init
 
@@ -49,9 +55,9 @@ LOCAL_PAT  = 0;       // 8*16*16 = 2048
 NOTES_ON   = 2048;    // 64 slots
 STEP_NOTES = 2112;    // 64 slots
 STEP_VELS  = 2176;    // 64 slots
-SCALES     = 2240;    // scale tables
-LOCK_HAS_DATA = 2496; // 8 flags
-prev_pad_playing = 2504; // 16 slots
+SCALES     = 2240;    // 12 scales x 24 = 288 entries (2240-2527)
+LOCK_HAS_DATA = 2530; // 8 flags
+prev_pad_playing = 2540; // 16 slots
 
 notes_on_count = 0;
 step_notes_count = 0;
@@ -129,6 +135,168 @@ SCALES[7*24+12]=21;SCALES[7*24+13]=22;SCALES[7*24+14]=24;SCALES[7*24+15]=26;
 SCALES[7*24+16]=28;SCALES[7*24+17]=29;SCALES[7*24+18]=31;SCALES[7*24+19]=33;
 SCALES[7*24+20]=34;SCALES[7*24+21]=36;SCALES[7*24+22]=38;SCALES[7*24+23]=40;
 
+// Harmonic Minor
+SCALES[8*24+0]=0;  SCALES[8*24+1]=2;  SCALES[8*24+2]=3;  SCALES[8*24+3]=5;
+SCALES[8*24+4]=7;  SCALES[8*24+5]=8;  SCALES[8*24+6]=11; SCALES[8*24+7]=12;
+SCALES[8*24+8]=14; SCALES[8*24+9]=15; SCALES[8*24+10]=17;SCALES[8*24+11]=19;
+SCALES[8*24+12]=20;SCALES[8*24+13]=23;SCALES[8*24+14]=24;SCALES[8*24+15]=26;
+SCALES[8*24+16]=27;SCALES[8*24+17]=29;SCALES[8*24+18]=31;SCALES[8*24+19]=32;
+SCALES[8*24+20]=35;SCALES[8*24+21]=36;SCALES[8*24+22]=38;SCALES[8*24+23]=39;
+// Lydian
+SCALES[9*24+0]=0;  SCALES[9*24+1]=2;  SCALES[9*24+2]=4;  SCALES[9*24+3]=6;
+SCALES[9*24+4]=7;  SCALES[9*24+5]=9;  SCALES[9*24+6]=11; SCALES[9*24+7]=12;
+SCALES[9*24+8]=14; SCALES[9*24+9]=16; SCALES[9*24+10]=18;SCALES[9*24+11]=19;
+SCALES[9*24+12]=21;SCALES[9*24+13]=23;SCALES[9*24+14]=24;SCALES[9*24+15]=26;
+SCALES[9*24+16]=28;SCALES[9*24+17]=30;SCALES[9*24+18]=31;SCALES[9*24+19]=33;
+SCALES[9*24+20]=35;SCALES[9*24+21]=36;SCALES[9*24+22]=38;SCALES[9*24+23]=40;
+// Phrygian
+SCALES[10*24+0]=0;  SCALES[10*24+1]=1;  SCALES[10*24+2]=3;  SCALES[10*24+3]=5;
+SCALES[10*24+4]=7;  SCALES[10*24+5]=8;  SCALES[10*24+6]=10; SCALES[10*24+7]=12;
+SCALES[10*24+8]=13; SCALES[10*24+9]=15; SCALES[10*24+10]=17;SCALES[10*24+11]=19;
+SCALES[10*24+12]=20;SCALES[10*24+13]=22;SCALES[10*24+14]=24;SCALES[10*24+15]=25;
+SCALES[10*24+16]=27;SCALES[10*24+17]=29;SCALES[10*24+18]=31;SCALES[10*24+19]=32;
+SCALES[10*24+20]=34;SCALES[10*24+21]=36;SCALES[10*24+22]=37;SCALES[10*24+23]=39;
+// Whole Tone
+SCALES[11*24+0]=0;  SCALES[11*24+1]=2;  SCALES[11*24+2]=4;  SCALES[11*24+3]=6;
+SCALES[11*24+4]=8;  SCALES[11*24+5]=10; SCALES[11*24+6]=12; SCALES[11*24+7]=14;
+SCALES[11*24+8]=16; SCALES[11*24+9]=18; SCALES[11*24+10]=20;SCALES[11*24+11]=22;
+SCALES[11*24+12]=24;SCALES[11*24+13]=26;SCALES[11*24+14]=28;SCALES[11*24+15]=30;
+SCALES[11*24+16]=32;SCALES[11*24+17]=34;SCALES[11*24+18]=36;SCALES[11*24+19]=38;
+SCALES[11*24+20]=40;SCALES[11*24+21]=42;SCALES[11*24+22]=44;SCALES[11*24+23]=46;
+
+// ---- Progression data ----
+// Each prog: up to 8 chords, each = [semitone_offset, quality]
+// Quality: 0=maj 1=min 2=maj7 3=min7 4=dom7 5=dim 6=aug
+NUM_PROGS = 16;
+PROG_DATA = 2600;  // 16 progs x 8 chords x 2 = 256 entries
+PROG_LEN  = 2860;  // 16 entries (chord count per prog)
+PAD_ASSIGN = 2880; // 16 pad-to-chord assignments (for assign mode)
+dbg_init_canary = 9999;  // if this shows 0, @init died before this line
+
+// Helper: set progression chord
+// p=prog(0-15) c=chord_idx(0-7) semi=semitone qual=quality
+// address = PROG_DATA + p*16 + c*2
+
+// Prog 0: Pop Anthem I-V-vi-IV (major key: 0,7,9,5 semitones)
+PROG_LEN[0]=4;
+PROG_DATA[0*16+0]=0; PROG_DATA[0*16+1]=0;  // I maj
+PROG_DATA[0*16+2]=7; PROG_DATA[0*16+3]=0;  // V maj
+PROG_DATA[0*16+4]=9; PROG_DATA[0*16+5]=1;  // vi min
+PROG_DATA[0*16+6]=5; PROG_DATA[0*16+7]=0;  // IV maj
+
+// Prog 1: Classic Rock I-IV-V-IV
+PROG_LEN[1]=4;
+PROG_DATA[1*16+0]=0; PROG_DATA[1*16+1]=0;
+PROG_DATA[1*16+2]=5; PROG_DATA[1*16+3]=0;
+PROG_DATA[1*16+4]=7; PROG_DATA[1*16+5]=0;
+PROG_DATA[1*16+6]=5; PROG_DATA[1*16+7]=0;
+
+// Prog 2: 50s Doo-Wop I-vi-IV-V
+PROG_LEN[2]=4;
+PROG_DATA[2*16+0]=0; PROG_DATA[2*16+1]=0;
+PROG_DATA[2*16+2]=9; PROG_DATA[2*16+3]=1;
+PROG_DATA[2*16+4]=5; PROG_DATA[2*16+5]=0;
+PROG_DATA[2*16+6]=7; PROG_DATA[2*16+7]=0;
+
+// Prog 3: Sad Pop vi-IV-I-V
+PROG_LEN[3]=4;
+PROG_DATA[3*16+0]=9; PROG_DATA[3*16+1]=1;
+PROG_DATA[3*16+2]=5; PROG_DATA[3*16+3]=0;
+PROG_DATA[3*16+4]=0; PROG_DATA[3*16+5]=0;
+PROG_DATA[3*16+6]=7; PROG_DATA[3*16+7]=0;
+
+// Prog 4: Jazz Turnaround Imaj7-vi7-ii7-V7
+PROG_LEN[4]=4;
+PROG_DATA[4*16+0]=0; PROG_DATA[4*16+1]=2;  // Imaj7
+PROG_DATA[4*16+2]=9; PROG_DATA[4*16+3]=3;  // vi min7
+PROG_DATA[4*16+4]=2; PROG_DATA[4*16+5]=3;  // ii min7
+PROG_DATA[4*16+6]=7; PROG_DATA[4*16+7]=4;  // V dom7
+
+// Prog 5: ii-V-I Extended ii7-V7-Imaj7-IVmaj7
+PROG_LEN[5]=4;
+PROG_DATA[5*16+0]=2; PROG_DATA[5*16+1]=3;
+PROG_DATA[5*16+2]=7; PROG_DATA[5*16+3]=4;
+PROG_DATA[5*16+4]=0; PROG_DATA[5*16+5]=2;
+PROG_DATA[5*16+6]=5; PROG_DATA[5*16+7]=2;
+
+// Prog 6: Andalusian i-VII-VI-V
+PROG_LEN[6]=4;
+PROG_DATA[6*16+0]=0; PROG_DATA[6*16+1]=1;
+PROG_DATA[6*16+2]=10;PROG_DATA[6*16+3]=0;  // bVII
+PROG_DATA[6*16+4]=8; PROG_DATA[6*16+5]=0;  // bVI
+PROG_DATA[6*16+6]=7; PROG_DATA[6*16+7]=0;
+
+// Prog 7: Dark Minor i-iv-VII-III
+PROG_LEN[7]=4;
+PROG_DATA[7*16+0]=0; PROG_DATA[7*16+1]=1;
+PROG_DATA[7*16+2]=5; PROG_DATA[7*16+3]=1;  // iv min
+PROG_DATA[7*16+4]=10;PROG_DATA[7*16+5]=0;  // bVII
+PROG_DATA[7*16+6]=3; PROG_DATA[7*16+7]=0;  // bIII
+
+// Prog 8: Dorian Funk i7-IV7 (2 chords)
+PROG_LEN[8]=2;
+PROG_DATA[8*16+0]=0; PROG_DATA[8*16+1]=3;  // i min7
+PROG_DATA[8*16+2]=5; PROG_DATA[8*16+3]=4;  // IV dom7
+
+// Prog 9: Phrygian Evil i-bII-i-bVII
+PROG_LEN[9]=4;
+PROG_DATA[9*16+0]=0; PROG_DATA[9*16+1]=1;
+PROG_DATA[9*16+2]=1; PROG_DATA[9*16+3]=0;  // bII
+PROG_DATA[9*16+4]=0; PROG_DATA[9*16+5]=1;
+PROG_DATA[9*16+6]=10;PROG_DATA[9*16+7]=0;  // bVII
+
+// Prog 10: Cinematic Rise i-III-VI-IV
+PROG_LEN[10]=4;
+PROG_DATA[10*16+0]=0; PROG_DATA[10*16+1]=1;
+PROG_DATA[10*16+2]=3; PROG_DATA[10*16+3]=0;  // bIII
+PROG_DATA[10*16+4]=8; PROG_DATA[10*16+5]=0;  // bVI
+PROG_DATA[10*16+6]=5; PROG_DATA[10*16+7]=0;
+
+// Prog 11: Mixolydian Float I-bVII-IV-I
+PROG_LEN[11]=4;
+PROG_DATA[11*16+0]=0; PROG_DATA[11*16+1]=0;
+PROG_DATA[11*16+2]=10;PROG_DATA[11*16+3]=0;
+PROG_DATA[11*16+4]=5; PROG_DATA[11*16+5]=0;
+PROG_DATA[11*16+6]=0; PROG_DATA[11*16+7]=0;
+
+// Prog 12: Blues Vamp I7-IV7-I7-V7
+PROG_LEN[12]=4;
+PROG_DATA[12*16+0]=0; PROG_DATA[12*16+1]=4;
+PROG_DATA[12*16+2]=5; PROG_DATA[12*16+3]=4;
+PROG_DATA[12*16+4]=0; PROG_DATA[12*16+5]=4;
+PROG_DATA[12*16+6]=7; PROG_DATA[12*16+7]=4;
+
+// Prog 13: Minor Blues i7-iv7-i7-V7
+PROG_LEN[13]=4;
+PROG_DATA[13*16+0]=0; PROG_DATA[13*16+1]=3;
+PROG_DATA[13*16+2]=5; PROG_DATA[13*16+3]=3;
+PROG_DATA[13*16+4]=0; PROG_DATA[13*16+5]=3;
+PROG_DATA[13*16+6]=7; PROG_DATA[13*16+7]=4;
+
+// Prog 14: Ambient Drift Imaj7-IVmaj7-vi7-IVmaj7
+PROG_LEN[14]=4;
+PROG_DATA[14*16+0]=0; PROG_DATA[14*16+1]=2;
+PROG_DATA[14*16+2]=5; PROG_DATA[14*16+3]=2;
+PROG_DATA[14*16+4]=9; PROG_DATA[14*16+5]=3;
+PROG_DATA[14*16+6]=5; PROG_DATA[14*16+7]=2;
+
+// Prog 15: Trap Minimal i-i-iv-V
+PROG_LEN[15]=4;
+PROG_DATA[15*16+0]=0; PROG_DATA[15*16+1]=1;
+PROG_DATA[15*16+2]=0; PROG_DATA[15*16+3]=1;
+PROG_DATA[15*16+4]=5; PROG_DATA[15*16+5]=1;
+PROG_DATA[15*16+6]=7; PROG_DATA[15*16+7]=0;
+
+// Default pad assignments (pad 0→chord 0, pad 1→chord 1, etc)
+i = 0; loop(16, PAD_ASSIGN[i] = i % 8; i += 1);
+
+// ---- Progression state ----
+prog_pos = 0;     // current chord index in progression (advance mode)
+prog_active = 0;  // cached: slider7 > 0
+
+// ---- Arp state ----
+arp_pos = 0;      // current position in chord tone cycle
+
 // ---- GFX state ----
 ui_selected_pad = 0;
 
@@ -177,10 +345,233 @@ function build_notes_for_pad(pad_idx, vel) local(scale_id, root, note, chord) (
     add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
     add_step_note(root + SCALES[scale_id * 24 + pad_idx + 6], vel);
   ) : chord == 4 ? (
+    // Power: root + 5th + octave
     add_step_note(note, vel);
     add_step_note(note + 7, vel);
     add_step_note(note + 12, vel);
+  ) : chord == 5 ? (
+    // sus2: root + 2nd + 5th
+    add_step_note(note, vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 1], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
+  ) : chord == 6 ? (
+    // sus4: root + 4th + 5th
+    add_step_note(note, vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 3], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
+  ) : chord == 7 ? (
+    // add9: root + 3rd + 5th + 9th
+    add_step_note(note, vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 2], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 4], vel);
+    add_step_note(root + SCALES[scale_id * 24 + pad_idx + 8], vel);
+  ) : chord == 8 ? (
+    // dim: root + b3 + b5
+    add_step_note(note, vel);
+    add_step_note(note + 3, vel);
+    add_step_note(note + 6, vel);
+  ) : chord == 9 ? (
+    // aug: root + 3 + #5
+    add_step_note(note, vel);
+    add_step_note(note + 4, vel);
+    add_step_note(note + 8, vel);
   );
+);
+
+// ---- Build chord from progression (semitone + quality, voiced by Chord Mode) ----
+// Progression defines WHAT chord (root + quality).
+// Chord Mode (slider5) defines HOW it's voiced:
+//   Single = root only, Triad = 3 notes, 7th = full extension,
+//   Power = root+5+oct, sus2/sus4/add9/dim/aug = recolor the voicing
+function build_notes_for_progression(chord_semi, chord_qual, vel, pad_num)
+  local(root, base, third, fifth, seventh, voicing, oct_off)
+(
+  root = slider3 + (slider6 - 2) * 12;
+  // Pad-based octave spread: pads 0-3 = -1oct, 4-7 = 0, 8-11 = +1, 12-15 = +2
+  oct_off = (floor(pad_num / 4) - 1) * 12;
+  base = root + chord_semi + oct_off;
+  voicing = slider5;  // Chord Mode controls voicing
+
+  // Determine intervals from quality
+  // 0=maj 1=min 2=maj7 3=min7 4=dom7 5=dim 6=aug
+  // 7=min9 8=dom9 9=maj9 10=dom7#9 11=min7b5 12=dim7 13=sus4_7 14=add9
+  chord_qual == 0 ? ( third = 4; fifth = 7; seventh = -1; )   // maj
+: chord_qual == 1 ? ( third = 3; fifth = 7; seventh = -1; )   // min
+: chord_qual == 2 ? ( third = 4; fifth = 7; seventh = 11; )   // maj7
+: chord_qual == 3 ? ( third = 3; fifth = 7; seventh = 10; )   // min7
+: chord_qual == 4 ? ( third = 4; fifth = 7; seventh = 10; )   // dom7
+: chord_qual == 5 ? ( third = 3; fifth = 6; seventh = -1; )   // dim
+: chord_qual == 6 ? ( third = 4; fifth = 8; seventh = -1; )   // aug
+: chord_qual == 7 ? ( third = 3; fifth = 7; seventh = 10; )   // min9 (handled special)
+: chord_qual == 8 ? ( third = 4; fifth = 7; seventh = 10; )   // dom9 (handled special)
+: chord_qual == 9 ? ( third = 4; fifth = 7; seventh = 11; )   // maj9 (handled special)
+: chord_qual == 10 ? ( third = 4; fifth = 7; seventh = 10; )  // dom7#9 (Hendrix chord)
+: chord_qual == 11 ? ( third = 3; fifth = 6; seventh = 10; )  // min7b5 (half-dim)
+: chord_qual == 12 ? ( third = 3; fifth = 6; seventh = 9; )   // dim7 (full dim)
+: chord_qual == 13 ? ( third = 5; fifth = 7; seventh = 10; )  // sus4 dom7
+: chord_qual == 14 ? ( third = 4; fifth = 7; seventh = -1; )  // add9 (triad + 9)
+: ( third = 4; fifth = 7; seventh = -1; );                     // fallback maj
+
+  // Voice the chord based on Chord Mode
+  voicing == 0 ? (
+    0; // Off — no notes
+  ) : voicing == 1 ? (
+    // Single — just root + octave below for depth
+    add_step_note(base, vel);
+    add_step_note(base - 12, vel * 0.7);
+  ) : voicing == 2 ? (
+    // Triad — inversions based on chord position for voice leading
+    // chord_idx 0=root pos, 1=1st inv, 2=2nd inv, 3=root pos (cycle)
+    _inv = dbg_chord_idx % 3;
+    _inv == 0 ? (
+      add_step_note(base - 12, vel * 0.7);
+      add_step_note(base, vel);
+      add_step_note(base + third, vel);
+      add_step_note(base + fifth, vel);
+    ) : _inv == 1 ? (
+      // 1st inversion: 3rd in bass
+      add_step_note(base + third - 12, vel * 0.7);
+      add_step_note(base, vel);
+      add_step_note(base + fifth, vel);
+      add_step_note(base + 12, vel * 0.6);
+    ) : (
+      // 2nd inversion: 5th in bass
+      add_step_note(base + fifth - 12, vel * 0.7);
+      add_step_note(base, vel);
+      add_step_note(base + third, vel);
+      add_step_note(base + 12, vel * 0.6);
+    );
+  ) : voicing == 3 ? (
+    // 7th — drop-2 voicing with inversions for smooth voice leading
+    _inv = dbg_chord_idx % 4;
+    _inv == 0 ? (
+      // Root position drop-2: root(bass), 5th, 7th, 3rd(top)
+      add_step_note(base - 12, vel * 0.7);
+      add_step_note(base + fifth, vel);
+      seventh >= 0 ? add_step_note(base + seventh, vel) : add_step_note(base + 11, vel * 0.6);
+      add_step_note(base + third + 12, vel * 0.9);
+    ) : _inv == 1 ? (
+      // 1st inv drop-2: 3rd(bass), root, 5th, 7th(top)
+      add_step_note(base + third - 12, vel * 0.7);
+      add_step_note(base, vel);
+      add_step_note(base + fifth, vel);
+      seventh >= 0 ? add_step_note(base + seventh, vel) : add_step_note(base + 11, vel * 0.6);
+    ) : _inv == 2 ? (
+      // 2nd inv: 5th(bass), 3rd, root(top)
+      add_step_note(base + fifth - 12, vel * 0.7);
+      add_step_note(base + third, vel);
+      seventh >= 0 ? add_step_note(base + seventh, vel) : add_step_note(base + 11, vel * 0.6);
+      add_step_note(base + 12, vel * 0.9);
+    ) : (
+      // 3rd inv: 7th(bass), root, 3rd, 5th(top)
+      seventh >= 0 ? add_step_note(base + seventh - 12, vel * 0.7) : add_step_note(base + 11 - 12, vel * 0.7);
+      add_step_note(base, vel);
+      add_step_note(base + third, vel);
+      add_step_note(base + fifth, vel);
+    );
+    // 9ths and specials get the 9th
+    chord_qual >= 7 && chord_qual <= 9 ? add_step_note(base + 14, vel * 0.7);
+    chord_qual == 10 ? add_step_note(base + 15, vel * 0.8);
+  ) : voicing == 4 ? (
+    // Power — root + 5th + octave, heavy
+    add_step_note(base - 12, vel);
+    add_step_note(base, vel);
+    add_step_note(base + fifth, vel);
+    add_step_note(base + 12, vel * 0.8);
+  ) : voicing == 5 ? (
+    // sus2 — replace 3rd with 2nd, add octave
+    add_step_note(base - 12, vel * 0.7);
+    add_step_note(base, vel);
+    add_step_note(base + 2, vel);
+    add_step_note(base + fifth, vel);
+  ) : voicing == 6 ? (
+    // sus4 — replace 3rd with 4th, add octave
+    add_step_note(base - 12, vel * 0.7);
+    add_step_note(base, vel);
+    add_step_note(base + 5, vel);
+    add_step_note(base + fifth, vel);
+  ) : voicing == 7 ? (
+    // add9 — triad + 9th (2nd up an octave), lush
+    add_step_note(base - 12, vel * 0.7);
+    add_step_note(base, vel);
+    add_step_note(base + third, vel);
+    add_step_note(base + fifth, vel);
+    add_step_note(base + 14, vel * 0.8);  // 9th = 2nd + octave
+    seventh >= 0 ? add_step_note(base + seventh, vel * 0.7);
+  ) : voicing == 8 ? (
+    // dim — flatten everything, dark cluster
+    add_step_note(base - 12, vel * 0.7);
+    add_step_note(base, vel);
+    add_step_note(base + 3, vel);
+    add_step_note(base + 6, vel);
+    add_step_note(base + 9, vel * 0.6);  // dim7
+  ) : voicing == 9 ? (
+    // aug — widen everything, dreamlike
+    add_step_note(base - 12, vel * 0.7);
+    add_step_note(base, vel);
+    add_step_note(base + 4, vel);
+    add_step_note(base + 8, vel);
+    add_step_note(base + 14, vel * 0.6);  // add 9th for shimmer
+  );
+);
+
+// ---- Look up progression chord (no memory arrays — direct conditionals) ----
+function get_prog_chord(pid, cidx) (
+  // Sets globals: gpc_semi, gpc_qual, gpc_len
+  // pid=prog index (0-15), cidx=chord index (0-7)
+  // Quals: 0=maj 1=min 2=maj7 3=min7 4=dom7 5=dim 6=aug 7=min9 8=dom9 9=maj9 10=dom7#9 11=min7b5 12=dim7 13=sus4_7 14=add9
+  // ===== MAJOR KEY PROGRESSIONS (0-7) =====
+  //
+  // Pop Anthem: I(add9)-V(sus4)-vi9-IV(maj9)-I-iii7-IV(add9)-V — 8-chord journey
+  pid == 0 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=14):cidx==1?(gpc_semi=7;gpc_qual=13):cidx==2?(gpc_semi=9;gpc_qual=7):cidx==3?(gpc_semi=5;gpc_qual=9):cidx==4?(gpc_semi=0;gpc_qual=0):cidx==5?(gpc_semi=4;gpc_qual=3):cidx==6?(gpc_semi=5;gpc_qual=14):(gpc_semi=7;gpc_qual=0); )
+  // Classic Rock: I-IV(sus4)-V-IV-I-bVII-IV-V(sus4) — 8, anthemic climb
+: pid == 1 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=0):cidx==1?(gpc_semi=5;gpc_qual=13):cidx==2?(gpc_semi=7;gpc_qual=0):cidx==3?(gpc_semi=5;gpc_qual=0):cidx==4?(gpc_semi=0;gpc_qual=0):cidx==5?(gpc_semi=10;gpc_qual=0):cidx==6?(gpc_semi=5;gpc_qual=0):(gpc_semi=7;gpc_qual=13); )
+  // Vintage Soul: Imaj7-vi7-ii9-V9-Imaj7-IV(maj9)-iii7-vi7 — Motown meets neo-soul
+: pid == 2 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=2):cidx==1?(gpc_semi=9;gpc_qual=3):cidx==2?(gpc_semi=2;gpc_qual=7):cidx==3?(gpc_semi=7;gpc_qual=8):cidx==4?(gpc_semi=0;gpc_qual=2):cidx==5?(gpc_semi=5;gpc_qual=9):cidx==6?(gpc_semi=4;gpc_qual=3):(gpc_semi=9;gpc_qual=3); )
+  // Sad Pop: vi9-IVmaj9-Imaj7-V(sus4)-vi7-iii7-IVadd9-V7 — 8, emo yearning
+: pid == 3 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=9;gpc_qual=7):cidx==1?(gpc_semi=5;gpc_qual=9):cidx==2?(gpc_semi=0;gpc_qual=2):cidx==3?(gpc_semi=7;gpc_qual=13):cidx==4?(gpc_semi=9;gpc_qual=3):cidx==5?(gpc_semi=4;gpc_qual=3):cidx==6?(gpc_semi=5;gpc_qual=14):(gpc_semi=7;gpc_qual=4); )
+  // Jazz Turnaround: Imaj9-vi7-ii9-V7#9-iii7-VI7-ii9-V(sus4) — Real Book 8-bar
+: pid == 4 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=9):cidx==1?(gpc_semi=9;gpc_qual=3):cidx==2?(gpc_semi=2;gpc_qual=7):cidx==3?(gpc_semi=7;gpc_qual=10):cidx==4?(gpc_semi=4;gpc_qual=3):cidx==5?(gpc_semi=9;gpc_qual=4):cidx==6?(gpc_semi=2;gpc_qual=7):(gpc_semi=7;gpc_qual=13); )
+  // Bebop: ii9-V9-Imaj9-#IVm7b5-ii9-bII7(tritone sub)-Imaj9-V7#9 — 8 with tritone sub
+: pid == 5 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=2;gpc_qual=7):cidx==1?(gpc_semi=7;gpc_qual=8):cidx==2?(gpc_semi=0;gpc_qual=9):cidx==3?(gpc_semi=6;gpc_qual=11):cidx==4?(gpc_semi=2;gpc_qual=7):cidx==5?(gpc_semi=1;gpc_qual=4):cidx==6?(gpc_semi=0;gpc_qual=9):(gpc_semi=7;gpc_qual=10); )
+  // Mixo Float: I(add9)-bVII(add9)-IV(sus4)-V-I-bVII-IV(add9)-I — 8, Americana
+: pid == 6 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=14):cidx==1?(gpc_semi=10;gpc_qual=14):cidx==2?(gpc_semi=5;gpc_qual=13):cidx==3?(gpc_semi=7;gpc_qual=0):cidx==4?(gpc_semi=0;gpc_qual=0):cidx==5?(gpc_semi=10;gpc_qual=0):cidx==6?(gpc_semi=5;gpc_qual=14):(gpc_semi=0;gpc_qual=0); )
+  // Blues: I9-IV9-I7-I7#9-IV9-#IVdim7-I7-V7#9 — 8-bar blues with diminished pass
+: pid == 7 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=8):cidx==1?(gpc_semi=5;gpc_qual=8):cidx==2?(gpc_semi=0;gpc_qual=4):cidx==3?(gpc_semi=0;gpc_qual=10):cidx==4?(gpc_semi=5;gpc_qual=8):cidx==5?(gpc_semi=6;gpc_qual=12):cidx==6?(gpc_semi=0;gpc_qual=4):(gpc_semi=7;gpc_qual=10); )
+  // ===== MINOR KEY PROGRESSIONS (8-15) =====
+  //
+  // Andalusian: i-bVII(add9)-bVI(maj7)-V7#9-i-bVII-bVI(maj9)-V(sus4) — 8, flamenco
+: pid == 8 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=1):cidx==1?(gpc_semi=10;gpc_qual=14):cidx==2?(gpc_semi=8;gpc_qual=2):cidx==3?(gpc_semi=7;gpc_qual=10):cidx==4?(gpc_semi=0;gpc_qual=1):cidx==5?(gpc_semi=10;gpc_qual=0):cidx==6?(gpc_semi=8;gpc_qual=9):(gpc_semi=7;gpc_qual=13); )
+  // Dark Minor: i9-iv7-bVII9-bIIImaj7-i-bVI(maj9)-iv9-V7#9 — 8, trip-hop noir
+: pid == 9 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=7):cidx==1?(gpc_semi=5;gpc_qual=3):cidx==2?(gpc_semi=10;gpc_qual=8):cidx==3?(gpc_semi=3;gpc_qual=2):cidx==4?(gpc_semi=0;gpc_qual=1):cidx==5?(gpc_semi=8;gpc_qual=9):cidx==6?(gpc_semi=5;gpc_qual=7):(gpc_semi=7;gpc_qual=10); )
+  // Dorian Funk: i9-IV9-i7-IV(sus4)-i9-bVII9-IV9-i — 8, Miles vamp
+: pid == 10 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=7):cidx==1?(gpc_semi=5;gpc_qual=8):cidx==2?(gpc_semi=0;gpc_qual=3):cidx==3?(gpc_semi=5;gpc_qual=13):cidx==4?(gpc_semi=0;gpc_qual=7):cidx==5?(gpc_semi=10;gpc_qual=8):cidx==6?(gpc_semi=5;gpc_qual=8):(gpc_semi=0;gpc_qual=1); )
+  // Phrygian Evil: i-bII(maj7)-bVII(sus4)-i(dim7)-bII-bIII-bII(maj7)-i — 8, horror walk
+: pid == 11 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=1):cidx==1?(gpc_semi=1;gpc_qual=2):cidx==2?(gpc_semi=10;gpc_qual=13):cidx==3?(gpc_semi=0;gpc_qual=12):cidx==4?(gpc_semi=1;gpc_qual=0):cidx==5?(gpc_semi=3;gpc_qual=0):cidx==6?(gpc_semi=1;gpc_qual=2):(gpc_semi=0;gpc_qual=1); )
+  // Cinematic: i(add9)-bIII(maj9)-bVI(maj7)-iv9-bVII-V(sus4)-bVI(maj7)-V7#9 — 8, epic
+: pid == 12 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=14):cidx==1?(gpc_semi=3;gpc_qual=9):cidx==2?(gpc_semi=8;gpc_qual=2):cidx==3?(gpc_semi=5;gpc_qual=7):cidx==4?(gpc_semi=10;gpc_qual=0):cidx==5?(gpc_semi=7;gpc_qual=13):cidx==6?(gpc_semi=8;gpc_qual=2):(gpc_semi=7;gpc_qual=10); )
+  // Minor Blues: i9-iv9-i7-i7-iv9-v7-i7-V7#9 — 8-bar minor blues
+: pid == 13 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=7):cidx==1?(gpc_semi=5;gpc_qual=7):cidx==2?(gpc_semi=0;gpc_qual=3):cidx==3?(gpc_semi=0;gpc_qual=3):cidx==4?(gpc_semi=5;gpc_qual=7):cidx==5?(gpc_semi=7;gpc_qual=3):cidx==6?(gpc_semi=0;gpc_qual=3):(gpc_semi=7;gpc_qual=10); )
+  // Ambient Drift: Imaj9-IVmaj9-vi9-bVII(add9)-Imaj9-iii7-IVmaj9-bVII(add9) — 8, floating
+: pid == 14 ? ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=9):cidx==1?(gpc_semi=5;gpc_qual=9):cidx==2?(gpc_semi=9;gpc_qual=7):cidx==3?(gpc_semi=10;gpc_qual=14):cidx==4?(gpc_semi=0;gpc_qual=9):cidx==5?(gpc_semi=4;gpc_qual=3):cidx==6?(gpc_semi=5;gpc_qual=9):(gpc_semi=10;gpc_qual=14); )
+  // Trap Dark: i-i(dim7)-iv7-V7#9-bVI(maj7)-bVII-iv7-V(sus4) — 8, menacing build
+: ( gpc_len=8;
+    cidx==0?(gpc_semi=0;gpc_qual=1):cidx==1?(gpc_semi=0;gpc_qual=12):cidx==2?(gpc_semi=5;gpc_qual=3):cidx==3?(gpc_semi=7;gpc_qual=10):cidx==4?(gpc_semi=8;gpc_qual=2):cidx==5?(gpc_semi=10;gpc_qual=0):cidx==6?(gpc_semi=5;gpc_qual=3):(gpc_semi=7;gpc_qual=13); );
 );
 
 // ---- Fire all step notes as MIDI note-on ----
@@ -286,34 +677,120 @@ step_changed && transport_playing ? (
   all_notes_off();
   step_notes_count = 0;
 
+  // Check if any pad has a hit and find max velocity
+  _any_hit = 0;
+  _max_v = 0;
+  _first_pad = -1;
   p = 0;
   loop(NUM_PADS,
     pvel = get_active_step(seq_step, p);
-    pvel > 0 ? build_notes_for_pad(p, pvel);
+    pvel > 0 ? (
+      _any_hit += 1;
+      pvel > _max_v ? _max_v = pvel;
+      _first_pad < 0 ? _first_pad = p;
+    );
     p += 1;
   );
 
-  step_notes_count > 0 ? fire_all_notes();
+  _any_hit > 0 ? (
+    // Progression active?
+    slider7 > 0 ? (
+      prog_id = slider7 - 1;
+      get_prog_chord(prog_id, 0);
+      prog_len = gpc_len;
+      slider8 == 0 ? (
+        chord_idx = prog_pos % prog_len;
+        prog_pos += 1;
+      ) : (
+        chord_idx = PAD_ASSIGN[_first_pad] % prog_len;
+      );
+      get_prog_chord(prog_id, chord_idx);
+      dbg_chord_idx = chord_idx;
+      dbg_c_semi = gpc_semi;
+      dbg_c_qual = gpc_qual;
+      dbg_prog_len = prog_len;
+      build_notes_for_progression(gpc_semi, gpc_qual, _max_v, _first_pad);
+    ) : (
+      p = 0;
+      loop(NUM_PADS,
+        pvel = get_active_step(seq_step, p);
+        pvel > 0 ? build_notes_for_pad(p, pvel);
+        p += 1;
+      );
+    );
+
+    // Arp: cycle through chord tones one at a time
+    slider9 > 0 && step_notes_count > 1 ? (
+      slider9 == 1 ? arp_idx = arp_pos % step_notes_count;
+      slider9 == 2 ? arp_idx = (step_notes_count - 1) - (arp_pos % step_notes_count);
+      slider9 == 3 ? (
+        cycle_len = max(1, (step_notes_count - 1) * 2);
+        cycle_pos = arp_pos % cycle_len;
+        arp_idx = cycle_pos < step_notes_count ? cycle_pos : cycle_len - cycle_pos;
+      );
+      slider9 == 4 ? arp_idx = floor(rand() * step_notes_count);
+      arp_idx = max(0, min(step_notes_count - 1, arp_idx));
+      _an = STEP_NOTES[arp_idx];
+      _av = STEP_VELS[arp_idx];
+      step_notes_count = 0;
+      add_step_note(_an, _av);
+      arp_pos += 1;
+    );
+
+    step_notes_count > 0 ? fire_all_notes();
+  );
 );
 
 last_step = seq_step;
 
 // ---- Follow mode: live pad trigger passthrough ----
-// When in Follow mode, mirror DrumBanger's pad triggers as MIDI in real-time.
-// This lets you hear the drone synth even when transport is stopped.
-// New trigger kills previous notes then fires new ones — sustain is handled
-// by the downstream synth's envelope, not by pad sample length.
 lock_mode == 0 ? (
   p = 0;
   loop(NUM_PADS,
     pad_now = gmem[120 + p];
-    // Rising edge: pad just started playing — retrigger
     pad_now && !prev_pad_playing[p] ? (
       all_notes_off();
       trig_vel = gmem[100 + p];
       trig_vel <= 0 ? trig_vel = 100;
       step_notes_count = 0;
-      build_notes_for_pad(p, trig_vel);
+
+      slider7 > 0 ? (
+        prog_id = slider7 - 1;
+        get_prog_chord(prog_id, 0);
+        prog_len = gpc_len;
+        slider8 == 0 ? (
+          chord_idx = prog_pos % prog_len;
+          prog_pos += 1;
+        ) : (
+          chord_idx = PAD_ASSIGN[p] % prog_len;
+        );
+        get_prog_chord(prog_id, chord_idx);
+        dbg_chord_idx = chord_idx;
+        dbg_c_semi = gpc_semi;
+        dbg_c_qual = gpc_qual;
+        dbg_prog_len = prog_len;
+        build_notes_for_progression(gpc_semi, gpc_qual, trig_vel, p);
+      ) : (
+        build_notes_for_pad(p, trig_vel);
+      );
+
+      slider9 > 0 && step_notes_count > 1 ? (
+        slider9 == 1 ? arp_idx = arp_pos % step_notes_count;
+        slider9 == 2 ? arp_idx = (step_notes_count - 1) - (arp_pos % step_notes_count);
+        slider9 == 3 ? (
+          cycle_len = max(1, (step_notes_count - 1) * 2);
+          cycle_pos = arp_pos % cycle_len;
+          arp_idx = cycle_pos < step_notes_count ? cycle_pos : cycle_len - cycle_pos;
+        );
+        slider9 == 4 ? arp_idx = floor(rand() * step_notes_count);
+        arp_idx = max(0, min(step_notes_count - 1, arp_idx));
+        _an = STEP_NOTES[arp_idx];
+        _av = STEP_VELS[arp_idx];
+        step_notes_count = 0;
+        add_step_note(_an, _av);
+        arp_pos += 1;
+      );
+
       step_notes_count > 0 ? fire_all_notes();
     );
     prev_pad_playing[p] = pad_now;
@@ -355,7 +832,7 @@ spl1 = spl1;
 // ============================================================
 // @GFX — User Interface
 // ============================================================
-@gfx 620 440
+@gfx 620 460
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -437,6 +914,33 @@ gfx_drawnumber(seq_step + 1, 0);
 gfx_drawstr("/");
 gfx_drawnumber(steps_per_measure, 0);
 transport_playing ? gfx_drawstr("  PLAYING") : gfx_drawstr("  STOPPED");
+// Debug: show progression state
+slider7 > 0 ? (
+  gfx_drawstr("  pp=");
+  gfx_drawnumber(prog_pos, 0);
+  gfx_drawstr(" plen=");
+  gfx_drawnumber(PROG_LEN[slider7 - 1], 0);
+  gfx_drawstr(" d0=");
+  gfx_drawnumber(PROG_DATA[(slider7-1) * 16 + 0], 0);
+  gfx_drawstr(" d1=");
+  gfx_drawnumber(PROG_DATA[(slider7-1) * 16 + 1], 0);
+  gfx_drawstr(" d2=");
+  gfx_drawnumber(PROG_DATA[(slider7-1) * 16 + 2], 0);
+  gfx_drawstr(" ci=");
+  gfx_drawnumber(dbg_chord_idx, 0);
+  gfx_drawstr(" cs=");
+  gfx_drawnumber(dbg_c_semi, 0);
+  gfx_drawstr(" cq=");
+  gfx_drawnumber(dbg_c_qual, 0);
+  gfx_drawstr(" pl=");
+  gfx_drawnumber(dbg_prog_len, 0);
+  gfx_drawstr(" CAN=");
+  gfx_drawnumber(dbg_init_canary, 0);
+  gfx_drawstr(" PD=");
+  gfx_drawnumber(PROG_DATA, 0);
+  gfx_drawstr(" PL=");
+  gfx_drawnumber(PROG_LEN, 0);
+);
 
 // ============================================
 // PATTERN SLOTS + FOLLOW/LOCK TOGGLE
@@ -684,17 +1188,21 @@ slider4 == 3 ? gfx_drawstr("PENT+") :
 slider4 == 4 ? gfx_drawstr("PENT-") :
 slider4 == 5 ? gfx_drawstr("BLUES") :
 slider4 == 6 ? gfx_drawstr("DORIAN") :
-gfx_drawstr("MIXO");
+slider4 == 7 ? gfx_drawstr("MIXO") :
+slider4 == 8 ? gfx_drawstr("H.MIN") :
+slider4 == 9 ? gfx_drawstr("LYDIAN") :
+slider4 == 10 ? gfx_drawstr("PHRYG") :
+gfx_drawstr("WHOLE");
 (mouse_cap & 1) && !(last_mouse_cap & 1) &&
   mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(90 * S) &&
   mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
-  slider4 = (slider4 + 1) % 8;
+  slider4 = (slider4 + 1) % 12;
 );
 (mouse_cap & 2) && !(last_mouse_cap & 2) &&
   mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(90 * S) &&
   mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
   slider4 = slider4 - 1;
-  slider4 < 0 ? slider4 = 7;
+  slider4 < 0 ? slider4 = 11;
 );
 
 // -- Chord Mode --
@@ -707,17 +1215,22 @@ slider5 == 0 ? gfx_drawstr("OFF") :
 slider5 == 1 ? gfx_drawstr("SINGLE") :
 slider5 == 2 ? gfx_drawstr("TRIAD") :
 slider5 == 3 ? gfx_drawstr("7TH") :
-gfx_drawstr("POWER");
+slider5 == 4 ? gfx_drawstr("POWER") :
+slider5 == 5 ? gfx_drawstr("SUS2") :
+slider5 == 6 ? gfx_drawstr("SUS4") :
+slider5 == 7 ? gfx_drawstr("ADD9") :
+slider5 == 8 ? gfx_drawstr("DIM") :
+gfx_drawstr("AUG");
 (mouse_cap & 1) && !(last_mouse_cap & 1) &&
   mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(85 * S) &&
   mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
-  slider5 = (slider5 + 1) % 5;
+  slider5 = (slider5 + 1) % 10;
 );
 (mouse_cap & 2) && !(last_mouse_cap & 2) &&
   mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(85 * S) &&
   mouse_y >= ctrl_y && mouse_y < ctrl_y + ctrl_h ? (
   slider5 = slider5 - 1;
-  slider5 < 0 ? slider5 = 4;
+  slider5 < 0 ? slider5 = 9;
 );
 
 // -- Octave --
@@ -742,9 +1255,123 @@ gfx_drawnumber(oct_disp, 0);
 );
 
 // ============================================
+// CONTROL ROW 2 — Progression, Prog Mode, Arp
+// ============================================
+ctrl2_y = ctrl_y + ctrl_h + floor(2 * S);
+
+// -- Progression --
+ctrl_x = margin;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl2_y;
+gfx_drawstr("Prog ");
+slider7 > 0 ? (
+  gfx_r = 0.95; gfx_g = 0.55; gfx_b = 0.1;
+) : (
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+);
+slider7 == 0 ? gfx_drawstr("OFF") :
+slider7 == 1 ? gfx_drawstr("+POP") :
+slider7 == 2 ? gfx_drawstr("+ROCK") :
+slider7 == 3 ? gfx_drawstr("+SOUL") :
+slider7 == 4 ? gfx_drawstr("+SAD") :
+slider7 == 5 ? gfx_drawstr("+JAZZ") :
+slider7 == 6 ? gfx_drawstr("+BEBOP") :
+slider7 == 7 ? gfx_drawstr("+MIXO") :
+slider7 == 8 ? gfx_drawstr("+BLUES") :
+slider7 == 9 ? gfx_drawstr("-ANDAL") :
+slider7 == 10 ? gfx_drawstr("-DARK") :
+slider7 == 11 ? gfx_drawstr("-DORIAN") :
+slider7 == 12 ? gfx_drawstr("-PHRYG") :
+slider7 == 13 ? gfx_drawstr("-CINE") :
+slider7 == 14 ? gfx_drawstr("-BLUES") :
+slider7 == 15 ? gfx_drawstr("-AMBI") :
+gfx_drawstr("-TRAP");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(100 * S) &&
+  mouse_y >= ctrl2_y && mouse_y < ctrl2_y + ctrl_h ? (
+  slider7 = (slider7 + 1) % 17;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(100 * S) &&
+  mouse_y >= ctrl2_y && mouse_y < ctrl2_y + ctrl_h ? (
+  slider7 = slider7 - 1; slider7 < 0 ? slider7 = 16;
+);
+
+// -- Prog Mode --
+ctrl_x = floor(120 * S);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl2_y;
+gfx_drawstr("Mode ");
+gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+slider8 == 0 ? gfx_drawstr("ADV") : gfx_drawstr("ASGN");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(70 * S) &&
+  mouse_y >= ctrl2_y && mouse_y < ctrl2_y + ctrl_h ? (
+  slider8 = 1 - slider8;
+);
+
+// -- Arp --
+ctrl_x = floor(210 * S);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = ctrl_x; gfx_y = ctrl2_y;
+gfx_drawstr("Arp ");
+slider9 > 0 ? (
+  gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.9;
+) : (
+  gfx_r = COL_TXT_R; gfx_g = COL_TXT_G; gfx_b = COL_TXT_B;
+);
+slider9 == 0 ? gfx_drawstr("OFF") :
+slider9 == 1 ? gfx_drawstr("UP") :
+slider9 == 2 ? gfx_drawstr("DOWN") :
+slider9 == 3 ? gfx_drawstr("U/D") :
+gfx_drawstr("RND");
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(70 * S) &&
+  mouse_y >= ctrl2_y && mouse_y < ctrl2_y + ctrl_h ? (
+  slider9 = (slider9 + 1) % 5;
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+  mouse_x >= ctrl_x && mouse_x < ctrl_x + floor(70 * S) &&
+  mouse_y >= ctrl2_y && mouse_y < ctrl2_y + ctrl_h ? (
+  slider9 = slider9 - 1; slider9 < 0 ? slider9 = 4;
+);
+
+// -- Current chord display (when progression active) --
+prog_active ? (
+  ctrl_x = floor(300 * S);
+  gfx_r = 0.95; gfx_g = 0.55; gfx_b = 0.1;
+  gfx_x = ctrl_x; gfx_y = ctrl2_y;
+  _pid = slider7 - 1;
+  _plen = PROG_LEN[_pid];
+  _cidx = prog_mode == 0 ? ((prog_pos > 0 ? prog_pos - 1 : 0) % _plen) : 0;
+  _csemi = PROG_DATA[_pid * 16 + _cidx * 2];
+  _cqual = PROG_DATA[_pid * 16 + _cidx * 2 + 1];
+  // Show note name
+  _cn = (slider3 + _csemi) % 12;
+  _cn == 0 ? gfx_drawstr("C") : _cn == 1 ? gfx_drawstr("C#") :
+  _cn == 2 ? gfx_drawstr("D") : _cn == 3 ? gfx_drawstr("D#") :
+  _cn == 4 ? gfx_drawstr("E") : _cn == 5 ? gfx_drawstr("F") :
+  _cn == 6 ? gfx_drawstr("F#") : _cn == 7 ? gfx_drawstr("G") :
+  _cn == 8 ? gfx_drawstr("G#") : _cn == 9 ? gfx_drawstr("A") :
+  _cn == 10 ? gfx_drawstr("A#") : gfx_drawstr("B");
+  _cqual == 0 ? gfx_drawstr("maj") :
+  _cqual == 1 ? gfx_drawstr("min") :
+  _cqual == 2 ? gfx_drawstr("maj7") :
+  _cqual == 3 ? gfx_drawstr("min7") :
+  _cqual == 4 ? gfx_drawstr("dom7") :
+  _cqual == 5 ? gfx_drawstr("dim") :
+  gfx_drawstr("aug");
+  gfx_drawstr("  [");
+  gfx_drawnumber(_cidx + 1, 0);
+  gfx_drawstr("/");
+  gfx_drawnumber(_plen, 0);
+  gfx_drawstr("]");
+);
+
+// ============================================
 // PAD SELECT — Individual pad editing
 // ============================================
-pad_sel_y = hdr_h + floor(64 * S);
+pad_sel_y = hdr_h + floor(82 * S);
 pad_sel_h = floor(20 * S);
 pad_sel_w = (gfx_w - margin * 2 - floor(15 * S) * 3) / 16;
 pad_sel_gap = floor(3 * S);
