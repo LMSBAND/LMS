@@ -861,6 +861,13 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
+    <reapack name="lms_harmony_map.jsfx" type="effect" desc="LMS Harmony Map — Timeline Chord Sequencer with Music Theory Navigation">
+      <version name="1.0" author="LMS" time="2026-03-18T12:00:00Z">
+        <changelog><![CDATA[Initial release — Timeline-locked chord sequencer based on harmonic proximity mathematics. Circle of fifths harmony map with diatonic highlighting, dominant resolution arrows, relative/parallel connections, diminished bridges, augmented links. Variable-width steps with bar duration controls, subdivisions per step, tick-level patterns. Per-step modifiers: SUS, 7th, b7, 9th, 6th, inversions. 8-pattern bank with colored tabs, duplicate, arrangement mode (8-row × N-col grid — step sequencer of step sequencers). P_* pointer system for zero-copy pattern playback in arrangement mode. Velocity editor per step. Key/mode transposition across all patterns. gmem broadcast (DrumBanger namespace) for suite-wide harmonic awareness. MIDI output synced to REAPER transport.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+    </reapack>
   </category>
   <category name="DRUMBANGER">
     <reapack name="lms_drumbanger.jsfx" type="effect" desc="LMS DRUMBANGER - 16-Pad Drum Machine">
@@ -1393,7 +1400,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 11 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100), TOMASTEKNIK v2 (SVT + ODB-3). 12 shared cabinet models. Black In Bluhm Special (physical room modeler — geometry-based acoustics). Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). LA-2A opto compressor, Smart Gate, Autotune, Pitch Detector, channel strip, distressor, tube saturator, tape machine, tape echo, Moog-style mono synth, and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites (MIDI print, auto-start service). Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 11 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100), TOMASTEKNIK v2 (SVT + ODB-3). 12 shared cabinet models. Black In Bluhm Special (physical room modeler — geometry-based acoustics). Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). LA-2A opto compressor, Smart Gate, Autotune, Pitch Detector, channel strip, distressor, tube saturator, tape machine, tape echo, Moog-style mono synth, Harmony Map (timeline chord sequencer with music theory navigation and arrangement mode), and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites (MIDI print, auto-start service). Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>
