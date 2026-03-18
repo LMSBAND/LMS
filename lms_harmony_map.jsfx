@@ -1,0 +1,1811 @@
+desc:LMS Harmony Map
+//tags: MIDI chord sequencer harmony theory composition
+//author: LMS
+//version: 0.1.0
+filename:0,shakebot_logo.png
+
+import lms_core.jsfx-inc
+options:gmem=DrumBanger
+
+slider1:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>-Key Root
+slider2:0<0,1,1{Major,Minor}>-Key Mode
+slider3:4<1,32,1>-Number of Steps
+slider4:0<0,15,1>-MIDI Channel (0=1)
+slider5:0<0,5,1{Triad,7th,9th,Power,sus2,sus4}>-Voicing
+slider6:0<-2,3,1>-Octave
+slider7:1<1,32,1>-Edit Bar
+
+@init
+// ============================================================================
+//  MEMORY LAYOUT
+// ============================================================================
+// 0-63:     CHORD_SLOTS (32 bars x 2: [root, quality])
+// 64-127:   NOTES_ON (currently sounding MIDI)
+// 128-191:  STEP_NOTES (notes to fire)
+// 192-255:  STEP_VELS (velocities)
+// 300-320:  DIATONIC (7 chords x 3: [root, quality, degree])
+// 400-471:  CONN_MAP (24 connections x 3: [root, quality, type])
+// 500-523:  CONN_RING (24 ring assignments: 0=inner,1=mid,2=outer)
+
+CHORD_SLOTS = 1000;
+NOTES_ON = 1100;
+STEP_NOTES = 1200;
+STEP_VELS = 1300;
+DIATONIC = 1400;
+CONN_MAP = 1500;
+CONN_RING = 1600;
+CHORD_FILLED = 1700;  // 32 flags: 0=empty, 1=has chord
+CHORD_BARS = 1740;    // 32 duration values: how many bars each step plays (1-8, default 1)
+CHORD_SUBDIV = 1780;  // 32 subdivision values: retriggers per step (1,2,4,8,16)
+CHORD_PATTERN = 1820; // 32 steps x 16 ticks = 512 entries (0=off, 1=on)
+                      // address = CHORD_PATTERN + step*16 + tick
+CHORD_VEL     = 2400;  // 32 velocity values (0-127, 0 = default 100)
+CHORD_MOD_STEP = 2450;  // 32 step-level mod flags (shift+click whole cell)
+CHORD_MOD_TICK = 2490;  // 32*16 = 512 tick-level mod flags (shift+click individual ticks)
+CHORD_MOD_SUS  = 3010;  // 32 sus4 flags per step
+CHORD_MOD_ADD9 = 3050;  // 32 add-9th flags per step
+CHORD_MOD_ADD7 = 3090;  // 32 add-7th flags per step
+CHORD_MOD_INV  = 3130;  // 32 inversion values per step (1-5, 0=default 1)
+CHORD_MOD_DOM7 = 3170;  // 32 dominant 7th flags (always flat 7th, quality-agnostic)
+
+// Chord slots initialized via @serialize (do NOT zero here — @init re-runs on play)
+// Empty = root value 255 (not -1, since @init zeros memory)
+
+// State
+notes_on_count = 0;
+step_notes_count = 0;
+cur_bar = 0;
+cur_step = 0;
+last_step = -1;
+last_sub = -1;
+transport_playing = 0;
+prev_playing = 0;
+conn_count = 0;
+conn_dirty = 1;
+edit_override = 0;
+
+notice_show = 0;
+
+// Preview
+preview_chord_dirty = 0;
+
+
+// Drag-to-copy
+drag_src = -1;
+drag_dst = -1;
+
+// Velocity editor
+vel_edit_open = 0;
+vel_edit_step = 0;
+vel_edit_x = 0;
+vel_edit_y = 0;
+vel_edit_dragging = 0;
+preview_root = 0;
+preview_qual = 0;
+preview_ticks = 0;
+
+// Harmony bus gmem base
+HARMONY_BUS = 960000;
+
+// Broadcast system
+bc.lms_bc_init(29, 7, 930000);
+
+// ============================================================================
+//  MUSIC THEORY FUNCTIONS
+// ============================================================================
+
+// ---- Get triad pitch classes (sets globals: t_n0, t_n1, t_n2) ----
+function get_triad(root, quality) (
+  // Returns 3 pitch classes (0-11) via globals t_n0/1/2
+  quality == 0 || quality == 2 || quality == 4 || quality == 9 || quality == 11 || quality == 13 || quality == 14 ? (
+    // Major-based: maj, maj7, dom7, dom9, add9, maj9
+    t_n0 = root % 12;
+    t_n1 = (root + 4) % 12;
+    t_n2 = (root + 7) % 12;
+  ) : quality == 1 || quality == 3 || quality == 8 || quality == 12 || quality == 15 ? (
+    // Minor-based: min, min7, half-dim, min9, dom7#9
+    t_n0 = root % 12;
+    t_n1 = (root + 3) % 12;
+    t_n2 = (root + 7) % 12;
+  ) : quality == 5 || quality == 7 ? (
+    // Diminished: dim, dim7
+    t_n0 = root % 12;
+    t_n1 = (root + 3) % 12;
+    t_n2 = (root + 6) % 12;
+  ) : quality == 6 ? (
+    // Augmented
+    t_n0 = root % 12;
+    t_n1 = (root + 4) % 12;
+    t_n2 = (root + 8) % 12;
+  ) : quality == 10 ? (
+    // sus4
+    t_n0 = root % 12;
+    t_n1 = (root + 5) % 12;
+    t_n2 = (root + 7) % 12;
+  ) : (
+    // Default/sus2
+    t_n0 = root % 12;
+    t_n1 = (root + 2) % 12;
+    t_n2 = (root + 7) % 12;
+  );
+);
+
+// ---- Count shared pitch classes between two chords ----
+function count_shared(r1, q1, r2, q2) local(count, a0, a1, a2, b0, b1, b2) (
+  get_triad(r1, q1); a0 = t_n0; a1 = t_n1; a2 = t_n2;
+  get_triad(r2, q2); b0 = t_n0; b1 = t_n1; b2 = t_n2;
+  count = 0;
+  (a0 == b0 || a0 == b1 || a0 == b2) ? count += 1;
+  (a1 == b0 || a1 == b1 || a1 == b2) ? count += 1;
+  (a2 == b0 || a2 == b1 || a2 == b2) ? count += 1;
+  count;
+);
+
+// ---- Build diatonic chords for key (populates DIATONIC[]) ----
+// Each entry: [root, quality, degree_index]
+function build_diatonic(key_root, mode) local(i) (
+  mode == 0 ? (
+    // Major: I ii iii IV V vi vii°
+    DIATONIC[0] = key_root;       DIATONIC[1] = 0; DIATONIC[2] = 0;  // I maj
+    DIATONIC[3] = (key_root+2)%12;DIATONIC[4] = 1; DIATONIC[5] = 1;  // ii min
+    DIATONIC[6] = (key_root+4)%12;DIATONIC[7] = 1; DIATONIC[8] = 2;  // iii min
+    DIATONIC[9] = (key_root+5)%12;DIATONIC[10]= 0; DIATONIC[11]= 3;  // IV maj
+    DIATONIC[12]= (key_root+7)%12;DIATONIC[13]= 0; DIATONIC[14]= 4;  // V maj
+    DIATONIC[15]= (key_root+9)%12;DIATONIC[16]= 1; DIATONIC[17]= 5;  // vi min
+    DIATONIC[18]= (key_root+11)%12;DIATONIC[19]=5; DIATONIC[20]= 6;  // vii dim
+  ) : (
+    // Minor: i ii° III iv v VI VII
+    DIATONIC[0] = key_root;       DIATONIC[1] = 1; DIATONIC[2] = 0;  // i min
+    DIATONIC[3] = (key_root+2)%12;DIATONIC[4] = 5; DIATONIC[5] = 1;  // ii° dim
+    DIATONIC[6] = (key_root+3)%12;DIATONIC[7] = 0; DIATONIC[8] = 2;  // III maj
+    DIATONIC[9] = (key_root+5)%12;DIATONIC[10]= 1; DIATONIC[11]= 3;  // iv min
+    DIATONIC[12]= (key_root+7)%12;DIATONIC[13]= 1; DIATONIC[14]= 4;  // v min
+    DIATONIC[15]= (key_root+8)%12;DIATONIC[16]= 0; DIATONIC[17]= 5;  // VI maj
+    DIATONIC[18]= (key_root+10)%12;DIATONIC[19]=0; DIATONIC[20]= 6;  // VII maj
+  );
+);
+
+// ---- Add a connection to CONN_MAP ----
+function add_conn(root, quality, conn_type, ring) (
+  // Deduplicate: check if this root+quality already in the map
+  _dup = 0;
+  _ci = 0;
+  loop(conn_count,
+    CONN_MAP[_ci*3] == root && CONN_MAP[_ci*3+1] == quality ? _dup = 1;
+    _ci += 1;
+  );
+  !_dup && conn_count < 24 ? (
+    CONN_MAP[conn_count*3] = root;
+    CONN_MAP[conn_count*3+1] = quality;
+    CONN_MAP[conn_count*3+2] = conn_type;
+    CONN_RING[conn_count] = ring;
+    conn_count += 1;
+  );
+);
+
+// ---- Compute all connections from a chord ----
+function compute_connections(cur_root, cur_quality) local(i, dr, dq, shared, dom_root, tri_root) (
+  conn_count = 0;
+
+  // 1. Diatonic chords (inner ring)
+  i = 0;
+  loop(7,
+    dr = DIATONIC[i*3];
+    dq = DIATONIC[i*3+1];
+    // Skip if it's the same chord
+    !(dr == cur_root && dq == cur_quality) ? (
+      shared = count_shared(cur_root, cur_quality, dr, dq);
+      shared >= 2 ? add_conn(dr, dq, 1, 0);  // close proximity
+      shared == 1 ? add_conn(dr, dq, 2, 0);  // moderate proximity
+      shared == 0 ? add_conn(dr, dq, 2, 0);  // still diatonic, inner ring
+    );
+    i += 1;
+  );
+
+  // 2. Dominant of current chord (V7 → this chord, middle ring)
+  dom_root = (cur_root + 7) % 12;
+  add_conn(dom_root, 4, 3, 1);  // V7 as dominant
+
+  // 3. Current chord AS dominant (resolves down a fifth)
+  add_conn((cur_root + 5) % 12, 0, 3, 1);  // I it resolves to (major)
+  add_conn((cur_root + 5) % 12, 1, 3, 1);  // i it resolves to (minor)
+
+  // 4. Tritone substitute (middle ring)
+  tri_root = (cur_root + 6) % 12;
+  add_conn(tri_root, 4, 4, 1);  // bII7 (tritone sub as dom7)
+
+  // 5. Secondary dominants of diatonic chords (middle ring)
+  i = 0;
+  loop(7,
+    dr = DIATONIC[i*3];
+    // The dominant OF each diatonic chord
+    add_conn((dr + 7) % 12, 4, 3, 1);
+    i += 1;
+  );
+
+  // 6. Diminished bridges (outer ring)
+  // dim7 symmetry: every 3 semitones is the same chord — 4 dim triads are all bridges
+  i = 0;
+  loop(4,
+    _dim_root = (cur_root + 11 + i * 3) % 12;
+    add_conn(_dim_root, 5, 5, 2);
+    i += 1;
+  );
+
+  // 7. Augmented bridges (outer ring)
+  // aug symmetry: every 4 semitones is the same chord — 3 aug triads are all bridges
+  i = 0;
+  loop(3,
+    _aug_root = (cur_root + i * 4) % 12;
+    add_conn(_aug_root, 6, 6, 2);
+    i += 1;
+  );
+);
+
+// ---- Build MIDI notes for a chord ----
+function build_chord_midi(root, quality, voicing, octave)
+  local(base, third, fifth, seventh)
+(
+  step_notes_count = 0;
+  base = 48 + octave * 12 + root;  // C3 + octave offset + root
+
+  // Determine intervals
+  quality == 0 || quality == 2 || quality == 4 || quality == 9 || quality == 11 || quality == 13 || quality == 14 ? (
+    third = 4; fifth = 7;
+  ) : quality == 1 || quality == 3 || quality == 8 || quality == 12 || quality == 15 ? (
+    third = 3; fifth = 7;
+  ) : quality == 5 || quality == 7 ? (
+    third = 3; fifth = 6;
+  ) : quality == 6 ? (
+    third = 4; fifth = 8;
+  ) : quality == 10 ? (
+    third = 5; fifth = 7;  // sus4
+  ) : (
+    third = 2; fifth = 7;  // sus2
+  );
+
+  // Seventh interval
+  quality == 2 || quality == 14 ? seventh = 11;          // maj7
+  quality == 3 || quality == 8 || quality == 12 ? seventh = 10;  // min7
+  quality == 4 || quality == 13 || quality == 15 ? seventh = 10; // dom7
+  quality == 7 ? seventh = 9;                              // dim7
+  seventh == 0 && quality != 7 ? seventh = -1;             // no 7th
+
+  // Voice the chord
+  voicing == 0 ? (
+    // Triad + bass octave
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 90;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + third; STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + fifth; STEP_VELS[3] = 100;
+    step_notes_count = 4;
+  ) : voicing == 1 ? (
+    // 7th + bass
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 90;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + third; STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + fifth; STEP_VELS[3] = 100;
+    step_notes_count = 4;
+    seventh > 0 ? (
+      STEP_NOTES[4] = base + seventh; STEP_VELS[4] = 90;
+      step_notes_count = 5;
+    );
+  ) : voicing == 2 ? (
+    // 9th + bass
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 85;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + third; STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + fifth; STEP_VELS[3] = 100;
+    step_notes_count = 4;
+    seventh > 0 ? (
+      STEP_NOTES[step_notes_count] = base + seventh; STEP_VELS[step_notes_count] = 85;
+      step_notes_count += 1;
+    );
+    STEP_NOTES[step_notes_count] = base + 14; STEP_VELS[step_notes_count] = 80;  // 9th
+    step_notes_count += 1;
+  ) : voicing == 3 ? (
+    // Power: root + 5th + octave
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 100;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + fifth; STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + 12; STEP_VELS[3] = 90;
+    step_notes_count = 4;
+  ) : voicing == 4 ? (
+    // sus2: root + 2nd + 5th
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 90;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + 2;  STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + fifth; STEP_VELS[3] = 100;
+    step_notes_count = 4;
+  ) : (
+    // sus4: root + 4th + 5th
+    STEP_NOTES[0] = base - 12; STEP_VELS[0] = 90;
+    STEP_NOTES[1] = base;      STEP_VELS[1] = 100;
+    STEP_NOTES[2] = base + 5;  STEP_VELS[2] = 100;
+    STEP_NOTES[3] = base + fifth; STEP_VELS[3] = 100;
+    step_notes_count = 4;
+  );
+);
+
+// ---- MIDI note off/on (same pattern as DroneMIDI2) ----
+function all_notes_off() local(i, ch) (
+  ch = slider4;
+  i = 0;
+  loop(notes_on_count,
+    midisend(0, 0x80 | ch, NOTES_ON[i], 0);
+    i += 1;
+  );
+  notes_on_count = 0;
+);
+
+function fire_all_notes() local(i, ch) (
+  ch = slider4;
+  i = 0;
+  loop(step_notes_count,
+    STEP_NOTES[i] >= 0 && STEP_NOTES[i] <= 127 ? (
+      midisend(0, 0x90 | ch, STEP_NOTES[i], STEP_VELS[i]);
+      NOTES_ON[notes_on_count] = STEP_NOTES[i];
+      notes_on_count += 1;
+    );
+    i += 1;
+  );
+);
+
+// ---- Apply per-step mods to STEP_NOTES/STEP_VELS ----
+function apply_step_mods(step) local(i, j, tmp, n, _root, _qual, _7int, _7pc, _9pc, _has, _inv, _old_pc, _new_pc, _new_note, _base) (
+  _root = CHORD_SLOTS[step*2];
+  _qual = CHORD_SLOTS[step*2+1];
+  _base = 48 + slider6 * 12 + _root;
+
+  // Add 7th (before sus so quality detection is intact)
+  CHORD_MOD_ADD7[step] && step_notes_count < 8 ? (
+    _qual == 7 ? _7int = 9 : (_qual == 1 || _qual == 3 || _qual == 5 || _qual == 8 || _qual == 12 || _qual == 15) ? _7int = 10 : _7int = 11;
+    _7pc = (_root + _7int) % 12;
+    _has = 0; i = 0; loop(step_notes_count, STEP_NOTES[i] % 12 == _7pc ? _has = 1; i += 1);
+    !_has ? (
+      STEP_NOTES[step_notes_count] = _base + _7int;
+      STEP_VELS[step_notes_count] = 85;
+      step_notes_count += 1;
+    );
+  );
+
+  // Dom 7th (flat 7, always root+10 regardless of quality)
+  CHORD_MOD_DOM7[step] && step_notes_count < 8 ? (
+    _has = 0; i = 0; loop(step_notes_count, STEP_NOTES[i] % 12 == (_root + 10) % 12 ? _has = 1; i += 1);
+    !_has ? (
+      STEP_NOTES[step_notes_count] = _base + 10;
+      STEP_VELS[step_notes_count] = 85;
+      step_notes_count += 1;
+    );
+  );
+
+  // Add 9th
+  CHORD_MOD_ADD9[step] && step_notes_count < 8 ? (
+    _9pc = (_root + 2) % 12;
+    _has = 0; i = 0; loop(step_notes_count, STEP_NOTES[i] % 12 == _9pc ? _has = 1; i += 1);
+    !_has ? (
+      STEP_NOTES[step_notes_count] = _base + 14;
+      STEP_VELS[step_notes_count] = 80;
+      step_notes_count += 1;
+    );
+  );
+
+  // Sus4: replace minor/major 3rd with perfect 4th
+  CHORD_MOD_SUS[step] ? (
+    i = 0;
+    loop(step_notes_count,
+      _old_pc = STEP_NOTES[i] % 12;
+      (_old_pc == (_root + 3) % 12 || _old_pc == (_root + 4) % 12) ? (
+        _new_pc = (_root + 5) % 12;
+        _new_note = STEP_NOTES[i] - _old_pc + _new_pc;
+        _new_note < STEP_NOTES[i] ? _new_note += 12;
+        STEP_NOTES[i] = _new_note;
+      );
+      i += 1;
+    );
+  );
+
+  // Inversion: sort ascending, raise (inv-1) lowest notes by one octave
+  _inv = CHORD_MOD_INV[step]; _inv <= 0 ? _inv = 1;
+  _inv > 1 ? (
+    n = step_notes_count;
+    i = 0; loop(n - 1,
+      j = 0; loop(n - 1 - i,
+        STEP_NOTES[j] > STEP_NOTES[j+1] ? (
+          tmp = STEP_NOTES[j]; STEP_NOTES[j] = STEP_NOTES[j+1]; STEP_NOTES[j+1] = tmp;
+          tmp = STEP_VELS[j]; STEP_VELS[j] = STEP_VELS[j+1]; STEP_VELS[j+1] = tmp;
+        );
+        j += 1;
+      );
+      i += 1;
+    );
+    i = 0; loop(min(_inv - 1, n), STEP_NOTES[i] += 12; i += 1);
+  );
+);
+
+// ---- Initial diatonic build ----
+build_diatonic(slider1, slider2);
+
+// ============================================================================
+//  @SLIDER
+// ============================================================================
+@slider
+  build_diatonic(slider1, slider2);
+  conn_dirty = 1;
+
+// ============================================================================
+//  @BLOCK — Transport sync, MIDI output, broadcast
+// ============================================================================
+@block
+// Recalculate from sliders
+build_diatonic(slider1, slider2);
+
+// Broadcast
+bc.lms_bc_block();
+bc.bc_leader_pbase > 0 ? (
+  slider1 = gmem[bc.bc_leader_pbase + 0];
+  slider2 = gmem[bc.bc_leader_pbase + 1];
+  slider3 = gmem[bc.bc_leader_pbase + 2];
+  slider4 = gmem[bc.bc_leader_pbase + 3];
+  slider5 = gmem[bc.bc_leader_pbase + 4];
+  slider6 = gmem[bc.bc_leader_pbase + 5];
+  slider7 = gmem[bc.bc_leader_pbase + 6];
+);
+bc.bc_did_steal ? (
+  slider1 = gmem[bc.bc_steal_pbase + 0];
+  slider2 = gmem[bc.bc_steal_pbase + 1];
+  slider3 = gmem[bc.bc_steal_pbase + 2];
+  slider4 = gmem[bc.bc_steal_pbase + 3];
+  slider5 = gmem[bc.bc_steal_pbase + 4];
+  slider6 = gmem[bc.bc_steal_pbase + 5];
+  slider7 = gmem[bc.bc_steal_pbase + 6];
+);
+bc.bc_my_pbase > 0 ? (
+  gmem[bc.bc_my_pbase + 0] = slider1;
+  gmem[bc.bc_my_pbase + 1] = slider2;
+  gmem[bc.bc_my_pbase + 2] = slider3;
+  gmem[bc.bc_my_pbase + 3] = slider4;
+  gmem[bc.bc_my_pbase + 4] = slider5;
+  gmem[bc.bc_my_pbase + 5] = slider6;
+  gmem[bc.bc_my_pbase + 6] = slider7;
+);
+
+// Transport sync
+ts_num > 0 && ts_denom > 0 ? (
+  beats_per_measure = ts_num * 4.0 / ts_denom;
+) : (
+  beats_per_measure = 4;
+);
+
+prev_playing = transport_playing;
+transport_playing = (play_state & 1);
+transport_started = transport_playing && !prev_playing;
+transport_started ? edit_override = 0;
+
+// Count total bars from step durations
+num_steps = max(1, slider3);
+total_bars_sum = 0;
+_si = 0;
+loop(num_steps,
+  _dur = CHORD_BARS[_si];
+  _dur < 1 ? (_dur = 1; CHORD_BARS[_si] = 1);
+  total_bars_sum += _dur;
+  _si += 1;
+);
+total_beats = beats_per_measure * total_bars_sum;
+
+// Find which step we're in based on beat position
+beats_per_measure > 0 && transport_playing ? (
+  total_beats > 0 ? (
+    pattern_cycle = floor(beat_position / total_beats);
+    beat_in_pattern = beat_position - pattern_cycle * total_beats;
+  ) : (
+    beat_in_pattern = 0;
+  );
+  cur_bar_in_pattern = floor(beat_in_pattern / beats_per_measure);
+  cur_bar_in_pattern = max(0, min(total_bars_sum - 1, cur_bar_in_pattern));
+
+  // Map bar position to step index
+  _acc = 0;
+  cur_step = 0;
+  _si = 0;
+  loop(num_steps,
+    _dur = max(1, CHORD_BARS[_si]);
+    cur_bar_in_pattern >= _acc && cur_bar_in_pattern < _acc + _dur ? cur_step = _si;
+    _acc += _dur;
+    _si += 1;
+  );
+  edit_override == 0 ? slider7 = cur_step + 1;
+) : (
+  cur_step = max(0, slider7 - 1);
+);
+
+// Compute sub-beat position within current step
+_step_start_bar = 0;
+_si = 0;
+loop(cur_step, _step_start_bar += max(1, CHORD_BARS[_si]); _si += 1);
+_step_dur_bars = max(1, CHORD_BARS[cur_step]);
+_step_subdiv = max(1, CHORD_SUBDIV[cur_step]);
+_step_subdiv < 1 ? _step_subdiv = 1;
+
+// Beat position within this step
+_step_start_beat = _step_start_bar * beats_per_measure;
+_step_dur_beats = _step_dur_bars * beats_per_measure;
+_beat_in_step = beat_in_pattern - _step_start_beat;
+_beat_in_step < 0 ? _beat_in_step = 0;
+
+// Current sub-beat index
+_sub_beat_dur = _step_dur_beats / _step_subdiv;
+_sub_beat_dur > 0 ? (
+  cur_sub = floor(_beat_in_step / _sub_beat_dur);
+  cur_sub = max(0, min(_step_subdiv - 1, cur_sub));
+) : (
+  cur_sub = 0;
+);
+
+// Detect step OR sub-beat change
+step_changed = transport_playing && (cur_step != last_step || transport_started);
+sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
+
+!transport_playing && prev_playing ? all_notes_off();
+
+(step_changed || sub_changed) && transport_playing ? (
+  all_notes_off();
+  step_notes_count = 0;
+
+  // Check if this sub-beat is active in the pattern
+  _sdv = max(1, CHORD_SUBDIV[cur_step]);
+  _sdv <= 1 ? _tick_on = 1 : _tick_on = CHORD_PATTERN[cur_step*16 + cur_sub];
+
+  _tick_on && CHORD_FILLED[cur_step] ? (
+    bar_root = CHORD_SLOTS[cur_step * 2];
+    bar_qual = CHORD_SLOTS[cur_step * 2 + 1];
+    build_chord_midi(bar_root, bar_qual, slider5, slider6);
+    step_notes_count > 0 ? (
+      (_sdv <= 1 ? CHORD_MOD_STEP[cur_step] : CHORD_MOD_TICK[cur_step*16 + cur_sub]) ? apply_step_mods(cur_step);
+      _sv = CHORD_VEL[cur_step]; _sv <= 0 ? _sv = 100;
+      _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = max(1, min(127, floor(STEP_VELS[_ni] * _sv / 100))); _ni += 1);
+      fire_all_notes();
+    );
+  );
+  step_changed ? conn_dirty = 1;
+);
+last_step = cur_step;
+last_sub = cur_sub;
+
+// Recompute connections if dirty
+conn_dirty ? (
+  // Map shows connections FROM the previous step
+  _eb = max(0, slider7 - 1);
+  _prev_step = _eb > 0 ? _eb - 1 : 0;
+  CHORD_FILLED[_prev_step] ? (
+    _mr = CHORD_SLOTS[_prev_step * 2];
+    _mq = CHORD_SLOTS[_prev_step * 2 + 1];
+    compute_connections(_mr, _mq);
+  ) : (
+    compute_connections(slider1, slider2 == 0 ? 0 : 1);
+  );
+  conn_dirty = 0;
+);
+
+// Harmony bus
+gmem[HARMONY_BUS] += 1;
+_eb = max(0, slider7 - 1);
+gmem[HARMONY_BUS + 1] = CHORD_SLOTS[_eb * 2];
+gmem[HARMONY_BUS + 2] = CHORD_SLOTS[_eb * 2 + 1];
+gmem[HARMONY_BUS + 3] = cur_step;
+gmem[HARMONY_BUS + 4] = slider3;
+gmem[HARMONY_BUS + 5] = slider1;
+gmem[HARMONY_BUS + 6] = slider2;
+gmem[HARMONY_BUS + 7] = slider4;
+gmem[HARMONY_BUS + 8] = transport_playing;
+
+// Preview chord (triggered from @gfx click)
+preview_chord_dirty ? (
+  all_notes_off();
+  build_chord_midi(preview_root, preview_qual, slider5, slider6);
+  _pv_step = max(0, slider7 - 1);
+  CHORD_MOD_STEP[_pv_step] ? apply_step_mods(_pv_step);
+  _pv = CHORD_VEL[_pv_step]; _pv <= 0 ? _pv = 100;
+  _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = max(1, min(127, floor(STEP_VELS[_ni] * _pv / 100))); _ni += 1);
+  fire_all_notes();
+  preview_chord_dirty = 0;
+  preview_ticks = floor(srate * 0.6);
+);
+preview_ticks > 0 ? (
+  preview_ticks -= samplesblock;
+  preview_ticks <= 0 ? (
+    preview_ticks = 0;
+    !transport_playing ? all_notes_off();
+  );
+);
+
+// MIDI passthrough
+while(midirecv(offset, msg1, msg2, msg3)) (
+  midisend(offset, msg1, msg2, msg3);
+);
+
+// ============================================================================
+//  @SAMPLE — MIDI only, no audio processing
+// ============================================================================
+@sample
+spl0 = spl0;
+spl1 = spl1;
+
+// ============================================================================
+//  @GFX — Harmony Map Interface
+// ============================================================================
+@gfx 750 580
+
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+char = gfx_getchar();
+S = gfx_w / 750;
+S < 0.5 ? S = 0.5;
+
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+F_CHORD = max(9, floor(14 * S));
+
+COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
+COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
+COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
+COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
+COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
+COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
+COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
+
+margin = floor(8 * S);
+gap = floor(6 * S);
+hdr_h = floor(44 * S);
+
+// ---- Background ----
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ---- Logo ----
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor(((hdr_h - logo_h)) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (logo_w = 0; logo_x = 0;);
+
+// ---- Title ----
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
+gfx_drawstr("HARMONY MAP");
+
+// Key controls in header (interactive)
+gfx_setfont(1, "Arial", F_SMALL);
+_kc_y = floor(hdr_h / 2) - floor(10 * S);
+_kc_h = floor(20 * S);
+_kc_arrow_w = floor(18 * S);
+_kc_note_w  = floor(34 * S);
+_kc_mode_w  = floor(48 * S);
+_kc_gap     = floor(4 * S);
+_kc_right   = gfx_w - margin;
+// layout right-to-left: [Maj/Min] [>] [note] [<] [Key:]
+_mode_x = _kc_right - _kc_mode_w;
+_arr_r_x = _mode_x - _kc_gap - _kc_arrow_w;
+_note_x  = _arr_r_x - _kc_note_w;
+_arr_l_x = _note_x - _kc_arrow_w;
+
+// Draw < arrow
+gfx_r = COL_PANEL_HI_R * 1.5; gfx_g = COL_PANEL_HI_G * 1.5; gfx_b = COL_PANEL_HI_B * 1.5;
+gfx_rect(_arr_l_x, _kc_y, _kc_arrow_w, _kc_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = _arr_l_x + floor(5 * S); gfx_y = _kc_y + floor(4 * S);
+gfx_drawstr("<");
+
+// Draw note name
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(_note_x, _kc_y, _kc_note_w, _kc_h);
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+_kr = slider1 % 12;
+_kr==0?(_kn=#; _kn="C"):_kr==1?(_kn=#; _kn="C#"):_kr==2?(_kn=#; _kn="D"):_kr==3?(_kn=#; _kn="D#"):_kr==4?(_kn=#; _kn="E"):_kr==5?(_kn=#; _kn="F"):_kr==6?(_kn=#; _kn="F#"):_kr==7?(_kn=#; _kn="G"):_kr==8?(_kn=#; _kn="G#"):_kr==9?(_kn=#; _kn="A"):_kr==10?(_kn=#; _kn="A#"):(_kn=#; _kn="B");
+gfx_measurestr(_kn, _kn_w, _kn_h);
+gfx_x = _note_x + floor((_kc_note_w - _kn_w) / 2); gfx_y = _kc_y + floor(4 * S);
+gfx_drawstr(_kn);
+
+// Draw > arrow
+gfx_r = COL_PANEL_HI_R * 1.5; gfx_g = COL_PANEL_HI_G * 1.5; gfx_b = COL_PANEL_HI_B * 1.5;
+gfx_rect(_arr_r_x, _kc_y, _kc_arrow_w, _kc_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = _arr_r_x + floor(5 * S); gfx_y = _kc_y + floor(4 * S);
+gfx_drawstr(">");
+
+// Draw Maj/Min toggle
+slider2 == 0 ? (
+  gfx_r = 0.15; gfx_g = 0.25; gfx_b = 0.40;
+) : (
+  gfx_r = 0.30; gfx_g = 0.15; gfx_b = 0.35;
+);
+gfx_rect(_mode_x, _kc_y, _kc_mode_w, _kc_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+_km = #; slider2 == 0 ? _km = "Major" : _km = "Minor";
+gfx_measurestr(_km, _km_w, _km_h);
+gfx_x = _mode_x + floor((_kc_mode_w - _km_w) / 2); gfx_y = _kc_y + floor(4 * S);
+gfx_drawstr(_km);
+
+// "Key" label
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _arr_l_x - floor(30 * S); gfx_y = _kc_y + floor(4 * S);
+gfx_drawstr("Key");
+
+// Click handling
+(mouse_cap & 1) && !(last_cap & 1) ? (
+  // < arrow: root down — transpose all steps
+  mouse_x >= _arr_l_x && mouse_x < _arr_l_x + _kc_arrow_w &&
+  mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
+    _old_key = slider1;
+    slider1 = (slider1 + 11) % 12;
+    _kd = (slider1 - _old_key + 12) % 12;
+    _si = 0; loop(32, CHORD_FILLED[_si] ? CHORD_SLOTS[_si*2] = (CHORD_SLOTS[_si*2] + _kd) % 12; _si += 1;);
+    sliderchange(slider1);
+    conn_dirty = 1;
+  );
+  // > arrow: root up — transpose all steps
+  mouse_x >= _arr_r_x && mouse_x < _arr_r_x + _kc_arrow_w &&
+  mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
+    _old_key = slider1;
+    slider1 = (slider1 + 1) % 12;
+    _kd = (slider1 - _old_key + 12) % 12;
+    _si = 0; loop(32, CHORD_FILLED[_si] ? CHORD_SLOTS[_si*2] = (CHORD_SLOTS[_si*2] + _kd) % 12; _si += 1;);
+    sliderchange(slider1);
+    conn_dirty = 1;
+  );
+  // mode toggle — remap chord qualities to new mode's diatonic
+  mouse_x >= _mode_x && mouse_x < _mode_x + _kc_mode_w &&
+  mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
+    slider2 = slider2 == 0 ? 1 : 0;
+    build_diatonic(slider1, slider2);
+    _si = 0;
+    loop(32,
+      CHORD_FILLED[_si] ? (
+        _sr = CHORD_SLOTS[_si*2];
+        _di = 0;
+        loop(7,
+          DIATONIC[_di*3] == _sr ? CHORD_SLOTS[_si*2+1] = DIATONIC[_di*3+1];
+          _di += 1;
+        );
+      );
+      _si += 1;
+    );
+    sliderchange(slider2);
+    conn_dirty = 1;
+  );
+);
+
+// ============================================================================
+//  TIMELINE — Variable-width steps with duration controls
+// ============================================================================
+timeline_y = hdr_h + floor(4 * S);
+timeline_h = floor(52 * S);
+num_steps = max(1, slider3);
+
+// Compute total bar width units
+_total_dur = 0;
+_si = 0;
+loop(num_steps,
+  _dur = max(1, CHORD_BARS[_si]);
+  _total_dur += _dur;
+  _si += 1;
+);
+_total_dur = max(1, _total_dur);
+_px_per_bar = (gfx_w - margin * 2 - floor(50 * S)) / _total_dur;  // leave room for [+] button
+
+// Delete key: clear chord from selected step
+char == 6579564 ? (
+  _del_eb = max(0, slider7 - 1);
+  CHORD_SLOTS[_del_eb * 2] = 0;
+  CHORD_SLOTS[_del_eb * 2 + 1] = 0;
+  CHORD_FILLED[_del_eb] = 0;
+  conn_dirty = 1;
+);
+
+gfx_setfont(1, "Arial", F_SMALL);
+_bx_acc = margin;
+bi = 0;
+loop(num_steps,
+  _dur = max(1, CHORD_BARS[bi]);
+  _cell_w = floor(_px_per_bar * _dur);
+  _cell_w = max(floor(30 * S), _cell_w);
+  bx = _bx_acc;
+  by = timeline_y;
+  _is_cur = (bi == cur_step && transport_playing);
+  _is_edit = (bi == (slider7 - 1));
+  _has_chord = CHORD_FILLED[bi];
+
+  // Background
+  _is_cur ? (
+    gfx_r = COL_ACCENT_R * 0.3; gfx_g = COL_ACCENT_G * 0.3; gfx_b = COL_ACCENT_B * 0.3;
+  ) : _has_chord ? (
+    gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
+  ) : (
+    gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  );
+  gfx_rect(bx, by, _cell_w - 2, timeline_h);
+
+  // Drag: source highlight
+  drag_src == bi && (mouse_cap & 1) ? (
+    gfx_r = COL_ACCENT_R * 0.3; gfx_g = COL_ACCENT_G * 0.15; gfx_b = 0; gfx_a = 0.4;
+    gfx_rect(bx, by, _cell_w - 2, timeline_h); gfx_a = 1;
+  );
+  // Drag: destination highlight
+  drag_src >= 0 && drag_src != bi && drag_dst == bi && (mouse_cap & 1) ? (
+    gfx_r = 0.10; gfx_g = 0.40; gfx_b = 0.12; gfx_a = 0.35;
+    gfx_rect(bx, by, _cell_w - 2, timeline_h); gfx_a = 1;
+    gfx_r = 0.25; gfx_g = 0.85; gfx_b = 0.35;
+    gfx_rect(bx, by, _cell_w - 2, 2);
+    gfx_rect(bx, by + timeline_h - 2, _cell_w - 2, 2);
+    gfx_rect(bx, by, 2, timeline_h);
+    gfx_rect(bx + _cell_w - 4, by, 2, timeline_h);
+  );
+
+  // Green mod tint
+  CHORD_MOD_STEP[bi] ? (
+    gfx_r = 0.10; gfx_g = 0.35; gfx_b = 0.12; gfx_a = 0.3;
+    gfx_rect(bx, by, _cell_w - 2, timeline_h);
+    gfx_a = 1;
+  );
+
+  // Edit highlight border
+  _is_edit ? (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+    gfx_rect(bx, by, _cell_w - 2, 2);
+    gfx_rect(bx, by + timeline_h - 2, _cell_w - 2, 2);
+    gfx_rect(bx, by, 2, timeline_h);
+    gfx_rect(bx + _cell_w - 4, by, 2, timeline_h);
+  );
+
+  // Step number + M mod button + duration
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = bx + floor(3 * S); gfx_y = by + floor(2 * S);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_drawnumber(bi + 1, 0);
+  // M mod button (right after step number)
+  _mbx = gfx_x + floor(2*S); _mby = by + floor(1*S);
+  _mbw = floor(10*S); _mbh = floor(10*S);
+  CHORD_MOD_STEP[bi] ? (gfx_r = 0.15; gfx_g = 0.50; gfx_b = 0.20;) : (gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.13;);
+  gfx_rect(_mbx, _mby, _mbw, _mbh);
+  CHORD_MOD_STEP[bi] ? (gfx_r = 0.40; gfx_g = 1.00; gfx_b = 0.50;) : (gfx_r = 0.22; gfx_g = 0.22; gfx_b = 0.27;);
+  gfx_measurestr("M", _tw, _th);
+  gfx_x = _mbx + (_mbw - _tw)/2; gfx_y = _mby + (_mbh - _th)/2;
+  gfx_drawstr("M");
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _mbx && mouse_x < _mbx + _mbw &&
+    mouse_y >= _mby && mouse_y < _mby + _mbh ? (
+    CHORD_MOD_STEP[bi] = 1 - CHORD_MOD_STEP[bi];
+  );
+  // Duration indicator (top-right)
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_x = bx + _cell_w - floor(30 * S); gfx_y = by + floor(2 * S);
+  gfx_r = COL_DIM_R * 0.7; gfx_g = COL_DIM_G * 0.7; gfx_b = COL_DIM_B * 0.7;
+  gfx_drawnumber(_dur, 0);
+  gfx_drawstr("b");
+
+  // Subdivision pattern (bottom) — clickable ticks
+  _sdv = max(1, CHORD_SUBDIV[bi]);
+  _sdv < 1 ? _sdv = 1;
+  // Initialize pattern to all-on only if subdivision was JUST set (not every frame)
+  // CHORD_PATTERN stays as-is once set by scroll wheel handler
+
+  _tick_y = by + timeline_h - floor(12 * S);
+  _tick_h = floor(10 * S);
+  _sdv > 1 ? (
+    // Find which tick was ctrl+clicked
+    _clicked_tick = -1;
+    (mouse_cap & 1) && !(last_cap & 1) && (mouse_cap & 4) &&
+      mouse_y >= _tick_y && mouse_y < _tick_y + _tick_h &&
+      mouse_x >= bx && mouse_x < bx + _cell_w ? (
+      _rel_x = mouse_x - bx - 2;
+      _rel_x >= 0 ? (
+        _clicked_tick = floor(_rel_x * _sdv / max(1, _cell_w - 4));
+        _clicked_tick = max(0, min(_sdv - 1, _clicked_tick));
+      );
+    );
+
+    // Toggle: flip 0↔1
+    _clicked_tick >= 0 ? (
+      CHORD_PATTERN[bi*16 + _clicked_tick] = 1 - CHORD_PATTERN[bi*16 + _clicked_tick];
+    );
+
+    // Shift+click tick: toggle mod flag
+    (mouse_cap & 1) && !(last_cap & 1) && (mouse_cap & 8) &&
+      mouse_y >= _tick_y && mouse_y < _tick_y + _tick_h &&
+      mouse_x >= bx && mouse_x < bx + _cell_w ? (
+      _rel_x = mouse_x - bx - 2;
+      _rel_x >= 0 ? (
+        _stk = floor(_rel_x * _sdv / max(1, _cell_w - 4));
+        _stk = max(0, min(_sdv - 1, _stk));
+        CHORD_MOD_TICK[bi*16 + _stk] = 1 - CHORD_MOD_TICK[bi*16 + _stk];
+      );
+    );
+
+    // Draw ticks
+    _tk = 0;
+    loop(_sdv,
+      _tick_w = max(floor(4 * S), floor((_cell_w - 6) / _sdv - 1));
+      _tx = bx + 2 + floor((_cell_w - 4) * _tk / _sdv);
+      _bit_on = CHORD_PATTERN[bi*16 + _tk];
+
+      _bit_on ? (
+        CHORD_MOD_TICK[bi*16 + _tk] ? (
+          gfx_r = 0.25; gfx_g = 0.80; gfx_b = 0.35;
+        ) : (
+          gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+        );
+      ) : (
+        CHORD_MOD_TICK[bi*16 + _tk] ? (
+          gfx_r = 0.05; gfx_g = 0.18; gfx_b = 0.07;
+        ) : (
+          gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14;
+        );
+      );
+      gfx_rect(_tx, _tick_y, _tick_w, _tick_h);
+
+      gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+      gfx_rect(_tx, _tick_y, _tick_w, 1);
+      gfx_rect(_tx, _tick_y + _tick_h - 1, _tick_w, 1);
+
+      bi == cur_step && _tk == cur_sub && transport_playing ? (
+        gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.3;
+        gfx_rect(_tx, _tick_y, _tick_w, _tick_h);
+        gfx_a = 1;
+      );
+
+      _tk += 1;
+    );
+  ) : (
+    gfx_x = bx + floor(3 * S); gfx_y = _tick_y + floor(1 * S);
+    gfx_r = COL_DIM_R * 0.4; gfx_g = COL_DIM_G * 0.4; gfx_b = COL_DIM_B * 0.4;
+    gfx_setfont(1, "Arial", F_TINY);
+    gfx_drawstr("hold");
+  );
+
+  // Chord name
+  _has_chord ? (
+    _cr = CHORD_SLOTS[bi * 2];
+    _cq = CHORD_SLOTS[bi * 2 + 1];
+    gfx_x = bx + floor(3 * S); gfx_y = by + floor(14 * S);
+    _cq == 0 || _cq == 2 || _cq == 4 || _cq == 9 || _cq == 14 ? (
+      gfx_r = 0.90; gfx_g = 0.50; gfx_b = 0.55;
+    ) : _cq == 1 || _cq == 3 || _cq == 8 || _cq == 12 ? (
+      gfx_r = 0.35; gfx_g = 0.55; gfx_b = 0.85;
+    ) : _cq == 5 || _cq == 7 ? (
+      gfx_r = 0.65; gfx_g = 0.40; gfx_b = 0.75;
+    ) : (
+      gfx_r = 0.90; gfx_g = 0.80; gfx_b = 0.30;
+    );
+    gfx_setfont(1, "Arial", F_CHORD);
+    _cr==0?gfx_drawstr("C"):_cr==1?gfx_drawstr("C#"):_cr==2?gfx_drawstr("D"):_cr==3?gfx_drawstr("Eb"):_cr==4?gfx_drawstr("E"):_cr==5?gfx_drawstr("F"):_cr==6?gfx_drawstr("F#"):_cr==7?gfx_drawstr("G"):_cr==8?gfx_drawstr("Ab"):_cr==9?gfx_drawstr("A"):_cr==10?gfx_drawstr("Bb"):gfx_drawstr("B");
+    _cq==0?0:_cq==1?gfx_drawstr("m"):_cq==2?gfx_drawstr("M7"):_cq==3?gfx_drawstr("m7"):_cq==4?gfx_drawstr("7"):_cq==5?gfx_drawstr("dim"):_cq==6?gfx_drawstr("+"):_cq==7?gfx_drawstr("o7"):gfx_drawstr("m7");
+  ) : (
+    gfx_x = bx + floor(3 * S); gfx_y = by + floor(16 * S);
+    gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
+    gfx_setfont(1, "Arial", F_CHORD);
+    gfx_drawstr("--");
+  );
+
+  // Shift+left-click (sdv=1): toggle step mod flag
+  _sdv <= 1 && (mouse_cap & 1) && !(last_cap & 1) && (mouse_cap & 8) &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    CHORD_MOD_STEP[bi] = 1 - CHORD_MOD_STEP[bi];
+  );
+
+  // Left-click (no ctrl): select step — but not if clicking ticks
+  (mouse_cap & 1) && !(last_cap & 1) && !(mouse_cap & 4) &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    slider7 = bi + 1;
+    edit_override = 1;
+    conn_dirty = 1;
+  );
+
+  // Right-click (no ctrl): open velocity editor
+  (mouse_cap & 2) && !(last_cap & 2) && !(mouse_cap & 4) &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    vel_edit_open = 1;
+    vel_edit_step = bi;
+    vel_edit_x = min(mouse_x, gfx_w - 55);
+    vel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
+    vel_edit_dragging = 0;
+  );
+
+  // Ctrl+right-click: DELETE step (shift everything after it up)
+  (mouse_cap & 2) && !(last_cap & 2) && (mouse_cap & 4) &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h &&
+    num_steps > 1 ? (
+    // Shift all steps after bi up by one
+    _si = bi;
+    loop(num_steps - bi - 1,
+      CHORD_SLOTS[_si*2] = CHORD_SLOTS[(_si+1)*2];
+      CHORD_SLOTS[_si*2+1] = CHORD_SLOTS[(_si+1)*2+1];
+      CHORD_FILLED[_si] = CHORD_FILLED[_si+1];
+      CHORD_BARS[_si] = CHORD_BARS[_si+1];
+      CHORD_SUBDIV[_si] = CHORD_SUBDIV[_si+1];
+      CHORD_VEL[_si] = CHORD_VEL[_si+1];
+      CHORD_MOD_STEP[_si] = CHORD_MOD_STEP[_si+1];
+      CHORD_MOD_SUS[_si]  = CHORD_MOD_SUS[_si+1];
+      CHORD_MOD_ADD9[_si] = CHORD_MOD_ADD9[_si+1];
+      CHORD_MOD_ADD7[_si] = CHORD_MOD_ADD7[_si+1];
+      CHORD_MOD_DOM7[_si] = CHORD_MOD_DOM7[_si+1];
+      CHORD_MOD_INV[_si]  = CHORD_MOD_INV[_si+1];
+      _ti = 0;
+      loop(16,
+        CHORD_PATTERN[_si*16+_ti] = CHORD_PATTERN[(_si+1)*16+_ti];
+        CHORD_MOD_TICK[_si*16+_ti] = CHORD_MOD_TICK[(_si+1)*16+_ti];
+        _ti += 1;
+      );
+      _si += 1;
+    );
+    // Clear the last slot
+    CHORD_SLOTS[_si*2] = 0;
+    CHORD_SLOTS[_si*2+1] = 0;
+    CHORD_FILLED[_si] = 0;
+    CHORD_BARS[_si] = 0;
+    CHORD_SUBDIV[_si] = 0;
+    CHORD_MOD_STEP[_si] = 0;
+    CHORD_MOD_SUS[_si]  = 0;
+    CHORD_MOD_ADD9[_si] = 0;
+    CHORD_MOD_ADD7[_si] = 0;
+    CHORD_MOD_DOM7[_si] = 0;
+    CHORD_MOD_INV[_si]  = 0;
+    _ti = 0;
+    loop(16, CHORD_PATTERN[_si*16+_ti] = 0; CHORD_MOD_TICK[_si*16+_ti] = 0; _ti += 1);
+    slider3 -= 1;
+    slider7 > slider3 ? slider7 = slider3;
+    conn_dirty = 1;
+  );
+
+  // Mouse wheel: top half = duration, bottom half = subdivision
+  mouse_wheel != 0 &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    mouse_y < by + timeline_h / 2 ? (
+      // Top half: adjust bar duration
+      mouse_wheel > 0 ? (
+        CHORD_BARS[bi] = min(8, max(1, CHORD_BARS[bi]) + 1);
+      ) : (
+        CHORD_BARS[bi] = max(1, CHORD_BARS[bi] - 1);
+      );
+    ) : (
+      // Bottom half: adjust subdivision (cycle: 1,2,4,8,16)
+      _sdv = max(1, CHORD_SUBDIV[bi]);
+      mouse_wheel > 0 ? (
+        _sdv == 1 ? _sdv = 2 : _sdv == 2 ? _sdv = 4 : _sdv == 4 ? _sdv = 8 : _sdv == 8 ? _sdv = 16 : _sdv = 16;
+      ) : (
+        _sdv == 16 ? _sdv = 8 : _sdv == 8 ? _sdv = 4 : _sdv == 4 ? _sdv = 2 : _sdv = 1;
+      );
+      CHORD_SUBDIV[bi] = _sdv;
+      // Reset pattern to all-on when subdivision changes
+      _ri = 0;
+      loop(16, CHORD_PATTERN[bi*16 + _ri] = _ri < _sdv ? 1 : 0; _ri += 1);
+    );
+    mouse_wheel = 0;
+  );
+
+  // Start drag (plain left-click, no modifier)
+  (mouse_cap & 1) && !(last_cap & 1) && !(mouse_cap & 4) && !(mouse_cap & 8) &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    drag_src = bi; drag_dst = bi;
+  );
+  // Track destination while dragging
+  (mouse_cap & 1) && drag_src >= 0 &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    drag_dst = bi;
+  );
+  // Copy on release over a different cell
+  !(mouse_cap & 1) && (last_cap & 1) && drag_src >= 0 && drag_src != bi &&
+    mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
+    mouse_y >= by && mouse_y < by + timeline_h ? (
+    CHORD_SLOTS[bi*2]   = CHORD_SLOTS[drag_src*2];
+    CHORD_SLOTS[bi*2+1] = CHORD_SLOTS[drag_src*2+1];
+    CHORD_FILLED[bi]    = CHORD_FILLED[drag_src];
+    CHORD_BARS[bi]      = CHORD_BARS[drag_src];
+    CHORD_SUBDIV[bi]    = CHORD_SUBDIV[drag_src];
+    CHORD_VEL[bi]       = CHORD_VEL[drag_src];
+    CHORD_MOD_STEP[bi]  = CHORD_MOD_STEP[drag_src];
+    CHORD_MOD_SUS[bi]   = CHORD_MOD_SUS[drag_src];
+    CHORD_MOD_ADD9[bi]  = CHORD_MOD_ADD9[drag_src];
+    CHORD_MOD_ADD7[bi]  = CHORD_MOD_ADD7[drag_src];
+    CHORD_MOD_DOM7[bi]  = CHORD_MOD_DOM7[drag_src];
+    CHORD_MOD_INV[bi]   = CHORD_MOD_INV[drag_src];
+    _ti = 0;
+    loop(16,
+      CHORD_PATTERN[bi*16+_ti]  = CHORD_PATTERN[drag_src*16+_ti];
+      CHORD_MOD_TICK[bi*16+_ti] = CHORD_MOD_TICK[drag_src*16+_ti];
+      _ti += 1;
+    );
+    conn_dirty = 1;
+    drag_src = -1; drag_dst = -1;
+  );
+
+  _bx_acc += _cell_w;
+  bi += 1;
+);
+
+// Reset drag state when mouse released outside any timeline cell
+!(mouse_cap & 1) && (last_cap & 1) && drag_src >= 0 ? (drag_src = -1; drag_dst = -1;);
+
+// [+] Add step button
+_btn_w = floor(24 * S);
+_add_x = _bx_acc + floor(4 * S);
+gfx_r = COL_GREEN_R * 0.3; gfx_g = COL_GREEN_G * 0.3; gfx_b = COL_GREEN_B * 0.3;
+gfx_rect(_add_x, timeline_y, _btn_w, timeline_h);
+gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
+gfx_setfont(1, "Arial", max(12, floor(20 * S)));
+gfx_x = _add_x + floor(6 * S); gfx_y = timeline_y + floor(12 * S);
+gfx_drawstr("+");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _add_x && mouse_x < _add_x + _btn_w &&
+  mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h ? (
+  slider3 < 32 ? (
+    slider3 += 1;
+    CHORD_BARS[slider3 - 1] = 1;
+    _ri = 0; loop(16, CHORD_PATTERN[(slider3-1)*16+_ri] = 1; _ri += 1);
+    slider7 = slider3;
+    edit_override = 1;
+    conn_dirty = 1;
+  );
+);
+
+// [-] Remove last step button
+_rem_x = _add_x + _btn_w + floor(2 * S);
+gfx_r = COL_ACCENT_R * 0.3; gfx_g = 0.1; gfx_b = 0.1;
+gfx_rect(_rem_x, timeline_y, _btn_w, timeline_h);
+gfx_r = COL_ACCENT_R; gfx_g = 0.3; gfx_b = 0.3;
+gfx_setfont(1, "Arial", max(12, floor(20 * S)));
+gfx_x = _rem_x + floor(7 * S); gfx_y = timeline_y + floor(12 * S);
+gfx_drawstr("-");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _rem_x && mouse_x < _rem_x + _btn_w &&
+  mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h ? (
+  slider3 > 1 ? (
+    // Clear the last step
+    _li = slider3 - 1;
+    CHORD_SLOTS[_li*2] = 0;
+    CHORD_SLOTS[_li*2+1] = 0;
+    CHORD_FILLED[_li] = 0;
+    CHORD_BARS[_li] = 0;
+    CHORD_SUBDIV[_li] = 0;
+    CHORD_MOD_STEP[_li] = 0;
+    CHORD_MOD_SUS[_li]  = 0;
+    CHORD_MOD_ADD9[_li] = 0;
+    CHORD_MOD_ADD7[_li] = 0;
+    CHORD_MOD_DOM7[_li] = 0;
+    CHORD_MOD_INV[_li]  = 0;
+    _ri = 0; loop(16, CHORD_PATTERN[_li*16+_ri] = 0; CHORD_MOD_TICK[_li*16+_ri] = 0; _ri += 1);
+    slider3 -= 1;
+    slider7 > slider3 ? slider7 = slider3;
+    conn_dirty = 1;
+  );
+);
+
+// ============================================================================
+//  VELOCITY EDITOR POPUP
+// ============================================================================
+vel_edit_open ? (
+  _ve_vel = CHORD_VEL[vel_edit_step]; _ve_vel <= 0 ? _ve_vel = 100;
+
+  // Background + border
+  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 140);
+  gfx_a = 1;
+  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+  gfx_rect(vel_edit_x, vel_edit_y, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y + 139, 50, 1);
+  gfx_rect(vel_edit_x, vel_edit_y, 1, 140);
+  gfx_rect(vel_edit_x + 49, vel_edit_y, 1, 140);
+
+  // Numeric label
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_x = vel_edit_x + 5; gfx_y = vel_edit_y + 4;
+  gfx_drawstr("v:");
+  gfx_drawnumber(_ve_vel, 0);
+
+  // Vertical slider
+  _vs_x = vel_edit_x + 10;
+  _vs_y = vel_edit_y + 22;
+  _vs_w = 30;
+  _vs_h = 110;
+
+  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
+  gfx_rect(_vs_x, _vs_y, _vs_w, _vs_h);
+
+  // Fill bar (bottom-up)
+  _fill_h = floor(_vs_h * _ve_vel / 127);
+  gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B;
+  gfx_rect(_vs_x, _vs_y + _vs_h - _fill_h, _vs_w, _fill_h);
+
+  // Drag interaction
+  mouse_cap & 1 ? (
+    mouse_x >= _vs_x - 5 && mouse_x < _vs_x + _vs_w + 5 &&
+    mouse_y >= _vs_y - 5 && mouse_y < _vs_y + _vs_h + 5 ? (
+      vel_edit_dragging = 1;
+    );
+    vel_edit_dragging ? (
+      _new_vel = floor((_vs_y + _vs_h - mouse_y) / _vs_h * 127 + 0.5);
+      CHORD_VEL[vel_edit_step] = max(1, min(127, _new_vel));
+    );
+  ) : (
+    vel_edit_dragging = 0;
+  );
+
+  // Close on left-click outside popup
+  mouse_cap & 1 && !(last_cap & 1) && !vel_edit_dragging ? (
+    !(mouse_x >= vel_edit_x && mouse_x < vel_edit_x + 50 &&
+      mouse_y >= vel_edit_y && mouse_y < vel_edit_y + 140) ? (
+      vel_edit_open = 0;
+    );
+  );
+
+  // Close on right-click outside timeline
+  mouse_cap & 2 && !(last_cap & 2) ? (
+    !(mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h) ? (
+      vel_edit_open = 0;
+    );
+  );
+);
+
+// ============================================================================
+//  HARMONY MAP — Fixed circle of fifths, always visible, connections overlay
+// ============================================================================
+mod_panel_h = floor(28 * S);
+mod_panel_y = timeline_y + timeline_h + floor(4 * S);
+map_y = mod_panel_y + mod_panel_h + floor(4 * S);
+
+// ---- Mod Panel ----
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(margin, mod_panel_y, gfx_w - margin*2, mod_panel_h);
+
+_mbtn_y = mod_panel_y + floor(4*S);
+_mbtn_h = mod_panel_h - floor(8*S);
+
+// Per-step mod controls for currently selected step
+_eb_mod = max(0, slider7 - 1);
+_mbx2 = margin + floor(4*S);
+_mod_btn_w = floor(36*S);
+
+// "Step N:" label
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _mbx2; gfx_y = _mbtn_y + floor(3*S);
+gfx_drawstr("Step "); gfx_drawnumber(_eb_mod + 1, 0); gfx_drawstr(":");
+gfx_measurestr("Step 99:", _tw, _th);
+_mbx2 += _tw + floor(6*S);
+
+// SUS button
+CHORD_MOD_SUS[_eb_mod] ? (gfx_r = 0.15; gfx_g = 0.40; gfx_b = 0.60;) : (gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;);
+gfx_rect(_mbx2, _mbtn_y, _mod_btn_w, _mbtn_h);
+CHORD_MOD_SUS[_eb_mod] ? (gfx_r = 0.50; gfx_g = 0.85; gfx_b = 1.00;) : (gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;);
+gfx_setfont(1, "Arial", F_SMALL); gfx_measurestr("SUS", _tw, _th);
+gfx_x = _mbx2 + (_mod_btn_w - _tw)/2; gfx_y = _mbtn_y + (_mbtn_h - _th)/2; gfx_drawstr("SUS");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _mbx2 && mouse_x < _mbx2 + _mod_btn_w &&
+  mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? CHORD_MOD_SUS[_eb_mod] = 1 - CHORD_MOD_SUS[_eb_mod];
+_mbx2 += _mod_btn_w + floor(4*S);
+
+// 9th button
+CHORD_MOD_ADD9[_eb_mod] ? (gfx_r = 0.15; gfx_g = 0.40; gfx_b = 0.60;) : (gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;);
+gfx_rect(_mbx2, _mbtn_y, _mod_btn_w, _mbtn_h);
+CHORD_MOD_ADD9[_eb_mod] ? (gfx_r = 0.50; gfx_g = 0.85; gfx_b = 1.00;) : (gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;);
+gfx_measurestr("9th", _tw, _th);
+gfx_x = _mbx2 + (_mod_btn_w - _tw)/2; gfx_y = _mbtn_y + (_mbtn_h - _th)/2; gfx_drawstr("9th");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _mbx2 && mouse_x < _mbx2 + _mod_btn_w &&
+  mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? CHORD_MOD_ADD9[_eb_mod] = 1 - CHORD_MOD_ADD9[_eb_mod];
+_mbx2 += _mod_btn_w + floor(4*S);
+
+// 7th button
+CHORD_MOD_ADD7[_eb_mod] ? (gfx_r = 0.15; gfx_g = 0.40; gfx_b = 0.60;) : (gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;);
+gfx_rect(_mbx2, _mbtn_y, _mod_btn_w, _mbtn_h);
+CHORD_MOD_ADD7[_eb_mod] ? (gfx_r = 0.50; gfx_g = 0.85; gfx_b = 1.00;) : (gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;);
+gfx_measurestr("7th", _tw, _th);
+gfx_x = _mbx2 + (_mod_btn_w - _tw)/2; gfx_y = _mbtn_y + (_mbtn_h - _th)/2; gfx_drawstr("7th");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _mbx2 && mouse_x < _mbx2 + _mod_btn_w &&
+  mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? CHORD_MOD_ADD7[_eb_mod] = 1 - CHORD_MOD_ADD7[_eb_mod];
+_mbx2 += _mod_btn_w + floor(4*S);
+
+// b7 button (dominant/flat 7th)
+CHORD_MOD_DOM7[_eb_mod] ? (gfx_r = 0.15; gfx_g = 0.40; gfx_b = 0.60;) : (gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;);
+gfx_rect(_mbx2, _mbtn_y, _mod_btn_w, _mbtn_h);
+CHORD_MOD_DOM7[_eb_mod] ? (gfx_r = 0.50; gfx_g = 0.85; gfx_b = 1.00;) : (gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;);
+gfx_setfont(1, "Arial", F_SMALL); gfx_measurestr("b7", _tw, _th);
+gfx_x = _mbx2 + (_mod_btn_w - _tw)/2; gfx_y = _mbtn_y + (_mbtn_h - _th)/2; gfx_drawstr("b7");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _mbx2 && mouse_x < _mbx2 + _mod_btn_w &&
+  mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? CHORD_MOD_DOM7[_eb_mod] = 1 - CHORD_MOD_DOM7[_eb_mod];
+_mbx2 += _mod_btn_w + floor(4*S);
+
+// INV button (cycles 1→2→3→4→5→1)
+_inv_val = CHORD_MOD_INV[_eb_mod]; _inv_val <= 0 ? _inv_val = 1;
+_inv_btn_w = floor(52*S);
+_inv_val > 1 ? (gfx_r = 0.15; gfx_g = 0.40; gfx_b = 0.60;) : (gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.15;);
+gfx_rect(_mbx2, _mbtn_y, _inv_btn_w, _mbtn_h);
+_inv_val > 1 ? (gfx_r = 0.50; gfx_g = 0.85; gfx_b = 1.00;) : (gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;);
+gfx_x = _mbx2 + floor(4*S); gfx_y = _mbtn_y + (_mbtn_h - _th)/2;
+gfx_drawstr("INV:"); gfx_drawnumber(_inv_val, 0);
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _mbx2 && mouse_x < _mbx2 + _inv_btn_w &&
+  mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? (
+  CHORD_MOD_INV[_eb_mod] = _inv_val % 5 + 1;
+);
+map_h = gfx_h - map_y - floor(100 * S);
+map_cx = gfx_w / 2;
+map_cy = map_y + map_h / 2;
+r_maj = floor(min(gfx_w * 0.5, map_h * 0.5) * 0.75);  // outer ring: major chords
+r_dim = floor(r_maj * 0.83);                             // dim chord ring
+r_aug = floor(r_maj * 0.74);                             // aug chord ring
+r_min = floor(r_maj * 0.65);                             // inner ring: minor chords
+bubble_r = floor(16 * S);
+bubble_r_sm = floor(12 * S);  // smaller bubble for dim/aug
+
+// Circle of fifths order (semitones from C): C G D A E B F# Db Ab Eb Bb F
+// Index 0-11 maps to position on the circle
+// cof_semi[i] = semitone value at position i in the circle of fifths
+_eb = max(0, slider7 - 1);
+_prev_bar = _eb > 0 ? _eb - 1 : 0;
+_has_prev = CHORD_FILLED[_prev_bar];
+_prev_root = CHORD_SLOTS[_prev_bar * 2];
+_prev_qual = CHORD_SLOTS[_prev_bar * 2 + 1];
+
+// ---- Draw progression path (persistent line connecting assigned chords) ----
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B; gfx_a = 0.8;
+_path_prev_x = -1; _path_prev_y = -1;
+_path_i = 0;
+loop(num_steps,
+  CHORD_FILLED[_path_i] ? (
+    _pr = CHORD_SLOTS[_path_i * 2];
+    _pq = CHORD_SLOTS[_path_i * 2 + 1];
+    // Find circle-of-fifths position for this root
+    _ppos = 0;
+    _pk = 0; loop(12, (_pk * 7) % 12 == _pr ? _ppos = _pk; _pk += 1);
+    _pang = -$pi/2 + _ppos * 2 * $pi / 12;
+    _pq == 0 ? _prad = r_maj : _pq == 5 ? _prad = r_dim : _pq == 6 ? _prad = r_aug : _prad = r_min;
+    _ppx = map_cx + cos(_pang) * _prad;
+    _ppy = map_cy + sin(_pang) * _prad;
+
+    // Draw line from previous chord to this one
+    _path_prev_x >= 0 ? (
+      gfx_line(_path_prev_x, _path_prev_y, _ppx, _ppy);
+    );
+
+    // Draw bar number at midpoint
+    _path_prev_x >= 0 ? (
+      _mx = (_path_prev_x + _ppx) / 2;
+      _my = (_path_prev_y + _ppy) / 2;
+      gfx_setfont(1, "Arial", F_TINY);
+      gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+      gfx_x = _mx - floor(3 * S); gfx_y = _my - floor(5 * S);
+      gfx_drawnumber(_path_i + 1, 0);
+    );
+
+    // Draw a dot at each chord position
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+    gfx_circle(_ppx, _ppy, floor(3 * S), 1);
+
+    _path_prev_x = _ppx;
+    _path_prev_y = _ppy;
+  );
+  _path_i += 1;
+);
+gfx_a = 1;
+
+// Draw all 12 major chords (outer ring) + 12 minor chords (inner ring)
+// Fixed positions: circle of fifths
+gfx_setfont(1, "Arial", F_CHORD);
+ni = 0;
+loop(12,
+  // Circle of fifths: each step is +7 semitones
+  _semi = (ni * 7) % 12;
+  _angle = -$pi/2 + ni * 2 * $pi / 12;
+
+  // === MAJOR CHORD (outer ring) ===
+  _bx_maj = map_cx + cos(_angle) * r_maj;
+  _by_maj = map_cy + sin(_angle) * r_maj;
+
+  // Check if diatonic
+  _is_diatonic = 0;
+  _di = 0;
+  loop(7,
+    DIATONIC[_di*3] == _semi && DIATONIC[_di*3+1] == 0 ? _is_diatonic = 1;
+    _di += 1;
+  );
+
+  // Check if connected from previous chord
+  _is_connected = 0;
+  _conn_type = 0;
+  _has_prev ? (
+    _ci = 0;
+    loop(conn_count,
+      CONN_MAP[_ci*3] == _semi && CONN_MAP[_ci*3+1] == 0 ? (
+        _is_connected = 1;
+        _conn_type = CONN_MAP[_ci*3+2];
+      );
+      _ci += 1;
+    );
+  );
+
+  // Check if this chord is assigned to current edit bar
+  _is_current = CHORD_FILLED[_eb] && CHORD_SLOTS[_eb*2] == _semi && CHORD_SLOTS[_eb*2+1] == 0;
+
+  // Connection line from prev chord position to this chord
+  _is_connected ? (
+    // Find prev chord position
+    _prev_semi = _prev_root;
+    _prev_pos = 0;
+    _pi = 0; loop(12, (_pi * 7) % 12 == _prev_semi ? _prev_pos = _pi; _pi += 1);
+    _prev_angle = -$pi/2 + _prev_pos * 2 * $pi / 12;
+    _prev_qual == 0 ? _prev_rad = r_maj : _prev_rad = r_min;
+    _px = map_cx + cos(_prev_angle) * _prev_rad;
+    _py = map_cy + sin(_prev_angle) * _prev_rad;
+
+    _conn_type == 3 ? (gfx_r = 0.9; gfx_g = 0.75; gfx_b = 0.2; gfx_a = 0.7;)
+    : _conn_type == 4 ? (gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.1; gfx_a = 0.7;)
+    : _conn_type == 5 ? (gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.7; gfx_a = 0.5;)
+    : _conn_type == 6 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4; gfx_a = 0.5;)
+    : (gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5; gfx_a = 0.4;);
+    gfx_line(_px, _py, _bx_maj, _by_maj);
+    gfx_a = 1;
+  );
+
+  // Bubble
+  _is_current ? (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+    gfx_circle(_bx_maj, _by_maj, bubble_r + 3, 1);
+  );
+  _is_diatonic ? (
+    gfx_r = 0.90; gfx_g = 0.50; gfx_b = 0.55;
+  ) : _is_connected ? (
+    gfx_r = 0.70; gfx_g = 0.40; gfx_b = 0.45;
+  ) : (
+    gfx_r = 0.25; gfx_g = 0.18; gfx_b = 0.20;
+  );
+  gfx_circle(_bx_maj, _by_maj, bubble_r, 1);
+
+  // Label
+  _is_diatonic || _is_connected ? (gfx_r = 1; gfx_g = 1; gfx_b = 1;) : (gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.4;);
+  _semi==0?(_cs="C"):_semi==1?(_cs="C#"):_semi==2?(_cs="D"):_semi==3?(_cs="Eb"):_semi==4?(_cs="E"):_semi==5?(_cs="F"):_semi==6?(_cs="F#"):_semi==7?(_cs="G"):_semi==8?(_cs="Ab"):_semi==9?(_cs="A"):_semi==10?(_cs="Bb"):(_cs="B");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _bx_maj - _tw/2; gfx_y = _by_maj - _th/2;
+  gfx_drawstr(_cs);
+
+  // Click major chord
+  (mouse_cap & 1) && !(last_cap & 1) ? (
+    _dx = mouse_x - _bx_maj; _dy = mouse_y - _by_maj;
+    (_dx*_dx + _dy*_dy) < (bubble_r+4)*(bubble_r+4) ? (
+      CHORD_SLOTS[_eb * 2] = _semi;
+      CHORD_SLOTS[_eb * 2 + 1] = 0;
+      CHORD_FILLED[_eb] = 1;
+      conn_dirty = 1;
+      preview_root = _semi; preview_qual = 0; preview_chord_dirty = 1;
+    );
+  );
+
+  // === MINOR CHORD (inner ring) ===
+  _bx_min = map_cx + cos(_angle) * r_min;
+  _by_min = map_cy + sin(_angle) * r_min;
+
+  // Check if diatonic minor
+  _is_diatonic_m = 0;
+  _di = 0;
+  loop(7,
+    DIATONIC[_di*3] == _semi && DIATONIC[_di*3+1] == 1 ? _is_diatonic_m = 1;
+    _di += 1;
+  );
+
+  // Check if connected
+  _is_connected_m = 0;
+  _conn_type_m = 0;
+  _has_prev ? (
+    _ci = 0;
+    loop(conn_count,
+      CONN_MAP[_ci*3] == _semi && CONN_MAP[_ci*3+1] == 1 ? (
+        _is_connected_m = 1;
+        _conn_type_m = CONN_MAP[_ci*3+2];
+      );
+      _ci += 1;
+    );
+  );
+
+  _is_current_m = CHORD_FILLED[_eb] && CHORD_SLOTS[_eb*2] == _semi && CHORD_SLOTS[_eb*2+1] == 1;
+
+  // Connection line
+  _is_connected_m && _has_prev ? (
+    _prev_semi = _prev_root;
+    _prev_pos = 0;
+    _pi = 0; loop(12, (_pi * 7) % 12 == _prev_semi ? _prev_pos = _pi; _pi += 1);
+    _prev_angle = -$pi/2 + _prev_pos * 2 * $pi / 12;
+    _prev_qual == 0 ? _prev_rad = r_maj : _prev_rad = r_min;
+    _px = map_cx + cos(_prev_angle) * _prev_rad;
+    _py = map_cy + sin(_prev_angle) * _prev_rad;
+    _conn_type_m == 3 ? (gfx_r = 0.9; gfx_g = 0.75; gfx_b = 0.2; gfx_a = 0.7;)
+    : _conn_type_m == 5 ? (gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.7; gfx_a = 0.5;)
+    : _conn_type_m == 6 ? (gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4; gfx_a = 0.5;)
+    : (gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5; gfx_a = 0.4;);
+    gfx_line(_px, _py, _bx_min, _by_min);
+    gfx_a = 1;
+  );
+
+  // Bubble
+  _is_current_m ? (
+    gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+    gfx_circle(_bx_min, _by_min, bubble_r + 3, 1);
+  );
+  _is_diatonic_m ? (
+    gfx_r = 0.35; gfx_g = 0.55; gfx_b = 0.85;
+  ) : _is_connected_m ? (
+    gfx_r = 0.25; gfx_g = 0.40; gfx_b = 0.65;
+  ) : (
+    gfx_r = 0.12; gfx_g = 0.15; gfx_b = 0.22;
+  );
+  gfx_circle(_bx_min, _by_min, bubble_r, 1);
+
+  // Label
+  _is_diatonic_m || _is_connected_m ? (gfx_r = 1; gfx_g = 1; gfx_b = 1;) : (gfx_r = 0.35; gfx_g = 0.35; gfx_b = 0.4;);
+  _semi==0?(_cs="Cm"):_semi==1?(_cs="C#m"):_semi==2?(_cs="Dm"):_semi==3?(_cs="Ebm"):_semi==4?(_cs="Em"):_semi==5?(_cs="Fm"):_semi==6?(_cs="F#m"):_semi==7?(_cs="Gm"):_semi==8?(_cs="Abm"):_semi==9?(_cs="Am"):_semi==10?(_cs="Bbm"):(_cs="Bm");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _bx_min - _tw/2; gfx_y = _by_min - _th/2;
+  gfx_drawstr(_cs);
+
+  // Click minor chord
+  (mouse_cap & 1) && !(last_cap & 1) ? (
+    _dx = mouse_x - _bx_min; _dy = mouse_y - _by_min;
+    (_dx*_dx + _dy*_dy) < (bubble_r+4)*(bubble_r+4) ? (
+      CHORD_SLOTS[_eb * 2] = _semi;
+      CHORD_SLOTS[_eb * 2 + 1] = 1;
+      CHORD_FILLED[_eb] = 1;
+      conn_dirty = 1;
+      preview_root = _semi; preview_qual = 1; preview_chord_dirty = 1;
+    );
+  );
+
+  // === DIM chord (dim ring) — only drawn when connected or current ===
+  _bx_dim = map_cx + cos(_angle) * r_dim;
+  _by_dim = map_cy + sin(_angle) * r_dim;
+  _is_connected_dim = 0; _conn_type_dim = 0;
+  _has_prev ? (
+    _ci = 0;
+    loop(conn_count,
+      CONN_MAP[_ci*3] == _semi && CONN_MAP[_ci*3+1] == 5 ? (
+        _is_connected_dim = 1; _conn_type_dim = CONN_MAP[_ci*3+2];
+      );
+      _ci += 1;
+    );
+  );
+  _is_current_dim = CHORD_FILLED[_eb] && CHORD_SLOTS[_eb*2] == _semi && CHORD_SLOTS[_eb*2+1] == 5;
+  _is_connected_dim || _is_current_dim ? (
+    _is_connected_dim && _has_prev ? (
+      _prev_pos = 0; _pi = 0; loop(12, (_pi*7)%12 == _prev_root ? _prev_pos = _pi; _pi += 1);
+      _prev_angle = -$pi/2 + _prev_pos * 2 * $pi / 12;
+      _prev_qual == 0 ? _prev_rad = r_maj : _prev_qual == 5 ? _prev_rad = r_dim : _prev_qual == 6 ? _prev_rad = r_aug : _prev_rad = r_min;
+      _px = map_cx + cos(_prev_angle) * _prev_rad; _py = map_cy + sin(_prev_angle) * _prev_rad;
+      gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.7; gfx_a = 0.6;
+      gfx_line(_px, _py, _bx_dim, _by_dim); gfx_a = 1;
+    );
+    _is_current_dim ? (
+      gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+      gfx_circle(_bx_dim, _by_dim, bubble_r_sm + 3, 1);
+    );
+    gfx_r = 0.50; gfx_g = 0.25; gfx_b = 0.60;
+    gfx_circle(_bx_dim, _by_dim, bubble_r_sm, 1);
+    gfx_r = 1; gfx_g = 1; gfx_b = 1;
+    gfx_setfont(1, "Arial", F_TINY);
+    _semi==0?(_cs="C°"):_semi==1?(_cs="C#°"):_semi==2?(_cs="D°"):_semi==3?(_cs="Eb°"):_semi==4?(_cs="E°"):_semi==5?(_cs="F°"):_semi==6?(_cs="F#°"):_semi==7?(_cs="G°"):_semi==8?(_cs="Ab°"):_semi==9?(_cs="A°"):_semi==10?(_cs="Bb°"):(_cs="B°");
+    gfx_measurestr(_cs, _tw, _th); gfx_x = _bx_dim - _tw/2; gfx_y = _by_dim - _th/2;
+    gfx_drawstr(_cs);
+    (mouse_cap & 1) && !(last_cap & 1) ? (
+      _dx = mouse_x - _bx_dim; _dy = mouse_y - _by_dim;
+      (_dx*_dx + _dy*_dy) < (bubble_r_sm+4)*(bubble_r_sm+4) ? (
+        CHORD_SLOTS[_eb*2] = _semi; CHORD_SLOTS[_eb*2+1] = 5;
+        CHORD_FILLED[_eb] = 1; conn_dirty = 1;
+        preview_root = _semi; preview_qual = 5; preview_chord_dirty = 1;
+      );
+    );
+  );
+
+  // === AUG chord (aug ring) — only drawn when connected or current ===
+  _bx_aug = map_cx + cos(_angle) * r_aug;
+  _by_aug = map_cy + sin(_angle) * r_aug;
+  _is_connected_aug = 0; _conn_type_aug = 0;
+  _has_prev ? (
+    _ci = 0;
+    loop(conn_count,
+      CONN_MAP[_ci*3] == _semi && CONN_MAP[_ci*3+1] == 6 ? (
+        _is_connected_aug = 1; _conn_type_aug = CONN_MAP[_ci*3+2];
+      );
+      _ci += 1;
+    );
+  );
+  _is_current_aug = CHORD_FILLED[_eb] && CHORD_SLOTS[_eb*2] == _semi && CHORD_SLOTS[_eb*2+1] == 6;
+  _is_connected_aug || _is_current_aug ? (
+    _is_connected_aug && _has_prev ? (
+      _prev_pos = 0; _pi = 0; loop(12, (_pi*7)%12 == _prev_root ? _prev_pos = _pi; _pi += 1);
+      _prev_angle = -$pi/2 + _prev_pos * 2 * $pi / 12;
+      _prev_qual == 0 ? _prev_rad = r_maj : _prev_qual == 5 ? _prev_rad = r_dim : _prev_qual == 6 ? _prev_rad = r_aug : _prev_rad = r_min;
+      _px = map_cx + cos(_prev_angle) * _prev_rad; _py = map_cy + sin(_prev_angle) * _prev_rad;
+      gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4; gfx_a = 0.6;
+      gfx_line(_px, _py, _bx_aug, _by_aug); gfx_a = 1;
+    );
+    _is_current_aug ? (
+      gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+      gfx_circle(_bx_aug, _by_aug, bubble_r_sm + 3, 1);
+    );
+    gfx_r = 0.20; gfx_g = 0.50; gfx_b = 0.28;
+    gfx_circle(_bx_aug, _by_aug, bubble_r_sm, 1);
+    gfx_r = 1; gfx_g = 1; gfx_b = 1;
+    gfx_setfont(1, "Arial", F_TINY);
+    _semi==0?(_cs="C+"):_semi==1?(_cs="C#+"):_semi==2?(_cs="D+"):_semi==3?(_cs="Eb+"):_semi==4?(_cs="E+"):_semi==5?(_cs="F+"):_semi==6?(_cs="F#+"):_semi==7?(_cs="G+"):_semi==8?(_cs="Ab+"):_semi==9?(_cs="A+"):_semi==10?(_cs="Bb+"):(_cs="B+");
+    gfx_measurestr(_cs, _tw, _th); gfx_x = _bx_aug - _tw/2; gfx_y = _by_aug - _th/2;
+    gfx_drawstr(_cs);
+    (mouse_cap & 1) && !(last_cap & 1) ? (
+      _dx = mouse_x - _bx_aug; _dy = mouse_y - _by_aug;
+      (_dx*_dx + _dy*_dy) < (bubble_r_sm+4)*(bubble_r_sm+4) ? (
+        CHORD_SLOTS[_eb*2] = _semi; CHORD_SLOTS[_eb*2+1] = 6;
+        CHORD_FILLED[_eb] = 1; conn_dirty = 1;
+        preview_root = _semi; preview_qual = 6; preview_chord_dirty = 1;
+      );
+    );
+  );
+
+  ni += 1;
+);
+
+// "From" indicator in center
+_has_prev ? (
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_measurestr("from:", _tw, _th);
+  gfx_x = map_cx - _tw/2; gfx_y = map_cy - floor(12 * S);
+  gfx_drawstr("from:");
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  _prev_root==0?(_cs="C"):_prev_root==1?(_cs="C#"):_prev_root==2?(_cs="D"):_prev_root==3?(_cs="Eb"):_prev_root==4?(_cs="E"):_prev_root==5?(_cs="F"):_prev_root==6?(_cs="F#"):_prev_root==7?(_cs="G"):_prev_root==8?(_cs="Ab"):_prev_root==9?(_cs="A"):_prev_root==10?(_cs="Bb"):(_cs="B");
+  gfx_measurestr(_cs, _tw, _th);
+  _min_w = 0;
+  _prev_qual == 1 ? (gfx_measurestr("m", _min_w, _min_h));
+  gfx_x = map_cx - (_tw + _min_w)/2; gfx_y = map_cy + floor(2 * S);
+  gfx_drawstr(_cs);
+  _prev_qual == 1 ? gfx_drawstr("m");
+);
+
+// Status line
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_x = margin; gfx_y = gfx_h - floor(90 * S);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_drawstr("Step ");
+gfx_drawnumber(slider7, 0);
+gfx_drawstr("/");
+gfx_drawnumber(slider3, 0);
+gfx_drawstr("  (");
+gfx_drawnumber(total_bars_sum, 0);
+gfx_drawstr(" bars)");
+gfx_drawstr("  |  ");
+transport_playing ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
+gfx_drawstr("  |  Connections: ");
+gfx_drawnumber(conn_count, 0);
+
+// Controls hint
+gfx_x = margin; gfx_y = gfx_h - floor(76 * S);
+gfx_drawstr("Click = assign. Del = clear. Scroll top/bot = bars/subdiv. Ctrl+click = toggle tick. [+] = add step.");
+
+// Legend
+gfx_setfont(1, "Arial", F_TINY);
+_leg_y = gfx_h - floor(62 * S);
+_leg_x = margin;
+_leg_sw = floor(10 * S);  // swatch width
+_leg_sh = floor(6 * S);   // swatch height
+_leg_sy = _leg_y + floor(2 * S);
+_leg_gap = floor(4 * S);
+
+// Helper: draw swatch + label, advances _leg_x
+// Diatonic
+gfx_r = 0.4; gfx_g = 0.4; gfx_b = 0.5; gfx_a = 0.7;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh); gfx_a = 1;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Diatonic");
+gfx_measurestr("Diatonic", _lw, _lh); _leg_x += _leg_sw + _leg_gap + _lw + floor(12 * S);
+
+// Dominant
+gfx_r = 0.9; gfx_g = 0.75; gfx_b = 0.2; gfx_a = 0.7;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh); gfx_a = 1;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Dominant");
+gfx_measurestr("Dominant", _lw, _lh); _leg_x += _leg_sw + _leg_gap + _lw + floor(12 * S);
+
+// Tritone sub
+gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.1; gfx_a = 0.7;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh); gfx_a = 1;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Tritone sub");
+gfx_measurestr("Tritone sub", _lw, _lh); _leg_x += _leg_sw + _leg_gap + _lw + floor(12 * S);
+
+// Dim bridge
+gfx_r = 0.6; gfx_g = 0.3; gfx_b = 0.7; gfx_a = 0.7;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh); gfx_a = 1;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Dim bridge");
+gfx_measurestr("Dim bridge", _lw, _lh); _leg_x += _leg_sw + _leg_gap + _lw + floor(12 * S);
+
+// Aug bridge
+gfx_r = 0.3; gfx_g = 0.7; gfx_b = 0.4; gfx_a = 0.7;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh); gfx_a = 1;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Aug bridge");
+gfx_measurestr("Aug bridge", _lw, _lh); _leg_x += _leg_sw + _leg_gap + _lw + floor(12 * S);
+
+// Progression path
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Path");
+
+// Instance Manager
+bc_panel_y = bc.lms_bc_gfx(S, last_cap);
+
+last_cap = mouse_cap;
+
+// ============================================================================
+//  @SERIALIZE
+// ============================================================================
+@serialize
+file_var(0, bc.bc_following);
+file_var(0, bc.bc_my_id);
+i = 0;
+loop(64,
+  file_var(0, CHORD_SLOTS[i]);
+  i += 1;
+);
+i = 0;
+loop(32,
+  file_var(0, CHORD_FILLED[i]);
+  i += 1;
+);
+i = 0;
+loop(32,
+  file_var(0, CHORD_BARS[i]);
+  i += 1;
+);
+i = 0;
+loop(32,
+  file_var(0, CHORD_SUBDIV[i]);
+  i += 1;
+);
+i = 0;
+loop(512,
+  file_var(0, CHORD_PATTERN[i]);
+  i += 1;
+);
+i = 0;
+loop(32,
+  file_var(0, CHORD_VEL[i]);
+  i += 1;
+);
+i = 0; loop(32, file_var(0, CHORD_MOD_STEP[i]); i += 1);
+i = 0; loop(512, file_var(0, CHORD_MOD_TICK[i]); i += 1);
+i = 0; loop(32, file_var(0, CHORD_MOD_SUS[i]); i += 1);
+i = 0; loop(32, file_var(0, CHORD_MOD_ADD9[i]); i += 1);
+i = 0; loop(32, file_var(0, CHORD_MOD_ADD7[i]); i += 1);
+i = 0; loop(32, file_var(0, CHORD_MOD_DOM7[i]); i += 1);
+i = 0; loop(32, file_var(0, CHORD_MOD_INV[i]); i += 1);
+file_var(0, edit_override);
