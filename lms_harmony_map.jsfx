@@ -16,6 +16,8 @@ slider6:0<-2,3,1>-Octave
 slider7:1<1,32,1>-Edit Bar
 
 @init
+gfx_clear = 0x070507;  // pre-clear buffer to bg color (R=7,G=5,B=7 ≈ COL_BG) before each frame
+
 // ============================================================================
 //  MEMORY LAYOUT
 // ============================================================================
@@ -604,8 +606,14 @@ arr_mode && transport_playing ? (
       _cell = ARR_BASE[_ac * 8 + _ar];
       _cell > 0 ? (
         _pb = PAT_BASE + (_cell-1) * PAT_SIZE;
-        _pns = max(1, (_pb+PO_NSTEPS)[0]);
-        _pdur = 0; _psi = 0; loop(_pns, _pdur += max(1, (_pb+PO_BARS)[_psi]); _psi+=1);
+        // Use working copy for current_pat so live edits (bar durations, step count) are reflected
+        (_cell-1) == current_pat ? (
+          _pns = max(1, slider3);
+          _pdur = 0; _psi = 0; loop(_pns, _pdur += max(1, CHORD_BARS[_psi]); _psi+=1);
+        ) : (
+          _pns = max(1, (_pb+PO_NSTEPS)[0]);
+          _pdur = 0; _psi = 0; loop(_pns, _pdur += max(1, (_pb+PO_BARS)[_psi]); _psi+=1);
+        );
         ARR_SEQ[_seq_len] = _cell - 1;
         ARR_CUM[_seq_len] = _cum;
         ARR_COL[_seq_len] = _ac;
@@ -821,6 +829,12 @@ spl1 = spl1;
 
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 char = gfx_getchar();
+
+// Snapshot @block state for this frame (prevent mid-frame race with audio thread)
+_gfx_arr_cur_col = arr_cur_col;
+_gfx_arr_cur_row = arr_cur_row;
+_gfx_arr_seq_ok  = arr_seq_ok;
+
 S = gfx_w / 750;
 S < 0.5 ? S = 0.5;
 
@@ -847,6 +861,7 @@ gap = floor(6 * S);
 hdr_h = floor(44 * S);
 
 // ---- Background ----
+gfx_a = 1;
 gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
 gfx_rect(0, 0, gfx_w, gfx_h);
 gfx_r = 0.03; gfx_g = 0.03; gfx_b = 0.05;
@@ -1140,7 +1155,7 @@ loop(num_steps,
   _cell_w = max(floor(30 * S), _cell_w);
   bx = _bx_acc;
   by = timeline_y;
-  _is_cur = (bi == cur_step && transport_playing);
+  _is_cur = (bi == cur_step && transport_playing && !arr_mode);
   _is_edit = (bi == (slider7 - 1));
   _has_chord = CHORD_FILLED[bi];
 
@@ -1699,6 +1714,11 @@ _ag_cell_h = max(floor(20 * S), floor(_ag_h / 8));
 _col_gap = max(2, floor(3 * S));
 _col_w = max(floor(28 * S), floor((_ag_w - _col_gap * arr_ncols) / arr_ncols));
 _row_h = max(floor(18 * S), floor(_ag_h / 8));
+
+// Pre-paint entire grid area solid dark so no stale pixels can show through
+gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06; gfx_a = 1;
+gfx_rect(_ag_x, _ag_y, arr_ncols * (_col_w + _col_gap), 8 * _row_h);
+
 gfx_setfont(1, "Arial", F_TINY);
 
 _ac = 0;
@@ -1711,30 +1731,46 @@ loop(arr_ncols,
     _cy = _ag_y + _ar * _row_h;
     _cell = ARR_BASE[_ac * 8 + _ar];
 
+    gfx_a = 1;
+    // Is this the currently playing cell? (use snapshot, not live @block vars)
+    _is_playing_cell = transport_playing && _gfx_arr_seq_ok && _ac == _gfx_arr_cur_col && _ar == _gfx_arr_cur_row;
+
     _cell > 0 ? (
-      pat_set_color(_cell - 1); gfx_a = 0.80;
-      gfx_rect(_cx, _cy, _col_w, _row_h);
-      // bright top edge on each segment
-      gfx_a = 0.4;
-      gfx_r = min(1, gfx_r*1.8); gfx_g = min(1, gfx_g*1.8); gfx_b = min(1, gfx_b*1.8);
-      gfx_rect(_cx, _cy, _col_w, max(1, floor(2*S)));
-      // label (only if tall enough)
-      _row_h >= floor(16*S) ? (
-        gfx_a = 1; pat_set_color(_cell - 1);
-        gfx_r = min(1, gfx_r*1.6); gfx_g = min(1, gfx_g*1.6); gfx_b = min(1, gfx_b*1.6);
-        _pl = #; sprintf(_pl, "P%d", _cell);
-        gfx_measurestr(_pl, _plw, _plh);
-        gfx_x = _cx + floor((_col_w-_plw)/2); gfx_y = _cy + floor((_row_h-_plh)/2);
-        gfx_drawstr(_pl);
-      );
-      // playing highlight — exact cell only, not all cells with same pattern
-      transport_playing && arr_seq_ok && _ac == arr_cur_col && _ar == arr_cur_row ? (
-        gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=0.20;
+      _is_playing_cell ? (
+        // Playing cell — solid green, no layers
+        gfx_r=0.12; gfx_g=0.55; gfx_b=0.22;
         gfx_rect(_cx, _cy, _col_w, _row_h);
+        // bright top edge
+        gfx_r=0.30; gfx_g=1.0; gfx_b=0.45;
+        gfx_rect(_cx, _cy, _col_w, max(2, floor(3*S)));
+        // label
+        _row_h >= floor(16*S) ? (
+          gfx_r=0.5; gfx_g=1.0; gfx_b=0.6;
+          _pl = #; sprintf(_pl, "P%d", _cell);
+          gfx_measurestr(_pl, _plw, _plh);
+          gfx_x = _cx + floor((_col_w-_plw)/2); gfx_y = _cy + floor((_row_h-_plh)/2);
+          gfx_drawstr(_pl);
+        );
+      ) : (
+        // Inactive filled cell — dimmed pattern color
+        pat_set_color(_cell - 1);
+        gfx_r = gfx_r*0.55 + 0.04; gfx_g = gfx_g*0.55 + 0.04; gfx_b = gfx_b*0.55 + 0.04;
+        gfx_rect(_cx, _cy, _col_w, _row_h);
+        // bright top edge
+        pat_set_color(_cell - 1);
+        gfx_rect(_cx, _cy, _col_w, max(1, floor(2*S)));
+        // label
+        _row_h >= floor(16*S) ? (
+          gfx_r = min(1, gfx_r*1.6); gfx_g = min(1, gfx_g*1.6); gfx_b = min(1, gfx_b*1.6);
+          _pl = #; sprintf(_pl, "P%d", _cell);
+          gfx_measurestr(_pl, _plw, _plh);
+          gfx_x = _cx + floor((_col_w-_plw)/2); gfx_y = _cy + floor((_row_h-_plh)/2);
+          gfx_drawstr(_pl);
+        );
       );
     ) : (
-      // empty cell — very dark, no border
-      gfx_r=0.06; gfx_g=0.06; gfx_b=0.08; gfx_a=1;
+      // empty cell — very dark
+      gfx_r=0.06; gfx_g=0.06; gfx_b=0.08;
       gfx_rect(_cx, _cy, _col_w, _row_h);
     );
 
