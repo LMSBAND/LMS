@@ -84,11 +84,36 @@ ARR_CUM     = 18200;  // 512 entries: cumulative beat offsets per seq entry (run
 ARR_COL     = 18800;  // 512 entries: grid column of each seq entry (runtime)
 ARR_ROW     = 19400;  // 512 entries: grid row of each seq entry (runtime)
 MAX_ARR_COLS = 64;
-// arr_mode / arr_ncols / arr_cur_pat NOT initialized here — persist across transport start
-arr_cur_col = -1; arr_cur_row = -1;
+// arr_mode / arr_ncols kept for serialize backward compat (unused)
+// song_mode / song_num_parts / song_seq_len / song_sel_part — persist across transport start
+
+// ============================================================================
+//  SONG MODE  (16 parts × 8 fields, 64-entry sequence)
+// ============================================================================
+SONG_PARTS    = 30100;  // 16 parts × 8 fields = 128 slots
+                        // Per part: [category, number, pat_idx, repeats, mod_key, mod_mode, mod_vel, arp_mode]
+                        // category: 0=Verse, 1=Chorus, 2=Bridge, 3=Intro, 4=Outro
+                        // mod_key: 0=no change, 1-12 = C..B target key
+                        // mod_mode: 0=inherit, 1=force major, 2=force minor
+                        // mod_vel: 0=normal, 1=quiet, 2=loud
+SONG_SEQ      = 30300;  // 64 entries: index into SONG_PARTS (255=empty)
+SONG_SEQ_CUM  = 30400;  // 64 entries: cumulative beat offsets (runtime, not saved)
+SONG_SEQ_PAT  = 30500;  // 64 entries: resolved pattern index per seq slot (runtime)
+SONG_SEQ_PART = 30600;  // 64 entries: part index per seq slot (runtime, for mod lookup)
+SONG_SEQ_SRC  = 30700;  // 64 entries: original SONG_SEQ index per expanded slot (for UI highlight)
+SONG_PART_OCT = 30800;  // 16 entries: octave offset per part (-2 to +3, 0=inherit from slider6)
+                        // Stored as 0-5 (0=no override, 1=-2, 2=-1, 3=0, 4=+1, 5=+2, 6=+3)
+MAX_SONG_PARTS = 16;
+MAX_SONG_SEQ   = 64;
+SONG_PART_SIZE = 8;
+// song_mode / song_num_parts / song_seq_len / song_sel_part — persist across transport
+song_cur_seq = -1;  // currently playing sequence index (runtime)
 
 // Chord slots initialized via @serialize (do NOT zero here — @init re-runs on play)
 // Empty = root value 255 (not -1, since @init zeros memory)
+
+// Song mode runtime (reset on play)
+song_mod_key = 0; song_mod_mode = 0; song_mod_vel = 0; song_mod_arp = 0; song_mod_oct = 0;
 
 // State
 notes_on_count = 0;
@@ -109,9 +134,13 @@ notice_show = 0;
 preview_chord_dirty = 0;
 
 
-// Drag-to-copy
+// Drag-to-copy (timeline)
 drag_src = -1;
 drag_dst = -1;
+
+// Drag-to-reorder (song sequence)
+seq_drag_src = -1;
+seq_drag_dst = -1;
 
 // Velocity editor
 vel_edit_open = 0;
@@ -391,7 +420,7 @@ function fire_all_notes() local(i, ch) (
 );
 
 // ---- Apply per-step mods to STEP_NOTES/STEP_VELS ----
-// Uses P_* pointers set in @block (bank in arr_mode, working copy otherwise)
+// Uses P_* pointers set in @block (bank in song mode, working copy otherwise)
 function apply_step_mods(step) local(i, j, tmp, n, _root, _qual, _7int, _7pc, _9pc, _6pc, _has, _inv, _old_pc, _new_pc, _new_note, _base) (
   _root = P_SLOTS[step*2];
   _qual = P_SLOTS[step*2+1];
@@ -529,14 +558,22 @@ function pat_init(p) local(_b, _i, _j) (
 
 // Set gfx_r/g/b to pattern p's color
 function pat_set_color(p) (
-  p == 0 ? (gfx_r=0.90; gfx_g=0.30; gfx_b=0.30) :  // red
-  p == 1 ? (gfx_r=0.90; gfx_g=0.58; gfx_b=0.18) :  // orange
-  p == 2 ? (gfx_r=0.78; gfx_g=0.78; gfx_b=0.18) :  // yellow
-  p == 3 ? (gfx_r=0.28; gfx_g=0.80; gfx_b=0.42) :  // green
-  p == 4 ? (gfx_r=0.18; gfx_g=0.68; gfx_b=0.90) :  // cyan
-  p == 5 ? (gfx_r=0.30; gfx_g=0.38; gfx_b=0.90) :  // blue
-  p == 6 ? (gfx_r=0.68; gfx_g=0.28; gfx_b=0.90) :  // purple
-            (gfx_r=0.90; gfx_g=0.28; gfx_b=0.68);   // pink
+  p == 0  ? (gfx_r=0.90; gfx_g=0.30; gfx_b=0.30) :  // red
+  p == 1  ? (gfx_r=0.90; gfx_g=0.58; gfx_b=0.18) :  // orange
+  p == 2  ? (gfx_r=0.78; gfx_g=0.78; gfx_b=0.18) :  // yellow
+  p == 3  ? (gfx_r=0.28; gfx_g=0.80; gfx_b=0.42) :  // green
+  p == 4  ? (gfx_r=0.18; gfx_g=0.68; gfx_b=0.90) :  // cyan
+  p == 5  ? (gfx_r=0.30; gfx_g=0.38; gfx_b=0.90) :  // blue
+  p == 6  ? (gfx_r=0.68; gfx_g=0.28; gfx_b=0.90) :  // purple
+  p == 7  ? (gfx_r=0.90; gfx_g=0.28; gfx_b=0.68) :  // pink
+  p == 8  ? (gfx_r=0.70; gfx_g=0.20; gfx_b=0.20) :  // dark red
+  p == 9  ? (gfx_r=0.70; gfx_g=0.45; gfx_b=0.10) :  // dark orange
+  p == 10 ? (gfx_r=0.60; gfx_g=0.60; gfx_b=0.10) :  // dark yellow
+  p == 11 ? (gfx_r=0.18; gfx_g=0.60; gfx_b=0.30) :  // dark green
+  p == 12 ? (gfx_r=0.10; gfx_g=0.50; gfx_b=0.70) :  // dark cyan
+  p == 13 ? (gfx_r=0.20; gfx_g=0.25; gfx_b=0.70) :  // dark blue
+  p == 14 ? (gfx_r=0.50; gfx_g=0.18; gfx_b=0.70) :  // dark purple
+            (gfx_r=0.70; gfx_g=0.18; gfx_b=0.50);   // dark pink
 );
 
 // ---- Initial diatonic build ----
@@ -596,59 +633,81 @@ ts_num > 0 && ts_denom > 0 ? (
 prev_playing = transport_playing;
 transport_playing = (play_state & 1);
 transport_started = transport_playing && !prev_playing;
-transport_started ? (edit_override = 0; arr_cur_pat = -1;);
+transport_started ? (edit_override = 0; arr_cur_pat = -1; song_cur_seq = -1;);
 
-// Arrangement mode: map beat_position to flat sequence, set arr_cur_pat (no pat_load)
-arr_mode && transport_playing ? (
-  _seq_len = 0; _cum = 0;
-  _ac = 0; loop(arr_ncols,
-    _ar = 0; loop(8,
-      _cell = ARR_BASE[_ac * 8 + _ar];
-      _cell > 0 ? (
-        _pb = PAT_BASE + (_cell-1) * PAT_SIZE;
-        // Use working copy for current_pat so live edits (bar durations, step count) are reflected
-        (_cell-1) == current_pat ? (
-          _pns = max(1, slider3);
-          _pdur = 0; _psi = 0; loop(_pns, _pdur += max(1, CHORD_BARS[_psi]); _psi+=1);
-        ) : (
-          _pns = max(1, (_pb+PO_NSTEPS)[0]);
-          _pdur = 0; _psi = 0; loop(_pns, _pdur += max(1, (_pb+PO_BARS)[_psi]); _psi+=1);
-        );
-        ARR_SEQ[_seq_len] = _cell - 1;
-        ARR_CUM[_seq_len] = _cum;
-        ARR_COL[_seq_len] = _ac;
-        ARR_ROW[_seq_len] = _ar;
-        _cum += _pdur * beats_per_measure;
-        _seq_len += 1;
+// Song mode: build flat sequence from parts + repeats, map beat_position
+song_mode && transport_playing && song_seq_len > 0 ? (
+  // Build expanded sequence: walk SONG_SEQ, expand repeats
+  _sng_len = 0; _sng_cum = 0;
+  _sqi = 0;
+  loop(song_seq_len,
+    _sp_idx = SONG_SEQ[_sqi];
+    _sp_idx < song_num_parts ? (
+      _sp_base = _sp_idx * SONG_PART_SIZE;
+      _sp_pat = SONG_PARTS[_sp_base + 2];
+      _sp_reps = max(1, SONG_PARTS[_sp_base + 3]);
+      // Compute pattern duration in beats
+      _sp_pat == current_pat ? (
+        _spns = max(1, slider3);
+        _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, CHORD_BARS[_spsi]); _spsi+=1);
+      ) : (
+        _sppb = PAT_BASE + _sp_pat * PAT_SIZE;
+        _spns = max(1, (_sppb+PO_NSTEPS)[0]);
+        _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, (_sppb+PO_BARS)[_spsi]); _spsi+=1);
       );
-      _ar += 1;
+      _sp_beats = _spdur * beats_per_measure;
+      // Expand repeats
+      _ri = 0;
+      loop(_sp_reps,
+        _sng_len < MAX_SONG_SEQ ? (
+          SONG_SEQ_CUM[_sng_len]  = _sng_cum;
+          SONG_SEQ_PAT[_sng_len]  = _sp_pat;
+          SONG_SEQ_PART[_sng_len] = _sp_idx;
+          SONG_SEQ_SRC[_sng_len]  = _sqi;
+          _sng_cum += _sp_beats;
+          _sng_len += 1;
+        );
+        _ri += 1;
+      );
     );
-    _ac += 1;
+    _sqi += 1;
   );
-  _seq_len > 0 ? (
+  _sng_len > 0 ? (
+    _sng_total = _sng_cum;
+    _sng_cycle = floor(beat_position / _sng_total);
+    _sng_beat  = beat_position - _sng_cycle * _sng_total;
+    _sng_idx = 0; _si = 0;
+    loop(_sng_len, _sng_beat >= SONG_SEQ_CUM[_si] ? _sng_idx = _si; _si += 1);
+    song_cur_seq = _sng_idx;
+    song_cur_src = SONG_SEQ_SRC[_sng_idx];  // original SONG_SEQ index for UI
+    song_cur_part_idx = SONG_SEQ_PART[_sng_idx];
+    arr_cur_pat = SONG_SEQ_PAT[_sng_idx];
+    play_beat = _sng_beat - SONG_SEQ_CUM[_sng_idx];
     arr_seq_ok = 1;
-    _arr_total = _cum;
-    _arr_cycle = floor(beat_position / _arr_total);
-    _arr_beat  = beat_position - _arr_cycle * _arr_total;
-    _arr_idx = 0; _si = 0;
-    loop(_seq_len, _arr_beat >= ARR_CUM[_si] ? _arr_idx = _si; _si += 1);
-    arr_cur_pat = ARR_SEQ[_arr_idx];
-    arr_cur_col = ARR_COL[_arr_idx];
-    arr_cur_row = ARR_ROW[_arr_idx];
-    play_beat = _arr_beat - ARR_CUM[_arr_idx];
+    // Song mode modifiers — store for @block velocity/key application
+    _smp_base = song_cur_part_idx * SONG_PART_SIZE;
+    song_mod_key = SONG_PARTS[_smp_base + 4];
+    song_mod_mode = SONG_PARTS[_smp_base + 5];
+    song_mod_vel = SONG_PARTS[_smp_base + 6];
+    song_mod_arp = SONG_PARTS[_smp_base + 7];
+    song_mod_oct = SONG_PART_OCT[song_cur_part_idx];
   ) : (
+    song_cur_seq = -1; song_cur_src = -1;
+    arr_cur_pat = -1;
     arr_seq_ok = 0;
-    arr_cur_pat = -1; arr_cur_col = -1; arr_cur_row = -1;
     play_beat = beat_position;
+    song_mod_key = 0; song_mod_mode = 0; song_mod_vel = 0; song_mod_arp = 0; song_mod_oct = 0;
+    song_mod_arp = 0; song_mod_oct = 0;
   );
 ) : (
+  // No song mode: simple playback from current pattern
   arr_seq_ok = 1;
   play_beat = beat_position;
-  arr_cur_pat = -1; arr_cur_col = -1; arr_cur_row = -1;
+  arr_cur_pat = -1;
 );
 
-// P_* pointer setup: point at bank for non-current patterns in arr_mode, working copy otherwise
-arr_mode && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
+// P_* pointer setup: point at bank for non-current patterns in song mode, working copy otherwise
+song_mode && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
   _apb = PAT_BASE + arr_cur_pat * PAT_SIZE;
   P_SLOTS   = _apb + PO_SLOTS;   P_FILLED  = _apb + PO_FILLED;
   P_BARS    = _apb + PO_BARS;    P_SUBDIV  = _apb + PO_SUBDIV;
@@ -701,7 +760,7 @@ beats_per_measure > 0 && transport_playing ? (
     _acc += _dur;
     _si += 1;
   );
-  edit_override == 0 && !(arr_mode && arr_cur_pat >= 0 && arr_cur_pat != current_pat) ? slider7 = cur_step + 1;
+  edit_override == 0 && !(song_mode && song_cur_seq >= 0 && arr_cur_pat >= 0 && arr_cur_pat != current_pat) ? slider7 = cur_step + 1;
 ) : (
   cur_step = max(0, slider7 - 1);
 );
@@ -746,11 +805,79 @@ sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
   _tick_on && P_FILLED[cur_step] && arr_seq_ok ? (
     bar_root = P_SLOTS[cur_step * 2];
     bar_qual = P_SLOTS[cur_step * 2 + 1];
-    build_chord_midi(bar_root, bar_qual, slider5, slider6);
+    // Song mode modifiers: modulate key, force mode
+    song_mode && song_cur_seq >= 0 ? (
+      // Modulate: transpose root by (target_key - original_key) semitones
+      song_mod_key > 0 ? (
+        _target_key = song_mod_key - 1;  // 1-12 → 0-11
+        _transpose = (_target_key - slider1 + 12) % 12;
+        bar_root = (bar_root + _transpose) % 12;
+      );
+      // Force major/minor: remap quality
+      song_mod_mode == 1 ? (  // force major
+        bar_qual == 1 ? bar_qual = 0;   // min → maj
+        bar_qual == 3 ? bar_qual = 2;   // min7 → maj7
+        bar_qual == 12 ? bar_qual = 14; // min9 → maj9
+      );
+      song_mod_mode == 2 ? (  // force minor
+        bar_qual == 0 ? bar_qual = 1;   // maj → min
+        bar_qual == 2 ? bar_qual = 3;   // maj7 → min7
+        bar_qual == 14 ? bar_qual = 12; // maj9 → min9
+      );
+    );
+    // Song mode octave override
+    _use_oct = slider6;
+    song_mode && song_cur_seq >= 0 && song_mod_oct > 0 ? (
+      // 1=-2, 2=-1, 3=0, 4=+1, 5=+2, 6=+3
+      _use_oct = song_mod_oct - 3;
+    );
+    build_chord_midi(bar_root, bar_qual, slider5, _use_oct);
     step_notes_count > 0 ? (
       (_sdv <= 1 ? P_MSTEP[cur_step] : P_MTICK[cur_step*16 + cur_sub]) ? apply_step_mods(cur_step);
       _sv = P_VEL[cur_step]; _sv <= 0 ? _sv = 100;
       _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = max(1, min(127, floor(STEP_VELS[_ni] * _sv / 100))); _ni += 1);
+      // Song mode velocity modifiers
+      song_mode && song_cur_seq >= 0 ? (
+        song_mod_vel == 1 ? (  // GET QUIET
+          _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = min(STEP_VELS[_ni], 40); _ni += 1);
+        );
+        song_mod_vel == 2 ? (  // GET LOUD
+          _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = max(STEP_VELS[_ni], 120); _ni += 1);
+        );
+      );
+      // Song mode arp: pick one note per sub-beat instead of firing all
+      song_mode && song_cur_seq >= 0 && song_mod_arp > 0 && step_notes_count > 1 ? (
+        // Sort notes ascending for arp ordering
+        _an = step_notes_count;
+        _ai = 0; loop(_an - 1,
+          _aj = 0; loop(_an - 1 - _ai,
+            STEP_NOTES[_aj] > STEP_NOTES[_aj+1] ? (
+              _tmp = STEP_NOTES[_aj]; STEP_NOTES[_aj] = STEP_NOTES[_aj+1]; STEP_NOTES[_aj+1] = _tmp;
+              _tmp = STEP_VELS[_aj]; STEP_VELS[_aj] = STEP_VELS[_aj+1]; STEP_VELS[_aj+1] = _tmp;
+            );
+            _aj += 1;
+          );
+          _ai += 1;
+        );
+        // Pick note index based on arp mode and current sub-beat
+        song_mod_arp == 1 ? (  // UP
+          _arp_idx = cur_sub % _an;
+        ) : song_mod_arp == 2 ? (  // DOWN
+          _arp_idx = (_an - 1) - (cur_sub % _an);
+        ) : song_mod_arp == 3 ? (  // UP-DOWN
+          _arp_cycle = _an * 2 - 2;  // e.g. 4 notes = 6-step cycle: 0,1,2,3,2,1
+          _arp_cycle < 1 ? _arp_cycle = 1;
+          _arp_pos = cur_sub % _arp_cycle;
+          _arp_pos < _an ? _arp_idx = _arp_pos : _arp_idx = _arp_cycle - _arp_pos;
+        ) : (  // RANDOM (4)
+          _arp_idx = floor(rand(_an));
+        );
+        _arp_idx = max(0, min(_an - 1, _arp_idx));
+        // Replace chord with single note
+        STEP_NOTES[0] = STEP_NOTES[_arp_idx];
+        STEP_VELS[0] = STEP_VELS[_arp_idx];
+        step_notes_count = 1;
+      );
       fire_all_notes();
     );
   );
@@ -774,7 +901,7 @@ conn_dirty ? (
   conn_dirty = 0;
 );
 
-// Harmony bus
+// Harmony bus — single chord + full progression broadcast
 gmem[HARMONY_BUS] += 1;
 _eb = max(0, slider7 - 1);
 gmem[HARMONY_BUS + 1] = CHORD_SLOTS[_eb * 2];
@@ -785,6 +912,18 @@ gmem[HARMONY_BUS + 5] = slider1;
 gmem[HARMONY_BUS + 6] = slider2;
 gmem[HARMONY_BUS + 7] = slider4;
 gmem[HARMONY_BUS + 8] = transport_playing;
+// Full chord state broadcast (via P_* so it works in all modes)
+gmem[HARMONY_BUS + 10] = P_NSTEPS;
+_bci = 0; loop(32,
+  gmem[HARMONY_BUS + 11 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2] : 255;
+  gmem[HARMONY_BUS + 43 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2 + 1] : 255;
+  _bci += 1;
+);
+// Song mode state
+gmem[HARMONY_BUS + 80] = song_mode;
+gmem[HARMONY_BUS + 81] = song_mode && song_cur_seq >= 0 ? song_cur_part_idx : -1;
+gmem[HARMONY_BUS + 82] = song_mod_key;
+gmem[HARMONY_BUS + 83] = song_mod_mode;
 
 // Preview chord (triggered from @gfx click) — always uses working copy
 preview_chord_dirty ? (
@@ -830,10 +969,7 @@ spl1 = spl1;
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 char = gfx_getchar();
 
-// Snapshot @block state for this frame (prevent mid-frame race with audio thread)
-_gfx_arr_cur_col = arr_cur_col;
-_gfx_arr_cur_row = arr_cur_row;
-_gfx_arr_seq_ok  = arr_seq_ok;
+// Snapshot @block state for this frame
 
 S = gfx_w / 750;
 S < 0.5 ? S = 0.5;
@@ -1012,7 +1148,7 @@ gfx_drawstr("Key");
 // ============================================================================
 patbar_h  = floor(26 * S);
 patbar_y  = hdr_h + floor(4 * S);
-_pb_tab_w = floor(38 * S);
+_pb_tab_w = num_pats > 8 ? floor(28 * S) : floor(38 * S);
 _pb_gap   = floor(2 * S);
 _pb_x     = margin;
 
@@ -1055,7 +1191,7 @@ loop(num_pats,
 );
 
 // [+] New blank pattern
-num_pats < 8 ? (
+num_pats < 16 ? (
   gfx_r = 0.20; gfx_g = 0.22; gfx_b = 0.20; gfx_a = 1;
   gfx_rect(_pb_x, patbar_y, _pb_tab_w, patbar_h);
   gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B; gfx_a = 1;
@@ -1076,26 +1212,25 @@ num_pats < 8 ? (
   _pb_x += _pb_tab_w + _pb_gap;
 );
 
-// [ARR] Arrangement mode toggle (right-aligned in header)
-_arr_btn_w = floor(42 * S);
-_arr_btn_x = gfx_w - margin - _arr_btn_w;
-arr_mode ? (gfx_r=0.20; gfx_g=0.50; gfx_b=0.25;) : (gfx_r=0.15; gfx_g=0.18; gfx_b=0.15;);
-gfx_a = 1; gfx_rect(_arr_btn_x, patbar_y, _arr_btn_w, patbar_h);
-arr_mode ? (gfx_r=0.30; gfx_g=0.90; gfx_b=0.50;) : (gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;);
+// [SONG] mode toggle (right-aligned in pattern bar)
+_song_btn_w = floor(48 * S);
+_song_btn_x = gfx_w - margin - _song_btn_w;
+song_mode ? (gfx_r=0.50; gfx_g=0.25; gfx_b=0.55;) : (gfx_r=0.15; gfx_g=0.12; gfx_b=0.18;);
+gfx_a = 1; gfx_rect(_song_btn_x, patbar_y, _song_btn_w, patbar_h);
+song_mode ? (gfx_r=0.85; gfx_g=0.50; gfx_b=0.95;) : (gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B;);
 gfx_setfont(1, "Arial", F_SMALL);
-gfx_measurestr("ARR", _plw, _plh);
-gfx_x = _arr_btn_x + floor((_arr_btn_w-_plw)/2); gfx_y = patbar_y + floor((patbar_h-_plh)/2);
-gfx_drawstr("ARR");
+gfx_measurestr("SONG", _plw, _plh);
+gfx_x = _song_btn_x + floor((_song_btn_w-_plw)/2); gfx_y = patbar_y + floor((patbar_h-_plh)/2);
+gfx_drawstr("SONG");
 (mouse_cap & 1) && !(last_cap & 1) &&
-  mouse_x >= _arr_btn_x && mouse_x < _arr_btn_x + _arr_btn_w &&
+  mouse_x >= _song_btn_x && mouse_x < _song_btn_x + _song_btn_w &&
   mouse_y >= patbar_y && mouse_y < patbar_y + patbar_h ? (
-  arr_mode = arr_mode ? 0 : 1;
-  arr_cur_pat = -1;
-  arr_ncols < 1 ? arr_ncols = 8;
+  song_mode = song_mode ? 0 : 1;
+  song_num_parts < 1 ? song_num_parts = 1;
 );
 
 // [Dup] Duplicate current pattern to new
-num_pats < 8 ? (
+num_pats < 16 ? (
   gfx_r = 0.20; gfx_g = 0.20; gfx_b = 0.25; gfx_a = 1;
   gfx_rect(_pb_x, patbar_y, _pb_tab_w, patbar_h);
   gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_a = 1;
@@ -1155,7 +1290,7 @@ loop(num_steps,
   _cell_w = max(floor(30 * S), _cell_w);
   bx = _bx_acc;
   by = timeline_y;
-  _is_cur = (bi == cur_step && transport_playing && !arr_mode);
+  _is_cur = (bi == cur_step && transport_playing);
   _is_edit = (bi == (slider7 - 1));
   _has_chord = CHORD_FILLED[bi];
 
@@ -1696,140 +1831,497 @@ gfx_drawstr("INV:"); gfx_drawnumber(_inv_val, 0);
   mouse_y >= _mbtn_y && mouse_y < _mbtn_y + _mbtn_h ? (
   CHORD_MOD_INV[_eb_mod] = _inv_val % 5 + 1;
 );
-arr_ncols < 1 ? arr_ncols = 8;
 
-arr_mode ? (
+song_mode ? (
 // ============================================================================
-//  ARRANGEMENT GRID
+//  SONG MODE UI — Parts Editor + Song Sequence
 // ============================================================================
-_ag_lbl_w = floor(22 * S);
-_ag_x = margin + _ag_lbl_w;
-_ag_y = map_y;
-_ag_w = gfx_w - _ag_x - margin;
-_ag_h = gfx_h - _ag_y - floor(44 * S);
-_ag_cell_w = max(floor(24 * S), floor(_ag_w / arr_ncols));
-_ag_cell_h = max(floor(20 * S), floor(_ag_h / 8));
+_sg_y = map_y;
+_sg_w = gfx_w - margin * 2;
 
-// Peak bar grid — each column is a vertical bar, time left to right
-_col_gap = max(2, floor(3 * S));
-_col_w = max(floor(28 * S), floor((_ag_w - _col_gap * arr_ncols) / arr_ncols));
-_row_h = max(floor(18 * S), floor(_ag_h / 8));
+// ---- PARTS EDITOR ----
+_sg_row_h = floor(22 * S);
+_sg_hdr_h = floor(18 * S);
+_sg_parts_h = _sg_hdr_h + song_num_parts * _sg_row_h + floor(26 * S);  // header + rows + buttons
 
-// Pre-paint entire grid area solid dark so no stale pixels can show through
-gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06; gfx_a = 1;
-gfx_rect(_ag_x, _ag_y, arr_ncols * (_col_w + _col_gap), 8 * _row_h);
+// Column widths
+_sg_num_w   = floor(22 * S);    // #
+_sg_cat_w   = floor(68 * S);    // Category
+_sg_pnum_w  = floor(28 * S);    // Num
+_sg_pat_w   = floor(42 * S);    // Pattern
+_sg_rep_w   = floor(38 * S);    // Repeats
+_sg_key_w   = floor(36 * S);    // Mod key
+_sg_mode_w  = floor(38 * S);    // Mod mode
+_sg_vel_w   = floor(36 * S);    // Mod vel
+_sg_arp_w   = floor(36 * S);    // Arp mode
+_sg_oct_w   = floor(36 * S);    // Octave
+_sg_col_gap = floor(2 * S);
 
+// Header row
 gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+_hx = margin;
+gfx_x = _hx; gfx_y = _sg_y + floor(3*S); gfx_drawstr("#"); _hx += _sg_num_w;
+gfx_x = _hx; gfx_drawstr("Type"); _hx += _sg_cat_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("N"); _hx += _sg_pnum_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Pattern"); _hx += _sg_pat_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Rep"); _hx += _sg_rep_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Key"); _hx += _sg_key_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Mode"); _hx += _sg_mode_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Vol"); _hx += _sg_vel_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Arp"); _hx += _sg_arp_w + _sg_col_gap;
+gfx_x = _hx; gfx_drawstr("Oct");
 
-_ac = 0;
-loop(arr_ncols,
-  _cx = _ag_x + _ac * (_col_w + _col_gap);
+// Part rows
+_spi = 0;
+loop(song_num_parts,
+  _spy = _sg_y + _sg_hdr_h + _spi * _sg_row_h;
+  _spb = _spi * SONG_PART_SIZE;
+  _sp_cat  = SONG_PARTS[_spb + 0];
+  _sp_num  = max(1, SONG_PARTS[_spb + 1]);
+  _sp_pat  = SONG_PARTS[_spb + 2];
+  _sp_rep  = max(1, SONG_PARTS[_spb + 3]);
+  _sp_mkey = SONG_PARTS[_spb + 4];
+  _sp_mmod = SONG_PARTS[_spb + 5];
+  _sp_mvel = SONG_PARTS[_spb + 6];
+  _sp_arp  = SONG_PARTS[_spb + 7];
+  _sp_oct  = SONG_PART_OCT[_spi];
 
-  // Draw each row as a segment of the peak bar (top = row 0, bottom = row 7)
-  _ar = 0;
-  loop(8,
-    _cy = _ag_y + _ar * _row_h;
-    _cell = ARR_BASE[_ac * 8 + _ar];
+  // Row background (highlight selected)
+  _spi == song_sel_part ? (
+    gfx_r = 0.15; gfx_g = 0.12; gfx_b = 0.25;
+  ) : (
+    gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+  );
+  gfx_a = 1;
+  gfx_rect(margin, _spy, _sg_w, _sg_row_h - 1);
 
-    gfx_a = 1;
-    // Is this the currently playing cell? (use snapshot, not live @block vars)
-    _is_playing_cell = transport_playing && _gfx_arr_seq_ok && _ac == _gfx_arr_cur_col && _ar == _gfx_arr_cur_row;
-
-    _cell > 0 ? (
-      _is_playing_cell ? (
-        // Playing cell — solid green, no layers
-        gfx_r=0.12; gfx_g=0.55; gfx_b=0.22;
-        gfx_rect(_cx, _cy, _col_w, _row_h);
-        // bright top edge
-        gfx_r=0.30; gfx_g=1.0; gfx_b=0.45;
-        gfx_rect(_cx, _cy, _col_w, max(2, floor(3*S)));
-        // label
-        _row_h >= floor(16*S) ? (
-          gfx_r=0.5; gfx_g=1.0; gfx_b=0.6;
-          _pl = #; sprintf(_pl, "P%d", _cell);
-          gfx_measurestr(_pl, _plw, _plh);
-          gfx_x = _cx + floor((_col_w-_plw)/2); gfx_y = _cy + floor((_row_h-_plh)/2);
-          gfx_drawstr(_pl);
-        );
-      ) : (
-        // Inactive filled cell — dimmed pattern color
-        pat_set_color(_cell - 1);
-        gfx_r = gfx_r*0.55 + 0.04; gfx_g = gfx_g*0.55 + 0.04; gfx_b = gfx_b*0.55 + 0.04;
-        gfx_rect(_cx, _cy, _col_w, _row_h);
-        // bright top edge
-        pat_set_color(_cell - 1);
-        gfx_rect(_cx, _cy, _col_w, max(1, floor(2*S)));
-        // label
-        _row_h >= floor(16*S) ? (
-          gfx_r = min(1, gfx_r*1.6); gfx_g = min(1, gfx_g*1.6); gfx_b = min(1, gfx_b*1.6);
-          _pl = #; sprintf(_pl, "P%d", _cell);
-          gfx_measurestr(_pl, _plw, _plh);
-          gfx_x = _cx + floor((_col_w-_plw)/2); gfx_y = _cy + floor((_row_h-_plh)/2);
-          gfx_drawstr(_pl);
-        );
-      );
-    ) : (
-      // empty cell — very dark
-      gfx_r=0.06; gfx_g=0.06; gfx_b=0.08;
-      gfx_rect(_cx, _cy, _col_w, _row_h);
-    );
-
-    // left click: assign current pattern (toggle off if same)
-    (mouse_cap & 1) && !(last_cap & 1) && !(mouse_cap & 8) &&
-      mouse_x >= _cx && mouse_x < _cx + _col_w &&
-      mouse_y >= _cy && mouse_y < _cy + _row_h ? (
-      ARR_BASE[_ac*8+_ar] = ARR_BASE[_ac*8+_ar] == current_pat+1 ? 0 : current_pat+1;
-    );
-    // right click: clear
-    (mouse_cap & 2) && !(last_cap & 2) &&
-      mouse_x >= _cx && mouse_x < _cx + _col_w &&
-      mouse_y >= _cy && mouse_y < _cy + _row_h ? (
-      ARR_BASE[_ac*8+_ar] = 0;
-    );
-    _ar += 1;
+  // Click row to select for sequencing
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= margin && mouse_x < margin + _sg_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    song_sel_part = _spi;
   );
 
-  // column number below bar
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B; gfx_a = 1;
-  gfx_x = _cx + floor(4*S);
-  gfx_y = _ag_y + 8*_row_h + floor(2*S);
-  gfx_drawnumber(_ac+1, 0);
+  gfx_setfont(1, "Arial", F_SMALL);
+  _rx = margin;
 
-  _ac += 1;
+  // # column
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_x = _rx + floor(4*S); gfx_y = _spy + floor(4*S);
+  gfx_drawnumber(_spi + 1, 0);
+  _rx += _sg_num_w;
+
+  // Category (clickable cycling button)
+  _sp_cat == 0 ? (gfx_r=0.20; gfx_g=0.35; gfx_b=0.55;) :  // Verse: blue
+  _sp_cat == 1 ? (gfx_r=0.50; gfx_g=0.25; gfx_b=0.20;) :  // Chorus: red
+  _sp_cat == 2 ? (gfx_r=0.40; gfx_g=0.30; gfx_b=0.50;) :  // Bridge: purple
+  _sp_cat == 3 ? (gfx_r=0.20; gfx_g=0.45; gfx_b=0.25;) :  // Intro: green
+                 (gfx_r=0.45; gfx_g=0.35; gfx_b=0.15;);    // Outro: gold
+  gfx_rect(_rx, _spy + 1, _sg_cat_w, _sg_row_h - 3);
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  _sp_cat==0?(_cs="Verse"):_sp_cat==1?(_cs="Chorus"):_sp_cat==2?(_cs="Bridge"):_sp_cat==3?(_cs="Intro"):(_cs="Outro");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_cat_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_cat_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 0] = (_sp_cat + 1) % 5;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_cat_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 0] = (_sp_cat + 4) % 5;
+  );
+  _rx += _sg_cat_w + _sg_col_gap;
+
+  // Number (click to cycle 1-8)
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+  gfx_rect(_rx, _spy + 1, _sg_pnum_w, _sg_row_h - 3);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  gfx_x = _rx + floor(10*S); gfx_y = _spy + floor(4*S);
+  gfx_drawnumber(_sp_num, 0);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_pnum_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 1] = _sp_num % 8 + 1;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_pnum_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 1] = (_sp_num - 2 + 8) % 8 + 1;
+  );
+  _rx += _sg_pnum_w + _sg_col_gap;
+
+  // Pattern (click to cycle P1-P16, colored)
+  pat_set_color(_sp_pat);
+  gfx_r = gfx_r * 0.5; gfx_g = gfx_g * 0.5; gfx_b = gfx_b * 0.5;
+  gfx_rect(_rx, _spy + 1, _sg_pat_w, _sg_row_h - 3);
+  pat_set_color(_sp_pat);
+  _pl = #; sprintf(_pl, "P%d", _sp_pat + 1);
+  gfx_measurestr(_pl, _tw, _th);
+  gfx_x = _rx + floor((_sg_pat_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_pl);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_pat_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 2] = (_sp_pat + 1) % num_pats;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_pat_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 2] = (_sp_pat - 1 + num_pats) % num_pats;
+  );
+  _rx += _sg_pat_w + _sg_col_gap;
+
+  // Repeats (click to cycle 1-16)
+  gfx_r = 0.12; gfx_g = 0.12; gfx_b = 0.16;
+  gfx_rect(_rx, _spy + 1, _sg_rep_w, _sg_row_h - 3);
+  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+  _pl = #; sprintf(_pl, "x%d", _sp_rep);
+  gfx_measurestr(_pl, _tw, _th);
+  gfx_x = _rx + floor((_sg_rep_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_pl);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_rep_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 3] = _sp_rep % 16 + 1;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_rep_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 3] = (_sp_rep - 2 + 16) % 16 + 1;
+  );
+  _rx += _sg_rep_w + _sg_col_gap;
+
+  // Mod Key (0=OFF, 1-12=C..B)
+  _sp_mkey > 0 ? (gfx_r=0.35; gfx_g=0.20; gfx_b=0.50;) : (gfx_r=0.10; gfx_g=0.10; gfx_b=0.13;);
+  gfx_rect(_rx, _spy + 1, _sg_key_w, _sg_row_h - 3);
+  _sp_mkey > 0 ? (gfx_r=0.85; gfx_g=0.60; gfx_b=1.0;) : (gfx_r=COL_DIM_R*0.6; gfx_g=COL_DIM_G*0.6; gfx_b=COL_DIM_B*0.6;);
+  _sp_mkey == 0 ? (_cs = "--") :
+  _sp_mkey == 1 ? (_cs = "C") : _sp_mkey == 2 ? (_cs = "C#") : _sp_mkey == 3 ? (_cs = "D") :
+  _sp_mkey == 4 ? (_cs = "Eb") : _sp_mkey == 5 ? (_cs = "E") : _sp_mkey == 6 ? (_cs = "F") :
+  _sp_mkey == 7 ? (_cs = "F#") : _sp_mkey == 8 ? (_cs = "G") : _sp_mkey == 9 ? (_cs = "Ab") :
+  _sp_mkey == 10 ? (_cs = "A") : _sp_mkey == 11 ? (_cs = "Bb") : (_cs = "B");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_key_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_key_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 4] = (_sp_mkey + 1) % 13;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_key_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 4] = (_sp_mkey + 12) % 13;
+  );
+  _rx += _sg_key_w + _sg_col_gap;
+
+  // Mod Mode (0=inherit, 1=MAJ, 2=MIN)
+  _sp_mmod == 1 ? (gfx_r=0.15; gfx_g=0.25; gfx_b=0.45;) :
+  _sp_mmod == 2 ? (gfx_r=0.35; gfx_g=0.15; gfx_b=0.35;) :
+                  (gfx_r=0.10; gfx_g=0.10; gfx_b=0.13;);
+  gfx_rect(_rx, _spy + 1, _sg_mode_w, _sg_row_h - 3);
+  _sp_mmod == 1 ? (gfx_r=0.50; gfx_g=0.70; gfx_b=1.0; _cs="MAJ") :
+  _sp_mmod == 2 ? (gfx_r=0.80; gfx_g=0.50; gfx_b=0.85; _cs="MIN") :
+                  (gfx_r=COL_DIM_R*0.6; gfx_g=COL_DIM_G*0.6; gfx_b=COL_DIM_B*0.6; _cs="--");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_mode_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_mode_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 5] = (_sp_mmod + 1) % 3;
+  );
+  _rx += _sg_mode_w + _sg_col_gap;
+
+  // Mod Velocity (0=normal, 1=QUIET, 2=LOUD)
+  _sp_mvel == 1 ? (gfx_r=0.12; gfx_g=0.20; gfx_b=0.30;) :
+  _sp_mvel == 2 ? (gfx_r=0.40; gfx_g=0.15; gfx_b=0.10;) :
+                  (gfx_r=0.10; gfx_g=0.10; gfx_b=0.13;);
+  gfx_rect(_rx, _spy + 1, _sg_vel_w, _sg_row_h - 3);
+  _sp_mvel == 1 ? (gfx_r=0.40; gfx_g=0.65; gfx_b=0.85; _cs="QT") :
+  _sp_mvel == 2 ? (gfx_r=1.0; gfx_g=0.45; gfx_b=0.30; _cs="LD") :
+                  (gfx_r=COL_DIM_R*0.6; gfx_g=COL_DIM_G*0.6; gfx_b=COL_DIM_B*0.6; _cs="--");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_vel_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_vel_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 6] = (_sp_mvel + 1) % 3;
+  );
+  _rx += _sg_vel_w + _sg_col_gap;
+
+  // Arp Mode (0=OFF, 1=UP, 2=DOWN, 3=U/D, 4=RND)
+  _sp_arp > 0 ? (gfx_r=0.40; gfx_g=0.20; gfx_b=0.50;) : (gfx_r=0.10; gfx_g=0.10; gfx_b=0.13;);
+  gfx_rect(_rx, _spy + 1, _sg_arp_w, _sg_row_h - 3);
+  _sp_arp == 1 ? (gfx_r=0.80; gfx_g=0.55; gfx_b=1.0; _cs="UP") :
+  _sp_arp == 2 ? (gfx_r=0.80; gfx_g=0.55; gfx_b=1.0; _cs="DN") :
+  _sp_arp == 3 ? (gfx_r=0.80; gfx_g=0.55; gfx_b=1.0; _cs="U/D") :
+  _sp_arp == 4 ? (gfx_r=0.80; gfx_g=0.55; gfx_b=1.0; _cs="RND") :
+                 (gfx_r=COL_DIM_R*0.6; gfx_g=COL_DIM_G*0.6; gfx_b=COL_DIM_B*0.6; _cs="--");
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_arp_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_arp_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 7] = (_sp_arp + 1) % 5;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_arp_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 7] = (_sp_arp + 4) % 5;
+  );
+  _rx += _sg_arp_w + _sg_col_gap;
+
+  // Octave Override (0=inherit, 1=-2, 2=-1, 3=0, 4=+1, 5=+2, 6=+3)
+  _sp_oct > 0 ? (gfx_r=0.20; gfx_g=0.35; gfx_b=0.45;) : (gfx_r=0.10; gfx_g=0.10; gfx_b=0.13;);
+  gfx_rect(_rx, _spy + 1, _sg_oct_w, _sg_row_h - 3);
+  _sp_oct == 0 ? (_cs="--") :
+  _sp_oct == 1 ? (_cs="-2") : _sp_oct == 2 ? (_cs="-1") : _sp_oct == 3 ? (_cs="0") :
+  _sp_oct == 4 ? (_cs="+1") : _sp_oct == 5 ? (_cs="+2") : (_cs="+3");
+  _sp_oct > 0 ? (gfx_r=0.50; gfx_g=0.80; gfx_b=0.95;) : (gfx_r=COL_DIM_R*0.6; gfx_g=COL_DIM_G*0.6; gfx_b=COL_DIM_B*0.6;);
+  gfx_measurestr(_cs, _tw, _th);
+  gfx_x = _rx + floor((_sg_oct_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
+  gfx_drawstr(_cs);
+  (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_oct_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PART_OCT[_spi] = (_sp_oct + 1) % 7;
+  );
+  (mouse_cap & 2) && !(last_cap & 2) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_oct_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PART_OCT[_spi] = (_sp_oct + 6) % 7;
+  );
+
+  _spi += 1;
 );
 
-// [+ Col] / [- Col] buttons
-_abtn_y = _ag_y + 8*_row_h + floor(14*S);
-_abtn_w = floor(50*S); _abtn_h = floor(20*S);
-_abtn_x = margin;
-gfx_r=0.12; gfx_g=0.22; gfx_b=0.12; gfx_a=1; gfx_rect(_abtn_x, _abtn_y, _abtn_w, _abtn_h);
+// [+ Part] [- Part] buttons
+_spbtn_y = _sg_y + _sg_hdr_h + song_num_parts * _sg_row_h + floor(4 * S);
+_spbtn_w = floor(58 * S); _spbtn_h = floor(20 * S);
+_spbtn_x = margin;
+
+// [+ Part]
+gfx_r=0.12; gfx_g=0.22; gfx_b=0.12; gfx_a=1; gfx_rect(_spbtn_x, _spbtn_y, _spbtn_w, _spbtn_h);
 gfx_r=COL_GREEN_R; gfx_g=COL_GREEN_G; gfx_b=COL_GREEN_B;
-gfx_setfont(1, "Arial", F_TINY);
-gfx_x=_abtn_x+floor(4*S); gfx_y=_abtn_y+floor(3*S); gfx_drawstr("+ Col");
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_measurestr("+ Part", _tw, _th);
+gfx_x=_spbtn_x+floor((_spbtn_w-_tw)/2); gfx_y=_spbtn_y+floor((_spbtn_h-_th)/2); gfx_drawstr("+ Part");
 (mouse_cap&1) && !(last_cap&1) &&
-  mouse_x>=_abtn_x && mouse_x<_abtn_x+_abtn_w &&
-  mouse_y>=_abtn_y && mouse_y<_abtn_y+_abtn_h ? (
-  arr_ncols < MAX_ARR_COLS ? arr_ncols += 1;
-);
-_abtn_x += _abtn_w + floor(4*S);
-gfx_r=0.22; gfx_g=0.10; gfx_b=0.10; gfx_a=1; gfx_rect(_abtn_x, _abtn_y, _abtn_w, _abtn_h);
-gfx_r=COL_ACCENT_R; gfx_g=0.4; gfx_b=0.4;
-gfx_x=_abtn_x+floor(4*S); gfx_y=_abtn_y+floor(3*S); gfx_drawstr("- Col");
-(mouse_cap&1) && !(last_cap&1) &&
-  mouse_x>=_abtn_x && mouse_x<_abtn_x+_abtn_w &&
-  mouse_y>=_abtn_y && mouse_y<_abtn_y+_abtn_h ? (
-  arr_ncols > 1 ? (
-    arr_ncols -= 1;
-    _ri = 0; loop(8, ARR_BASE[arr_ncols*8+_ri] = 0; _ri+=1);
+  mouse_x>=_spbtn_x && mouse_x<_spbtn_x+_spbtn_w &&
+  mouse_y>=_spbtn_y && mouse_y<_spbtn_y+_spbtn_h ? (
+  song_num_parts < MAX_SONG_PARTS ? (
+    _npb = song_num_parts * SONG_PART_SIZE;
+    SONG_PARTS[_npb + 0] = 0;   // Verse
+    SONG_PARTS[_npb + 1] = 1;   // num 1
+    SONG_PARTS[_npb + 2] = 0;   // pattern 0
+    SONG_PARTS[_npb + 3] = 1;   // repeat 1
+    SONG_PARTS[_npb + 4] = 0;   // no modulation
+    SONG_PARTS[_npb + 5] = 0;   // inherit mode
+    SONG_PARTS[_npb + 6] = 0;   // normal velocity
+    song_num_parts += 1;
   );
 );
-_abtn_x += _abtn_w + floor(12*S);
-gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B; gfx_setfont(1, "Arial", F_SMALL);
-gfx_x=_abtn_x; gfx_y=_abtn_y+floor(2*S);
-gfx_drawstr("Cols: "); gfx_drawnumber(arr_ncols,0);
-gfx_drawstr("  Click=assign P"); gfx_drawnumber(current_pat+1,0);
-gfx_drawstr("  R-click=clear  |  ");
+_spbtn_x += _spbtn_w + floor(4*S);
+
+// [- Part]
+gfx_r=0.22; gfx_g=0.10; gfx_b=0.10; gfx_a=1; gfx_rect(_spbtn_x, _spbtn_y, _spbtn_w, _spbtn_h);
+gfx_r=COL_ACCENT_R; gfx_g=0.4; gfx_b=0.4;
+gfx_measurestr("- Part", _tw, _th);
+gfx_x=_spbtn_x+floor((_spbtn_w-_tw)/2); gfx_y=_spbtn_y+floor((_spbtn_h-_th)/2); gfx_drawstr("- Part");
+(mouse_cap&1) && !(last_cap&1) &&
+  mouse_x>=_spbtn_x && mouse_x<_spbtn_x+_spbtn_w &&
+  mouse_y>=_spbtn_y && mouse_y<_spbtn_y+_spbtn_h ? (
+  song_num_parts > 1 ? (
+    song_num_parts -= 1;
+    song_sel_part >= song_num_parts ? song_sel_part = song_num_parts - 1;
+    // Remove references from sequence
+    _sqi = song_seq_len - 1;
+    while(_sqi >= 0) (
+      SONG_SEQ[_sqi] >= song_num_parts ? (
+        // shift remaining down
+        _sj = _sqi;
+        loop(song_seq_len - _sqi - 1, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; _sj += 1);
+        song_seq_len -= 1;
+      );
+      _sqi -= 1;
+    );
+  );
+);
+
+// ---- SONG SEQUENCE STRIP ----
+_seq_strip_y = _spbtn_y + _spbtn_h + floor(12 * S);
+
+// Section label
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
+gfx_x = margin; gfx_y = _seq_strip_y;
+gfx_drawstr("SONG SEQUENCE");
+
+_seq_strip_y += floor(18 * S);
+_seq_block_h = floor(36 * S);
+_seq_block_w = floor(72 * S);
+_seq_gap = floor(3 * S);
+_seq_blocks_per_row = max(1, floor((gfx_w - margin * 2) / (_seq_block_w + _seq_gap)));
+
+// Draw sequence blocks
+_sqi = 0;
+loop(song_seq_len,
+  _sq_row = floor(_sqi / _seq_blocks_per_row);
+  _sq_col = _sqi - _sq_row * _seq_blocks_per_row;
+  _sqx = margin + _sq_col * (_seq_block_w + _seq_gap);
+  _sqy = _seq_strip_y + _sq_row * (_seq_block_h + _seq_gap);
+
+  _sq_part = SONG_SEQ[_sqi];
+  _sq_part < song_num_parts ? (
+    _sqpb = _sq_part * SONG_PART_SIZE;
+    _sqcat = SONG_PARTS[_sqpb + 0];
+    _sqpnum = max(1, SONG_PARTS[_sqpb + 1]);
+
+    // Background color by category
+    _is_playing_seq = transport_playing && song_cur_src >= 0 && _sqi == song_cur_src;
+    _is_playing_seq ? (
+      gfx_r = 0.15; gfx_g = 0.55; gfx_b = 0.25;
+    ) : (
+      _sqcat==0 ? (gfx_r=0.15; gfx_g=0.25; gfx_b=0.40;) :
+      _sqcat==1 ? (gfx_r=0.38; gfx_g=0.18; gfx_b=0.15;) :
+      _sqcat==2 ? (gfx_r=0.30; gfx_g=0.22; gfx_b=0.38;) :
+      _sqcat==3 ? (gfx_r=0.15; gfx_g=0.35; gfx_b=0.18;) :
+                  (gfx_r=0.35; gfx_g=0.28; gfx_b=0.10;);
+    );
+    gfx_a = 1;
+    gfx_rect(_sqx, _sqy, _seq_block_w, _seq_block_h);
+
+    // Drag source highlight (amber tint)
+    seq_drag_src == _sqi && (mouse_cap & 1) ? (
+      gfx_r = COL_ACCENT_R * 0.3; gfx_g = COL_ACCENT_G * 0.15; gfx_b = 0; gfx_a = 0.4;
+      gfx_rect(_sqx, _sqy, _seq_block_w, _seq_block_h); gfx_a = 1;
+    );
+    // Drag destination highlight (green border)
+    seq_drag_src >= 0 && seq_drag_src != _sqi && seq_drag_dst == _sqi && (mouse_cap & 1) ? (
+      gfx_r = 0.25; gfx_g = 0.85; gfx_b = 0.35; gfx_a = 0.6;
+      gfx_rect(_sqx, _sqy, _seq_block_w, 2);
+      gfx_rect(_sqx, _sqy + _seq_block_h - 2, _seq_block_w, 2);
+      gfx_rect(_sqx, _sqy, 2, _seq_block_h);
+      gfx_rect(_sqx + _seq_block_w - 2, _sqy, 2, _seq_block_h);
+      gfx_a = 1;
+    );
+
+    // Playing highlight top edge
+    _is_playing_seq ? (
+      gfx_r=0.30; gfx_g=1.0; gfx_b=0.50;
+      gfx_rect(_sqx, _sqy, _seq_block_w, max(2, floor(3*S)));
+    );
+
+    // Label: "Verse 1" etc
+    gfx_setfont(1, "Arial", F_SMALL);
+    gfx_r = 1; gfx_g = 1; gfx_b = 1;
+    _sqcat==0?(_cs="Vrs"):_sqcat==1?(_cs="Cho"):_sqcat==2?(_cs="Brg"):_sqcat==3?(_cs="Int"):(_cs="Out");
+    _pl = #; sprintf(_pl, "%s %d", _cs, _sqpnum);
+    gfx_measurestr(_pl, _tw, _th);
+    gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _sqy + floor(4*S);
+    gfx_drawstr(_pl);
+
+    // Pattern label below
+    gfx_setfont(1, "Arial", F_TINY);
+    _sqpat = SONG_PARTS[_sqpb + 2];
+    pat_set_color(_sqpat);
+    _pl = #; sprintf(_pl, "P%d", _sqpat + 1);
+    gfx_measurestr(_pl, _tw, _th);
+    gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _sqy + floor(18*S);
+    gfx_drawstr(_pl);
+
+    // --- Interaction ---
+    _in_block = mouse_x >= _sqx && mouse_x < _sqx + _seq_block_w &&
+                mouse_y >= _sqy && mouse_y < _sqy + _seq_block_h;
+
+    // Left-click: start drag OR cycle part (resolved on release)
+    (mouse_cap & 1) && !(last_cap & 1) && _in_block ? (
+      seq_drag_src = _sqi; seq_drag_dst = _sqi;
+    );
+    // Track drag destination while dragging
+    (mouse_cap & 1) && seq_drag_src >= 0 && _in_block ? (
+      seq_drag_dst = _sqi;
+    );
+    // Release: if same position = cycle part, if different = reorder
+    !(mouse_cap & 1) && (last_cap & 1) && seq_drag_src >= 0 && _in_block ? (
+      seq_drag_src == _sqi && seq_drag_src == seq_drag_dst ? (
+        // Click (no drag): cycle part assignment (L-click = next, use scroll for prev)
+        SONG_SEQ[_sqi] = (SONG_SEQ[_sqi] + 1) % song_num_parts;
+      ) : seq_drag_src != _sqi ? (
+        // Drag completed: move seq_drag_src to position _sqi
+        _moved_val = SONG_SEQ[seq_drag_src];
+        seq_drag_src < _sqi ? (
+          // Dragged right: shift left
+          _sj = seq_drag_src;
+          loop(_sqi - seq_drag_src, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; _sj += 1);
+          SONG_SEQ[_sqi] = _moved_val;
+        ) : (
+          // Dragged left: shift right
+          _sj = seq_drag_src;
+          while(_sj > _sqi) ( SONG_SEQ[_sj] = SONG_SEQ[_sj-1]; _sj -= 1; );
+          SONG_SEQ[_sqi] = _moved_val;
+        );
+        seq_drag_src = -1; seq_drag_dst = -1;
+      );
+    );
+
+    // Right-click to remove from sequence
+    (mouse_cap & 2) && !(last_cap & 2) && _in_block ? (
+      _sj = _sqi;
+      loop(song_seq_len - _sqi - 1, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; _sj += 1);
+      song_seq_len -= 1;
+    );
+  );
+
+  _sqi += 1;
+);
+// Reset drag state when mouse released outside any block
+!(mouse_cap & 1) && (last_cap & 1) && seq_drag_src >= 0 ? (seq_drag_src = -1; seq_drag_dst = -1;);
+
+// [+ SEQ] button — append selected part to sequence
+_seq_add_x = margin + (song_seq_len < _seq_blocks_per_row ? song_seq_len : (song_seq_len % _seq_blocks_per_row)) * (_seq_block_w + _seq_gap);
+_seq_add_row = floor(song_seq_len / _seq_blocks_per_row);
+_seq_add_y = _seq_strip_y + _seq_add_row * (_seq_block_h + _seq_gap);
+gfx_r=0.12; gfx_g=0.22; gfx_b=0.12; gfx_a=1;
+gfx_rect(_seq_add_x, _seq_add_y, _seq_block_w, _seq_block_h);
+gfx_r=COL_GREEN_R; gfx_g=COL_GREEN_G; gfx_b=COL_GREEN_B;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_measurestr("+ SEQ", _tw, _th);
+gfx_x = _seq_add_x + floor((_seq_block_w - _tw)/2); gfx_y = _seq_add_y + floor((_seq_block_h - _th)/2);
+gfx_drawstr("+ SEQ");
+(mouse_cap&1) && !(last_cap&1) &&
+  mouse_x >= _seq_add_x && mouse_x < _seq_add_x + _seq_block_w &&
+  mouse_y >= _seq_add_y && mouse_y < _seq_add_y + _seq_block_h ? (
+  song_seq_len < MAX_SONG_SEQ && song_num_parts > 0 ? (
+    SONG_SEQ[song_seq_len] = max(0, min(song_sel_part, song_num_parts - 1));
+    song_seq_len += 1;
+  );
+);
+
+// Status line
+gfx_setfont(1, "Arial", F_SMALL);
+_ss_y = gfx_h - floor(50 * S);
+gfx_x = margin; gfx_y = _ss_y;
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_drawstr("Parts: "); gfx_drawnumber(song_num_parts, 0);
+gfx_drawstr("  Seq: "); gfx_drawnumber(song_seq_len, 0);
+gfx_drawstr("  |  ");
 transport_playing ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
+song_cur_seq >= 0 && transport_playing ? (
+  gfx_drawstr("  |  Pos: "); gfx_drawnumber(song_cur_seq + 1, 0);
+  gfx_drawstr("/"); gfx_drawnumber(song_seq_len, 0);
+);
+
+// Hint
+gfx_x = margin; gfx_y = _ss_y + floor(14 * S);
+gfx_drawstr("Parts: L/R-click to cycle.  Seq: click=cycle part, drag=reorder, R-click=remove.");
 
 ) : (
 // ============================================================================
@@ -2244,7 +2736,7 @@ gfx_rect(_leg_x, _leg_sy, _leg_sw, _leg_sh);
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = _leg_x + _leg_sw + _leg_gap; gfx_y = _leg_y; gfx_drawstr("Path");
 
-); // end arr_mode ? (...) : (...)
+); // end song_mode ? (...) : (...)
 
 // Instance Manager
 bc_panel_y = bc.lms_bc_gfx(S, last_cap);
@@ -2305,7 +2797,18 @@ i = 0; loop(32, file_var(0, CHORD_MOD_INV[i]); i += 1);
 file_var(0, edit_override);
 // Reconcile: after loading working copy, sync bank[current_pat] so it's current
 pat_save(current_pat);
-file_var(0, arr_mode);
+file_var(0, arr_mode);  // kept for backward compat — always force off
 file_var(0, arr_ncols);
-arr_ncols < 1 ? arr_ncols = 8;
+arr_mode = 0;
 i = 0; loop(MAX_ARR_COLS * 8, file_var(0, ARR_BASE[i]); i += 1);
+// Extra 8 patterns (8-15) — appended for backward compat with old presets
+i = 0; loop(8 * PAT_SIZE, file_var(0, (PAT_BASE + 8 * PAT_SIZE)[i]); i += 1);
+// Song mode data
+file_var(0, song_mode);
+file_var(0, song_num_parts);
+file_var(0, song_seq_len);
+file_var(0, song_sel_part);
+i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, file_var(0, SONG_PARTS[i]); i += 1);
+i = 0; loop(MAX_SONG_SEQ, file_var(0, SONG_SEQ[i]); i += 1);
+// Song part octave overrides (appended for backward compat)
+i = 0; loop(MAX_SONG_PARTS, file_var(0, SONG_PART_OCT[i]); i += 1);
