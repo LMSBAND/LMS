@@ -102,6 +102,7 @@ SONG_SEQ_PAT  = 30500;  // 64 entries: resolved pattern index per seq slot (runt
 SONG_SEQ_PART = 30600;  // 64 entries: part index per seq slot (runtime, for mod lookup)
 SONG_SEQ_SRC  = 30700;  // 64 entries: original SONG_SEQ index per expanded slot (for UI highlight)
 SONG_PART_OCT = 30800;  // 16 entries: octave offset per part (-2 to +3, 0=inherit from slider6)
+SONG_SEQ_DRUM = 30900;  // 64 entries: DrumBanger pattern per seq entry (0=no change, 1-8=pattern)
                         // Stored as 0-5 (0=no override, 1=-2, 2=-1, 3=0, 4=+1, 5=+2, 6=+3)
 MAX_SONG_PARTS = 16;
 MAX_SONG_SEQ   = 64;
@@ -764,6 +765,8 @@ hm_role == 1 ? (
   _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, gmem[COND_PARTS + _ci] = SONG_PARTS[_ci]; _ci += 1);
   // Song sequence (64 floats)
   _ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + _ci] = SONG_SEQ[_ci]; _ci += 1);
+  // Drum patterns per sequence entry (broadcast at COND_SEQ + 64)
+  _ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + 64 + _ci] = SONG_SEQ_DRUM[_ci]; _ci += 1);
   // Song octave overrides (16 floats)
   _ci = 0; loop(MAX_SONG_PARTS, gmem[COND_OCT + _ci] = SONG_PART_OCT[_ci]; _ci += 1);
 
@@ -813,8 +816,9 @@ hm_role == 2 ? (
 
     // Read song parts
     _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, SONG_PARTS[_ci] = gmem[COND_PARTS + _ci]; _ci += 1);
-    // Read song sequence
+    // Read song sequence + drum assignments
     _ci = 0; loop(MAX_SONG_SEQ, SONG_SEQ[_ci] = gmem[COND_SEQ + _ci]; _ci += 1);
+    _ci = 0; loop(MAX_SONG_SEQ, SONG_SEQ_DRUM[_ci] = gmem[COND_SEQ + 64 + _ci]; _ci += 1);
     // Read octave overrides
     _ci = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_ci] = gmem[COND_OCT + _ci]; _ci += 1);
 
@@ -1165,6 +1169,8 @@ gmem[HARMONY_BUS + 80] = song_mode;
 gmem[HARMONY_BUS + 81] = _song_mode_eff && song_cur_seq >= 0 ? song_cur_part_idx : -1;
 gmem[HARMONY_BUS + 82] = song_mod_key;
 gmem[HARMONY_BUS + 83] = song_mod_mode;
+// DrumBanger pattern for current sequence position (0=no change, 1-8=pattern)
+gmem[HARMONY_BUS + 84] = _song_mode_eff && song_cur_src >= 0 ? SONG_SEQ_DRUM[song_cur_src] : 0;
 
 // Preview chord (triggered from @gfx click) — always uses working copy
 preview_chord_dirty ? (
@@ -2581,7 +2587,7 @@ gfx_x = margin; gfx_y = _seq_strip_y;
 gfx_drawstr("SONG SEQUENCE");
 
 _seq_strip_y += floor(18 * S);
-_seq_block_h = floor(36 * S);
+_seq_block_h = floor(48 * S);  // taller to fit drum pattern row
 _seq_block_w = floor(72 * S);
 _seq_gap = floor(3 * S);
 _seq_blocks_per_row = max(1, floor((gfx_w - margin * 2) / (_seq_block_w + _seq_gap)));
@@ -2644,7 +2650,7 @@ loop(song_seq_len,
     gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _sqy + floor(4*S);
     gfx_drawstr(_pl);
 
-    // Pattern label below
+    // Pattern label
     gfx_setfont(1, "Arial", F_TINY);
     _sqpat = SONG_PARTS[_sqpb + 2];
     pat_set_color(_sqpat);
@@ -2652,6 +2658,36 @@ loop(song_seq_len,
     gfx_measurestr(_pl, _tw, _th);
     gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _sqy + floor(18*S);
     gfx_drawstr(_pl);
+
+    // DrumBanger pattern label (below pattern label)
+    _sq_drum = SONG_SEQ_DRUM[_sqi];
+    _db_y = _sqy + floor(30*S);
+    _db_h = floor(14*S);
+    _sq_drum > 0 ? (
+      gfx_r = 0.35; gfx_g = 0.25; gfx_b = 0.15;
+      gfx_rect(_sqx + 2, _db_y, _seq_block_w - 4, _db_h);
+      gfx_r = 0.90; gfx_g = 0.65; gfx_b = 0.25;
+      _pl = #; sprintf(_pl, "D%d", _sq_drum);
+    ) : (
+      gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
+      gfx_rect(_sqx + 2, _db_y, _seq_block_w - 4, _db_h);
+      gfx_r = COL_DIM_R * 0.5; gfx_g = COL_DIM_G * 0.5; gfx_b = COL_DIM_B * 0.5;
+      _pl = "d--";
+    );
+    gfx_measurestr(_pl, _tw, _th);
+    gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _db_y + floor((_db_h - _th)/2);
+    gfx_drawstr(_pl);
+    // Click drum label to cycle (L=next, R=prev/off)
+    (mouse_cap & 1) && !(last_cap & 1) &&
+      mouse_x >= _sqx + 2 && mouse_x < _sqx + _seq_block_w - 2 &&
+      mouse_y >= _db_y && mouse_y < _db_y + _db_h ? (
+      SONG_SEQ_DRUM[_sqi] = (_sq_drum + 1) % 9;  // 0-8: off, D1-D8
+    );
+    (mouse_cap & 2) && !(last_cap & 2) &&
+      mouse_x >= _sqx + 2 && mouse_x < _sqx + _seq_block_w - 2 &&
+      mouse_y >= _db_y && mouse_y < _db_y + _db_h ? (
+      SONG_SEQ_DRUM[_sqi] = (_sq_drum + 8) % 9;
+    );
 
     // --- Interaction ---
     _in_block = mouse_x >= _sqx && mouse_x < _sqx + _seq_block_w &&
@@ -2671,27 +2707,28 @@ loop(song_seq_len,
         // Click (no drag): cycle part assignment (L-click = next, use scroll for prev)
         SONG_SEQ[_sqi] = (SONG_SEQ[_sqi] + 1) % song_num_parts;
       ) : seq_drag_src != _sqi ? (
-        // Drag completed: move seq_drag_src to position _sqi
+        // Drag completed: move seq_drag_src to position _sqi (with drum assignment)
         _moved_val = SONG_SEQ[seq_drag_src];
+        _moved_drum = SONG_SEQ_DRUM[seq_drag_src];
         seq_drag_src < _sqi ? (
           // Dragged right: shift left
           _sj = seq_drag_src;
-          loop(_sqi - seq_drag_src, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; _sj += 1);
-          SONG_SEQ[_sqi] = _moved_val;
+          loop(_sqi - seq_drag_src, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; SONG_SEQ_DRUM[_sj] = SONG_SEQ_DRUM[_sj+1]; _sj += 1);
+          SONG_SEQ[_sqi] = _moved_val; SONG_SEQ_DRUM[_sqi] = _moved_drum;
         ) : (
           // Dragged left: shift right
           _sj = seq_drag_src;
-          while(_sj > _sqi) ( SONG_SEQ[_sj] = SONG_SEQ[_sj-1]; _sj -= 1; );
-          SONG_SEQ[_sqi] = _moved_val;
+          while(_sj > _sqi) ( SONG_SEQ[_sj] = SONG_SEQ[_sj-1]; SONG_SEQ_DRUM[_sj] = SONG_SEQ_DRUM[_sj-1]; _sj -= 1; );
+          SONG_SEQ[_sqi] = _moved_val; SONG_SEQ_DRUM[_sqi] = _moved_drum;
         );
         seq_drag_src = -1; seq_drag_dst = -1;
       );
     );
 
-    // Right-click to remove from sequence
+    // Right-click to remove from sequence (shift drum assignments too)
     (mouse_cap & 2) && !(last_cap & 2) && _in_block ? (
       _sj = _sqi;
-      loop(song_seq_len - _sqi - 1, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; _sj += 1);
+      loop(song_seq_len - _sqi - 1, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; SONG_SEQ_DRUM[_sj] = SONG_SEQ_DRUM[_sj+1]; _sj += 1);
       song_seq_len -= 1;
     );
   );
@@ -3308,6 +3345,8 @@ i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, file_var(0, SONG_PARTS[i]); i += 1)
 i = 0; loop(MAX_SONG_SEQ, file_var(0, SONG_SEQ[i]); i += 1);
 // Song part octave overrides (appended for backward compat)
 i = 0; loop(MAX_SONG_PARTS, file_var(0, SONG_PART_OCT[i]); i += 1);
+// Per-sequence DrumBanger pattern
+i = 0; loop(MAX_SONG_SEQ, file_var(0, SONG_SEQ_DRUM[i]); i += 1);
 // Conductor/Player role
 file_var(0, hm_role);
 file_var(0, player_seeded);
