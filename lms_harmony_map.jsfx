@@ -2524,8 +2524,14 @@ loop(song_num_parts,
   gfx_measurestr(_cs, _tw, _th);
   gfx_x = _rx + floor((_sg_vel_w - _tw)/2); gfx_y = _spy + floor((_sg_row_h - _th)/2);
   gfx_drawstr(_cs);
-  // Left-click: open velocity slider popup
+  // Left-click: toggle on/off (default 100 when turning on)
   (mouse_cap & 1) && !(last_cap & 1) &&
+    mouse_x >= _rx && mouse_x < _rx + _sg_vel_w &&
+    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
+    SONG_PARTS[_spb + 6] = _sp_mvel > 0 ? 0 : 100;
+  );
+  // Right-click: open velocity slider popup
+  (mouse_cap & 2) && !(last_cap & 2) &&
     mouse_x >= _rx && mouse_x < _rx + _sg_vel_w &&
     mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
     svel_edit_open = 1;
@@ -2533,12 +2539,6 @@ loop(song_num_parts,
     svel_edit_x = min(mouse_x, gfx_w - 55);
     svel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
     svel_edit_dragging = 0;
-  );
-  // Right-click: reset to off
-  (mouse_cap & 2) && !(last_cap & 2) &&
-    mouse_x >= _rx && mouse_x < _rx + _sg_vel_w &&
-    mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
-    SONG_PARTS[_spb + 6] = 0;
   );
   _rx += _sg_vel_w + _sg_col_gap;
 
