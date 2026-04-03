@@ -3232,11 +3232,6 @@ svel_edit_open ? (
       svel_edit_open = 0;
     );
   );
-
-  // Close on right-click
-  mouse_cap & 2 && !(last_cap & 2) ? (
-    svel_edit_open = 0;
-  );
 );
 
 // Instance Manager
