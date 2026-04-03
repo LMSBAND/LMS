@@ -127,6 +127,7 @@ conductor_found_id = 0;   // runtime: ID of conductor we're following
 
 // Song mode runtime (reset on play)
 song_mod_key = 0; song_mod_mode = 0; song_mod_vel = 0; song_mod_arp = 0; song_mod_oct = 0;
+song_mode_play = 0;  // conductor's song mode state (for player playback)
 
 // State
 notes_on_count = 0;
@@ -697,8 +698,8 @@ hm_role == 2 ? (
   );
 
   conductor_found_id > 0 && gmem[COND_BUS + 0] == conductor_found_id ? (
-    // Read song mode state
-    song_mode      = gmem[COND_BUS + 2];
+    // Read song mode state (for playback only — don't override player's UI view toggle)
+    song_mode_play = gmem[COND_BUS + 2];
     song_num_parts = gmem[COND_BUS + 3];
     song_seq_len   = gmem[COND_BUS + 4];
 
@@ -758,8 +759,11 @@ transport_playing = (play_state & 1);
 transport_started = transport_playing && !prev_playing;
 transport_started ? (edit_override = 0; arr_cur_pat = -1; song_cur_seq = -1;);
 
+// Effective song mode for playback: players use conductor's state
+_song_mode_eff = hm_role == 2 ? song_mode_play : song_mode;
+
 // Song mode: build flat sequence from parts + repeats, map beat_position
-song_mode && transport_playing && song_seq_len > 0 ? (
+_song_mode_eff && transport_playing && song_seq_len > 0 ? (
   // Build expanded sequence: walk SONG_SEQ, expand repeats
   _sng_len = 0; _sng_cum = 0;
   _sqi = 0;
@@ -830,7 +834,7 @@ song_mode && transport_playing && song_seq_len > 0 ? (
 );
 
 // P_* pointer setup: point at bank for non-current patterns in song mode, working copy otherwise
-song_mode && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
+_song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
   _apb = PAT_BASE + arr_cur_pat * PAT_SIZE;
   P_SLOTS   = _apb + PO_SLOTS;   P_FILLED  = _apb + PO_FILLED;
   P_BARS    = _apb + PO_BARS;    P_SUBDIV  = _apb + PO_SUBDIV;
@@ -883,7 +887,7 @@ beats_per_measure > 0 && transport_playing ? (
     _acc += _dur;
     _si += 1;
   );
-  edit_override == 0 && !(song_mode && song_cur_seq >= 0 && arr_cur_pat >= 0 && arr_cur_pat != current_pat) ? slider7 = cur_step + 1;
+  edit_override == 0 && !(_song_mode_eff && song_cur_seq >= 0 && arr_cur_pat >= 0 && arr_cur_pat != current_pat) ? slider7 = cur_step + 1;
 ) : (
   cur_step = max(0, slider7 - 1);
 );
@@ -929,7 +933,7 @@ sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
     bar_root = P_SLOTS[cur_step * 2];
     bar_qual = P_SLOTS[cur_step * 2 + 1];
     // Song mode modifiers: modulate key, force mode
-    song_mode && song_cur_seq >= 0 ? (
+    _song_mode_eff && song_cur_seq >= 0 ? (
       // Modulate: transpose root by (target_key - original_key) semitones
       song_mod_key > 0 ? (
         _target_key = song_mod_key - 1;  // 1-12 → 0-11
@@ -950,7 +954,7 @@ sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
     );
     // Song mode octave override
     _use_oct = slider6;
-    song_mode && song_cur_seq >= 0 && song_mod_oct > 0 ? (
+    _song_mode_eff && song_cur_seq >= 0 && song_mod_oct > 0 ? (
       // 1=-2, 2=-1, 3=0, 4=+1, 5=+2, 6=+3
       _use_oct = song_mod_oct - 3;
     );
@@ -960,7 +964,7 @@ sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
       _sv = P_VEL[cur_step]; _sv <= 0 ? _sv = 100;
       _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = max(1, min(127, floor(STEP_VELS[_ni] * _sv / 100))); _ni += 1);
       // Song mode velocity modifiers
-      song_mode && song_cur_seq >= 0 ? (
+      _song_mode_eff && song_cur_seq >= 0 ? (
         song_mod_vel == 1 ? (  // GET QUIET
           _ni = 0; loop(step_notes_count, STEP_VELS[_ni] = min(STEP_VELS[_ni], 40); _ni += 1);
         );
@@ -969,7 +973,7 @@ sub_changed = transport_playing && cur_step == last_step && cur_sub != last_sub;
         );
       );
       // Song mode arp: pick one note per sub-beat instead of firing all
-      song_mode && song_cur_seq >= 0 && song_mod_arp > 0 && step_notes_count > 1 ? (
+      _song_mode_eff && song_cur_seq >= 0 && song_mod_arp > 0 && step_notes_count > 1 ? (
         // Sort notes ascending for arp ordering
         _an = step_notes_count;
         _ai = 0; loop(_an - 1,
@@ -1044,7 +1048,7 @@ _bci = 0; loop(32,
 );
 // Song mode state
 gmem[HARMONY_BUS + 80] = song_mode;
-gmem[HARMONY_BUS + 81] = song_mode && song_cur_seq >= 0 ? song_cur_part_idx : -1;
+gmem[HARMONY_BUS + 81] = _song_mode_eff && song_cur_seq >= 0 ? song_cur_part_idx : -1;
 gmem[HARMONY_BUS + 82] = song_mod_key;
 gmem[HARMONY_BUS + 83] = song_mod_mode;
 
@@ -1380,10 +1384,10 @@ gfx_setfont(1, "Arial", F_SMALL);
 gfx_measurestr("SONG", _plw, _plh);
 gfx_x = _song_btn_x + floor((_song_btn_w-_plw)/2); gfx_y = patbar_y + floor((patbar_h-_plh)/2);
 gfx_drawstr("SONG");
-!_is_player && (mouse_cap & 1) && !(last_cap & 1) &&
+(mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= _song_btn_x && mouse_x < _song_btn_x + _song_btn_w &&
   mouse_y >= patbar_y && mouse_y < patbar_y + patbar_h ? (
-  song_mode = song_mode ? 0 : 1;
+  song_mode = song_mode ? 0 : 1;  // UI view toggle only — playback uses _song_mode_eff
   song_num_parts < 1 ? song_num_parts = 1;
 );
 
