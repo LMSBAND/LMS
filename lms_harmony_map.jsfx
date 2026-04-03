@@ -942,6 +942,13 @@ _song_mode_eff && transport_playing && song_seq_len > 0 ? (
   arr_cur_pat = -1;
 );
 
+// Auto-switch working copy to follow song playback — view always shows what's playing
+_song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat && transport_playing ? (
+  pat_save(current_pat);
+  current_pat = arr_cur_pat;
+  pat_load(current_pat);
+);
+
 // P_* pointer setup: point at bank for non-current patterns in song mode, working copy otherwise
 _song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
   _apb = PAT_BASE + arr_cur_pat * PAT_SIZE;
@@ -1220,6 +1227,8 @@ _gfx_song_mod_vel  = song_mod_vel;
 _gfx_cur_step      = cur_step;
 _gfx_cur_sub       = cur_sub;
 _gfx_transport      = transport_playing;
+_gfx_current_pat   = current_pat;
+_gfx_arr_cur_pat   = arr_cur_pat;
 _gfx_arr_seq_ok    = arr_seq_ok;
 
 S = gfx_w / 750;
