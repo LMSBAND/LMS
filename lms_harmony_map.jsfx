@@ -719,8 +719,8 @@ hm_role == 2 ? (
       _go = COND_PAT_STRUCT + _pi * 80;
       (_cpb + PO_NSTEPS)[0] = gmem[_go];
       _si = 0; loop(32,
-        (_cpb + PO_BARS)[_si]   = gmem[_go + 1 + _si];
-        (_cpb + PO_SUBDIV)[_si] = gmem[_go + 33 + _si];
+        (_cpb + PO_BARS)[_si] = gmem[_go + 1 + _si];
+        // PO_SUBDIV stays local — player owns subdivisions + tick patterns
         _si += 1;
       );
       _pi += 1;
@@ -731,8 +731,8 @@ hm_role == 2 ? (
       _cpb = PAT_BASE + _pi * PAT_SIZE;
       slider3 = max(1, (_cpb + PO_NSTEPS)[0]);
       _si = 0; loop(32,
-        CHORD_BARS[_si]  = (_cpb + PO_BARS)[_si];
-        CHORD_SUBDIV[_si] = (_cpb + PO_SUBDIV)[_si];
+        CHORD_BARS[_si] = (_cpb + PO_BARS)[_si];
+        // CHORD_SUBDIV stays local — player owns subdivisions
         _si += 1;
       );
     );
@@ -1705,19 +1705,21 @@ loop(num_steps,
     conn_dirty = 1;
   );
 
-  // Mouse wheel: top half = duration, bottom half = subdivision (blocked for players)
-  !_is_player && mouse_wheel != 0 &&
+  // Mouse wheel: top half = duration (blocked for players), bottom half = subdivision (all can edit)
+  mouse_wheel != 0 &&
     mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
     mouse_y >= by && mouse_y < by + timeline_h ? (
     mouse_y < by + timeline_h / 2 ? (
-      // Top half: adjust bar duration
-      mouse_wheel > 0 ? (
-        CHORD_BARS[bi] = min(8, max(1, CHORD_BARS[bi]) + 1);
-      ) : (
-        CHORD_BARS[bi] = max(1, CHORD_BARS[bi] - 1);
+      // Top half: adjust bar duration (conductor/standalone only)
+      !_is_player ? (
+        mouse_wheel > 0 ? (
+          CHORD_BARS[bi] = min(8, max(1, CHORD_BARS[bi]) + 1);
+        ) : (
+          CHORD_BARS[bi] = max(1, CHORD_BARS[bi] - 1);
+        );
       );
     ) : (
-      // Bottom half: adjust subdivision (cycle: 1,2,4,8,16)
+      // Bottom half: adjust subdivision (everyone can edit)
       _sdv = max(1, CHORD_SUBDIV[bi]);
       mouse_wheel > 0 ? (
         _sdv == 1 ? _sdv = 2 : _sdv == 2 ? _sdv = 4 : _sdv == 4 ? _sdv = 8 : _sdv == 8 ? _sdv = 16 : _sdv = 16;
