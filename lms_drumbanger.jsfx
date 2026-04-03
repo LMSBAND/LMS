@@ -926,6 +926,16 @@ function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, nu
 // ============================================================
 @block
 
+// ---- Harmony Map song mode: DrumBanger pattern switching ----
+// Read from HARMONY_BUS + 84 (960084). Value 1-8 = switch to pattern 0-7.
+gmem[960000] > 0 ? (  // Harmony Map heartbeat alive
+  _hm_drum = gmem[960084];
+  _hm_drum > 0 && _hm_drum <= 8 && (_hm_drum - 1) != slider3 ? (
+    slider3 = _hm_drum - 1;
+    sliderchange(slider3);
+  );
+);
+
 // ---- MIDI root note (live update from slider) ----
 MIDI_NOTE_BASE = slider8;
 
