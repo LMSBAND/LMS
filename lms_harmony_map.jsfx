@@ -16,7 +16,7 @@ slider6:0<-2,3,1>-Octave
 slider7:1<1,32,1>-Edit Bar
 
 @init
-gfx_clear = 0x070507;  // pre-clear buffer to bg color (R=7,G=5,B=7 ≈ COL_BG) before each frame
+gfx_clear = -1;  // disable auto-clear, we draw the full background manually in @gfx
 
 // ============================================================================
 //  MEMORY LAYOUT
@@ -969,7 +969,18 @@ spl1 = spl1;
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 char = gfx_getchar();
 
-// Snapshot @block state for this frame
+// Snapshot @block state for this frame (prevent mid-frame race with audio thread)
+_gfx_song_cur_seq  = song_cur_seq;
+_gfx_song_cur_src  = song_cur_src;
+_gfx_song_mod_arp  = song_mod_arp;
+_gfx_song_mod_oct  = song_mod_oct;
+_gfx_song_mod_key  = song_mod_key;
+_gfx_song_mod_mode = song_mod_mode;
+_gfx_song_mod_vel  = song_mod_vel;
+_gfx_cur_step      = cur_step;
+_gfx_cur_sub       = cur_sub;
+_gfx_transport      = transport_playing;
+_gfx_arr_seq_ok    = arr_seq_ok;
 
 S = gfx_w / 750;
 S < 0.5 ? S = 0.5;
@@ -1290,7 +1301,7 @@ loop(num_steps,
   _cell_w = max(floor(30 * S), _cell_w);
   bx = _bx_acc;
   by = timeline_y;
-  _is_cur = (bi == cur_step && transport_playing);
+  _is_cur = (bi == _gfx_cur_step && _gfx_transport);
   _is_edit = (bi == (slider7 - 1));
   _has_chord = CHORD_FILLED[bi];
 
@@ -1426,7 +1437,7 @@ loop(num_steps,
       gfx_rect(_tx, _tick_y, _tick_w, 1);
       gfx_rect(_tx, _tick_y + _tick_h - 1, _tick_w, 1);
 
-      bi == cur_step && _tk == cur_sub && transport_playing ? (
+      bi == _gfx_cur_step && _tk == _gfx_cur_sub && _gfx_transport ? (
         gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.3;
         gfx_rect(_tx, _tick_y, _tick_w, _tick_h);
         gfx_a = 1;
@@ -1839,6 +1850,10 @@ song_mode ? (
 _sg_y = map_y;
 _sg_w = gfx_w - margin * 2;
 
+// Pre-paint entire song mode area to prevent stale pixel flashing
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B; gfx_a = 1;
+gfx_rect(0, _sg_y, gfx_w, gfx_h - _sg_y);
+
 // ---- PARTS EDITOR ----
 _sg_row_h = floor(22 * S);
 _sg_hdr_h = floor(18 * S);
@@ -2185,7 +2200,7 @@ loop(song_seq_len,
     _sqpnum = max(1, SONG_PARTS[_sqpb + 1]);
 
     // Background color by category
-    _is_playing_seq = transport_playing && song_cur_src >= 0 && _sqi == song_cur_src;
+    _is_playing_seq = _gfx_transport && _gfx_song_cur_src >= 0 && _sqi == _gfx_song_cur_src;
     _is_playing_seq ? (
       gfx_r = 0.15; gfx_g = 0.55; gfx_b = 0.25;
     ) : (
@@ -2313,9 +2328,9 @@ gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_drawstr("Parts: "); gfx_drawnumber(song_num_parts, 0);
 gfx_drawstr("  Seq: "); gfx_drawnumber(song_seq_len, 0);
 gfx_drawstr("  |  ");
-transport_playing ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
-song_cur_seq >= 0 && transport_playing ? (
-  gfx_drawstr("  |  Pos: "); gfx_drawnumber(song_cur_seq + 1, 0);
+_gfx_transport ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
+_gfx_song_cur_seq >= 0 && _gfx_transport ? (
+  gfx_drawstr("  |  Pos: "); gfx_drawnumber(_gfx_song_cur_seq + 1, 0);
   gfx_drawstr("/"); gfx_drawnumber(song_seq_len, 0);
 );
 
@@ -2327,6 +2342,10 @@ gfx_drawstr("Parts: L/R-click to cycle.  Seq: click=cycle part, drag=reorder, R-
 // ============================================================================
 //  HARMONY MAP (map mode)
 // ============================================================================
+// Pre-paint map area
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B; gfx_a = 1;
+gfx_rect(0, map_y, gfx_w, gfx_h - map_y);
+
 map_h = gfx_h - map_y - floor(100 * S);
 map_cx = gfx_w / 2;
 map_cy = map_y + map_h / 2;
@@ -2677,7 +2696,7 @@ gfx_drawstr("  (");
 gfx_drawnumber(total_bars_sum, 0);
 gfx_drawstr(" bars)");
 gfx_drawstr("  |  ");
-transport_playing ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
+_gfx_transport ? gfx_drawstr("PLAYING") : gfx_drawstr("STOPPED");
 gfx_drawstr("  |  Connections: ");
 gfx_drawnumber(conn_count, 0);
 
