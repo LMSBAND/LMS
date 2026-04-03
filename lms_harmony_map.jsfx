@@ -122,6 +122,116 @@ COND_SEED      = 962000;  // chord seed area (16 patterns × PAT_SIZE)
 conductor_seed_dirty = 1;
 conductor_found_id = 0;   // runtime: ID of conductor we're following
 
+// ============================================================================
+//  UNDO SYSTEM  (Ctrl+Z / Ctrl+Y)
+// ============================================================================
+// Per snapshot: full pattern bank + working copy + song state + metadata
+// Bank: 16 × 1500 = 24000. Song: 128+64+16+4 = 212. Working: ~1450. Meta: 10.
+// Total per level: ~25672 floats. 20 levels = ~513K floats (well within 8M)
+UNDO_SNAP_SIZE = 25700;
+UNDO_MAX       = 20;
+UNDO_BASE      = 400000;   // 400000 to 400000+20*25700 = ~914000
+// Offsets within each snapshot
+UO_BANK    = 0;       // 24000 (16 × PAT_SIZE)
+UO_SONG_P  = 24000;   // 128 (SONG_PARTS)
+UO_SONG_S  = 24128;   // 64 (SONG_SEQ)
+UO_SONG_O  = 24192;   // 16 (SONG_PART_OCT)
+UO_META    = 24208;   // metadata: slider3, current_pat, num_pats, song_num_parts,
+                       // song_seq_len, song_sel_part, song_mode
+UO_WC_SLOTS  = 24220; // 64  CHORD_SLOTS
+UO_WC_FILLED = 24284; // 32
+UO_WC_BARS   = 24316; // 32
+UO_WC_SUBDIV = 24348; // 32
+UO_WC_PAT    = 24380; // 512
+UO_WC_VEL    = 24892; // 32
+UO_WC_MSTEP  = 24924; // 32
+UO_WC_MTICK  = 24956; // 512
+UO_WC_MSUS   = 25468; // 32
+UO_WC_MADD9  = 25500; // 32
+UO_WC_MADD7  = 25532; // 32
+UO_WC_MINV   = 25564; // 32
+UO_WC_MDOM7  = 25596; // 32
+UO_WC_MADD6  = 25628; // 32
+// Total used: 25660 < 25700 ✓
+
+undo_head = 0;  // next write position (circular)
+undo_count = 0; // how many undos available
+undo_redo_count = 0; // how many redos available
+
+function undo_push() local(_ub, _i) (
+  // Save current pattern to bank first
+  pat_save(current_pat);
+  _ub = UNDO_BASE + undo_head * UNDO_SNAP_SIZE;
+  // Bank
+  _i = 0; loop(16 * PAT_SIZE, _ub[UO_BANK + _i] = PAT_BASE[_i]; _i += 1);
+  // Song parts/seq/oct
+  _i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, _ub[UO_SONG_P + _i] = SONG_PARTS[_i]; _i += 1);
+  _i = 0; loop(MAX_SONG_SEQ, _ub[UO_SONG_S + _i] = SONG_SEQ[_i]; _i += 1);
+  _i = 0; loop(MAX_SONG_PARTS, _ub[UO_SONG_O + _i] = SONG_PART_OCT[_i]; _i += 1);
+  // Metadata
+  _ub[UO_META + 0] = slider3; _ub[UO_META + 1] = current_pat;
+  _ub[UO_META + 2] = num_pats; _ub[UO_META + 3] = song_num_parts;
+  _ub[UO_META + 4] = song_seq_len; _ub[UO_META + 5] = song_sel_part;
+  _ub[UO_META + 6] = song_mode;
+  // Working copy
+  _i = 0; loop(64,  _ub[UO_WC_SLOTS  + _i] = CHORD_SLOTS[_i];    _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_FILLED + _i] = CHORD_FILLED[_i];   _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_BARS   + _i] = CHORD_BARS[_i];     _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_SUBDIV + _i] = CHORD_SUBDIV[_i];   _i += 1);
+  _i = 0; loop(512, _ub[UO_WC_PAT    + _i] = CHORD_PATTERN[_i];  _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_VEL    + _i] = CHORD_VEL[_i];      _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MSTEP  + _i] = CHORD_MOD_STEP[_i]; _i += 1);
+  _i = 0; loop(512, _ub[UO_WC_MTICK  + _i] = CHORD_MOD_TICK[_i]; _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MSUS   + _i] = CHORD_MOD_SUS[_i];  _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MADD9  + _i] = CHORD_MOD_ADD9[_i]; _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MADD7  + _i] = CHORD_MOD_ADD7[_i]; _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MINV   + _i] = CHORD_MOD_INV[_i];  _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MDOM7  + _i] = CHORD_MOD_DOM7[_i]; _i += 1);
+  _i = 0; loop(32,  _ub[UO_WC_MADD6  + _i] = CHORD_MOD_ADD6[_i]; _i += 1);
+  // Advance head
+  undo_head = (undo_head + 1) % UNDO_MAX;
+  undo_count = min(undo_count + 1, UNDO_MAX);
+  undo_redo_count = 0;  // new action kills redo history
+);
+
+function undo_pop() local(_ub, _i, _slot) (
+  undo_count > 0 ? (
+    // Before restoring, push current state to redo
+    undo_head = (undo_head - 1 + UNDO_MAX) % UNDO_MAX;
+    _ub = UNDO_BASE + undo_head * UNDO_SNAP_SIZE;
+    // Restore bank
+    _i = 0; loop(16 * PAT_SIZE, PAT_BASE[_i] = _ub[UO_BANK + _i]; _i += 1);
+    // Restore song
+    _i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, SONG_PARTS[_i] = _ub[UO_SONG_P + _i]; _i += 1);
+    _i = 0; loop(MAX_SONG_SEQ, SONG_SEQ[_i] = _ub[UO_SONG_S + _i]; _i += 1);
+    _i = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_i] = _ub[UO_SONG_O + _i]; _i += 1);
+    // Restore metadata
+    slider3 = _ub[UO_META + 0]; current_pat = _ub[UO_META + 1];
+    num_pats = _ub[UO_META + 2]; song_num_parts = _ub[UO_META + 3];
+    song_seq_len = _ub[UO_META + 4]; song_sel_part = _ub[UO_META + 5];
+    song_mode = _ub[UO_META + 6];
+    // Restore working copy
+    _i = 0; loop(64,  CHORD_SLOTS[_i]    = _ub[UO_WC_SLOTS  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_FILLED[_i]   = _ub[UO_WC_FILLED + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_BARS[_i]     = _ub[UO_WC_BARS   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_SUBDIV[_i]   = _ub[UO_WC_SUBDIV + _i]; _i += 1);
+    _i = 0; loop(512, CHORD_PATTERN[_i]  = _ub[UO_WC_PAT    + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_VEL[_i]      = _ub[UO_WC_VEL    + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_STEP[_i] = _ub[UO_WC_MSTEP  + _i]; _i += 1);
+    _i = 0; loop(512, CHORD_MOD_TICK[_i] = _ub[UO_WC_MTICK  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_SUS[_i]  = _ub[UO_WC_MSUS   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD9[_i] = _ub[UO_WC_MADD9  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD7[_i] = _ub[UO_WC_MADD7  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_INV[_i]  = _ub[UO_WC_MINV   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_DOM7[_i] = _ub[UO_WC_MDOM7  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD6[_i] = _ub[UO_WC_MADD6  + _i]; _i += 1);
+    // Sync
+    conn_dirty = 1;
+    undo_count -= 1;
+    undo_redo_count += 1;
+  );
+);
+
 // Chord slots initialized via @serialize (do NOT zero here — @init re-runs on play)
 // Empty = root value 255 (not -1, since @init zeros memory)
 
@@ -1095,6 +1205,50 @@ spl1 = spl1;
 
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 char = gfx_getchar();
+
+// Ctrl+Z = undo (char 26), Ctrl+Y = redo (char 25)
+char == 26 ? undo_pop();
+char == 25 ? (
+  // Redo: push current state, then advance head past the redo point
+  undo_redo_count > 0 ? (
+    undo_head = (undo_head + 1) % UNDO_MAX;
+    undo_redo_count -= 1;
+    undo_count += 1;
+    // Now undo_head points past the redo snapshot, so pop it forward
+    _ub = UNDO_BASE + undo_head * UNDO_SNAP_SIZE;
+    // Restore from the redo snapshot (which is at current undo_head position)
+    // Actually we need the snapshot AT undo_head (the one we just re-included)
+    _ub = UNDO_BASE + ((undo_head) % UNDO_MAX) * UNDO_SNAP_SIZE;
+    _i = 0; loop(16 * PAT_SIZE, PAT_BASE[_i] = _ub[UO_BANK + _i]; _i += 1);
+    _i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, SONG_PARTS[_i] = _ub[UO_SONG_P + _i]; _i += 1);
+    _i = 0; loop(MAX_SONG_SEQ, SONG_SEQ[_i] = _ub[UO_SONG_S + _i]; _i += 1);
+    _i = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_i] = _ub[UO_SONG_O + _i]; _i += 1);
+    slider3 = _ub[UO_META + 0]; current_pat = _ub[UO_META + 1];
+    num_pats = _ub[UO_META + 2]; song_num_parts = _ub[UO_META + 3];
+    song_seq_len = _ub[UO_META + 4]; song_sel_part = _ub[UO_META + 5];
+    song_mode = _ub[UO_META + 6];
+    _i = 0; loop(64,  CHORD_SLOTS[_i]    = _ub[UO_WC_SLOTS  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_FILLED[_i]   = _ub[UO_WC_FILLED + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_BARS[_i]     = _ub[UO_WC_BARS   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_SUBDIV[_i]   = _ub[UO_WC_SUBDIV + _i]; _i += 1);
+    _i = 0; loop(512, CHORD_PATTERN[_i]  = _ub[UO_WC_PAT    + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_VEL[_i]      = _ub[UO_WC_VEL    + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_STEP[_i] = _ub[UO_WC_MSTEP  + _i]; _i += 1);
+    _i = 0; loop(512, CHORD_MOD_TICK[_i] = _ub[UO_WC_MTICK  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_SUS[_i]  = _ub[UO_WC_MSUS   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD9[_i] = _ub[UO_WC_MADD9  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD7[_i] = _ub[UO_WC_MADD7  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_INV[_i]  = _ub[UO_WC_MINV   + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_DOM7[_i] = _ub[UO_WC_MDOM7  + _i]; _i += 1);
+    _i = 0; loop(32,  CHORD_MOD_ADD6[_i] = _ub[UO_WC_MADD6  + _i]; _i += 1);
+    conn_dirty = 1;
+  );
+);
+
+// Push undo snapshot on any fresh click (before state changes)
+((mouse_cap & 1) && !(last_cap & 1)) || ((mouse_cap & 2) && !(last_cap & 2)) ? undo_push();
+// Also push on Delete key or scroll wheel
+char == 6579564 || (mouse_wheel != 0 && mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h) ? undo_push();
 
 // Snapshot @block state for this frame (prevent mid-frame race with audio thread)
 _gfx_song_cur_seq  = song_cur_seq;
