@@ -199,12 +199,10 @@ vel_edit_x = 0;
 vel_edit_y = 0;
 vel_edit_dragging = 0;
 
-// Song part velocity editor (song mode Vol column)
-svel_edit_open = 0;
-svel_edit_part = 0;
-svel_edit_x = 0;
-svel_edit_y = 0;
-svel_edit_dragging = 0;
+// Song part velocity drag state
+svel_drag_part = -1;
+svel_drag_start_y = 0;
+svel_drag_start_val = 0;
 preview_root = 0;
 preview_qual = 0;
 preview_ticks = 0;
@@ -2114,69 +2112,6 @@ vel_edit_open ? (
   );
 );
 
-// ============================================================================
-//  SONG PART VELOCITY EDITOR POPUP
-// ============================================================================
-svel_edit_open ? (
-  _sve_vel = SONG_PARTS[svel_edit_part * SONG_PART_SIZE + 6];
-  _sve_vel <= 0 ? _sve_vel = 100;
-
-  // Background + border
-  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
-  gfx_rect(svel_edit_x, svel_edit_y, 50, 140);
-  gfx_a = 1;
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(svel_edit_x, svel_edit_y, 50, 1);
-  gfx_rect(svel_edit_x, svel_edit_y + 139, 50, 1);
-  gfx_rect(svel_edit_x, svel_edit_y, 1, 140);
-  gfx_rect(svel_edit_x + 49, svel_edit_y, 1, 140);
-
-  // Numeric label
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_x = svel_edit_x + 5; gfx_y = svel_edit_y + 4;
-  gfx_drawstr("v:");
-  gfx_drawnumber(_sve_vel, 0);
-
-  // Vertical slider
-  _svs_x = svel_edit_x + 10;
-  _svs_y = svel_edit_y + 22;
-  _svs_w = 30;
-  _svs_h = 110;
-
-  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-  gfx_rect(_svs_x, _svs_y, _svs_w, _svs_h);
-
-  // Fill bar (bottom-up)
-  _svfill_h = floor(_svs_h * _sve_vel / 127);
-  gfx_r = 0.80; gfx_g = 0.55; gfx_b = 0.95;
-  gfx_rect(_svs_x, _svs_y + _svs_h - _svfill_h, _svs_w, _svfill_h);
-
-  // Drag interaction
-  mouse_cap & 1 ? (
-    mouse_x >= _svs_x - 5 && mouse_x < _svs_x + _svs_w + 5 &&
-    mouse_y >= _svs_y - 5 && mouse_y < _svs_y + _svs_h + 5 ? (
-      svel_edit_dragging = 1;
-    );
-    svel_edit_dragging ? (
-      _new_vel = floor((_svs_y + _svs_h - mouse_y) / _svs_h * 127 + 0.5);
-      SONG_PARTS[svel_edit_part * SONG_PART_SIZE + 6] = max(1, min(127, _new_vel));
-    );
-  ) : (
-    svel_edit_dragging = 0;
-  );
-
-  // Close on left-click outside popup
-  mouse_cap & 1 && !(last_cap & 1) && !svel_edit_dragging ? (
-    !(mouse_x >= svel_edit_x && mouse_x < svel_edit_x + 50 &&
-      mouse_y >= svel_edit_y && mouse_y < svel_edit_y + 140) ? (
-      svel_edit_open = 0;
-    );
-  );
-
-  // Close on right-click anywhere
-  mouse_cap & 2 && !(last_cap & 2) ? svel_edit_open = 0;
-);
 
 // ============================================================================
 //  HARMONY MAP — Fixed circle of fifths, always visible, connections overlay
@@ -2519,15 +2454,17 @@ loop(song_num_parts,
     _sp_mvel <= 80 ? SONG_PARTS[_spb + 6] = 120 :
     SONG_PARTS[_spb + 6] = 0;
   );
-  // Right-click: open velocity popup for fine adjustment
+  // Right-click-drag: adjust velocity directly (drag up = louder, down = quieter)
   (mouse_cap & 2) && !(last_cap & 2) &&
     mouse_x >= _rx && mouse_x < _rx + _sg_vel_w &&
     mouse_y >= _spy && mouse_y < _spy + _sg_row_h ? (
-    svel_edit_open = 1;
-    svel_edit_part = _spi;
-    svel_edit_x = min(mouse_x, gfx_w - 55);
-    svel_edit_y = max(0, min(mouse_y - 70, gfx_h - 145));
-    svel_edit_dragging = 0;
+    svel_drag_part = _spi;
+    svel_drag_start_y = mouse_y;
+    svel_drag_start_val = _sp_mvel > 0 ? _sp_mvel : 100;
+  );
+  (mouse_cap & 2) && svel_drag_part == _spi ? (
+    _drag_delta = floor((svel_drag_start_y - mouse_y) * 1.5);
+    SONG_PARTS[_spb + 6] = max(0, min(127, svel_drag_start_val + _drag_delta));
   );
   _rx += _sg_vel_w + _sg_col_gap;
 
@@ -2577,6 +2514,8 @@ loop(song_num_parts,
 
   _spi += 1;
 );
+// Reset velocity drag when right mouse released
+!(mouse_cap & 2) && (last_cap & 2) && svel_drag_part >= 0 ? svel_drag_part = -1;
 
 // [+ Part] [- Part] buttons
 _spbtn_y = _sg_y + _sg_hdr_h + song_num_parts * _sg_row_h + floor(4 * S);
