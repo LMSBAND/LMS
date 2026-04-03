@@ -23,6 +23,7 @@ slider5:1<0,1,1{Off,On}>Sequencer
 slider6:0<0,1,1{Off,Rec}>Record Input
 slider7:0<0,7,1{Kit 1,Kit 2,Kit 3,Kit 4,Kit 5,Kit 6,Kit 7,Kit 8}>-Kit Select
 slider8:36<0,112,1>MIDI Root Note
+slider9:0<0,1,1{Off,On}>Follow Harmony Map
 
 // Per-pad volume (pads 1-16) — sliders 10-25 (hidden, controlled via GFX)
 slider10:0.8<0,1,0.01>-Pad 01 Vol
@@ -927,8 +928,8 @@ function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, nu
 @block
 
 // ---- Harmony Map song mode: DrumBanger pattern switching ----
-// Read from HARMONY_BUS + 84 (960084). Value 1-8 = switch to pattern 0-7.
-gmem[960000] > 0 ? (  // Harmony Map heartbeat alive
+// slider9 = Follow Harmony Map (user must enable manually)
+slider9 ? (
   _hm_drum = gmem[960084];
   _hm_drum > 0 && _hm_drum <= 8 && (_hm_drum - 1) != slider3 ? (
     slider3 = _hm_drum - 1;
