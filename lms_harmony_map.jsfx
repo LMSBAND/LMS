@@ -755,7 +755,7 @@ bc.bc_my_pbase > 0 ? (
 hm_role == 1 ? (
   gmem[COND_BUS + 0] = bc.bc_my_id;
   gmem[COND_BUS + 1] = num_pats;
-  gmem[COND_BUS + 2] = song_mode;
+  gmem[COND_BUS + 2] = _song_mode_eff;  // broadcast playback state, not UI toggle
   gmem[COND_BUS + 3] = song_num_parts;
   gmem[COND_BUS + 4] = song_seq_len;
   gmem[COND_BUS + 5] = current_pat;
