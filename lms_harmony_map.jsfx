@@ -1197,15 +1197,6 @@ spl1 = spl1;
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 char = gfx_getchar();
 
-// Ctrl+Z = undo (char 26), Ctrl+Y = redo (char 25)
-char == 26 ? undo_pop();
-char == 25 && undo_redo_count > 0 ? (
-  _ub = UNDO_BASE + undo_head * UNDO_SNAP_SIZE;
-  undo_restore(_ub);
-  undo_head = (undo_head + 1) % UNDO_MAX;
-  undo_redo_count -= 1;
-  undo_count += 1;
-);
 
 // Push undo snapshot on any fresh click (before state changes)
 ((mouse_cap & 1) && !(last_cap & 1)) || ((mouse_cap & 2) && !(last_cap & 2)) ? undo_push();
@@ -1297,6 +1288,42 @@ gfx_drawstr(_cs);
   hm_role = (hm_role + 1) % 3;
   hm_role == 1 ? conductor_seed_dirty = 1;  // becoming conductor, publish seed
   hm_role == 2 ? player_seeded = 0;         // becoming player, need fresh seed
+);
+
+// ---- Undo / Redo buttons (header, right of role selector) ----
+_ub_w = floor(24 * S);
+_ub_h = floor(18 * S);
+_ub_x = _role_x + _role_w + floor(6 * S);
+_ub_y = _role_y;
+// Undo button
+undo_count > 0 ? (gfx_r=0.20; gfx_g=0.20; gfx_b=0.30;) : (gfx_r=0.10; gfx_g=0.10; gfx_b=0.12;);
+gfx_rect(_ub_x, _ub_y, _ub_w, _ub_h);
+undo_count > 0 ? (gfx_r=0.65; gfx_g=0.65; gfx_b=0.85;) : (gfx_r=0.25; gfx_g=0.25; gfx_b=0.28;);
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_measurestr("<", _tw, _th);
+gfx_x = _ub_x + floor((_ub_w - _tw)/2); gfx_y = _ub_y + floor((_ub_h - _th)/2);
+gfx_drawstr("<");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _ub_x && mouse_x < _ub_x + _ub_w &&
+  mouse_y >= _ub_y && mouse_y < _ub_y + _ub_h ? undo_pop();
+// Redo button
+_rb_x = _ub_x + _ub_w + floor(2 * S);
+undo_redo_count > 0 ? (gfx_r=0.20; gfx_g=0.20; gfx_b=0.30;) : (gfx_r=0.10; gfx_g=0.10; gfx_b=0.12;);
+gfx_rect(_rb_x, _ub_y, _ub_w, _ub_h);
+undo_redo_count > 0 ? (gfx_r=0.65; gfx_g=0.65; gfx_b=0.85;) : (gfx_r=0.25; gfx_g=0.25; gfx_b=0.28;);
+gfx_measurestr(">", _tw, _th);
+gfx_x = _rb_x + floor((_ub_w - _tw)/2); gfx_y = _ub_y + floor((_ub_h - _th)/2);
+gfx_drawstr(">");
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _rb_x && mouse_x < _rb_x + _ub_w &&
+  mouse_y >= _ub_y && mouse_y < _ub_y + _ub_h ? (
+  undo_redo_count > 0 ? (
+    _ub = UNDO_BASE + undo_head * UNDO_SNAP_SIZE;
+    undo_restore(_ub);
+    undo_head = (undo_head + 1) % UNDO_MAX;
+    undo_redo_count -= 1;
+    undo_count += 1;
+  );
 );
 
 // Key controls in header (interactive)
