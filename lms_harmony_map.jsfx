@@ -2116,51 +2116,80 @@ vel_edit_open ? (
 
 
 // ============================================================================
-//  SONG PART VELOCITY SLIDER POPUP
+//  SONG PART VELOCITY SLIDER POPUP  (matches DrumBanger pattern exactly)
 // ============================================================================
 svel_edit_open ? (
   _sve_vel = SONG_PARTS[svel_edit_part * SONG_PART_SIZE + 6];
   _sve_vel <= 0 ? _sve_vel = 100;
 
-  gfx_r = 0.10; gfx_g = 0.10; gfx_b = 0.14; gfx_a = 0.95;
+  // Overlay background
+  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B; gfx_a = 0.95;
   gfx_rect(svel_edit_x, svel_edit_y, 50, 140);
   gfx_a = 1;
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+
+  // Border
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
   gfx_rect(svel_edit_x, svel_edit_y, 50, 1);
   gfx_rect(svel_edit_x, svel_edit_y + 139, 50, 1);
   gfx_rect(svel_edit_x, svel_edit_y, 1, 140);
   gfx_rect(svel_edit_x + 49, svel_edit_y, 1, 140);
 
+  // Numeric display
   gfx_setfont(1, "Arial", F_SMALL);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
   gfx_x = svel_edit_x + 5; gfx_y = svel_edit_y + 4;
   gfx_drawstr("v:"); gfx_drawnumber(_sve_vel, 0);
 
-  _svs_x = svel_edit_x + 10; _svs_y = svel_edit_y + 22;
-  _svs_w = 30; _svs_h = 110;
-  gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
-  gfx_rect(_svs_x, _svs_y, _svs_w, _svs_h);
+  // Slider track
+  vslider_x = svel_edit_x + 10;
+  vslider_y = svel_edit_y + 22;
+  vslider_w = 30;
+  vslider_h = 110;
 
-  _svfill_h = floor(_svs_h * _sve_vel / 127);
-  gfx_r = 0.80; gfx_g = 0.55; gfx_b = 0.95;
-  gfx_rect(_svs_x, _svs_y + _svs_h - _svfill_h, _svs_w, _svfill_h);
+  // Track background
+  gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+  gfx_rect(vslider_x, vslider_y, vslider_w, vslider_h);
 
+  // Fill from bottom
+  _sve_vel > 0 ? (
+    vel_fill_h = (_sve_vel / 127) * vslider_h;
+    vel_brightness = _sve_vel / 127;
+    gfx_r = COL_ACCENT_R * vel_brightness; gfx_g = COL_ACCENT_G * vel_brightness; gfx_b = COL_ACCENT_B * vel_brightness;
+    gfx_rect(vslider_x, vslider_y + vslider_h - vel_fill_h, vslider_w, vel_fill_h);
+  );
+
+  // Thumb line
+  vel_thumb_y = vslider_y + vslider_h - (_sve_vel / 127) * vslider_h;
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gfx_rect(vslider_x, vel_thumb_y - 1, vslider_w, 3);
+
+  // Drag interaction
   mouse_cap & 1 ? (
-    mouse_x >= _svs_x - 5 && mouse_x < _svs_x + _svs_w + 5 &&
-    mouse_y >= _svs_y - 5 && mouse_y < _svs_y + _svs_h + 5 ? svel_edit_dragging = 1;
+    mouse_x >= vslider_x && mouse_x < vslider_x + vslider_w &&
+    mouse_y >= vslider_y && mouse_y < vslider_y + vslider_h ? (
+      svel_edit_dragging = 1;
+    );
     svel_edit_dragging ? (
-      _new_vel = floor((_svs_y + _svs_h - mouse_y) / _svs_h * 127 + 0.5);
-      SONG_PARTS[svel_edit_part * SONG_PART_SIZE + 6] = max(1, min(127, _new_vel));
+      new_vel = ((vslider_y + vslider_h - mouse_y) / vslider_h) * 127;
+      new_vel = max(0, min(127, (new_vel + 0.5) | 0));
+      SONG_PARTS[svel_edit_part * SONG_PART_SIZE + 6] = new_vel;
     );
   ) : (
     svel_edit_dragging = 0;
   );
 
+  // Close on left-click outside overlay (not while dragging)
   mouse_cap & 1 && !(last_cap & 1) && !svel_edit_dragging ? (
     !(mouse_x >= svel_edit_x && mouse_x < svel_edit_x + 50 &&
-      mouse_y >= svel_edit_y && mouse_y < svel_edit_y + 140) ? svel_edit_open = 0;
+      mouse_y >= svel_edit_y && mouse_y < svel_edit_y + 140) ? (
+      svel_edit_open = 0;
+    );
   );
-  mouse_cap & 2 && !(last_cap & 2) ? svel_edit_open = 0;
+
+  // Close on right-click
+  mouse_cap & 2 && !(last_cap & 2) ? (
+    svel_edit_open = 0;
+  );
 );
 
 // ============================================================================
