@@ -109,6 +109,19 @@ SONG_PART_SIZE = 8;
 // song_mode / song_num_parts / song_seq_len / song_sel_part — persist across transport
 song_cur_seq = -1;  // currently playing sequence index (runtime)
 
+// Conductor/Player roles (persist via serialize)
+// hm_role: 0=standalone, 1=conductor, 2=player
+// player_seeded: 0=needs seed from conductor, 1=already seeded
+// conductor_seed_dirty: 1=need to republish chord data to gmem
+COND_BUS       = 960100;  // conductor structure broadcast base
+COND_PARTS     = 960110;  // song parts mirror (16×8 = 128)
+COND_SEQ       = 960240;  // song sequence mirror (64)
+COND_OCT       = 960310;  // song part octave mirror (16)
+COND_PAT_STRUCT = 960400; // pattern structure (16×80 = 1280)
+COND_SEED      = 962000;  // chord seed area (16 patterns × PAT_SIZE)
+conductor_seed_dirty = 1;
+conductor_found_id = 0;   // runtime: ID of conductor we're following
+
 // Chord slots initialized via @serialize (do NOT zero here — @init re-runs on play)
 // Empty = root value 255 (not -1, since @init zeros memory)
 
@@ -156,7 +169,7 @@ preview_ticks = 0;
 HARMONY_BUS = 960000;
 
 // Broadcast system
-bc.lms_bc_init(29, 7, 930000);
+bc.lms_bc_init(29, 10, 930000);  // 10 params: 0-6 sliders, 7=role, 8=num_pats, 9=seed_gen
 
 // ============================================================================
 //  MUSIC THEORY FUNCTIONS
@@ -521,6 +534,7 @@ function pat_save(p) local(_b, _i) (
   _i = 0; loop(32,  (_b+PO_MINV   )[_i] = CHORD_MOD_INV[_i];  _i+=1);
   _i = 0; loop(32,  (_b+PO_MDOM7  )[_i] = CHORD_MOD_DOM7[_i]; _i+=1);
   _i = 0; loop(32,  (_b+PO_MADD6  )[_i] = CHORD_MOD_ADD6[_i]; _i+=1);
+  hm_role == 1 ? conductor_seed_dirty = 1;
 );
 
 function pat_load(p) local(_b, _i) (
@@ -621,6 +635,115 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 4] = slider5;
   gmem[bc.bc_my_pbase + 5] = slider6;
   gmem[bc.bc_my_pbase + 6] = slider7;
+  gmem[bc.bc_my_pbase + 7] = hm_role;
+  gmem[bc.bc_my_pbase + 8] = num_pats;
+  gmem[bc.bc_my_pbase + 9] = conductor_seed_gen;
+);
+
+// ============================================================================
+//  CONDUCTOR BROADCAST — publish structure to HARMONY_BUS for players
+// ============================================================================
+hm_role == 1 ? (
+  gmem[COND_BUS + 0] = bc.bc_my_id;
+  gmem[COND_BUS + 1] = num_pats;
+  gmem[COND_BUS + 2] = song_mode;
+  gmem[COND_BUS + 3] = song_num_parts;
+  gmem[COND_BUS + 4] = song_seq_len;
+  gmem[COND_BUS + 5] = current_pat;
+
+  // Song parts (16 × 8 = 128 floats)
+  _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, gmem[COND_PARTS + _ci] = SONG_PARTS[_ci]; _ci += 1);
+  // Song sequence (64 floats)
+  _ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + _ci] = SONG_SEQ[_ci]; _ci += 1);
+  // Song octave overrides (16 floats)
+  _ci = 0; loop(MAX_SONG_PARTS, gmem[COND_OCT + _ci] = SONG_PART_OCT[_ci]; _ci += 1);
+
+  // Per-pattern structure: nsteps, bar durations, subdivisions
+  pat_save(current_pat);  // ensure bank is current
+  _pi = 0;
+  loop(num_pats,
+    _cpb = PAT_BASE + _pi * PAT_SIZE;
+    _go = COND_PAT_STRUCT + _pi * 80;
+    gmem[_go] = (_cpb + PO_NSTEPS)[0];
+    _si = 0; loop(32,
+      gmem[_go + 1 + _si]  = (_cpb + PO_BARS)[_si];
+      gmem[_go + 33 + _si] = (_cpb + PO_SUBDIV)[_si];
+      _si += 1;
+    );
+    _pi += 1;
+  );
+
+  // Chord seed — publish full pattern bank when dirty
+  conductor_seed_dirty ? (
+    _ci = 0; loop(num_pats * PAT_SIZE, gmem[COND_SEED + _ci] = PAT_BASE[_ci]; _ci += 1);
+    conductor_seed_dirty = 0;
+    conductor_seed_gen += 1;  // increment so players detect new seed
+  );
+);
+
+// ============================================================================
+//  PLAYER READ — import structure from conductor, keep own chords
+// ============================================================================
+hm_role == 2 ? (
+  // Find conductor by scanning BC region
+  conductor_found_id = 0;
+  _si = 0;
+  loop(32,
+    _sb = bc.BC_MY_REGION + _si * 512;
+    gmem[_sb + 1] > 0 && gmem[_sb + 8 + 7] == 1 ? (  // param[7] == 1 = conductor
+      conductor_found_id = gmem[_sb + 1];
+    );
+    _si += 1;
+  );
+
+  conductor_found_id > 0 && gmem[COND_BUS + 0] == conductor_found_id ? (
+    // Read song mode state
+    song_mode      = gmem[COND_BUS + 2];
+    song_num_parts = gmem[COND_BUS + 3];
+    song_seq_len   = gmem[COND_BUS + 4];
+
+    // Read song parts
+    _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, SONG_PARTS[_ci] = gmem[COND_PARTS + _ci]; _ci += 1);
+    // Read song sequence
+    _ci = 0; loop(MAX_SONG_SEQ, SONG_SEQ[_ci] = gmem[COND_SEQ + _ci]; _ci += 1);
+    // Read octave overrides
+    _ci = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_ci] = gmem[COND_OCT + _ci]; _ci += 1);
+
+    // Read pattern structure — apply to local bank WITHOUT touching chords
+    _cond_npats = gmem[COND_BUS + 1];
+    num_pats = max(num_pats, _cond_npats);  // grow to match conductor
+    _pi = 0;
+    loop(_cond_npats,
+      _cpb = PAT_BASE + _pi * PAT_SIZE;
+      _go = COND_PAT_STRUCT + _pi * 80;
+      (_cpb + PO_NSTEPS)[0] = gmem[_go];
+      _si = 0; loop(32,
+        (_cpb + PO_BARS)[_si]   = gmem[_go + 1 + _si];
+        (_cpb + PO_SUBDIV)[_si] = gmem[_go + 33 + _si];
+        _si += 1;
+      );
+      _pi += 1;
+    );
+    // Sync working copy structure if viewing a conductor-managed pattern
+    _pi = current_pat;
+    _pi < _cond_npats ? (
+      _cpb = PAT_BASE + _pi * PAT_SIZE;
+      slider3 = max(1, (_cpb + PO_NSTEPS)[0]);
+      _si = 0; loop(32,
+        CHORD_BARS[_si]  = (_cpb + PO_BARS)[_si];
+        CHORD_SUBDIV[_si] = (_cpb + PO_SUBDIV)[_si];
+        _si += 1;
+      );
+    );
+
+    // One-time chord steal from conductor
+    !player_seeded ? (
+      _seed_npats = gmem[COND_BUS + 1];
+      _ci = 0; loop(_seed_npats * PAT_SIZE, PAT_BASE[_ci] = gmem[COND_SEED + _ci]; _ci += 1);
+      pat_load(current_pat);
+      player_seeded = 1;
+    );
+  );
 );
 
 // Transport sync
@@ -1032,6 +1155,30 @@ gfx_setfont(1, "Arial", F_TITLE);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
 gfx_drawstr("HARMONY MAP");
 
+// ---- Role selector (right of title) ----
+_role_w = floor(72 * S);
+_role_h = floor(18 * S);
+_role_x = gfx_x + floor(8 * S);
+_role_y = floor(12 * S);
+hm_role == 1 ? (gfx_r=0.50; gfx_g=0.25; gfx_b=0.10;) :
+hm_role == 2 ? (gfx_r=0.15; gfx_g=0.30; gfx_b=0.50;) :
+               (gfx_r=0.12; gfx_g=0.12; gfx_b=0.15;);
+gfx_rect(_role_x, _role_y, _role_w, _role_h);
+gfx_setfont(1, "Arial", F_SMALL);
+hm_role == 1 ? (gfx_r=1.0; gfx_g=0.70; gfx_b=0.30; _cs="CONDUCTOR") :
+hm_role == 2 ? (gfx_r=0.50; gfx_g=0.80; gfx_b=1.0; _cs="PLAYER") :
+               (gfx_r=COL_DIM_R; gfx_g=COL_DIM_G; gfx_b=COL_DIM_B; _cs="STANDALONE");
+gfx_measurestr(_cs, _tw, _th);
+gfx_x = _role_x + floor((_role_w - _tw)/2); gfx_y = _role_y + floor((_role_h - _th)/2);
+gfx_drawstr(_cs);
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= _role_x && mouse_x < _role_x + _role_w &&
+  mouse_y >= _role_y && mouse_y < _role_y + _role_h ? (
+  hm_role = (hm_role + 1) % 3;
+  hm_role == 1 ? conductor_seed_dirty = 1;  // becoming conductor, publish seed
+  hm_role == 2 ? player_seeded = 0;         // becoming player, need fresh seed
+);
+
 // Key controls in header (interactive)
 gfx_setfont(1, "Arial", F_SMALL);
 _kc_y = floor(hdr_h / 2) - floor(10 * S);
@@ -1233,7 +1380,7 @@ gfx_setfont(1, "Arial", F_SMALL);
 gfx_measurestr("SONG", _plw, _plh);
 gfx_x = _song_btn_x + floor((_song_btn_w-_plw)/2); gfx_y = patbar_y + floor((patbar_h-_plh)/2);
 gfx_drawstr("SONG");
-(mouse_cap & 1) && !(last_cap & 1) &&
+!_is_player && (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= _song_btn_x && mouse_x < _song_btn_x + _song_btn_w &&
   mouse_y >= patbar_y && mouse_y < patbar_y + patbar_h ? (
   song_mode = song_mode ? 0 : 1;
@@ -1264,6 +1411,8 @@ num_pats < 16 ? (
 );
 
 gfx_a = 1.0;
+
+_is_player = (hm_role == 2);
 
 // ============================================================================
 //  TIMELINE — Variable-width steps with duration controls
@@ -1503,8 +1652,8 @@ loop(num_steps,
     vel_edit_dragging = 0;
   );
 
-  // Ctrl+right-click: DELETE step (shift everything after it up)
-  (mouse_cap & 2) && !(last_cap & 2) && (mouse_cap & 4) &&
+  // Ctrl+right-click: DELETE step (blocked for players)
+  !_is_player && (mouse_cap & 2) && !(last_cap & 2) && (mouse_cap & 4) &&
     mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
     mouse_y >= by && mouse_y < by + timeline_h &&
     num_steps > 1 ? (
@@ -1552,8 +1701,8 @@ loop(num_steps,
     conn_dirty = 1;
   );
 
-  // Mouse wheel: top half = duration, bottom half = subdivision
-  mouse_wheel != 0 &&
+  // Mouse wheel: top half = duration, bottom half = subdivision (blocked for players)
+  !_is_player && mouse_wheel != 0 &&
     mouse_x >= bx && mouse_x < bx + _cell_w - 2 &&
     mouse_y >= by && mouse_y < by + timeline_h ? (
     mouse_y < by + timeline_h / 2 ? (
@@ -1625,16 +1774,18 @@ loop(num_steps,
 // Reset drag state when mouse released outside any timeline cell
 !(mouse_cap & 1) && (last_cap & 1) && drag_src >= 0 ? (drag_src = -1; drag_dst = -1;);
 
-// [+] Add step button
+// [+] Add step button (hidden for players)
 _btn_w = floor(24 * S);
 _add_x = _bx_acc + floor(4 * S);
+!_is_player ? (
 gfx_r = COL_GREEN_R * 0.3; gfx_g = COL_GREEN_G * 0.3; gfx_b = COL_GREEN_B * 0.3;
 gfx_rect(_add_x, timeline_y, _btn_w, timeline_h);
 gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
 gfx_setfont(1, "Arial", max(12, floor(20 * S)));
 gfx_x = _add_x + floor(6 * S); gfx_y = timeline_y + floor(12 * S);
 gfx_drawstr("+");
-(mouse_cap & 1) && !(last_cap & 1) &&
+);
+!_is_player && (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= _add_x && mouse_x < _add_x + _btn_w &&
   mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h ? (
   slider3 < 32 ? (
@@ -1647,15 +1798,17 @@ gfx_drawstr("+");
   );
 );
 
-// [-] Remove last step button
+// [-] Remove last step button (hidden for players)
 _rem_x = _add_x + _btn_w + floor(2 * S);
+!_is_player ? (
 gfx_r = COL_ACCENT_R * 0.3; gfx_g = 0.1; gfx_b = 0.1;
 gfx_rect(_rem_x, timeline_y, _btn_w, timeline_h);
 gfx_r = COL_ACCENT_R; gfx_g = 0.3; gfx_b = 0.3;
 gfx_setfont(1, "Arial", max(12, floor(20 * S)));
 gfx_x = _rem_x + floor(7 * S); gfx_y = timeline_y + floor(12 * S);
 gfx_drawstr("-");
-(mouse_cap & 1) && !(last_cap & 1) &&
+);
+!_is_player && (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= _rem_x && mouse_x < _rem_x + _btn_w &&
   mouse_y >= timeline_y && mouse_y < timeline_y + timeline_h ? (
   slider3 > 1 ? (
@@ -1853,6 +2006,17 @@ _sg_w = gfx_w - margin * 2;
 // Pre-paint entire song mode area to prevent stale pixel flashing
 gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B; gfx_a = 1;
 gfx_rect(0, _sg_y, gfx_w, gfx_h - _sg_y);
+
+// Player banner + interaction lockout
+_is_player ? (
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_r = 0.50; gfx_g = 0.80; gfx_b = 1.0;
+  gfx_x = margin; gfx_y = _sg_y + floor(2*S);
+  conductor_found_id > 0 ? gfx_drawstr("FOLLOWING CONDUCTOR — song structure is locked") : gfx_drawstr("PLAYER MODE — waiting for conductor...");
+  // Suppress all mouse clicks in song mode panel for players
+  _save_mcap = mouse_cap; _save_lcap = last_cap; _save_mwheel = mouse_wheel;
+  mouse_cap = 0; last_cap = 0; mouse_wheel = 0;
+);
 
 // ---- PARTS EDITOR ----
 _sg_row_h = floor(22 * S);
@@ -2336,7 +2500,11 @@ _gfx_song_cur_seq >= 0 && _gfx_transport ? (
 
 // Hint
 gfx_x = margin; gfx_y = _ss_y + floor(14 * S);
+_is_player ? gfx_drawstr("Player mode: song structure controlled by conductor.") :
 gfx_drawstr("Parts: L/R-click to cycle.  Seq: click=cycle part, drag=reorder, R-click=remove.");
+
+// Restore mouse state after player lockout
+_is_player ? (mouse_cap = _save_mcap; last_cap = _save_lcap; mouse_wheel = _save_mwheel;);
 
 ) : (
 // ============================================================================
@@ -2831,3 +2999,7 @@ i = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, file_var(0, SONG_PARTS[i]); i += 1)
 i = 0; loop(MAX_SONG_SEQ, file_var(0, SONG_SEQ[i]); i += 1);
 // Song part octave overrides (appended for backward compat)
 i = 0; loop(MAX_SONG_PARTS, file_var(0, SONG_PART_OCT[i]); i += 1);
+// Conductor/Player role
+file_var(0, hm_role);
+file_var(0, player_seeded);
+file_var(0, conductor_seed_gen);
