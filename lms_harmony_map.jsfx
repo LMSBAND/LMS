@@ -1383,6 +1383,44 @@ gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_x = _arr_l_x - floor(30 * S); gfx_y = _kc_y + floor(4 * S);
 gfx_drawstr("Key");
 
+// Octave controls (left of Key label)
+_oc_val_w = floor(28 * S);
+_oc_arr_w = floor(16 * S);
+_oc_right = _arr_l_x - floor(38 * S);
+_oc_val_x = _oc_right - _oc_val_w;
+_oc_up_x  = _oc_val_x + _oc_val_w;
+_oc_dn_x  = _oc_val_x - _oc_arr_w;
+
+// [-] button
+gfx_r = COL_PANEL_HI_R * 1.5; gfx_g = COL_PANEL_HI_G * 1.5; gfx_b = COL_PANEL_HI_B * 1.5;
+gfx_rect(_oc_dn_x, _kc_y, _oc_arr_w, _kc_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_measurestr("-", _tw, _th);
+gfx_x = _oc_dn_x + floor((_oc_arr_w - _tw)/2); gfx_y = _kc_y + floor(4*S);
+gfx_drawstr("-");
+
+// Octave value
+gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
+gfx_rect(_oc_val_x, _kc_y, _oc_val_w, _kc_h);
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+_os = #; sprintf(_os, "%d", slider6);
+gfx_measurestr(_os, _tw, _th);
+gfx_x = _oc_val_x + floor((_oc_val_w - _tw)/2); gfx_y = _kc_y + floor(4*S);
+gfx_drawstr(_os);
+
+// [+] button
+gfx_r = COL_PANEL_HI_R * 1.5; gfx_g = COL_PANEL_HI_G * 1.5; gfx_b = COL_PANEL_HI_B * 1.5;
+gfx_rect(_oc_up_x, _kc_y, _oc_arr_w, _kc_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_measurestr("+", _tw, _th);
+gfx_x = _oc_up_x + floor((_oc_arr_w - _tw)/2); gfx_y = _kc_y + floor(4*S);
+gfx_drawstr("+");
+
+// "Oct" label
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = _oc_dn_x - floor(28 * S); gfx_y = _kc_y + floor(4*S);
+gfx_drawstr("Oct");
+
 // Click handling
 (mouse_cap & 1) && !(last_cap & 1) ? (
   // < arrow: root down — transpose working copy + all bank patterns
@@ -1445,6 +1483,18 @@ gfx_drawstr("Key");
       _kp += 1;
     );
     sliderchange(slider2); conn_dirty = 1;
+  );
+  // Octave [-] button
+  mouse_x >= _oc_dn_x && mouse_x < _oc_dn_x + _oc_arr_w &&
+  mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
+    slider6 = max(-2, slider6 - 1);
+    sliderchange(slider6);
+  );
+  // Octave [+] button
+  mouse_x >= _oc_up_x && mouse_x < _oc_up_x + _oc_arr_w &&
+  mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
+    slider6 = min(3, slider6 + 1);
+    sliderchange(slider6);
   );
 );
 
