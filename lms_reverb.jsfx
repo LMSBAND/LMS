@@ -1,7 +1,7 @@
 desc:LMS - Density Reverb (Harmonic Room Physics)
 //tags: reverb room density-aware FDN modal
 //author: LMS
-//version: 1.0
+//version: 1.1
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
@@ -63,35 +63,61 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   er_gains = buf_pos; buf_pos += 12;
   er_pans = buf_pos; buf_pos += 12;
 
-  // Zero all buffers
-  memset(pd_buf_l, 0, 4800); memset(pd_buf_r, 0, 4800);
-  memset(dif_buf0, 0, 2048); memset(dif_buf1, 0, 2048);
-  memset(dif_buf2, 0, 2048); memset(dif_buf3, 0, 2048);
-  memset(er_buf_l, 0, 96000); memset(er_buf_r, 0, 96000);
-  memset(fdn_buf0, 0, 8192); memset(fdn_buf1, 0, 8192);
-  memset(fdn_buf2, 0, 8192); memset(fdn_buf3, 0, 8192);
-  memset(fdn_buf4, 0, 8192); memset(fdn_buf5, 0, 8192);
-  memset(fdn_buf6, 0, 8192); memset(fdn_buf7, 0, 8192);
-  memset(od_buf_l0, 0, 2048); memset(od_buf_l1, 0, 2048);
-  memset(od_buf_r0, 0, 2048); memset(od_buf_r1, 0, 2048);
+  // Only clear audio state on first load or sample rate change
+  _init_srate != srate ? (
+    _init_srate = srate;
 
-  // Write positions
-  pd_pos = 0;
-  dif_pos0 = 0; dif_pos1 = 0; dif_pos2 = 0; dif_pos3 = 0;
-  od_pos_l0 = 0; od_pos_l1 = 0; od_pos_r0 = 0; od_pos_r1 = 0;
-  er_pos = 0;
-  fdn_pos0 = 0; fdn_pos1 = 0; fdn_pos2 = 0; fdn_pos3 = 0;
-  fdn_pos4 = 0; fdn_pos5 = 0; fdn_pos6 = 0; fdn_pos7 = 0;
+    // Zero all buffers
+    memset(pd_buf_l, 0, 4800); memset(pd_buf_r, 0, 4800);
+    memset(dif_buf0, 0, 2048); memset(dif_buf1, 0, 2048);
+    memset(dif_buf2, 0, 2048); memset(dif_buf3, 0, 2048);
+    memset(er_buf_l, 0, 96000); memset(er_buf_r, 0, 96000);
+    memset(fdn_buf0, 0, 8192); memset(fdn_buf1, 0, 8192);
+    memset(fdn_buf2, 0, 8192); memset(fdn_buf3, 0, 8192);
+    memset(fdn_buf4, 0, 8192); memset(fdn_buf5, 0, 8192);
+    memset(fdn_buf6, 0, 8192); memset(fdn_buf7, 0, 8192);
+    memset(od_buf_l0, 0, 2048); memset(od_buf_l1, 0, 2048);
+    memset(od_buf_r0, 0, 2048); memset(od_buf_r1, 0, 2048);
 
-  // FDN LP states (two-stage cascade = room's "Miller filter")
-  fdn_lp0 = 0; fdn_lp1 = 0; fdn_lp2 = 0; fdn_lp3 = 0;
-  fdn_lp4 = 0; fdn_lp5 = 0; fdn_lp6 = 0; fdn_lp7 = 0;
-  fdn_lp0b = 0; fdn_lp1b = 0; fdn_lp2b = 0; fdn_lp3b = 0;
-  fdn_lp4b = 0; fdn_lp5b = 0; fdn_lp6b = 0; fdn_lp7b = 0;
+    // Write positions
+    pd_pos = 0;
+    dif_pos0 = 0; dif_pos1 = 0; dif_pos2 = 0; dif_pos3 = 0;
+    od_pos_l0 = 0; od_pos_l1 = 0; od_pos_r0 = 0; od_pos_r1 = 0;
+    er_pos = 0;
+    fdn_pos0 = 0; fdn_pos1 = 0; fdn_pos2 = 0; fdn_pos3 = 0;
+    fdn_pos4 = 0; fdn_pos5 = 0; fdn_pos6 = 0; fdn_pos7 = 0;
 
-  // FDN delay line modulation LFOs (irrational ratios — never sync)
-  lfo_phase0 = 0; lfo_phase1 = 0; lfo_phase2 = 0; lfo_phase3 = 0;
-  lfo_phase4 = 0; lfo_phase5 = 0; lfo_phase6 = 0; lfo_phase7 = 0;
+    // FDN LP states (two-stage cascade = room's "Miller filter")
+    fdn_lp0 = 0; fdn_lp1 = 0; fdn_lp2 = 0; fdn_lp3 = 0;
+    fdn_lp4 = 0; fdn_lp5 = 0; fdn_lp6 = 0; fdn_lp7 = 0;
+    fdn_lp0b = 0; fdn_lp1b = 0; fdn_lp2b = 0; fdn_lp3b = 0;
+    fdn_lp4b = 0; fdn_lp5b = 0; fdn_lp6b = 0; fdn_lp7b = 0;
+
+    // FDN delay line modulation LFOs (irrational ratios — never sync)
+    lfo_phase0 = 0; lfo_phase1 = 0; lfo_phase2 = 0; lfo_phase3 = 0;
+    lfo_phase4 = 0; lfo_phase5 = 0; lfo_phase6 = 0; lfo_phase7 = 0;
+
+    // ---- 4-Band Density Tracker (LOCAL — tracks own input) ----
+    hd_f_lo.lms_bq_init(); hd_f_mid_lo.lms_bq_init();
+    hd_f_mid_hi.lms_bq_init(); hd_f_hi.lms_bq_init(); hd_f_air.lms_bq_init();
+    hd_env_lo = 0; hd_env_mid = 0; hd_env_hi = 0;
+    hd_env_air = 0; hd_env_total = 0;
+    hd_density = 1.0; hd_mid_density = 0.0;
+    hd_hi_density = 0.0; hd_air_density = 0.0;
+
+    // Modal resonance filters (3 modes, applied to FDN lines 0/2/4)
+    modal0.lms_bq_init(); modal1.lms_bq_init(); modal2.lms_bq_init();
+    last_modal_boost = -1;
+
+    // Input HP / Output stage
+    in_hp.lms_bq_init(); dc_out.lms_dc_init();
+    out_hp.lms_bq_init();
+
+    // Preset tracking
+    last_preset = -1;
+  ); // end srate guard
+
+  // --- Always recalculate constants and srate-dependent coefficients ---
   lfo_rate0 = 0.13; lfo_rate1 = 0.17; lfo_rate2 = 0.23; lfo_rate3 = 0.29;
   lfo_rate4 = 0.19; lfo_rate5 = 0.31; lfo_rate6 = 0.37; lfo_rate7 = 0.11;
 
@@ -120,37 +146,19 @@ slider11:0<-12,12,0.1>-Output Gain (dB)
   er_delays_ms[10]=39.7; er_gains[10]=0.17; er_pans[10]=0.65;
   er_delays_ms[11]=47.2; er_gains[11]=0.13; er_pans[11]=0.45;
 
-  // ---- 4-Band Density Tracker (LOCAL — tracks own input) ----
-  hd_f_lo.lms_bq_init(); hd_f_lo.lms_bq_set_lp(250, 0.7);
-  hd_f_mid_lo.lms_bq_init(); hd_f_mid_lo.lms_bq_set_lp(2000, 0.7);
-  hd_f_mid_hi.lms_bq_init(); hd_f_mid_hi.lms_bq_set_hp(250, 0.7);
-  hd_f_hi.lms_bq_init(); hd_f_hi.lms_bq_set_hp(2000, 0.7);
-  hd_f_air.lms_bq_init(); hd_f_air.lms_bq_set_hp(5000, 0.7);
-  hd_env_lo = 0; hd_env_mid = 0; hd_env_hi = 0;
-  hd_env_air = 0; hd_env_total = 0;
+  // Density tracker srate-dependent coefficients
+  hd_f_lo.lms_bq_set_lp(250, 0.7);
+  hd_f_mid_lo.lms_bq_set_lp(2000, 0.7);
+  hd_f_mid_hi.lms_bq_set_hp(250, 0.7);
+  hd_f_hi.lms_bq_set_hp(2000, 0.7);
+  hd_f_air.lms_bq_set_hp(5000, 0.7);
   hd_att = exp(-1/(srate * 0.002));
   hd_rel = exp(-1/(srate * 0.080));
-  hd_density = 1.0; hd_mid_density = 0.0;
-  hd_hi_density = 0.0; hd_air_density = 0.0;
   hd_smooth = exp(-1/(srate * 0.030));
 
-  // Modal resonance filters (3 modes, applied to FDN lines 0/2/4)
-  modal0.lms_bq_init();
-  modal1.lms_bq_init();
-  modal2.lms_bq_init();
-  last_modal_boost = -1;
-
-  // Input HP (prevents bass accumulation in FDN feedback loop)
-  in_hp.lms_bq_init();
+  // Filter coefficients
   in_hp.lms_bq_set_hp(80, 0.707);
-
-  // Output stage
-  dc_out.lms_dc_init();
-  out_hp.lms_bq_init();
   out_hp.lms_bq_set_hp(80, 0.707);
-
-  // Preset tracking
-  last_preset = -1;
 
   notice_show = 0;
   buy_show = 0;

@@ -47,20 +47,31 @@ local LMS_END   = "-- [LMS AUTO-START END]"
 local lms_block = LMS_START .. "\n" ..
   "reaper.defer(function()\n" ..
   "  local base = reaper.GetResourcePath() .. \"/Scripts\"\n" ..
-  "  local paths = {\n" ..
-  "    base .. \"/LMS/drumbanger_service.lua\",\n" ..
-  "    base .. \"/LMS Plugins/DRUMBANGER/Scripts/drumbanger_service.lua\",\n" ..
-  "  }\n" ..
-  "  for _, p in ipairs(paths) do\n" ..
-  "    local f = io.open(p, \"r\")\n" ..
-  "    if f then\n" ..
-  "      f:close()\n" ..
-  "      reaper.ShowConsoleMsg(\"LMS: Auto-starting service...\\n\")\n" ..
-  "      dofile(p)\n" ..
-  "      return\n" ..
-  "    end\n" ..
+  "  local home = os.getenv(\"HOME\")\n" ..
+  "\n" ..
+  "  -- DrumBanger service (sampling + MIDI print)\n" ..
+  "  local svc = base .. \"/LMS/drumbanger_service.lua\"\n" ..
+  "  local f = io.open(svc, \"r\")\n" ..
+  "  if f then\n" ..
+  "    f:close()\n" ..
+  "    reaper.ShowConsoleMsg(\"LMS: Auto-starting DrumBanger service...\\n\")\n" ..
+  "    dofile(svc)\n" ..
+  "  else\n" ..
+  "    reaper.ShowConsoleMsg(\"LMS: Service script not found — run LMS Setup again.\\n\")\n" ..
   "  end\n" ..
-  "  reaper.ShowConsoleMsg(\"LMS: Service script not found — run LMS Setup again.\\n\")\n" ..
+  "\n" ..
+  "  -- Hardware bridge: spawn Python daemon in background\n" ..
+  "  os.execute(\"python3 \" .. home .. \"/LMS/serialtest/lms_bridge.py &\")\n" ..
+  "  reaper.ShowConsoleMsg(\"LMS: Hardware bridge started\\n\")\n" ..
+  "\n" ..
+  "  -- Hardware bridge: start Lua FX controller\n" ..
+  "  local bridge = home .. \"/LMS/serialtest/lms_gmem_bridge.lua\"\n" ..
+  "  f = io.open(bridge, \"r\")\n" ..
+  "  if f then\n" ..
+  "    f:close()\n" ..
+  "    reaper.ShowConsoleMsg(\"LMS: Hardware FX controller started\\n\")\n" ..
+  "    dofile(bridge)\n" ..
+  "  end\n" ..
   "end)\n" ..
   LMS_END .. "\n"
 

@@ -51,10 +51,12 @@ end
 -- ---- WAV helpers (little-endian) ----
 
 local function write_u16(f, val)
+  val = math.floor(val)
   f:write(string.char(val % 256, math.floor(val / 256) % 256))
 end
 
 local function write_u32(f, val)
+  val = math.floor(val)
   f:write(string.char(
     val % 256,
     math.floor(val / 256) % 256,
@@ -63,6 +65,7 @@ local function write_u32(f, val)
 end
 
 local function write_i16(f, val)
+  val = math.floor(val)
   if val < 0 then val = val + 65536 end
   f:write(string.char(val % 256, math.floor(val / 256) % 256))
 end
@@ -159,9 +162,10 @@ local function write_wav_and_finish(state)
 
     for i = 1, to_read * nch do
       local s = buf[i]
+      if s ~= s then s = 0 end  -- NaN guard (NaN ~= NaN)
+      if s > 1.0 then s = 1.0 elseif s < -1.0 then s = -1.0 end
       local a = math.abs(s)
       if a > peak then peak = a end
-      if s > 1.0 then s = 1.0 elseif s < -1.0 then s = -1.0 end
       write_i16(f, math.floor(s * 32767 + 0.5))
     end
 

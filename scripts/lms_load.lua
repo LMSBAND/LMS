@@ -119,12 +119,17 @@ end
 -- Apply a track's state from .lms data
 -- ============================================================
 
-local function apply_track(track, track_data)
+local function apply_track(track, track_data, restore_folders)
   -- Faders
   reaper.SetMediaTrackInfo_Value(track, "D_VOL",  track_data.volume or 1.0)
   reaper.SetMediaTrackInfo_Value(track, "D_PAN",  track_data.pan    or 0.0)
   reaper.SetMediaTrackInfo_Value(track, "B_MUTE", track_data.mute   and 1 or 0)
   reaper.SetMediaTrackInfo_Value(track, "I_SOLO", track_data.solo   and 1 or 0)
+
+  -- Folder structure — only when restoring exact layout (load), not cross-project (steal)
+  if restore_folders and track_data.folder_depth then
+    reaper.SetMediaTrackInfo_Value(track, "I_FOLDERDEPTH", track_data.folder_depth)
+  end
 
   -- Clear existing FX chain (delete backwards to keep indices valid)
   local existing = reaper.TrackFX_GetCount(track)
@@ -189,14 +194,14 @@ local function main()
   reaper.Undo_BeginBlock()
   for _, td in ipairs(session.tracks or {}) do
     if track_map[td.name] then
-      apply_track(track_map[td.name], td)
+      apply_track(track_map[td.name], td, true)
       updated = updated + 1
     else
       local idx = reaper.CountTracks(0)
       reaper.InsertTrackAtIndex(idx, true)
       local new_track = reaper.GetTrack(0, idx)
       reaper.GetSetMediaTrackInfo_String(new_track, "P_NAME", td.name, true)
-      apply_track(new_track, td)
+      apply_track(new_track, td, true)
       added = added + 1
     end
   end
