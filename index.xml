@@ -78,6 +78,10 @@
         <changelog><![CDATA[Initial release — 8-line FDN algorithmic reverb with density-aware harmonic saturation. 8 presets (Plate, Spring, Pop Ambient, Basement, Studio Live, Studio Dampened, Cathedral, Garage). 4-stage input diffusion, early reflections, modal filtering, pre-delay, low cut, stereo width. Broadcast system.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.1 — Fix: only clear audio buffers on first load or sample rate change — prevents reverb tail wipe when changing presets or reopening GUI. Init guard wraps all buffer zeroing and write position resets.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_rtw.jsfx" type="effect" desc="LMS RTW — LMS Reinvents The Wheel (Channel Strip)">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -867,6 +871,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Song Mode: 16 patterns with labeled parts (Verse/Chorus/Bridge/Intro/Outro), song sequence with drag-and-drop reorder. Per-section modifiers: modulate key, force major/minor, arp, octave shift, velocity (Vol column with right-click slider popup). Conductor/Player multi-instance system (conductor broadcasts, players follow). Undo/redo (20 levels) with header buttons. Octave control in header. Per-sequence-entry DrumBanger pattern selector. Auto-switch viewed pattern to follow song playback. Full chord broadcast to gmem. ARR mode removed.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER">
@@ -1201,6 +1210,44 @@
         <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.8 — Follow Harmony Map: new slider9 toggle (off by default) makes DrumBanger read the active drum pattern index from Harmony Map's song mode via gmem. When enabled, song section changes in Harmony Map automatically switch the DrumBanger pattern.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-hat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-hat-808.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hat-open-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hat-open-808.wav</source>
+        <source file="pool/Kit1-808/06-hat-closed-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-hat-closed-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-lo-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-lo-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-mid-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-mid-808.wav</source>
+        <source file="pool/Kit1-808/09-tom-hi-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-hi-808.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride-808.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-conga-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-conga-808.wav</source>
+        <source file="pool/Kit1-808/14-perc-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-perc-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-maracas-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-maracas-808.wav</source>
+        <source file="pool/Kit1-808/16-claves-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-claves-808.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-dusty.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-dusty.wav</source>
+        <source file="pool/Kit2-LoFi/02-kick-sub.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-kick-sub.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
     </reapack>
     <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS Drone Satellite for DRUMBANGER">
       <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
@@ -1279,6 +1326,10 @@
         <changelog><![CDATA[v1.3 — MIDI print merged into service (no separate script needed). Handles SAMPLE + PRINT buttons.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
       </version>
+      <version name="1.4" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.4 — Fix WAV writer: add math.floor to write_u16/u32/i16 (prevents fractional byte values). NaN guard on audio samples (NaN → 0). Peak detection moved after clamp for correct reporting.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_open_pool.lua" type="script" desc="DRUMBANGER: Open Pool Folder">
       <version name="1.0" author="LMS" time="2026-02-28T23:00:00Z">
@@ -1321,6 +1372,10 @@
         <changelog><![CDATA[v1.1 — Uses __startup.lua for reliable REAPER auto-start (no SWS dependency).]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Auto-start hardware bridge: spawns Python serial daemon (lms_bridge.py) and Lua FX controller (lms_gmem_bridge.lua) alongside DrumBanger service on REAPER launch.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Scripts">
@@ -1333,6 +1388,10 @@
         <changelog><![CDATA[v1.1 — Fix file picker opening in wrong directory. Robust path handling.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_save.lua</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Save folder structure: captures I_FOLDERDEPTH per track so Load can restore track grouping/nesting.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_save.lua</source>
+      </version>
     </reapack>
     <reapack name="lms_load.lua" type="script" desc="LMS: Load Session">
       <version name="1.0" author="LMS" time="2026-02-18T00:00:00Z">
@@ -1341,6 +1400,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v1.1 — Fix file picker opening in wrong directory. Create missing tracks instead of erroring. Hide FX windows on add.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_load.lua</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Restore folder structure: reads folder_depth from .lms file and applies I_FOLDERDEPTH to rebuild track grouping/nesting on load.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_load.lua</source>
       </version>
     </reapack>
@@ -1355,6 +1418,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v1.2 — Fix file picker opening in wrong directory.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-04-04T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Smart track mapping: Phase 1 exact name match, Phase 2 shows orphan lists (source + project), Phase 3 manual mapping dialog for unmatched tracks (up to 16 at a time with dropdown pickers), Phase 4 optional "add as new tracks" for anything still unmatched. Folder depth support (never applied during steal — prevents layout corruption). Fader state (vol/pan/mute/solo) applied alongside FX chains.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
       </version>
     </reapack>

@@ -2,12 +2,12 @@
 -- ------------------
 -- Opens a file picker to select any session.lms from any project.
 -- For each track in the .lms file:
---   - If the track NAME exists in the current project: replace its FX chain
---   - If it DOESN'T exist: add it as a new track at the end
+--   1. Exact name match in current project → replace FX chain + faders
+--   2. Unmatched tracks → show both orphan lists (source + project)
+--   3. If mappable tracks exist → manual mapping dialog (up to 16 at a time)
+--   4. Anything still unmatched → "Add as new tracks? Yes/No"
 --
 -- This lets you carry your mix from one song into another.
--- New tracks bring everything. Existing tracks get fully updated.
---
 -- Save with lms_save.lua. Load exact match with lms_load.lua.
 --
 -- Install: Actions > Show Action List > New ReaScript > Load this file
@@ -120,11 +120,17 @@ end
 -- Apply track state (shared with load logic)
 -- ============================================================
 
-local function apply_track(track, track_data)
+local function apply_track(track, track_data, restore_folders)
   reaper.SetMediaTrackInfo_Value(track, "D_VOL",  track_data.volume or 1.0)
   reaper.SetMediaTrackInfo_Value(track, "D_PAN",  track_data.pan    or 0.0)
   reaper.SetMediaTrackInfo_Value(track, "B_MUTE", track_data.mute   and 1 or 0)
   reaper.SetMediaTrackInfo_Value(track, "I_SOLO", track_data.solo   and 1 or 0)
+
+  -- Folder structure — only during load, never during steal
+  -- (steal applies to tracks in a different order, folder depth would corrupt the layout)
+  if restore_folders and track_data.folder_depth then
+    reaper.SetMediaTrackInfo_Value(track, "I_FOLDERDEPTH", track_data.folder_depth)
+  end
 
   local existing = reaper.TrackFX_GetCount(track)
   for fi = existing - 1, 0, -1 do
@@ -176,27 +182,203 @@ local function main()
     track_map[name] = track
   end
 
-  -- Process each track from the stolen session
-  local updated = 0
-  local added   = 0
-  local skipped = {}
+  -- ============================================================
+  -- Phase 1: Exact name match
+  -- ============================================================
 
-  reaper.Undo_BeginBlock()
+  local matched   = {}
+  local unmatched_lms = {}
+  local skipped   = {}
+  local matched_names = {}  -- project names claimed by exact match
 
   for _, td in ipairs(session.tracks or {}) do
     local name = td.name
     if not name or name == "" or name:match("^Track %d+$") then
       skipped[#skipped + 1] = "(unnamed track)"
     elseif track_map[name] then
-      -- Exists in current project — update it
-      apply_track(track_map[name], td)
-      updated = updated + 1
+      matched[#matched + 1] = td
+      matched_names[name] = true
     else
-      -- New track — add at end
+      unmatched_lms[#unmatched_lms + 1] = td
+    end
+  end
+
+  -- Find project tracks not claimed by any exact match
+  local unclaimed_project = {}
+  for i = 0, reaper.CountTracks(0) - 1 do
+    local track = reaper.GetTrack(0, i)
+    local _, name = reaper.GetTrackName(track)
+    if not matched_names[name]
+       and not (name:match("^Track %d+$"))
+       and name ~= "" then
+      unclaimed_project[#unclaimed_project + 1] = name
+    end
+  end
+
+  -- ============================================================
+  -- Phase 2: Manual mapping (if both sides have orphans)
+  -- ============================================================
+
+  local manual_mapped = {}  -- { td = track_data, project_track = track_ref, rename = string }
+
+  if #unmatched_lms > 0 and #unclaimed_project > 0 then
+    -- Build numbered reference list for the info dialog
+    local ref_lines = {}
+    for i, name in ipairs(unclaimed_project) do
+      ref_lines[#ref_lines + 1] = string.format("  (%d) %s", i, name)
+    end
+
+    local lms_lines = {}
+    for _, td in ipairs(unmatched_lms) do
+      lms_lines[#lms_lines + 1] = "  " .. td.name
+    end
+
+    local info = string.format(
+      "%d matched automatically.\n\n"
+      .. "SOURCE tracks not in project:\n%s\n\n"
+      .. "PROJECT tracks (numbered):\n%s\n\n"
+      .. "Map them manually? Type the number to assign.",
+      #matched,
+      table.concat(lms_lines, "\n"),
+      table.concat(ref_lines, "\n"))
+
+    -- 3 = Yes/No/Cancel
+    local choice = reaper.ShowMessageBox(info, "LMS Steal — Track Mapping", 3)
+
+    if choice == 2 then  -- Cancel
+      reaper.ShowMessageBox("No changes made.", "LMS Steal Session", 0)
+      return
+    end
+
+    if choice == 6 then  -- Yes — show mapping dialog(s)
+      -- Print numbered reference to console so it stays visible during input
+      reaper.ClearConsole()
+      reaper.ShowConsoleMsg("=== PROJECT TRACKS — type the number to map ===\n")
+      for i, name in ipairs(unclaimed_project) do
+        reaper.ShowConsoleMsg(string.format("  (%d) %s\n", i, name))
+      end
+      reaper.ShowConsoleMsg("================================================\n")
+
+      local batch_start = 1
+      while batch_start <= #unmatched_lms do
+        local batch_end = math.min(batch_start + 15, #unmatched_lms)
+        local batch_size = batch_end - batch_start + 1
+
+        local captions = {}
+        local defaults = {}
+        for i = batch_start, batch_end do
+          local safe = unmatched_lms[i].name:gsub(",", ";")
+          captions[#captions + 1] = safe
+          defaults[#defaults + 1] = ""
+        end
+        -- extrawidth only works on the last caption entry
+        captions[#captions] = captions[#captions] .. ",extrawidth=100"
+
+        local title = "Type # to map (see console for list)"
+        if #unmatched_lms > 16 then
+          title = title .. string.format(" [%d-%d of %d]", batch_start, batch_end, #unmatched_lms)
+        end
+
+        local ret, vals = reaper.GetUserInputs(
+          title, batch_size,
+          table.concat(captions, ","),
+          table.concat(defaults, ","))
+
+        if not ret then break end  -- user cancelled this batch
+
+        -- Parse comma-separated return values
+        local val_list = {}
+        for v in (vals .. ","):gmatch("(.-),") do
+          val_list[#val_list + 1] = v
+        end
+
+        for i = 1, batch_size do
+          local typed = val_list[i]
+          if typed and typed ~= "" then
+            local num = tonumber(typed:match("^%s*(%d+)%s*$"))
+            local lms_idx = batch_start + i - 1
+            if num and num >= 1 and num <= #unclaimed_project then
+              local project_name = unclaimed_project[num]
+              if track_map[project_name] then
+                manual_mapped[#manual_mapped + 1] = {
+                  td = unmatched_lms[lms_idx],
+                  project_track = track_map[project_name],
+                  rename = unmatched_lms[lms_idx].name
+                }
+                unmatched_lms[lms_idx].mapped = true
+              end
+            else
+              reaper.ShowConsoleMsg(
+                "LMS Steal: '" .. unmatched_lms[lms_idx].name
+                .. "' — invalid number '" .. typed .. "', skipping\n")
+            end
+          end
+        end
+
+        batch_start = batch_end + 1
+      end
+    end
+    -- choice == 7 (No) = skip mapping, fall through
+  end
+
+  -- Collect still-unmatched (not mapped, not skipped)
+  local still_unmatched = {}
+  for _, td in ipairs(unmatched_lms) do
+    if not td.mapped then
+      still_unmatched[#still_unmatched + 1] = td
+    end
+  end
+
+  -- ============================================================
+  -- Phase 3: Offer to add remaining unmatched as new tracks
+  -- ============================================================
+
+  local add_new = false
+  if #still_unmatched > 0 then
+    local names = {}
+    for _, td in ipairs(still_unmatched) do
+      names[#names + 1] = td.name
+    end
+
+    local proceed = reaper.ShowMessageBox(
+      #still_unmatched .. " track(s) still unmatched:\n\n"
+      .. table.concat(names, "\n")
+      .. "\n\nAdd these as new tracks?",
+      "LMS Steal Session — Remaining Tracks", 1)
+
+    if proceed == 1 then
+      add_new = true
+    end
+  end
+
+  -- ============================================================
+  -- Phase 4: Apply everything
+  -- ============================================================
+
+  local updated = 0
+  local mapped_count = 0
+  local added = 0
+
+  reaper.Undo_BeginBlock()
+
+  for _, td in ipairs(matched) do
+    apply_track(track_map[td.name], td)
+    updated = updated + 1
+  end
+
+  for _, m in ipairs(manual_mapped) do
+    apply_track(m.project_track, m.td)
+    -- Rename the project track to the .lms name
+    reaper.GetSetMediaTrackInfo_String(m.project_track, "P_NAME", m.rename, true)
+    mapped_count = mapped_count + 1
+  end
+
+  if add_new then
+    for _, td in ipairs(still_unmatched) do
       local idx = reaper.CountTracks(0)
       reaper.InsertTrackAtIndex(idx, true)
       local new_track = reaper.GetTrack(0, idx)
-      reaper.GetSetMediaTrackInfo_String(new_track, "P_NAME", name, true)
+      reaper.GetSetMediaTrackInfo_String(new_track, "P_NAME", td.name, true)
       apply_track(new_track, td)
       added = added + 1
     end
@@ -206,10 +388,22 @@ local function main()
   reaper.UpdateArrange()
   reaper.TrackList_AdjustWindows(false)
 
-  local msg = string.format("Updated %d track%s. Added %d new track%s.",
-    updated, updated == 1 and "" or "s",
-    added,   added   == 1 and "" or "s")
+  -- Summary
+  local parts = {}
+  if updated > 0 then
+    parts[#parts + 1] = string.format("Updated %d track%s", updated, updated == 1 and "" or "s")
+  end
+  if mapped_count > 0 then
+    parts[#parts + 1] = string.format("Mapped + renamed %d track%s", mapped_count, mapped_count == 1 and "" or "s")
+  end
+  if added > 0 then
+    parts[#parts + 1] = string.format("Added %d new track%s", added, added == 1 and "" or "s")
+  end
+  if #parts == 0 then
+    parts[#parts + 1] = "No changes made"
+  end
 
+  local msg = table.concat(parts, ". ") .. "."
   if #skipped > 0 then
     msg = msg .. "\n\nSkipped (unnamed in source):\n" .. table.concat(skipped, "\n")
   end

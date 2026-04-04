@@ -123,18 +123,20 @@ local function main()
     local track = reaper.GetTrack(0, i)
     local _, name = reaper.GetTrackName(track)
 
-    local volume = reaper.GetMediaTrackInfo_Value(track, "D_VOL")
-    local pan    = reaper.GetMediaTrackInfo_Value(track, "D_PAN")
-    local mute   = reaper.GetMediaTrackInfo_Value(track, "B_MUTE") ~= 0
-    local solo   = reaper.GetMediaTrackInfo_Value(track, "I_SOLO") ~= 0
+    local volume       = reaper.GetMediaTrackInfo_Value(track, "D_VOL")
+    local pan          = reaper.GetMediaTrackInfo_Value(track, "D_PAN")
+    local mute         = reaper.GetMediaTrackInfo_Value(track, "B_MUTE") ~= 0
+    local solo         = reaper.GetMediaTrackInfo_Value(track, "I_SOLO") ~= 0
+    local folder_depth = reaper.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH")
 
     local track_data = {
-      name   = name,
-      volume = volume,
-      pan    = pan,
-      mute   = mute,
-      solo   = solo,
-      fx     = {}
+      name         = name,
+      volume       = volume,
+      pan          = pan,
+      mute         = mute,
+      solo         = solo,
+      folder_depth = folder_depth,
+      fx           = {}
     }
 
     local fx_count = reaper.TrackFX_GetCount(track)
