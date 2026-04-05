@@ -886,6 +886,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-04-05T18:00:00Z">
+        <changelog><![CDATA[v2.3 — Fix song sequence tile flashing during playback. Root cause: @block sequence builder shared _sqi loop variable with @gfx renderer (JSFX globals). When @block ran mid-render, it stomped the GFX loop counter causing tiles to skip/repeat/appear in wrong slots. All @block sequence builder variables renamed to _b-prefixed to eliminate thread collision. Also: removed auto-switch pat_load during playback (P_* pointers read from bank directly), no more working copy thrashing.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER">
