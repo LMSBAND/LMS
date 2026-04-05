@@ -2678,23 +2678,24 @@ loop(song_seq_len,
     gfx_x = _sqx + floor((_seq_block_w - _tw)/2); gfx_y = _db_y + floor((_db_h - _th)/2);
     gfx_drawstr(_pl);
     // Click drum label to cycle (L=next, R=prev/off)
-    (mouse_cap & 1) && !(last_cap & 1) &&
-      mouse_x >= _sqx + 2 && mouse_x < _sqx + _seq_block_w - 2 &&
-      mouse_y >= _db_y && mouse_y < _db_y + _db_h ? (
+    _drum_clicked = 0;
+    _in_drum = mouse_x >= _sqx + 2 && mouse_x < _sqx + _seq_block_w - 2 &&
+               mouse_y >= _db_y && mouse_y < _db_y + _db_h;
+    (mouse_cap & 1) && !(last_cap & 1) && _in_drum ? (
       SONG_SEQ_DRUM[_sqi] = (_sq_drum + 1) % 9;  // 0-8: off, D1-D8
+      _drum_clicked = 1;
     );
-    (mouse_cap & 2) && !(last_cap & 2) &&
-      mouse_x >= _sqx + 2 && mouse_x < _sqx + _seq_block_w - 2 &&
-      mouse_y >= _db_y && mouse_y < _db_y + _db_h ? (
+    (mouse_cap & 2) && !(last_cap & 2) && _in_drum ? (
       SONG_SEQ_DRUM[_sqi] = (_sq_drum + 8) % 9;
+      _drum_clicked = 1;
     );
 
-    // --- Interaction ---
+    // --- Interaction (part area — excludes drum label) ---
     _in_block = mouse_x >= _sqx && mouse_x < _sqx + _seq_block_w &&
-                mouse_y >= _sqy && mouse_y < _sqy + _seq_block_h;
+                mouse_y >= _sqy && mouse_y < _db_y;
 
     // Left-click: start drag OR cycle part (resolved on release)
-    (mouse_cap & 1) && !(last_cap & 1) && _in_block ? (
+    (mouse_cap & 1) && !(last_cap & 1) && _in_block && !_drum_clicked ? (
       seq_drag_src = _sqi; seq_drag_dst = _sqi;
     );
     // Track drag destination while dragging
@@ -2726,7 +2727,7 @@ loop(song_seq_len,
     );
 
     // Right-click to remove from sequence (shift drum assignments too)
-    (mouse_cap & 2) && !(last_cap & 2) && _in_block ? (
+    (mouse_cap & 2) && !(last_cap & 2) && _in_block && !_drum_clicked ? (
       _sj = _sqi;
       loop(song_seq_len - _sqi - 1, SONG_SEQ[_sj] = SONG_SEQ[_sj+1]; SONG_SEQ_DRUM[_sj] = SONG_SEQ_DRUM[_sj+1]; _sj += 1);
       song_seq_len -= 1;

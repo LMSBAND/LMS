@@ -876,6 +876,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-04-05T00:00:00Z">
+        <changelog><![CDATA[v2.1 — Fix: clicking DrumBanger pattern (D1-D8) in song sequence no longer also cycles the song part. Part zone and drum zone are now independent click targets.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER">
