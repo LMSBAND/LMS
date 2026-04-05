@@ -3803,7 +3803,7 @@
       <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
       <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
       <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
-      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with circle-of-fifths navigation, 8-pattern arrangement mode</span></div>
+      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, conductor/player), controls DrumBanger patterns per song section</span></div>
       <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
       <div class="da-suite-footer">All interconnected via gmem bus</div>
     </div>
@@ -3845,8 +3845,15 @@
 
 <!-- UPDATE NOTICE -->
 <div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 18, 2026</div>
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">APRIL 5, 2026</div>
   <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
+    <strong>Harmony Map v2.3</strong> &mdash; Song Mode: 16 patterns, labeled parts (Verse/Chorus/Bridge/Intro/Outro), song sequence with drag-and-drop reorder, per-section modifiers (key, mode, velocity, arp, octave). Conductor/Player multi-instance system. Undo/redo. <strong>Now controls DrumBanger</strong> &mdash; assign a drum pattern (D1&ndash;D8) to each song section, DrumBanger follows automatically. <strong>DrumBanger v1.9</strong> &mdash; Follow Harmony Map toggle, fixed pattern switch timing. <strong>Save/Load/Steal</strong> &mdash; folder structure preserved. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.15);border-radius:8px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.6);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 18, 2026</div>
+  <div style="color:#999;font-size:0.95rem;line-height:1.6;">
     <strong>Harmony Map v1.0</strong> — New plugin: timeline-locked chord sequencer based on the mathematics of harmony. Circle-of-fifths navigation with diatonic highlighting, dominant resolution arrows, relative/parallel connections. Variable-width steps, subdivisions, per-step modifiers (SUS, 7th, b7, 9th, 6th, inversions). 8-pattern bank with arrangement mode &mdash; a step sequencer of step sequencers. Outputs MIDI synced to REAPER transport. <strong>DroneMIDI2 v1.5</strong> &mdash; Chord progressions, arpeggiator, extended voicings. All free. All open source.
   </div>
 </div>
