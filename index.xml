@@ -881,6 +881,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="2.2" author="LMS" time="2026-04-05T12:00:00Z">
+        <changelog><![CDATA[v2.2 — Fix song mode timing stability: sequence builder always reads pattern durations from bank (eliminates cumulative offset drift when auto-switching patterns). Pattern tab highlight uses GFX snapshot during playback to prevent thread race flicker.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER">
@@ -1217,6 +1222,44 @@
       </version>
       <version name="1.8" author="LMS" time="2026-04-04T00:00:00Z">
         <changelog><![CDATA[v1.8 — Follow Harmony Map: new slider9 toggle (off by default) makes DrumBanger read the active drum pattern index from Harmony Map's song mode via gmem. When enabled, song section changes in Harmony Map automatically switch the DrumBanger pattern.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-hat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-hat-808.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hat-open-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hat-open-808.wav</source>
+        <source file="pool/Kit1-808/06-hat-closed-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-hat-closed-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-lo-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-lo-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-mid-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-mid-808.wav</source>
+        <source file="pool/Kit1-808/09-tom-hi-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-hi-808.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride-808.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-conga-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-conga-808.wav</source>
+        <source file="pool/Kit1-808/14-perc-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-perc-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-maracas-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-maracas-808.wav</source>
+        <source file="pool/Kit1-808/16-claves-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-claves-808.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-dusty.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-dusty.wav</source>
+        <source file="pool/Kit2-LoFi/02-kick-sub.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-kick-sub.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
+      <version name="1.9" author="LMS" time="2026-04-05T12:00:00Z">
+        <changelog><![CDATA[v1.9 — Fix Harmony Map pattern switch timing: force step re-trigger on pattern change so beat 1 of the new pattern fires immediately instead of being skipped. Previously the first beat played the old pattern due to gmem read ordering between plugins.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
         <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
         <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>

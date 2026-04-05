@@ -929,11 +929,13 @@ function load_pad_from_pool(pad, pool_idx) local(handle, nch, sr, buf_offset, nu
 
 // ---- Harmony Map song mode: DrumBanger pattern switching ----
 // slider9 = Follow Harmony Map (user must enable manually)
+_hm_pat_changed = 0;
 slider9 ? (
   _hm_drum = gmem[960084];
   _hm_drum > 0 && _hm_drum <= 8 && (_hm_drum - 1) != slider3 ? (
     slider3 = _hm_drum - 1;
     sliderchange(slider3);
+    _hm_pat_changed = 1;
   );
 );
 
@@ -1044,8 +1046,8 @@ tempo > 0 ? (
   step_samples = 60.0 / max(slider1, 30) / 4.0 * srate;
 );
 
-// Trigger pads on step change OR transport start (sequence mode only)
-seq_mode && transport_playing && (timeline_step != seq_step || transport_started) ? (
+// Trigger pads on step change OR transport start OR Harmony Map pattern switch
+seq_mode && transport_playing && (timeline_step != seq_step || transport_started || _hm_pat_changed) ? (
   // Flush unfired sub-steps from the ending step (don't drop them at boundary)
   !transport_started ? (
     p = 0;

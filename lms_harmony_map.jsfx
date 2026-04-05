@@ -877,6 +877,9 @@ _song_mode_eff = hm_role == 2 ? song_mode_play : (song_seq_len > 0 && song_num_p
 
 // Song mode: build flat sequence from parts + repeats, map beat_position
 _song_mode_eff && transport_playing && song_seq_len > 0 ? (
+  // Flush working copy to bank so all patterns read from one consistent source
+  pat_save(current_pat);
+
   // Build expanded sequence: walk SONG_SEQ, expand repeats
   _sng_len = 0; _sng_cum = 0;
   _sqi = 0;
@@ -886,15 +889,10 @@ _song_mode_eff && transport_playing && song_seq_len > 0 ? (
       _sp_base = _sp_idx * SONG_PART_SIZE;
       _sp_pat = SONG_PARTS[_sp_base + 2];
       _sp_reps = max(1, SONG_PARTS[_sp_base + 3]);
-      // Compute pattern duration in beats
-      _sp_pat == current_pat ? (
-        _spns = max(1, slider3);
-        _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, CHORD_BARS[_spsi]); _spsi+=1);
-      ) : (
-        _sppb = PAT_BASE + _sp_pat * PAT_SIZE;
-        _spns = max(1, (_sppb+PO_NSTEPS)[0]);
-        _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, (_sppb+PO_BARS)[_spsi]); _spsi+=1);
-      );
+      // Compute pattern duration in beats — always read from bank for consistency
+      _sppb = PAT_BASE + _sp_pat * PAT_SIZE;
+      _spns = max(1, (_sppb+PO_NSTEPS)[0]);
+      _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, (_sppb+PO_BARS)[_spsi]); _spsi+=1);
       _sp_beats = _spdur * beats_per_measure;
       // Expand repeats
       _ri = 0;
@@ -947,8 +945,8 @@ _song_mode_eff && transport_playing && song_seq_len > 0 ? (
 );
 
 // Auto-switch working copy to follow song playback — view always shows what's playing
+// (pat_save already done at top of song mode block)
 _song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat && transport_playing ? (
-  pat_save(current_pat);
   current_pat = arr_cur_pat;
   pat_load(current_pat);
 );
@@ -1532,11 +1530,12 @@ _pb_x     = margin;
 num_pats < 1 ? num_pats = 1;
 current_pat < 0 ? current_pat = 0;
 current_pat >= num_pats ? current_pat = num_pats - 1;
+_display_pat = _gfx_transport && _gfx_arr_cur_pat >= 0 ? _gfx_arr_cur_pat : current_pat;
 
 _pi = 0;
 loop(num_pats,
   pat_set_color(_pi);
-  _is_pat_active = (_pi == current_pat);
+  _is_pat_active = (_pi == _display_pat);
   gfx_a = _is_pat_active ? 0.85 : 0.35;
   gfx_rect(_pb_x, patbar_y, _pb_tab_w, patbar_h);
   // bright top edge on active tab
