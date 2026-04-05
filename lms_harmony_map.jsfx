@@ -881,48 +881,48 @@ _song_mode_eff && transport_playing && song_seq_len > 0 ? (
   pat_save(current_pat);
 
   // Build expanded sequence: walk SONG_SEQ, expand repeats
+  // NOTE: all vars here use _b prefix to avoid collision with @gfx globals
   _sng_len = 0; _sng_cum = 0;
-  _sqi = 0;
+  _bsqi = 0;
   loop(song_seq_len,
-    _sp_idx = SONG_SEQ[_sqi];
-    _sp_idx < song_num_parts ? (
-      _sp_base = _sp_idx * SONG_PART_SIZE;
-      _sp_pat = SONG_PARTS[_sp_base + 2];
-      _sp_reps = max(1, SONG_PARTS[_sp_base + 3]);
+    _bsp_idx = SONG_SEQ[_bsqi];
+    _bsp_idx < song_num_parts ? (
+      _bsp_base = _bsp_idx * SONG_PART_SIZE;
+      _bsp_pat = SONG_PARTS[_bsp_base + 2];
+      _bsp_reps = max(1, SONG_PARTS[_bsp_base + 3]);
       // Compute pattern duration in beats — always read from bank for consistency
-      _sppb = PAT_BASE + _sp_pat * PAT_SIZE;
-      _spns = max(1, (_sppb+PO_NSTEPS)[0]);
-      _spdur = 0; _spsi = 0; loop(_spns, _spdur += max(1, (_sppb+PO_BARS)[_spsi]); _spsi+=1);
-      _sp_beats = _spdur * beats_per_measure;
+      _bsppb = PAT_BASE + _bsp_pat * PAT_SIZE;
+      _bspns = max(1, (_bsppb+PO_NSTEPS)[0]);
+      _bspdur = 0; _bspsi = 0; loop(_bspns, _bspdur += max(1, (_bsppb+PO_BARS)[_bspsi]); _bspsi+=1);
+      _bsp_beats = _bspdur * beats_per_measure;
       // Expand repeats
-      _ri = 0;
-      loop(_sp_reps,
+      _bri = 0;
+      loop(_bsp_reps,
         _sng_len < MAX_SONG_SEQ ? (
           SONG_SEQ_CUM[_sng_len]  = _sng_cum;
-          SONG_SEQ_PAT[_sng_len]  = _sp_pat;
-          SONG_SEQ_PART[_sng_len] = _sp_idx;
-          SONG_SEQ_SRC[_sng_len]  = _sqi;
-          _sng_cum += _sp_beats;
+          SONG_SEQ_PAT[_sng_len]  = _bsp_pat;
+          SONG_SEQ_PART[_sng_len] = _bsp_idx;
+          SONG_SEQ_SRC[_sng_len]  = _bsqi;
+          _sng_cum += _bsp_beats;
           _sng_len += 1;
         );
-        _ri += 1;
+        _bri += 1;
       );
     );
-    _sqi += 1;
+    _bsqi += 1;
   );
   _sng_len > 0 ? (
     _sng_total = _sng_cum;
     _sng_cycle = floor(beat_position / _sng_total);
     _sng_beat  = beat_position - _sng_cycle * _sng_total;
-    _sng_idx = 0; _si = 0;
-    loop(_sng_len, _sng_beat >= SONG_SEQ_CUM[_si] ? _sng_idx = _si; _si += 1);
+    _sng_idx = 0; _bsi = 0;
+    loop(_sng_len, _sng_beat >= SONG_SEQ_CUM[_bsi] ? _sng_idx = _bsi; _bsi += 1);
     song_cur_seq = _sng_idx;
-    song_cur_src = SONG_SEQ_SRC[_sng_idx];  // original SONG_SEQ index for UI
+    song_cur_src = SONG_SEQ_SRC[_sng_idx];
     song_cur_part_idx = SONG_SEQ_PART[_sng_idx];
     arr_cur_pat = SONG_SEQ_PAT[_sng_idx];
     play_beat = _sng_beat - SONG_SEQ_CUM[_sng_idx];
     arr_seq_ok = 1;
-    // Song mode modifiers — store for @block velocity/key application
     _smp_base = song_cur_part_idx * SONG_PART_SIZE;
     song_mod_key = SONG_PARTS[_smp_base + 4];
     song_mod_mode = SONG_PARTS[_smp_base + 5];
@@ -944,12 +944,8 @@ _song_mode_eff && transport_playing && song_seq_len > 0 ? (
   arr_cur_pat = -1;
 );
 
-// Auto-switch working copy to follow song playback — view always shows what's playing
-// (pat_save already done at top of song mode block)
-_song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat && transport_playing ? (
-  current_pat = arr_cur_pat;
-  pat_load(current_pat);
-);
+// No auto-switch: working copy stays on user's editing pattern.
+// Playback reads from bank via P_* pointers — no pat_load race with @gfx.
 
 // P_* pointer setup: point at bank for non-current patterns in song mode, working copy otherwise
 _song_mode_eff && arr_seq_ok && arr_cur_pat >= 0 && arr_cur_pat != current_pat ? (
