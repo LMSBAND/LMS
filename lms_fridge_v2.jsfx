@@ -64,73 +64,8 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   pres_db = presence * 6;
   this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
 );
-// === CRUSHINATOR (SansAmp-style parallel distortion pedal) ===
-// The SansAmp secret: parallel clean/dirty blend.
-// Clean path keeps transients and low-end definition.
-// Dirty path adds grind and harmonics.
-// The two mixed together = you hear the attack of every note clearly
-// while getting that thick distorted sustain underneath.
-function crush_init() (
-  // Pre-clip presence shelf (pushes highs into clipping harder)
-  this.pre_pres.lms_bq_init();
-  this.pre_pres.lms_bq_set_hishelf(2500, 0.0, 0.7);
-  // Pre-clip mid push (SansAmp has a mid-forward voice)
-  this.pre_mid.lms_bq_init();
-  this.pre_mid.lms_bq_set_peak(800, 3.0, 1.0);
-  // Post-clip tone shaping
-  this.post_lo.lms_bq_init();
-  this.post_lo.lms_bq_set_loshelf(100, 0.0, 0.6);
-  this.post_hi.lms_bq_init();
-  this.post_hi.lms_bq_set_hishelf(4000, 0.0, 0.7);
-  // DC block for dirty path
-  this.dc.lms_dc_init();
-);
-function crush_set(presence, low, high) local(pres_db, lo_db, hi_db) (
-  // Presence: 0-100% → 0 to +12dB shelf at 2.5kHz
-  pres_db = presence * 12;
-  this.pre_pres.lms_bq_set_hishelf(2500, pres_db, 0.7);
-  // Post low: 0-100% → -8 to +8dB
-  lo_db = (low - 0.5) * 16;
-  this.post_lo.lms_bq_set_loshelf(100, lo_db, 0.6);
-  // Post high: 0-100% → -8 to +8dB
-  hi_db = (high - 0.5) * 16;
-  this.post_hi.lms_bq_set_hishelf(4000, hi_db, 0.7);
-);
-function crush_proc(x, drive, blend) local(clean, dirty, b, g) (
-  // Save clean signal for parallel blend
-  clean = x;
-
-  // Pre-clip: presence shelf + mid push
-  b = this.pre_pres.lms_bq_proc(x);
-  b = this.pre_mid.lms_bq_proc(b);
-
-  // Drive: SansAmp uses diode clipping — harder than tubes, flatter tops
-  // This is NOT tanh (too soft). We use tanh with high hardness for that
-  // crunchy, aggressive, "solid state pedal" clip character.
-  g = 1.0 + drive * 8.0;
-  b = b * g;
-
-  // Hard diode-style clip: tanh with high hardness + slight asymmetry
-  // Positive clips harder (like a real diode pair with slight mismatch)
-  b >= 0 ? (
-    b = lms_tanh(b * 2.5) * 0.7;
-  ) : (
-    b = lms_tanh(b * 2.0) * 0.8;
-  );
-
-  // Post-clip tone shaping
-  b = this.post_lo.lms_bq_proc(b);
-  b = this.post_hi.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-
-  dirty = b;
-
-  // THE BLEND — this is the whole point of a SansAmp
-  // 0% = full clean (pedal is just a buffer)
-  // 50% = half clean + half dirty (the sweet spot — definition + grind)
-  // 100% = full dirty (pure crush, loses some definition)
-  clean * (1.0 - blend) + dirty * blend;
-);
+// === CRUSHINATOR (SansAmp-style parallel distortion) ===
+// DSP lives in lms_core as lms_crushinator_{init,set,proc}.
 
 // === INIT ===
 inp.lms_input_stage_init(3800, 0.5, 400, -3.0, 0.030);
@@ -172,8 +107,8 @@ pa.poweramp_set(0.5, 0.3);
 gate.lms_sgate_init(0.001, 0.0002);
 
 // Crushinator (SansAmp pedal — goes before amp input)
-crush.crush_init();
-crush.crush_set(0.5, 0.5, 0.5);
+crush.lms_crushinator_init();
+crush.lms_crushinator_set(0.5, 0.5, 0.5);
 crush_on = 0; crush_drive = 0.5; crush_blend = 0.5;
 spring.lms_spring_init();
 trem.lms_trem_init();
@@ -233,7 +168,7 @@ fx_bypass = slider13;
 crush_on = slider14;
 crush_drive = slider15 / 100;
 crush_blend = slider16 / 100;
-crush.crush_set(slider17/100, slider18/100, slider19/100);
+crush.lms_crushinator_set(slider17/100, slider18/100, slider19/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
@@ -294,7 +229,7 @@ fx_bypass = slider13;
 crush_on = slider14;
 crush_drive = slider15 / 100;
 crush_blend = slider16 / 100;
-crush.crush_set(slider17/100, slider18/100, slider19/100);
+crush.lms_crushinator_set(slider17/100, slider18/100, slider19/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
@@ -455,7 +390,7 @@ mono = rf_filter.lms_bq_proc(mono);
 // 0b. CRUSHINATOR (SansAmp pedal — before amp, after input level)
 fx_bypass == 0 ? (
   crush_on == 1 ? (
-    mono = crush.crush_proc(mono, crush_drive, crush_blend);
+    mono = crush.lms_crushinator_proc(mono, crush_drive, crush_blend);
   );
 );
 

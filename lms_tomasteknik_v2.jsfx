@@ -71,68 +71,7 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db) (
   this.pres_f.lms_bq_set_hishelf(pres_freq, pres_db, 0.9);
 );
 // === ODB-3 BASS OVERDRIVE (Boss ODB-3 emulation) ===
-// Bass preservation: HPF before clipper — low end stays clean.
-// Only mids and highs enter the dirty path. Bass fundamentals
-// (41Hz E, 62Hz B) flow through the clean parallel path untouched.
-// Asymmetric clipping: neg clips harder (germanium diode character).
-// Even harmonics (2nd, 4th) = warm grit without mud.
-function odb3_init() (
-  // Pre-clip HP: cuts bass BEFORE the drive stage
-  // ODB-3 ~300Hz — only mids and highs get distorted
-  this.pre_hp.lms_bq_init();
-  this.pre_hp.lms_bq_set_hp(300, 0.7);
-  // Post-clip two-band EQ (Bass and Treble knobs on dirty signal)
-  this.post_lo.lms_bq_init();
-  this.post_lo.lms_bq_set_loshelf(80, 0.0, 0.6);
-  this.post_hi.lms_bq_init();
-  this.post_hi.lms_bq_set_hishelf(3000, 0.0, 0.7);
-  // DC block — essential: asymmetric clipping creates DC offset
-  this.dc.lms_dc_init();
-);
-function odb3_set(low, high) local(lo_db, hi_db) (
-  // Low: 0-100% → -12 to +12dB shelf at 80Hz
-  lo_db = (low - 0.5) * 24;
-  this.post_lo.lms_bq_set_loshelf(80, lo_db, 0.6);
-  // High: 0-100% → -12 to +12dB shelf at 3kHz
-  hi_db = (high - 0.5) * 24;
-  this.post_hi.lms_bq_set_hishelf(3000, hi_db, 0.7);
-);
-function odb3_proc(x, drive, blend) local(clean, dirty, b, g) (
-  // Tap clean signal BEFORE any processing
-  clean = x;
-
-  // Bass protection: HPF removes low-end from the dirty path.
-  // Bass fundamentals stay clean even at maximum drive.
-  b = this.pre_hp.lms_bq_proc(x);
-
-  // Drive: ODB-3 is aggressive — max drive is very high.
-  // 0% = 1.0x gain (unity), 100% = 11.0x gain
-  g = 1.0 + drive * 10.0;
-  b = b * g;
-
-  // Asymmetric clipping — THE defining ODB-3 character.
-  // Positive: softer clip (germanium pair A)
-  // Negative: harder clip (germanium pair B, lower Vf)
-  // This asymmetry emphasizes even harmonics = "warm grit"
-  b >= 0 ? (
-    b = lms_tanh(b * 1.8) * 0.75;
-  ) : (
-    b = lms_tanh(b * 2.8) * 0.65;
-  );
-
-  // Post-clip two-band EQ (shapes dirty signal only)
-  b = this.post_lo.lms_bq_proc(b);
-  b = this.post_hi.lms_bq_proc(b);
-  b = this.dc.lms_dc_proc_l(b);
-
-  dirty = b;
-
-  // Parallel blend — same topology as SansAmp Crushinator
-  // 0% = full clean (pedal bypassed)
-  // 40-70% = sweet spot (bass transients + grit on top)
-  // 100% = full dirty (wall of fuzz, less definition)
-  clean * (1.0 - blend) + dirty * blend;
-);
+// DSP lives in lms_core as lms_odb3_{init,set,proc}.
 
 // === INIT ===
 inp.lms_input_stage_init(3800, 0.5, 400, -3.0, 0.030);
@@ -174,8 +113,8 @@ pa.poweramp_set(0.5, 0.3);
 gate.lms_sgate_init(0.001, 0.0002);
 
 // ODB-3 (Boss bass overdrive — goes before amp input)
-odb3.odb3_init();
-odb3.odb3_set(0.5, 0.5);
+odb3.lms_odb3_init();
+odb3.lms_odb3_set(0.5, 0.5);
 odb3_on = 0; odb3_drive = 0.5; odb3_blend = 0.5;
 spring.lms_spring_init();
 trem.lms_trem_init();
@@ -242,7 +181,7 @@ fx_bypass = slider13;
 odb3_on = slider14;
 odb3_drive = slider15 / 100;
 odb3_blend = slider16 / 100;
-odb3.odb3_set(slider17/100, slider18/100);
+odb3.lms_odb3_set(slider17/100, slider18/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
@@ -311,7 +250,7 @@ fx_bypass = slider13;
 odb3_on = slider14;
 odb3_drive = slider15 / 100;
 odb3_blend = slider16 / 100;
-odb3.odb3_set(slider17/100, slider18/100);
+odb3.lms_odb3_set(slider17/100, slider18/100);
 echo_mix = slider20 / 100;
 echo_time = slider21 / 100;
 echo_feedback = slider22 / 100;
@@ -479,7 +418,7 @@ mono = rf_filter.lms_bq_proc(mono);
 // 0b. ODB-3 (Boss bass overdrive — before amp, after input level)
 fx_bypass == 0 ? (
   odb3_on == 1 ? (
-    mono = odb3.odb3_proc(mono, odb3_drive, odb3_blend);
+    mono = odb3.lms_odb3_proc(mono, odb3_drive, odb3_blend);
   );
 );
 

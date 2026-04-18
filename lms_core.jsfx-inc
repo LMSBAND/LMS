@@ -4164,3 +4164,478 @@ function lms_bc_gfx(S, lc)
   bc_panel_y;
 );
 
+
+
+// ============================================================
+// PEDAL PRIMITIVES — reusable by any plugin (see lms_satans_pedalboard.jsfx)
+// All "_proc" functions return WET ONLY unless documented otherwise.
+// Delay-based pedals take caller-allocated buffers via _init(buf_base, buf_size).
+// buf_size MUST be a power of two; buf_mask = buf_size - 1.
+// ============================================================
+
+// ------------------------------------------------------------
+// lms_odb3 — Boss ODB-3 bass distortion
+//   HP(300Hz) → asymmetric clip → post-EQ → DC → parallel blend
+// ------------------------------------------------------------
+function lms_odb3_init() (
+  this.pre_hp.lms_bq_init();
+  this.pre_hp.lms_bq_set_hp(300, 0.7);
+  this.post_lo.lms_bq_init();
+  this.post_lo.lms_bq_set_loshelf(80, 0.0, 0.6);
+  this.post_hi.lms_bq_init();
+  this.post_hi.lms_bq_set_hishelf(3000, 0.0, 0.7);
+  this.dc.lms_dc_init();
+);
+function lms_odb3_set(low, high) local(lo_db, hi_db) (
+  lo_db = (low - 0.5) * 24;
+  this.post_lo.lms_bq_set_loshelf(80, lo_db, 0.6);
+  hi_db = (high - 0.5) * 24;
+  this.post_hi.lms_bq_set_hishelf(3000, hi_db, 0.7);
+);
+// Returns full dry+wet parallel blend (already includes dry).
+function lms_odb3_proc(x, drive, blend) local(clean, dirty, b, g) (
+  clean = x;
+  b = this.pre_hp.lms_bq_proc(x);
+  g = 1.0 + drive * 10.0;
+  b = b * g;
+  b >= 0 ? ( b = lms_tanh(b * 1.8) * 0.75; ) : ( b = lms_tanh(b * 2.8) * 0.65; );
+  b = this.post_lo.lms_bq_proc(b);
+  b = this.post_hi.lms_bq_proc(b);
+  b = this.dc.lms_dc_proc_l(b);
+  dirty = b;
+  clean * (1.0 - blend) + dirty * blend;
+);
+
+// ------------------------------------------------------------
+// lms_bd2 — Boss BD-2 Blues Driver
+//   Two-stage JFET rail saturator + silicon shunt + tilt tone.
+//   Touch-response emerges from the two-stage topology.
+// ------------------------------------------------------------
+function lms_bd2_init() (
+  this.dc_in.lms_dc_init();
+  this.tight_hp.lms_bq_init();
+  this.tight_hp.lms_bq_set_hp(80, 0.707);
+  this.inter_hp.lms_bq_init();
+  this.inter_hp.lms_bq_set_hp(160, 0.707);
+  this.sat1.lms_sat_warm_init();
+  this.sat2.lms_sat_hot_init();
+  this.shunt.lms_sat_harmonics_init();
+  this.fizz_lp.lms_bq_init();
+  this.fizz_lp.lms_bq_set_lp(7000, 0.7);
+  this.tone_lo.lms_bq_init();
+  this.tone_lo.lms_bq_set_loshelf(1000, 0.0, 0.5);
+  this.tone_hi.lms_bq_init();
+  this.tone_hi.lms_bq_set_hishelf(1000, 0.0, 0.5);
+  this.dc_out.lms_dc_init();
+);
+function lms_bd2_set(tone, tight) local(tilt_db, hp_fc) (
+  hp_fc = 30 + tight * 120;
+  this.tight_hp.lms_bq_set_hp(hp_fc, 0.707);
+  tilt_db = (tone - 0.5) * 12;
+  this.tone_lo.lms_bq_set_loshelf(1000, -tilt_db, 0.5);
+  this.tone_hi.lms_bq_set_hishelf(1000, tilt_db, 0.5);
+);
+// Returns full output (dry is NOT mixed back — this is a series pedal).
+function lms_bd2_proc(x, drive, level) local(g1, g2, y) (
+  y = this.dc_in.lms_dc_proc_l(x);
+  y = this.tight_hp.lms_bq_proc(y);
+  g1 = exp((drive * 28 - 6) * 0.11513);
+  y = y * g1;
+  y = this.sat1.lms_sat_warm(y, 0.4, 0.0);
+  y = this.inter_hp.lms_bq_proc(y);
+  g2 = exp((pow(drive, 1.3) * 14) * 0.11513);
+  y = y * g2;
+  y = this.sat2.lms_sat_hot(y, 0.6, 0.0);
+  y = this.shunt.lms_sat_harmonics(y * 0.8, 0.4, 0.3);
+  y = this.fizz_lp.lms_bq_proc(y);
+  y = this.tone_lo.lms_bq_proc(y);
+  y = this.tone_hi.lms_bq_proc(y);
+  y = this.dc_out.lms_dc_proc_l(y);
+  y * (0.3 + level * 1.5);
+);
+
+// ------------------------------------------------------------
+// lms_chorus — BBD chorus (Boss CE-2 style)
+//   buf_size must be power of 2; 4096 is plenty for 25ms @ 96k.
+//   Returns WET ONLY — caller mixes with dry.
+// ------------------------------------------------------------
+function lms_chorus_init(buf_base, buf_size) (
+  this.buf      = buf_base;
+  this.buf_size = buf_size;
+  this.buf_mask = buf_size - 1;
+  this.pre_lp.lms_bq_init();
+  this.pre_lp.lms_bq_set_lp(6000, 0.707);
+  this.post_lp.lms_bq_init();
+  this.post_lp.lms_bq_set_lp(7500, 0.707);
+  this.tone_hs.lms_bq_init();
+  this.tone_hs.lms_bq_set_hishelf(3000, 0.0, 0.6);
+  this.wpos = 0;
+  this.phase = 0;
+  this.rate = 1.0;
+  this.base_s = 0.009 * srate;
+  this.depth_s = 0.0015 * srate;
+  memset(buf_base, 0, buf_size);
+);
+function lms_chorus_set(rate_norm, tone) local(t_db) (
+  this.rate = 0.1 + pow(rate_norm, 1.5) * 5.9;
+  t_db = (tone - 0.5) * 12;
+  this.tone_hs.lms_bq_set_hishelf(3000, t_db, 0.6);
+);
+function lms_chorus_proc(x, depth) local(lfo, dly, rp, frac, a, b, c, d, tap, y) (
+  y = this.pre_lp.lms_bq_proc(x);
+  this.buf[this.wpos] = y;
+  this.phase += 2 * $pi * this.rate / srate;
+  this.phase >= 2 * $pi ? this.phase -= 2 * $pi;
+  lfo = sin(this.phase);
+  dly = this.base_s + this.depth_s * depth * lfo;
+  rp = this.wpos - dly;
+  rp < 0 ? rp += this.buf_size;
+  frac = rp - floor(rp);
+  a = this.buf[(floor(rp) - 1 + this.buf_size) & this.buf_mask];
+  b = this.buf[(floor(rp)) & this.buf_mask];
+  c = this.buf[(floor(rp) + 1) & this.buf_mask];
+  d = this.buf[(floor(rp) + 2) & this.buf_mask];
+  tap = b + 0.5*frac*(c-a + frac*(2*a - 5*b + 4*c - d + frac*(3*(b-c) + d - a)));
+  tap = this.post_lp.lms_bq_proc(tap);
+  tap = this.tone_hs.lms_bq_proc(tap);
+  this.wpos = (this.wpos + 1) & this.buf_mask;
+  tap;
+);
+
+// ------------------------------------------------------------
+// lms_bbd_delay — BBD analog delay (EHX Memory Boy style)
+//   LFO modulates read inside the feedback loop — repeats
+//   accumulate pitch wobble. buf_size power-of-2, >= 700ms @ srate.
+//   Returns WET ONLY.
+// ------------------------------------------------------------
+function lms_bbd_delay_init(buf_base, buf_size) (
+  this.buf      = buf_base;
+  this.buf_size = buf_size;
+  this.buf_mask = buf_size - 1;
+  this.in_hp.lms_bq_init();
+  this.in_hp.lms_bq_set_hp(80, 0.707);
+  this.aa_lp.lms_bq_init();
+  this.aa_lp.lms_bq_set_lp(5500, 0.707);
+  this.fb_lp.lms_bq_init();
+  this.fb_lp.lms_bq_set_lp(5500, 0.707);
+  this.dc_out.lms_dc_init();
+  this.wpos = 0;
+  this.phase = 0;
+  this.rate = 0.35;
+  memset(buf_base, 0, buf_size);
+);
+function lms_bbd_delay_set(rate_norm) (
+  this.rate = 0.1 + pow(rate_norm, 1.3) * 7.9;
+);
+function lms_bbd_delay_proc(x, delay_ms, feedback, depth)
+  local(y, dly, mod_cap, lfo, rp, frac, a, b, c, d, tap, fb) (
+  y = this.in_hp.lms_bq_proc(x);
+  y = this.aa_lp.lms_bq_proc(y);
+  this.phase += this.rate / srate;
+  this.phase >= 1 ? this.phase -= 1;
+  lfo = abs(this.phase * 2 - 1) * 2 - 1;
+  dly = delay_ms * 0.001 * srate;
+  mod_cap = min(dly * 0.02, 0.006 * srate);
+  dly = dly + lfo * mod_cap * depth;
+  rp = this.wpos - dly;
+  rp < 0 ? rp += this.buf_size;
+  frac = rp - floor(rp);
+  a = this.buf[(floor(rp) - 1 + this.buf_size) & this.buf_mask];
+  b = this.buf[(floor(rp)) & this.buf_mask];
+  c = this.buf[(floor(rp) + 1) & this.buf_mask];
+  d = this.buf[(floor(rp) + 2) & this.buf_mask];
+  tap = b + 0.5*frac*(c-a + frac*(2*a - 5*b + 4*c - d + frac*(3*(b-c) + d - a)));
+  fb = this.fb_lp.lms_bq_proc(tap);
+  fb = lms_tanh(fb * feedback * 0.9);
+  this.buf[this.wpos] = y + fb;
+  this.wpos = (this.wpos + 1) & this.buf_mask;
+  this.dc_out.lms_dc_proc_l(tap);
+);
+
+// ------------------------------------------------------------
+// lms_flanger — BBD flanger (Boss BF-2 / MXR M-117 style)
+//   buf_size power-of-2, >= ~20ms at target sample rate.
+//   Returns WET ONLY.
+// ------------------------------------------------------------
+function lms_flanger_init(buf_base, buf_size) (
+  this.buf      = buf_base;
+  this.buf_size = buf_size;
+  this.buf_mask = buf_size - 1;
+  this.fb_hp.lms_bq_init();
+  this.fb_hp.lms_bq_set_hp(80, 0.707);
+  this.fb_lp.lms_bq_init();
+  this.fb_lp.lms_bq_set_lp(6000, 0.707);
+  this.dc_out.lms_dc_init();
+  this.wpos = 0;
+  this.phase = 0;
+  this.rate = 0.4;
+  memset(buf_base, 0, buf_size);
+);
+function lms_flanger_set(rate_norm) (
+  this.rate = 0.05 + pow(rate_norm, 1.4) * 7.95;
+);
+function lms_flanger_proc(x, depth, feedback, manual)
+  local(lfo, base_ms, dep_ms, dly_ms, dly, rp, frac, a, b, c, d, tap, fb) (
+  this.phase += this.rate / srate;
+  this.phase >= 1 ? this.phase -= 1;
+  lfo = sin(this.phase * 2 * $pi);
+  base_ms = 0.5 + manual * 9.5;
+  dep_ms = depth * base_ms;
+  dly_ms = base_ms + dep_ms * lfo;
+  dly_ms = max(0.1, dly_ms);
+  dly = dly_ms * 0.001 * srate;
+  rp = this.wpos - dly;
+  rp < 0 ? rp += this.buf_size;
+  frac = rp - floor(rp);
+  a = this.buf[(floor(rp) - 1 + this.buf_size) & this.buf_mask];
+  b = this.buf[(floor(rp)) & this.buf_mask];
+  c = this.buf[(floor(rp) + 1) & this.buf_mask];
+  d = this.buf[(floor(rp) + 2) & this.buf_mask];
+  tap = b + 0.5*frac*(c-a + frac*(2*a - 5*b + 4*c - d + frac*(3*(b-c) + d - a)));
+  fb = this.fb_hp.lms_bq_proc(tap);
+  fb = this.fb_lp.lms_bq_proc(fb);
+  fb = lms_tanh(fb * feedback * 0.95);
+  this.buf[this.wpos] = x + fb;
+  this.wpos = (this.wpos + 1) & this.buf_mask;
+  this.dc_out.lms_dc_proc_l(tap);
+);
+
+// ------------------------------------------------------------
+// lms_hall — FDN hall reverb (EHX Holy Grail Hall mode)
+//   4 delay lines (1499, 1693, 1951, 2237 samples) + Householder mixing.
+//   Caller allocates fdn_buf (4 * line_len) and pre_buf (power-of-2).
+//   Returns WET ONLY.
+// ------------------------------------------------------------
+function lms_hall_init(fdn_buf, line_len, pre_buf, pre_size)
+  local(i) (
+  this.fdn_buf  = fdn_buf;
+  this.line_len = line_len;     // length of each delay line (must be >= 2237)
+  this.pre_buf  = pre_buf;
+  this.pre_size = pre_size;
+  this.pre_mask = pre_size - 1;
+  this.L0 = 1499; this.L1 = 1693; this.L2 = 1951; this.L3 = 2237;
+  this.fb_lp0.lms_bq_init();
+  this.fb_lp0.lms_bq_set_lp(5500, 0.7);
+  this.fb_lp1.lms_bq_init();
+  this.fb_lp1.lms_bq_set_lp(5500, 0.7);
+  this.fb_lp2.lms_bq_init();
+  this.fb_lp2.lms_bq_set_lp(5500, 0.7);
+  this.fb_lp3.lms_bq_init();
+  this.fb_lp3.lms_bq_set_lp(5500, 0.7);
+  this.tone_hs.lms_bq_init();
+  this.tone_hs.lms_bq_set_hishelf(2000, 0.0, 0.6);
+  this.pos0 = 0; this.pos1 = 0; this.pos2 = 0; this.pos3 = 0;
+  this.pre_pos = 0;
+  this.pre_delay = floor(0.012 * srate);
+  this.decay = 0.72;
+  memset(fdn_buf, 0, line_len * 4);
+  memset(pre_buf, 0, pre_size);
+);
+function lms_hall_set(tone) local(t_db) (
+  t_db = (tone - 0.5) * 6;
+  this.tone_hs.lms_bq_set_hishelf(2000, t_db, 0.6);
+);
+function lms_hall_proc(x, amount)
+  local(in_d, s0, s1, s2, s3, n0, n1, n2, n3, wet, fb, rp0, rp1, rp2, rp3) (
+  this.pre_buf[this.pre_pos] = x;
+  in_d = this.pre_buf[(this.pre_pos - this.pre_delay + this.pre_size) & this.pre_mask];
+  this.pre_pos = (this.pre_pos + 1) & this.pre_mask;
+  rp0 = this.pos0 - this.L0; rp0 < 0 ? rp0 += this.line_len;
+  rp1 = this.pos1 - this.L1; rp1 < 0 ? rp1 += this.line_len;
+  rp2 = this.pos2 - this.L2; rp2 < 0 ? rp2 += this.line_len;
+  rp3 = this.pos3 - this.L3; rp3 < 0 ? rp3 += this.line_len;
+  s0 = (this.fb_lp0.lms_bq_proc((this.fdn_buf + 0 * this.line_len)[rp0]));
+  s1 = (this.fb_lp1.lms_bq_proc((this.fdn_buf + 1 * this.line_len)[rp1]));
+  s2 = (this.fb_lp2.lms_bq_proc((this.fdn_buf + 2 * this.line_len)[rp2]));
+  s3 = (this.fb_lp3.lms_bq_proc((this.fdn_buf + 3 * this.line_len)[rp3]));
+  // Householder unitary mixing: n_i = 0.5*(sum) - s_i
+  fb = 0.5 * (s0 + s1 + s2 + s3);
+  n0 = fb - s0; n1 = fb - s1; n2 = fb - s2; n3 = fb - s3;
+  (this.fdn_buf + 0 * this.line_len)[this.pos0] = in_d + n0 * this.decay;
+  (this.fdn_buf + 1 * this.line_len)[this.pos1] = in_d + n1 * this.decay;
+  (this.fdn_buf + 2 * this.line_len)[this.pos2] = in_d + n2 * this.decay;
+  (this.fdn_buf + 3 * this.line_len)[this.pos3] = in_d + n3 * this.decay;
+  this.pos0 = (this.pos0 + 1) % this.line_len;
+  this.pos1 = (this.pos1 + 1) % this.line_len;
+  this.pos2 = (this.pos2 + 1) % this.line_len;
+  this.pos3 = (this.pos3 + 1) % this.line_len;
+  wet = (s0 + s1 + s2 + s3) * 0.5;
+  wet = this.tone_hs.lms_bq_proc(wet);
+  wet * amount;
+);
+
+
+// ------------------------------------------------------------
+// lms_crushinator — SansAmp-style parallel clean+dirty distortion
+//   (Fridge SVT Crushinator, also applicable to bass amps generally)
+//   Pre-clip presence shelf + mid push → diode-style clip (tanh+asym)
+//   → post-clip 2-band EQ → parallel blend with dry.
+//   Returns dry+wet blend (already mixed).
+// ------------------------------------------------------------
+function lms_crushinator_init() (
+  this.pre_pres.lms_bq_init();
+  this.pre_pres.lms_bq_set_hishelf(2500, 0.0, 0.7);
+  this.pre_mid.lms_bq_init();
+  this.pre_mid.lms_bq_set_peak(800, 3.0, 1.0);
+  this.post_lo.lms_bq_init();
+  this.post_lo.lms_bq_set_loshelf(100, 0.0, 0.6);
+  this.post_hi.lms_bq_init();
+  this.post_hi.lms_bq_set_hishelf(4000, 0.0, 0.7);
+  this.dc.lms_dc_init();
+);
+function lms_crushinator_set(presence, low, high) local(pres_db, lo_db, hi_db) (
+  pres_db = presence * 12;
+  this.pre_pres.lms_bq_set_hishelf(2500, pres_db, 0.7);
+  lo_db = (low - 0.5) * 16;
+  this.post_lo.lms_bq_set_loshelf(100, lo_db, 0.6);
+  hi_db = (high - 0.5) * 16;
+  this.post_hi.lms_bq_set_hishelf(4000, hi_db, 0.7);
+);
+function lms_crushinator_proc(x, drive, blend) local(clean, dirty, b, g) (
+  clean = x;
+  b = this.pre_pres.lms_bq_proc(x);
+  b = this.pre_mid.lms_bq_proc(b);
+  g = 1.0 + drive * 8.0;
+  b = b * g;
+  b >= 0 ? ( b = lms_tanh(b * 2.5) * 0.7; ) : ( b = lms_tanh(b * 2.0) * 0.8; );
+  b = this.post_lo.lms_bq_proc(b);
+  b = this.post_hi.lms_bq_proc(b);
+  b = this.dc.lms_dc_proc_l(b);
+  dirty = b;
+  clean * (1.0 - blend) + dirty * blend;
+);
+
+// ------------------------------------------------------------
+// lms_cold_clipper — 5150 V2A cold-biased unbypassed-cathode stage
+//   39k unbypassed cathode → cathode HP ~100Hz blended with direct signal
+//   → triode with extreme asymmetric clipping (brown sound).
+//   Contains its own triode (lms_triode) — init sets that up internally.
+// ------------------------------------------------------------
+function lms_cold_clipper_init() (
+  this.triode.lms_triode_init(72, 7000, 3500, 250, 2000, 5000);
+  this.cathode_hp.lms_bq_init();
+  this.cathode_hp.lms_bq_set_hp(100, 0.5);
+);
+function lms_cold_clipper_proc(x, drive, bplus, intensity)
+  local(cathode_signal, blended) (
+  cathode_signal = this.cathode_hp.lms_bq_proc(x);
+  blended = x * (1.0 - intensity) + cathode_signal * intensity;
+  this.triode.lms_triode_proc(blended, drive, bplus, 2.5, 0.5, 0.40, 0.85, 0.20, 0.25);
+);
+
+
+// ------------------------------------------------------------
+// lms_marmot — ProCo RAT distortion
+//   LM308 slew-limited op-amp + gain-dependent feedback HP ("honk")
+//   + silicon hard clip to ground (~±0.65V symmetric)
+//   + single-pole tone LP (700Hz..20kHz log sweep).
+// ------------------------------------------------------------
+function lms_marmot_init() (
+  this.dc_in.lms_dc_init();
+  this.in_hp.lms_bq_init();
+  this.in_hp.lms_bq_set_hp(30, 0.707);
+  this.fb_hp.lms_bq_init();
+  this.fb_hp.lms_bq_set_hp(20, 0.707);
+  this.sat_pre.lms_sat_warm_init();
+  this.slew_lp.lms_bq_init();
+  this.slew_lp.lms_bq_set_lp(5500, 0.5);
+  this.tone_lp.lms_bq_init();
+  this.tone_lp.lms_bq_set_lp(5000, 0.707);
+  this.dc_out.lms_dc_init();
+);
+function lms_marmot_set(drive, tone) local(fb_fc, tone_fc) (
+  // Gain-dependent feedback HP: 20Hz at min → ~1400Hz at max = "honk"
+  fb_fc = 20 + drive * 1400;
+  this.fb_hp.lms_bq_set_hp(fb_fc, 0.707);
+  // Tone: log sweep 700Hz → 20kHz
+  tone_fc = 700 * exp(log(20000/700) * tone);
+  this.tone_lp.lms_bq_set_lp(tone_fc, 0.707);
+);
+function lms_marmot_proc(x, drive, level) local(y, g) (
+  y = this.dc_in.lms_dc_proc_l(x);
+  y = this.in_hp.lms_bq_proc(y);
+  y = this.sat_pre.lms_sat_warm(y, 0.3, 0.0);     // LM308 softening
+  y = this.fb_hp.lms_bq_proc(y);                  // gain-dependent HP (honk)
+  g = 1 + drive * drive * 2000;                   // pot^2 taper, 0..66 dB
+  y = y * g;
+  y = this.slew_lp.lms_bq_proc(y);                // LM308 slew ceiling
+  y = lms_tanh(y * 8.0) * 0.65;                   // silicon hard clip to ground
+  y = this.tone_lp.lms_bq_proc(y);
+  y = this.dc_out.lms_dc_proc_l(y);
+  y * level;
+);
+
+// ------------------------------------------------------------
+// lms_12stepper — analog-style octave pedal (OC-2 + Octavia)
+//   Zero-cross + T flip-flop for octave-down 1 and 2 (monophonic).
+//   Full-wave rect for octave-up (fuzzy, Octavia-style).
+//   Accepts chord garble as authentic behavior — don't use YIN.
+// ------------------------------------------------------------
+// Faithful Boss OC-2 topology:
+//   input LPF(~800Hz) → Schmitt trigger with dynamic hysteresis
+//   → CD4013 T flip-flop #1 (oct -12) → CD4013 #2 cascaded (oct -24)
+//   output square × envelope follower (slow attack smooths spikes) → output LPF.
+//   No refractory, no 4-pole filter — the real circuit doesn't use those.
+function lms_12stepper_init() (
+  this.track_lp.lms_bq_init();
+  this.track_lp.lms_bq_set_lp(800, 0.707);     // OC-2 input RC filter
+  this.out_lp1.lms_bq_init();
+  this.out_lp1.lms_bq_set_lp(1000, 0.707);     // post-flip smoothing
+  this.out_lp2.lms_bq_init();
+  this.out_lp2.lms_bq_set_lp(700, 0.707);
+  this.up_bp.lms_bq_init();
+  this.up_bp.lms_bq_set_bp(800, 0.8);          // Octavia path (not OC-2)
+  this.up_lp.lms_bq_init();
+  this.up_lp.lms_bq_set_lp(3000, 0.707);
+  this.up_dc.lms_dc_init();
+  this.flip1 = 0; this.flip2 = 0;
+  this.schmitt_high = 0;
+  this.env = 0;
+  this.env_att = exp(-1 / (0.010 * srate));    // 10 ms attack — smooths transient spikes
+  this.env_rel = exp(-1 / (0.200 * srate));    // 200 ms release
+);
+function lms_12stepper_set(range_norm) local(fc) (
+  fc = 400 + range_norm * 800;                 // 400 Hz (bass) → 1200 Hz (keys)
+  this.track_lp.lms_bq_set_lp(fc, 0.707);
+);
+function lms_12stepper_proc(x, dry, oct_dn, oct_dn2, oct_up)
+  local(track, abs_in, hyst, rose, sub1, sub2, up) (
+  // Envelope follows the INPUT (OC-2 taps the input for its env detector)
+  abs_in = abs(x);
+  abs_in > this.env ?
+    (this.env = abs_in + (this.env - abs_in) * this.env_att) :
+    (this.env = abs_in + (this.env - abs_in) * this.env_rel);
+
+  // Input LPF → Schmitt comparator
+  track = this.track_lp.lms_bq_proc(x);
+  hyst = this.env * 0.15;                      // dynamic hysteresis = ±15% of env
+
+  // Schmitt state machine — rising edge only fires when state transitions low → high
+  rose = 0;
+  this.schmitt_high ? (
+    track < -hyst ? this.schmitt_high = 0;
+  ) : (
+    track >  hyst ? (this.schmitt_high = 1; rose = 1;);
+  );
+
+  // CD4013 cascade: flip1 toggles on each rose; flip2 toggles on flip1's rising edge
+  rose ? (
+    this.flip1 = 1 - this.flip1;
+    this.flip1 ? this.flip2 = 1 - this.flip2;
+  );
+
+  // Output: square × envelope = note-shaped sub
+  sub1 = (this.flip1 * 2 - 1) * this.env;
+  sub1 = this.out_lp1.lms_bq_proc(sub1);
+  sub2 = (this.flip2 * 2 - 1) * this.env;
+  sub2 = this.out_lp2.lms_bq_proc(sub2);
+
+  // Octave-up — Octavia-style full-wave rectify
+  up = this.up_bp.lms_bq_proc(x);
+  up = abs(up);
+  up = this.up_dc.lms_dc_proc_l(up);
+  up = this.up_lp.lms_bq_proc(up);
+  up = lms_tanh(up * 1.5);
+
+  x * dry + sub1 * oct_dn + sub2 * oct_dn2 + up * oct_up;
+);

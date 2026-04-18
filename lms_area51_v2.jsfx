@@ -53,18 +53,7 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 tuner.lms_tuner_init();
 
 // === COLD CLIPPER (V2A — 5150's defining stage) ===
-// 39k unbypassed cathode: cathode HP at ~100Hz, reduced gain (~12x),
-// extreme even-order harmonics (2nd harmonic dominant)
-function cold_clipper_init() (
-  this.triode.lms_triode_init(72, 7000, 3500, 250, 2000, 5000);
-  this.cathode_hp.lms_bq_init();
-  this.cathode_hp.lms_bq_set_hp(100, 0.5);
-);
-function cold_clipper_proc(x, drive, bplus, intensity) local(cathode_signal, blended) (
-  cathode_signal = this.cathode_hp.lms_bq_proc(x);
-  blended = x * (1.0 - intensity) + cathode_signal * intensity;
-  this.triode.lms_triode_proc(blended, drive, bplus, 2.5, 0.5, 0.40, 0.85, 0.20, 0.25);
-);
+// DSP lives in lms_core as lms_cold_clipper_{init,proc}.
 
 function poweramp_set(drive, presence, resonance) local(pres_freq, pres_db, pres_q, res_freq, res_db, res_q) (
   this.drive = drive;
@@ -99,7 +88,7 @@ v1a.lms_triode_init(72, 8000, 3500, 250, 2000, 5000);
 v1b.lms_triode_init(68, 7500, 3500, 250, 2000, 5000);
 
 // Cold Clipper (V2A) — 39k unbypassed cathode, the 5150's signature
-cc.cold_clipper_init();
+cc.lms_cold_clipper_init();
 
 // V2B: third gain stage (Lead only) — 12AX7
 v2b.lms_triode_init(72, 7500, 3500, 250, 2000, 5000);
@@ -434,7 +423,7 @@ channel == 0 ? (
 
   // Cold clipper — mild intensity (0.3)
   cc_drive = gain * 0.25;
-  amp_out = cc.cold_clipper_proc(v1b_out, cc_drive, bplus, 0.3);
+  amp_out = cc.lms_cold_clipper_proc(v1b_out, cc_drive, bplus, 0.3);
 
   // DC block
   amp_out = preamp_dc.lms_dc_proc_l(amp_out);
@@ -466,7 +455,7 @@ channel == 0 ? (
 
   // Cold clipper — crushed intensity (0.7)
   cc_drive = gain * 0.70;
-  cc_out = cc.cold_clipper_proc(v1b_out, cc_drive, bplus, 0.7);
+  cc_out = cc.lms_cold_clipper_proc(v1b_out, cc_drive, bplus, 0.7);
 
   // V2B
   v2b_drive = gain * 0.55;
