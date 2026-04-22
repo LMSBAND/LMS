@@ -4639,3 +4639,101 @@ function lms_12stepper_proc(x, dry, oct_dn, oct_dn2, oct_up)
 
   x * dry + sub1 * oct_dn + sub2 * oct_dn2 + up * oct_up;
 );
+
+
+// ------------------------------------------------------------
+// lms_ts — Ibanez TS-808/TS-9 Tube Screamer
+//   Op-amp with asymmetric diode clipping across feedback resistor.
+//   Signature "mid hump" comes from input HP at ~720Hz before clipping —
+//   bass never reaches the clipper, so overtones live in the midrange.
+//   Asymmetric clip (pos 1 diode vs neg 2-diode): even-harmonic bias.
+//   Tone: post-clip LP sweeping 400Hz (dark) → 5kHz (bright).
+// ------------------------------------------------------------
+function lms_ts_init() (
+  this.dc_in.lms_dc_init();
+  this.in_hp.lms_bq_init();
+  this.in_hp.lms_bq_set_hp(720, 0.707);
+  this.tone_lp.lms_bq_init();
+  this.tone_lp.lms_bq_set_lp(3000, 0.707);
+  this.dc_out.lms_dc_init();
+);
+function lms_ts_set(tone) local(fc) (
+  // Log sweep — matches the real TS tone pot's RC curve
+  fc = 400 * exp(log(5000/400) * tone);
+  this.tone_lp.lms_bq_set_lp(fc, 0.707);
+);
+function lms_ts_proc(x, drive, level) local(pre, boost, pos, neg, clipped, mixed, y) (
+  pre = this.dc_in.lms_dc_proc_l(x);
+  pre = this.in_hp.lms_bq_proc(pre);
+  // Op-amp gain: 1 + 500k*drive / 4k7 → up to ~106×
+  boost = 1 + drive * drive * 105;
+  pre = pre * boost;
+  // Asymmetric clip — pos half goes through 1N4148 (~0.7V), neg through 2× series (~1.4V)
+  pos = pre > 0 ? lms_tanh(pre * 0.90) : 0;
+  neg = pre < 0 ? lms_tanh(-pre * 0.55) : 0;
+  clipped = pos - neg;
+  // Classic TS sums clean path + clipped path from op-amp feedback
+  mixed = clipped * 0.70 + lms_tanh(pre * 0.15) * 0.30;
+  y = this.tone_lp.lms_bq_proc(mixed);
+  y = this.dc_out.lms_dc_proc_l(y);
+  y * level;
+);
+
+
+// ------------------------------------------------------------
+// lms_paraeq — 4-band parametric EQ with genre voicings
+//   HP → low shelf → mid peak → presence peak → high shelf.
+//   Mode sets the centre frequencies and Qs (the character) — the gain
+//   knobs drive each band directly. Preset "defaults" (which gains punk /
+//   jazz / metal should sit at) live in the HOST plugin, not here, so the
+//   host can snap its visible knobs when the mode changes.
+//   0=Punk, 1=Jazz, 2=Metal, 3=Flat.
+// ------------------------------------------------------------
+function lms_paraeq_init() (
+  this.hp.lms_bq_init();
+  this.hp.lms_bq_set_hp(40, 0.5);
+  this.lo.lms_bq_init();
+  this.md.lms_bq_init();
+  this.pr.lms_bq_init();
+  this.hi.lms_bq_init();
+  this.dc_out.lms_dc_init();
+);
+function lms_paraeq_set(mode, lo_db, mid_db, hi_db, pr_db) (
+  mode == 0 ? (
+    // PUNK — tight HP, mid peak narrow + mid-centred, aggressive presence
+    this.hp.lms_bq_set_hp(80, 0.5);
+    this.lo.lms_bq_set_loshelf(120, lo_db, 0.7);
+    this.md.lms_bq_set_peak(600,  mid_db, 1.0);
+    this.pr.lms_bq_set_peak(3500, pr_db, 0.9);
+    this.hi.lms_bq_set_hishelf(8000, hi_db, 0.7);
+  ) : mode == 1 ? (
+    // JAZZ — gentle HP, warm mid (low-mid centred, wider), rolled presence
+    this.hp.lms_bq_set_hp(40, 0.5);
+    this.lo.lms_bq_set_loshelf(180, lo_db, 0.7);
+    this.md.lms_bq_set_peak(800,  mid_db, 0.7);
+    this.pr.lms_bq_set_peak(3000, pr_db, 0.7);
+    this.hi.lms_bq_set_hishelf(6000, hi_db, 0.7);
+  ) : mode == 2 ? (
+    // METAL — deep scoop-ready mid @ 500Hz Q1.0, chug-friendly HP, air shelf
+    this.hp.lms_bq_set_hp(60, 0.5);
+    this.lo.lms_bq_set_loshelf(100, lo_db, 0.7);
+    this.md.lms_bq_set_peak(500,  mid_db, 1.0);
+    this.pr.lms_bq_set_peak(3500, pr_db, 1.0);
+    this.hi.lms_bq_set_hishelf(7000, hi_db, 0.7);
+  ) : (
+    // FLAT — generic voicing
+    this.hp.lms_bq_set_hp(20, 0.5);
+    this.lo.lms_bq_set_loshelf(150, lo_db, 0.7);
+    this.md.lms_bq_set_peak(1000, mid_db, 0.7);
+    this.pr.lms_bq_set_peak(3500, pr_db, 0.7);
+    this.hi.lms_bq_set_hishelf(8000, hi_db, 0.7);
+  );
+);
+function lms_paraeq_proc(x) local(y) (
+  y = this.hp.lms_bq_proc(x);
+  y = this.lo.lms_bq_proc(y);
+  y = this.md.lms_bq_proc(y);
+  y = this.pr.lms_bq_proc(y);
+  y = this.hi.lms_bq_proc(y);
+  this.dc_out.lms_dc_proc_l(y);
+);

@@ -73,8 +73,8 @@ slider33:0<0,2,1{Spring,Hall,Flerb}>-UB Mode
 slider34:35<0,100,1>-UB Amount (%)
 slider35:50<0,100,1>-UB Tone (%)
 
-// CHAIN ORDER (pedal ordering presets)
-slider36:0<0,5,1{Classic,Pre-Verb Mod,Mod to Drive,Echo to Drive,Verb to Drive,Loop}>-Chain Order
+// SECTION ORDER (section-flow presets — moves DIST/MOD/DELAY/REVERB/EQ around; 12STEPPER always first)
+slider36:0<0,5,1{Classic,Pre-EQ Drive,Mod to Drive,Echo to Drive,Verb to Drive,Loop}>-Section Order
 
 // IN COMP (FET compressor — lms_comp from core, same as RTW)
 slider40:0<0,1,1{Off,On}>-In Comp
@@ -105,6 +105,21 @@ slider62:50<0,100,1>-12S Oct -12
 slider63:0<0,100,1>-12S Oct -24
 slider64:0<0,100,1>-12S Oct +12
 
+// GREEN SIN (Ibanez Tube Screamer TS-808/TS-9)
+slider65:0<0,1,1{Off,On}>-GREEN SIN
+slider66:50<0,100,1>-GS Drive (%)
+slider67:50<0,100,1>-GS Tone (%)
+slider68:50<0,100,1>-GS Level (%)
+
+// JUDGEMENT DAY (Parametric EQ — Punk / Jazz / Metal / Flat)
+slider70:0<0,1,1{Off,On}>-JUDGEMENT DAY
+slider71:3<0,3,1{Punk,Jazz,Metal,Flat}>-JD Mode
+slider72:0<-12,12,0.1>-JD Low (dB)
+slider73:0<-12,12,0.1>-JD Mid (dB)
+slider74:0<-12,12,0.1>-JD High (dB)
+slider75:0<-12,12,0.1>-JD Presence (dB)
+slider76:0<-12,12,0.1>-JD Level (dB)
+
 
 // ============================================================
 //  @INIT — buffer allocation + instantiate lms_* primitives
@@ -122,36 +137,79 @@ UB_FDN_BUF   = 143360;   UB_LINE_LEN  = 4096;           // hall FDN (4 lines × 
 UB_PRE_BUF   = 159744;   UB_PRE_SIZE  = 2048;           // hall pre-delay
 
 // ------------------------------------------------------------
-//  CHAIN-ORDER PRESETS
-//  Pedal IDs: 0=DOA 1=HWI 2=BM 3=EL 4=PW 5=UB 6=MARMOT 7=12STEPPER
-//  12STEPPER goes EARLY in most presets (tracks fundamental better pre-gain).
+//  SECTION-BASED CHAIN ORDER
+//
+//  The chain is organized by SECTION, not by individual pedal. Presets move
+//  sections around. Within a section the pedal order is fixed. 12 STEPPER
+//  sits at the very front (octavers track cleanest on raw input).
+//
+//  Pedal IDs: 0=DOA 1=HWI 2=BM 3=EL 4=PW 5=UB 6=MARMOT 7=12STEPPER 8=TS 9=EQ
+//  Section IDs: 0=DIST, 1=MOD, 2=DELAY, 3=REVERB, 4=EQ
+//
+//  To add a new pedal: add it to SECTION_CONTENTS under its section and bump
+//  the corresponding SECTION_LENGTHS entry. All presets pick up the change.
 // ------------------------------------------------------------
-ORDER_PRESETS = 161792;  // 6 presets × 8 slots = 48 ints
-CHAIN_ORDER   = 161840;  // current active order, 8 ints
-// 0: CLASSIC — 12S → drives → mod → delay → verb
-ORDER_PRESETS[ 0] = 7; ORDER_PRESETS[ 1] = 0; ORDER_PRESETS[ 2] = 1;
-ORDER_PRESETS[ 3] = 6; ORDER_PRESETS[ 4] = 2; ORDER_PRESETS[ 5] = 3;
-ORDER_PRESETS[ 6] = 4; ORDER_PRESETS[ 7] = 5;
-// 1: PRE-VERB MOD — drives → verb → mod → delay
-ORDER_PRESETS[ 8] = 7; ORDER_PRESETS[ 9] = 0; ORDER_PRESETS[10] = 1;
-ORDER_PRESETS[11] = 6; ORDER_PRESETS[12] = 5; ORDER_PRESETS[13] = 2;
-ORDER_PRESETS[14] = 3; ORDER_PRESETS[15] = 4;
-// 2: MOD TO DRIVE — Hendrix-style, mod into overdrive
-ORDER_PRESETS[16] = 2; ORDER_PRESETS[17] = 4; ORDER_PRESETS[18] = 7;
-ORDER_PRESETS[19] = 0; ORDER_PRESETS[20] = 1; ORDER_PRESETS[21] = 6;
-ORDER_PRESETS[22] = 3; ORDER_PRESETS[23] = 5;
-// 3: ECHO TO DRIVE — delay into distortion (ambient gain)
-ORDER_PRESETS[24] = 3; ORDER_PRESETS[25] = 7; ORDER_PRESETS[26] = 0;
-ORDER_PRESETS[27] = 1; ORDER_PRESETS[28] = 6; ORDER_PRESETS[29] = 2;
-ORDER_PRESETS[30] = 4; ORDER_PRESETS[31] = 5;
-// 4: VERB TO DRIVE — shoegaze reverb-into-distortion wash
-ORDER_PRESETS[32] = 5; ORDER_PRESETS[33] = 7; ORDER_PRESETS[34] = 0;
-ORDER_PRESETS[35] = 1; ORDER_PRESETS[36] = 6; ORDER_PRESETS[37] = 2;
-ORDER_PRESETS[38] = 3; ORDER_PRESETS[39] = 4;
-// 5: LOOP — drives → chorus → flanger → delay → verb
-ORDER_PRESETS[40] = 7; ORDER_PRESETS[41] = 0; ORDER_PRESETS[42] = 1;
-ORDER_PRESETS[43] = 6; ORDER_PRESETS[44] = 2; ORDER_PRESETS[45] = 4;
-ORDER_PRESETS[46] = 3; ORDER_PRESETS[47] = 5;
+SECTION_PRESETS  = 161792;  // 6 presets × 5 sections = 30 ints
+SECTION_ORDER    = 161822;  // 5 active section IDs
+SECTION_CONTENTS = 161827;  // 5 sections × 8 slots = 40 ints
+SECTION_LENGTHS  = 161867;  // 5 ints — how many pedals in each section
+CHAIN_ORDER      = 161872;  // flattened pedal IDs (12 STEPPER + sections), 16-slot headroom
+
+// Section contents — pedal order WITHIN each section is fixed here.
+// DIST: GREEN SIN → HWI → DOA666 → MARMOT  (tight-to-loose stacking)
+SECTION_LENGTHS[0] = 4;
+SECTION_CONTENTS[0] = 8; SECTION_CONTENTS[1] = 1;
+SECTION_CONTENTS[2] = 0; SECTION_CONTENTS[3] = 6;
+// MOD: BLACK MASS → PIPEWORKS  (chorus before flanger)
+SECTION_LENGTHS[1] = 2;
+SECTION_CONTENTS[8] = 2; SECTION_CONTENTS[9] = 4;
+// DELAY: THE ELEPHANT
+SECTION_LENGTHS[2] = 1;
+SECTION_CONTENTS[16] = 3;
+// REVERB: UNHOLY BOWL
+SECTION_LENGTHS[3] = 1;
+SECTION_CONTENTS[24] = 5;
+// EQ: THE JUDGE
+SECTION_LENGTHS[4] = 1;
+SECTION_CONTENTS[32] = 9;
+
+// Presets — each is 5 section IDs in play order
+// 0: CLASSIC          DIST → MOD → DELAY → REVERB → EQ
+SECTION_PRESETS[ 0] = 0; SECTION_PRESETS[ 1] = 1; SECTION_PRESETS[ 2] = 2;
+SECTION_PRESETS[ 3] = 3; SECTION_PRESETS[ 4] = 4;
+// 1: PRE-EQ DRIVE     EQ → DIST → MOD → DELAY → REVERB   (shape input into drives)
+SECTION_PRESETS[ 5] = 4; SECTION_PRESETS[ 6] = 0; SECTION_PRESETS[ 7] = 1;
+SECTION_PRESETS[ 8] = 2; SECTION_PRESETS[ 9] = 3;
+// 2: MOD TO DRIVE     MOD → DIST → DELAY → REVERB → EQ
+SECTION_PRESETS[10] = 1; SECTION_PRESETS[11] = 0; SECTION_PRESETS[12] = 2;
+SECTION_PRESETS[13] = 3; SECTION_PRESETS[14] = 4;
+// 3: ECHO TO DRIVE    DELAY → DIST → MOD → REVERB → EQ
+SECTION_PRESETS[15] = 2; SECTION_PRESETS[16] = 0; SECTION_PRESETS[17] = 1;
+SECTION_PRESETS[18] = 3; SECTION_PRESETS[19] = 4;
+// 4: VERB TO DRIVE    REVERB → DIST → MOD → DELAY → EQ
+SECTION_PRESETS[20] = 3; SECTION_PRESETS[21] = 0; SECTION_PRESETS[22] = 1;
+SECTION_PRESETS[23] = 2; SECTION_PRESETS[24] = 4;
+// 5: LOOP             DIST → EQ → MOD → DELAY → REVERB   (EQ mid-chain, amp-loop feel)
+SECTION_PRESETS[25] = 0; SECTION_PRESETS[26] = 4; SECTION_PRESETS[27] = 1;
+SECTION_PRESETS[28] = 2; SECTION_PRESETS[29] = 3;
+
+// Build CHAIN_ORDER from SECTION_ORDER. Called whenever the preset changes.
+function build_chain_order() local(i, j, k, sec_id) (
+  CHAIN_ORDER[0] = 7;   // 12 STEPPER always first (pedal ID 7)
+  i = 1;
+  j = 0;
+  loop(5,
+    sec_id = SECTION_ORDER[j];
+    k = 0;
+    loop(SECTION_LENGTHS[sec_id],
+      CHAIN_ORDER[i] = SECTION_CONTENTS[sec_id * 8 + k];
+      i += 1;
+      k += 1;
+    );
+    j += 1;
+  );
+  CHAIN_ORDER_LEN = i;
+);
 
 // ------------------------------------------------------------
 //  INSTANTIATE PEDALS (all calls into lms_core)
@@ -194,6 +252,14 @@ pb_marmot_l.lms_marmot_set(0.5, 0.5);  pb_marmot_r.lms_marmot_set(0.5, 0.5);
 // 12 STEPPER — mono (octave pedal is inherently monophonic)
 pb_stepper.lms_12stepper_init();
 pb_stepper.lms_12stepper_set(0.5);
+
+// GREEN SIN — Tube Screamer, stereo (paired L/R)
+pb_ts_l.lms_ts_init();  pb_ts_r.lms_ts_init();
+pb_ts_l.lms_ts_set(0.5);  pb_ts_r.lms_ts_set(0.5);
+
+// THE JUDGE — parametric EQ, stereo (paired L/R; linear so phase-aligned)
+pb_eq_l.lms_paraeq_init();  pb_eq_r.lms_paraeq_init();
+pb_eq_l.lms_paraeq_set(3, 0, 0, 0, 0);  pb_eq_r.lms_paraeq_set(3, 0, 0, 0, 0);
 
 // ------------------------------------------------------------
 //  Per-pedal run_* — each reads/writes globals l_, r_
@@ -265,6 +331,18 @@ function run_stepper() local(mono, wet) (
     r_ = wet;
   );
 );
+function run_ts() (
+  ts_on ? (
+    l_ = pb_ts_l.lms_ts_proc(l_, ts_drive, ts_level);
+    r_ = pb_ts_r.lms_ts_proc(r_, ts_drive, ts_level);
+  );
+);
+function run_eq() (
+  eq_on ? (
+    l_ = pb_eq_l.lms_paraeq_proc(l_) * eq_level;
+    r_ = pb_eq_r.lms_paraeq_proc(r_) * eq_level;
+  );
+);
 
 // Parameter cache
 in_trim = 1.0; out_trim = 1.0; master_bp = 0;
@@ -279,12 +357,25 @@ st_on  = 0; st_dry = 1.0; st_dn1 = 0.5; st_dn2 = 0; st_up = 0;
 chain_order_sel = 0;
 in_comp_on = 0; in_comp_makeup = 1.0;
 out_comp_on = 0; out_comp_makeup = 1.0;
+ts_on = 0; ts_drive = 0.5; ts_tone = 0.5; ts_level = 0.5;
+eq_on = 0; eq_mode = 3; eq_lo = 0; eq_mid = 0; eq_hi = 0; eq_pr = 0; eq_level = 1.0;
 
-// Populate CHAIN_ORDER from default preset (8 slots now)
-i = 0; loop(8, CHAIN_ORDER[i] = ORDER_PRESETS[chain_order_sel * 8 + i]; i += 1;);
+// JUDGEMENT DAY preset knob defaults (applied when the user changes mode)
+// Rows: mode 0=Punk, 1=Jazz, 2=Metal, 3=Flat. Columns: lo, mid, hi, pr, level.
+EQ_DEFAULTS = 161888;  // 4 modes × 5 knobs = 20 ints, after CHAIN_ORDER
+EQ_DEFAULTS[ 0]=  3; EQ_DEFAULTS[ 1]= -3; EQ_DEFAULTS[ 2]=  0; EQ_DEFAULTS[ 3]=  4; EQ_DEFAULTS[ 4]= 0;  // PUNK
+EQ_DEFAULTS[ 5]=  2; EQ_DEFAULTS[ 6]=  1; EQ_DEFAULTS[ 7]= -1; EQ_DEFAULTS[ 8]= -2; EQ_DEFAULTS[ 9]= 0;  // JAZZ
+EQ_DEFAULTS[10]=  4; EQ_DEFAULTS[11]= -6; EQ_DEFAULTS[12]=  2; EQ_DEFAULTS[13]=  5; EQ_DEFAULTS[14]= 0;  // METAL
+EQ_DEFAULTS[15]=  0; EQ_DEFAULTS[16]=  0; EQ_DEFAULTS[17]=  0; EQ_DEFAULTS[18]=  0; EQ_DEFAULTS[19]= 0;  // FLAT
+// Init cache so the first @block doesn't clobber the user's saved state.
+eq_mode_last = slider71;
 
-// Broadcast — type_id 31, 56 params, stale 960000
-bc.lms_bc_init(31, 56, 960000);
+// Populate SECTION_ORDER from default preset, then flatten into CHAIN_ORDER
+i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i += 1;);
+build_chain_order();
+
+// Broadcast — type_id 31, 67 params, stale 960000
+bc.lms_bc_init(31, 67, 960000);
 notice_show = 0;
 buy_show = 0;
 
@@ -343,7 +434,8 @@ ub_tone   = slider35 / 100;
 pb_ub_hall.lms_hall_set(ub_tone);
 
 chain_order_sel = slider36;
-i = 0; loop(6, CHAIN_ORDER[i] = ORDER_PRESETS[chain_order_sel * 6 + i]; i += 1;);
+i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i += 1;);
+build_chain_order();
 
 // Input comp
 in_comp_on     = slider40;
@@ -369,6 +461,25 @@ st_dry = slider61 / 100;
 st_dn1 = slider62 / 100;
 st_dn2 = slider63 / 100;
 st_up  = slider64 / 100;
+
+// GREEN SIN (Tube Screamer)
+ts_on    = slider65;
+ts_drive = slider66 / 100;
+ts_tone  = slider67 / 100;
+ts_level = slider68 / 100 * 2.0;  // 0..2× so user can make up level
+pb_ts_l.lms_ts_set(ts_tone);
+pb_ts_r.lms_ts_set(ts_tone);
+
+// THE JUDGE (Parametric EQ)
+eq_on    = slider70;
+eq_mode  = slider71;
+eq_lo    = slider72;
+eq_mid   = slider73;
+eq_hi    = slider74;
+eq_pr    = slider75;
+eq_level = lms_db2lin(slider76);
+pb_eq_l.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
+pb_eq_r.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
 
 
 // ============================================================
@@ -398,7 +509,8 @@ pb_pw.lms_flanger_set(pw_rate);
 ub_on = slider32; ub_mode = slider33; ub_amount = slider34/100; ub_tone = slider35/100;
 pb_ub_hall.lms_hall_set(ub_tone);
 chain_order_sel = slider36;
-i = 0; loop(8, CHAIN_ORDER[i] = ORDER_PRESETS[chain_order_sel * 8 + i]; i += 1;);
+i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i += 1;);
+build_chain_order();
 in_comp_on = slider40;
 in_comp.lms_comp_set(slider41, slider42, slider43, slider44);
 in_comp_makeup = lms_db2lin(slider45);
@@ -409,6 +521,28 @@ ma_on = slider56; ma_drive = slider57/100; ma_tone = slider58/100; ma_level = sl
 pb_marmot_l.lms_marmot_set(ma_drive, ma_tone);
 pb_marmot_r.lms_marmot_set(ma_drive, ma_tone);
 st_on = slider60; st_dry = slider61/100; st_dn1 = slider62/100; st_dn2 = slider63/100; st_up = slider64/100;
+
+ts_on = slider65; ts_drive = slider66/100; ts_tone = slider67/100; ts_level = slider68/100 * 2.0;
+pb_ts_l.lms_ts_set(ts_tone);
+pb_ts_r.lms_ts_set(ts_tone);
+
+eq_on = slider70; eq_mode = slider71;
+// JUDGEMENT DAY: when the mode changes, snap the knobs to that preset's
+// defaults so the user sees the actual curve values and can tweak from there.
+eq_mode_last != slider71 ? (
+  slider72 = EQ_DEFAULTS[slider71 * 5 + 0];
+  slider73 = EQ_DEFAULTS[slider71 * 5 + 1];
+  slider74 = EQ_DEFAULTS[slider71 * 5 + 2];
+  slider75 = EQ_DEFAULTS[slider71 * 5 + 3];
+  slider76 = EQ_DEFAULTS[slider71 * 5 + 4];
+  slider_automate(2^71); slider_automate(2^72); slider_automate(2^73);
+  slider_automate(2^74); slider_automate(2^75);
+  eq_mode_last = slider71;
+);
+eq_lo = slider72; eq_mid = slider73; eq_hi = slider74; eq_pr = slider75;
+eq_level = lms_db2lin(slider76);
+pb_eq_l.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
+pb_eq_r.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
 
 bc.lms_bc_block();
 
@@ -469,6 +603,17 @@ bc.bc_leader_pbase > 0 ? (
   slider62 = gmem[bc.bc_leader_pbase + 53];
   slider63 = gmem[bc.bc_leader_pbase + 54];
   slider64 = gmem[bc.bc_leader_pbase + 55];
+  slider65 = gmem[bc.bc_leader_pbase + 56];
+  slider66 = gmem[bc.bc_leader_pbase + 57];
+  slider67 = gmem[bc.bc_leader_pbase + 58];
+  slider68 = gmem[bc.bc_leader_pbase + 59];
+  slider70 = gmem[bc.bc_leader_pbase + 60];
+  slider71 = gmem[bc.bc_leader_pbase + 61];
+  slider72 = gmem[bc.bc_leader_pbase + 62];
+  slider73 = gmem[bc.bc_leader_pbase + 63];
+  slider74 = gmem[bc.bc_leader_pbase + 64];
+  slider75 = gmem[bc.bc_leader_pbase + 65];
+  slider76 = gmem[bc.bc_leader_pbase + 66];
 );
 bc.bc_did_steal ? (
   slider1  = gmem[bc.bc_steal_pbase + 0];
@@ -527,6 +672,17 @@ bc.bc_did_steal ? (
   slider62 = gmem[bc.bc_steal_pbase + 53];
   slider63 = gmem[bc.bc_steal_pbase + 54];
   slider64 = gmem[bc.bc_steal_pbase + 55];
+  slider65 = gmem[bc.bc_steal_pbase + 56];
+  slider66 = gmem[bc.bc_steal_pbase + 57];
+  slider67 = gmem[bc.bc_steal_pbase + 58];
+  slider68 = gmem[bc.bc_steal_pbase + 59];
+  slider70 = gmem[bc.bc_steal_pbase + 60];
+  slider71 = gmem[bc.bc_steal_pbase + 61];
+  slider72 = gmem[bc.bc_steal_pbase + 62];
+  slider73 = gmem[bc.bc_steal_pbase + 63];
+  slider74 = gmem[bc.bc_steal_pbase + 64];
+  slider75 = gmem[bc.bc_steal_pbase + 65];
+  slider76 = gmem[bc.bc_steal_pbase + 66];
 );
 bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 0]  = slider1;
@@ -585,6 +741,17 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 53] = slider62;
   gmem[bc.bc_my_pbase + 54] = slider63;
   gmem[bc.bc_my_pbase + 55] = slider64;
+  gmem[bc.bc_my_pbase + 56] = slider65;
+  gmem[bc.bc_my_pbase + 57] = slider66;
+  gmem[bc.bc_my_pbase + 58] = slider67;
+  gmem[bc.bc_my_pbase + 59] = slider68;
+  gmem[bc.bc_my_pbase + 60] = slider70;
+  gmem[bc.bc_my_pbase + 61] = slider71;
+  gmem[bc.bc_my_pbase + 62] = slider72;
+  gmem[bc.bc_my_pbase + 63] = slider73;
+  gmem[bc.bc_my_pbase + 64] = slider74;
+  gmem[bc.bc_my_pbase + 65] = slider75;
+  gmem[bc.bc_my_pbase + 66] = slider76;
 );
 
 
@@ -603,9 +770,10 @@ bc.bc_my_pbase > 0 ? (
     r_ = r_ * in_comp.gr * in_comp_makeup;
   );
 
-  // Pedal order dispatcher — CHAIN_ORDER[i] selects which pedal runs at slot i
+  // Pedal dispatcher — walks CHAIN_ORDER, which was built from SECTION_ORDER
+  // by build_chain_order(). CHAIN_ORDER_LEN adapts as pedals get added.
   i = 0;
-  loop(8,
+  loop(CHAIN_ORDER_LEN,
     slot_id = CHAIN_ORDER[i];
     slot_id == 0 ? run_doa() :
     slot_id == 1 ? run_hwi() :
@@ -614,7 +782,9 @@ bc.bc_my_pbase > 0 ? (
     slot_id == 4 ? run_pw()  :
     slot_id == 5 ? run_ub()  :
     slot_id == 6 ? run_marmot() :
-    slot_id == 7 ? run_stepper();
+    slot_id == 7 ? run_stepper() :
+    slot_id == 8 ? run_ts() :
+    slot_id == 9 ? run_eq();
     i += 1;
   );
 
@@ -633,10 +803,10 @@ bc.bc_my_pbase > 0 ? (
 // ============================================================
 //  @GFX
 // ============================================================
-@gfx 1200 460
+@gfx 1500 460
 
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
-S = gfx_w / 1200;
+S = gfx_w / 1500;
 S < 0.5 ? S = 0.5;
 
 F_TITLE = max(10, floor(22 * S));
@@ -794,7 +964,7 @@ gfx_drawstr("SATAN'S LITTLE PEDAL BOARD");
 gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
 gfx_setfont(1, "Arial", F_SMALL);
 gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(24 * S);
-gfx_drawstr("DOA666 | HWI | BLACK MASS | ELEPHANT | PIPEWORKS | UNHOLY BOWL | MARMOT | 12 STEPPER");
+gfx_drawstr("all the satanic minions required to achieve your darkest most twisted musical fantasy");
 
 // --- I/O TRIM + MASTER BYPASS ---
 trim_w = floor(80 * S); trim_h = floor(14 * S);
@@ -863,17 +1033,18 @@ gfx_rect(margin, order_y + order_h - 1, gfx_w - margin*2, 1);
 gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
 gfx_setfont(1, "Arial", F_TINY);
 gfx_x = margin + floor(6 * S); gfx_y = order_y + floor((order_h - F_TINY) / 2);
-gfx_drawstr("SIGNAL ORDER:");
+gfx_drawstr("SECTION FLOW:");
 
-// Clickable order label
+// Clickable order label — describes SECTION order, not individual pedals.
+// 12 STEPPER is always pre-chain (tracks cleanest on raw input).
 gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
 gfx_x = margin + floor(100 * S);
-slider36 == 0 ? gfx_drawstr("CLASSIC  (12S > DOA > HWI > MARMOT > BM > EL > PW > UB)");
-slider36 == 1 ? gfx_drawstr("PRE-VERB MOD  (12S > DOA > HWI > MARMOT > UB > BM > EL > PW)");
-slider36 == 2 ? gfx_drawstr("MOD > DRIVE  (BM > PW > 12S > DOA > HWI > MARMOT > EL > UB)");
-slider36 == 3 ? gfx_drawstr("ECHO > DRIVE  (EL > 12S > DOA > HWI > MARMOT > BM > PW > UB)");
-slider36 == 4 ? gfx_drawstr("VERB > DRIVE  (UB > 12S > DOA > HWI > MARMOT > BM > EL > PW)");
-slider36 == 5 ? gfx_drawstr("LOOP  (12S > DOA > HWI > MARMOT > BM > PW > EL > UB)");
+slider36 == 0 ? gfx_drawstr("CLASSIC         12S > DIST > MOD > DELAY > REVERB > EQ");
+slider36 == 1 ? gfx_drawstr("PRE-EQ DRIVE    12S > EQ > DIST > MOD > DELAY > REVERB");
+slider36 == 2 ? gfx_drawstr("MOD > DRIVE     12S > MOD > DIST > DELAY > REVERB > EQ");
+slider36 == 3 ? gfx_drawstr("ECHO > DRIVE    12S > DELAY > DIST > MOD > REVERB > EQ");
+slider36 == 4 ? gfx_drawstr("VERB > DRIVE    12S > REVERB > DIST > MOD > DELAY > EQ");
+slider36 == 5 ? gfx_drawstr("LOOP            12S > DIST > EQ > MOD > DELAY > REVERB");
 
 // L-click = next, R-click = prev
 _old = slider36;
@@ -889,9 +1060,9 @@ _old = slider36;
 );
 slider36 != _old ? slider_automate(2^35);
 
-// --- PEDAL PANEL LAYOUT (8 panels) ---
+// --- PEDAL PANEL LAYOUT (10 panels) ---
 body_y = order_y + order_h + floor(6 * S);
-panel_w = floor((gfx_w - margin * 2 - gap * 7) / 8);
+panel_w = floor((gfx_w - margin * 2 - gap * 9) / 10);
 panel_h = floor(260 * S);
 bar_h = floor(16 * S); bar_sp = floor(20 * S); pad = floor(5 * S);
 
@@ -1014,6 +1185,65 @@ _old = slider63; slider63 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slide
 slider63 != _old ? slider_automate(2^62); cy += bar_sp;
 _old = slider64; slider64 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider64, 0, 100, "Oct +12", 1);
 slider64 != _old ? slider_automate(2^63);
+
+// 9. GREEN SIN (Tube Screamer)
+px = margin + (panel_w + gap) * 8;
+draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider65);
+_old = slider65; slider65 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider65);
+slider65 != _old ? slider_automate(2^64);
+cy = body_y + floor(28 * S);
+_old = slider66; slider66 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider66, 0, 100, "Drive", 1);
+slider66 != _old ? slider_automate(2^65); cy += bar_sp;
+_old = slider67; slider67 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider67, 0, 100, "Tone", 1);
+slider67 != _old ? slider_automate(2^66); cy += bar_sp;
+_old = slider68; slider68 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider68, 0, 100, "Level", 1);
+slider68 != _old ? slider_automate(2^67);
+
+// 10. JUDGEMENT DAY (Parametric EQ)
+px = margin + (panel_w + gap) * 9;
+draw_panel(px, body_y, panel_w, panel_h, "JUDGEMENT DAY", slider70);
+_old = slider70; slider70 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider70);
+slider70 != _old ? slider_automate(2^69);
+cy = body_y + floor(28 * S);
+// Mode is a 4-way click cycle — draw_mode_sel only handles 3, so do it inline
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
+gfx_rect(px + pad, cy, panel_w - pad*2, bar_h);
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
+gfx_rect(px + pad, cy, panel_w - pad*2, 1); gfx_rect(px + pad, cy + bar_h - 1, panel_w - pad*2, 1);
+gfx_rect(px + pad, cy, 1, bar_h); gfx_rect(px + pad + panel_w - pad*2 - 1, cy, 1, bar_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_setfont(1, "Arial", F_TINY);
+gfx_x = px + pad + floor(4 * S); gfx_y = cy + floor((bar_h - F_TINY) / 2);
+gfx_drawstr("Mode");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_x = px + pad + panel_w - pad*2 - floor(50 * S); gfx_y = cy + floor((bar_h - F_TINY) / 2);
+slider71 == 0 ? gfx_drawstr("PUNK")  :
+slider71 == 1 ? gfx_drawstr("JAZZ")  :
+slider71 == 2 ? gfx_drawstr("METAL") :
+                gfx_drawstr("FLAT");
+_old = slider71;
+(mouse_cap & 1) && !(last_cap & 1) &&
+  mouse_x >= px + pad && mouse_x <= px + pad + panel_w - pad*2 &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider71 = (slider71 + 1) % 4;
+);
+(mouse_cap & 2) && !(last_cap & 2) &&
+  mouse_x >= px + pad && mouse_x <= px + pad + panel_w - pad*2 &&
+  mouse_y >= cy && mouse_y <= cy + bar_h ? (
+    slider71 = slider71 - 1; slider71 < 0 ? slider71 = 3;
+);
+slider71 != _old ? slider_automate(2^70);
+cy += bar_sp;
+_old = slider72; slider72 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider72, -12, 12, "Low", 1);
+slider72 != _old ? slider_automate(2^71); cy += bar_sp;
+_old = slider73; slider73 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider73, -12, 12, "Mid", 1);
+slider73 != _old ? slider_automate(2^72); cy += bar_sp;
+_old = slider74; slider74 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider74, -12, 12, "High", 1);
+slider74 != _old ? slider_automate(2^73); cy += bar_sp;
+_old = slider75; slider75 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider75, -12, 12, "Pres", 1);
+slider75 != _old ? slider_automate(2^74); cy += bar_sp;
+_old = slider76; slider76 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider76, -12, 12, "Level", 1);
+slider76 != _old ? slider_automate(2^75);
 
 // --- OUT COMP STRIP ---
 outcomp_y = body_y + panel_h + floor(8 * S);
