@@ -49,8 +49,6 @@ slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
 @init
 
-// === TUNER ===
-tuner.lms_tuner_init();
 
 // === COLD CLIPPER (V2A — 5150's defining stage) ===
 // DSP lives in lms_core as lms_cold_clipper_{init,proc}.
@@ -296,8 +294,6 @@ cab_load_ohms > 0 ? (
   ohm_lo.lms_bq_init();
 );
 
-// ---- Tuner: run pitch detection + smooth display ----
-tuner.lms_tuner_block();
 
 // Broadcast: heartbeat, follow, steal, stale detection
 bc.lms_bc_block();
@@ -387,8 +383,6 @@ bc.bc_my_pbase > 0 ? (
 );
 
 @sample
-// Tuner — feed dry input for best pitch detection
-tuner.lms_tuner_write((spl0 + spl1) * 0.5);
 
 mono = (spl0 + spl1) * 0.5 * in_level;
 // Input clamp — catches record-arm spikes before the amp sees them
@@ -540,7 +534,6 @@ channel == 0 ? (
 amp_out *= out_level;
 // Brickwall output limiter
 amp_out = max(-0.95, min(0.95, amp_out));
-amp_out *= tuner.mute_gain;
 spl0 = amp_out;
 spl1 = amp_out;
 
@@ -617,7 +610,7 @@ col_w = 190;
 pad = floor(4 * S);
 pad2 = pad * 2;
 gr_bar_h = max(2, floor(6 * S));
-body_y = floor(50 * S) + floor(28 * S);
+body_y = floor(50 * S);
 
 // ============================================================================
 //  LOGO + TITLE
@@ -642,12 +635,6 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_measurestr("the tone is out there...", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("the tone is out there...");
-
-// ============================================================================
-//  TUNER STRIP
-// ============================================================================
-tuner_h = floor(28 * S);
-tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  COL 1: PREAMP
