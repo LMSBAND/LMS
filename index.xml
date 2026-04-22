@@ -343,6 +343,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -393,6 +397,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
+      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -439,6 +447,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+      <version name="1.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -459,6 +471,10 @@
       </version>
           <version name="1.8" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+      <version name="1.9" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.9 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -511,6 +527,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
+      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -557,6 +577,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -597,6 +621,10 @@
       </version>
           <version name="2.6" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
+      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
     </reapack>
@@ -795,6 +823,10 @@
         <changelog><![CDATA[v1.7 — Clean channel rebuilt from the ground up. Cold clipper (V2A) is now bypassed on Clean — just like the real 5150's relay switching — so clean tones don't get smeared by the brown-sound stage. Power amp crossover deadzone is also disabled on Clean (kept on Lead where it belongs for the 5150 sputter), fixing the "digital fall apart" on quiet note tails. Clean path is now single-stage V1A → CF → tone stack → gentle V4 recovery, with softer triode shaping for preserved pick attack and smoothly decaying sustain. Lead channel untouched.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -819,6 +851,10 @@
       </version>
           <version name="1.6" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
+      <version name="1.7" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
@@ -847,6 +883,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -871,6 +911,10 @@
       </version>
           <version name="1.7" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
+      </version>
+      <version name="1.8" author="LMS" time="2026-04-21T18:00:00Z">
+        <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
