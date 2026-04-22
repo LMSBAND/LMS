@@ -183,6 +183,8 @@ ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 post_gain = slider7 / 100;
 master = slider10 / 100;
 pa.poweramp_set(master, slider8/100, slider9/100);
+// PA crossover deadzone: on for Lead (5150 sputter), OFF for Clean (kills tail fall-apart)
+pa.pa_has_deadzone = channel == 1 ? 1 : 0;
 input_intensity = slider11 / 100;
 sag_depth = slider12 / 100;
 out_level = 10 ^ (slider13 / 20);
@@ -244,6 +246,8 @@ ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 post_gain = slider7 / 100;
 master = slider10 / 100;
 pa.poweramp_set(master, slider8/100, slider9/100);
+// PA crossover deadzone: on for Lead (5150 sputter), OFF for Clean (kills tail fall-apart)
+pa.pa_has_deadzone = channel == 1 ? 1 : 0;
 input_intensity = slider11 / 100;
 sag_depth = slider12 / 100;
 out_level = 10 ^ (slider13 / 20);
@@ -410,35 +414,28 @@ mono = bright_cap.lms_bq_proc(mono);
 // === CHANNEL ROUTING ===
 channel == 0 ? (
   // ========================================
-  // CLEAN CHANNEL
-  // V1A(0.40) → V1B(0.35) → Cold Clipper(0.25, mild) → DC Block → CF → Tone Stack → V4(post*0.15)
+  // CLEAN CHANNEL — single-stage, no cold clipper
+  // Real 5150 bypasses V2A (cold clipper) via relay on Rhythm/Clean.
+  // V1A → DC Block → CF → Tone Stack → V4 (gentle recovery)
   // ========================================
-  v1a_drive = gain * 0.40;
+  v1a_drive = gain * 0.35;
   v1a_out = v1a.lms_triode_proc(mono, v1a_drive, bplus,
-    1.3, 1.1, 0.85, 1.0, 0.35, 0.12);
-
-  v1b_drive = gain * 0.35;
-  v1b_out = v1b.lms_triode_proc(v1a_out, v1b_drive, bplus,
-    1.3, 1.0, 0.85, 1.0, 0.35, 0.10);
-
-  // Cold clipper — mild intensity (0.3)
-  cc_drive = gain * 0.25;
-  amp_out = cc.lms_cold_clipper_proc(v1b_out, cc_drive, bplus, 0.3);
+    1.2, 1.2, 0.92, 1.0, 0.40, 0.08);
 
   // DC block
-  amp_out = preamp_dc.lms_dc_proc_l(amp_out);
+  amp_out = preamp_dc.lms_dc_proc_l(v1a_out);
 
   // Cathode follower
   amp_out = cf.lms_cf_proc(amp_out, bplus);
 
-  // Tone stack
+  // Tone stack (higher makeup — fewer stages to recover from)
   amp_out = ts.lms_tmb_proc(amp_out);
-  amp_out *= 3.5;
+  amp_out *= 5.5;
 
-  // V4 recovery — Post Gain stage
-  v4_drive = post_gain * 0.15;
+  // V4 recovery — kept gentle so headroom survives
+  v4_drive = post_gain * 0.10;
   amp_out = v4.lms_triode_proc(amp_out, v4_drive, bplus,
-    1.1, 0.9, 0.90, 1.0, 0.45, 0.08);
+    1.0, 0.95, 0.92, 1.0, 0.50, 0.06);
 
 ) : (
   // ========================================
@@ -520,13 +517,13 @@ amp_out = ohm_lo.lms_bq_proc(amp_out);   // lower load = less damping = looser b
 // === CABINET (density-aware speaker sim — dual cab mix) ===
 channel == 0 ? (
   cab_dual ? (
-    cab_a_out = cab.lms_cab_proc(amp_out, cc.triode.hd.density);
-    cab_b_out = cab2.lms_cab_proc(amp_out, cc.triode.hd.density);
+    cab_a_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
+    cab_b_out = cab2.lms_cab_proc(amp_out, v1a.hd.density);
     amp_out = (cab_a_out + cab_b_out) * 0.5;
   ) : cab_b_solo ? (
-    amp_out = cab2.lms_cab_proc(amp_out, cc.triode.hd.density);
+    amp_out = cab2.lms_cab_proc(amp_out, v1a.hd.density);
   ) : (
-    amp_out = cab.lms_cab_proc(amp_out, cc.triode.hd.density);
+    amp_out = cab.lms_cab_proc(amp_out, v1a.hd.density);
   );
 ) : (
   cab_dual ? (
@@ -550,13 +547,13 @@ spl1 = amp_out;
 
 // Density state for GFX — pick the most relevant preamp triode per channel
 channel == 0 ? (
-  d_env_lo  = cc.triode.hd.env_lo;  d_env_mid = cc.triode.hd.env_mid;
-  d_env_hi  = cc.triode.hd.env_hi;  d_env_air = cc.triode.hd.env_air;
-  d_density = cc.triode.hd.density;
-  d_mid_d   = cc.triode.hd.mid_density;  d_hi_d = cc.triode.hd.hi_density;  d_air_d = cc.triode.hd.air_density;
-  d_miller_freq = cc.triode.last_miller_freq;  d_miller_q = cc.triode.last_miller_q;
-  d_drive_boost = 1.0 + cc.triode.hd.mid_density * 0.4;
-  d_grid_cond   = cc.triode.peak_env;
+  d_env_lo  = v1a.hd.env_lo;  d_env_mid = v1a.hd.env_mid;
+  d_env_hi  = v1a.hd.env_hi;  d_env_air = v1a.hd.env_air;
+  d_density = v1a.hd.density;
+  d_mid_d   = v1a.hd.mid_density;  d_hi_d = v1a.hd.hi_density;  d_air_d = v1a.hd.air_density;
+  d_miller_freq = v1a.last_miller_freq;  d_miller_q = v1a.last_miller_q;
+  d_drive_boost = 1.0 + v1a.hd.mid_density * 0.4;
+  d_grid_cond   = v1a.peak_env;
 ) : (
   d_env_lo  = v3a.hd.env_lo;  d_env_mid = v3a.hd.env_mid;
   d_env_hi  = v3a.hd.env_hi;  d_env_air = v3a.hd.env_air;
