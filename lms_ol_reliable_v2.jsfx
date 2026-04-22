@@ -45,8 +45,6 @@ slider20:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
 @init
 
-// === TUNER ===
-tuner.lms_tuner_init();
 
 function poweramp_set(drive, tonecut) local(tc_freq) (
   this.drive = drive;
@@ -250,7 +248,6 @@ cab_load_ohms > 0 ? (
   ohm_lo.lms_bq_init();
 );
 
-tuner.lms_tuner_block();
 
 // Broadcast: heartbeat, follow, steal, stale detection
 bc.lms_bc_block();
@@ -328,8 +325,6 @@ bc.bc_my_pbase > 0 ? (
 );
 
 @sample
-// Tuner — feed dry input for best pitch detection
-tuner.lms_tuner_write((spl0 + spl1) * 0.5);
 
 mono = (spl0 + spl1) * 0.5 * in_level;
 // Input clamp — catches record-arm spikes before the amp sees them
@@ -437,7 +432,6 @@ cab_dual ? (
 amp_out *= out_level;
 // Brickwall output limiter — transparent safety ceiling
 amp_out = max(-0.95, min(0.95, amp_out));
-amp_out *= tuner.mute_gain;
 spl0 = amp_out;
 spl1 = amp_out;
 
@@ -514,7 +508,7 @@ col_w = 190;
 pad = floor(4 * S);
 pad2 = pad * 2;
 gr_bar_h = max(2, floor(6 * S));
-body_y = floor(50 * S) + floor(28 * S);  // offset for tuner strip
+body_y = floor(50 * S);
 
 // ============================================================================
 //  LOGO + TITLE
@@ -539,12 +533,6 @@ gfx_setfont(1, "Arial", F_LABEL);
 gfx_measurestr("Density-Aware EL84 Class A", sub_w, sub_h);
 gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
 gfx_drawstr("Density-Aware EL84 Class A");
-
-// ============================================================================
-//  TUNER STRIP
-// ============================================================================
-tuner_h = floor(28 * S);
-tuner.lms_tuner_draw(0, hdr_h, gfx_w, tuner_h, S, last_cap);
 
 // ============================================================================
 //  COL 1: PREAMP
