@@ -72,6 +72,11 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="6.3" author="LMS" time="2026-04-21T12:00:00Z">
+        <changelog><![CDATA[v6.3 — Two new pedal primitives. lms_ts_* — Ibanez TS-808/TS-9 Tube Screamer (720Hz input HP creates the mid-hump, asymmetric soft clip with 0.90/0.55 coefficients for even-harmonic bias, log-swept tone LP 400Hz-5kHz, clipped path mixed 70/30 with a touch of pre-clip signal so low end survives). lms_paraeq_* — 4-band parametric EQ (HP, low shelf, single mid peak, presence peak, high shelf) with Punk/Jazz/Metal/Flat voicings: mode sets the frequencies and Qs (the character), gain knobs drive each band directly. Used by the new Satan's Little Pedal Board.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -786,6 +791,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+      <version name="1.7" author="LMS" time="2026-04-21T12:00:00Z">
+        <changelog><![CDATA[v1.7 — Clean channel rebuilt from the ground up. Cold clipper (V2A) is now bypassed on Clean — just like the real 5150's relay switching — so clean tones don't get smeared by the brown-sound stage. Power amp crossover deadzone is also disabled on Clean (kept on Lead where it belongs for the 5150 sputter), fixing the "digital fall apart" on quiet note tails. Clean path is now single-stage V1A → CF → tone stack → gentle V4 recovery, with softer triode shaping for preserved pick attack and smoothly decaying sustain. Lead channel untouched.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1476,6 +1485,13 @@
       <version name="2.0" author="LMS" time="2026-04-04T00:00:00Z">
         <changelog><![CDATA[v2.0 — Smart track mapping: Phase 1 exact name match, Phase 2 shows orphan lists (source + project), Phase 3 manual mapping dialog for unmatched tracks (up to 16 at a time with dropdown pickers), Phase 4 optional "add as new tracks" for anything still unmatched. Folder depth support (never applied during steal — prevents layout corruption). Fader state (vol/pan/mute/solo) applied alongside FX chains.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
+      </version>
+    </reapack>
+    <reapack name="lms_satans_pedalboard.jsfx" type="effect" desc="Satan's Little Helper — all the satanic minions required to achieve your darkest most twisted musical fantasy">
+      <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">
+        <changelog><![CDATA[Initial release — 10-pedal container plugin. DOA666 (ODB-3 bass distortion), HARDWARE INCOMPATIBLE (BD-2 Blues Driver), BLACK MASS (CE-2 chorus), THE ELEPHANT (Memory Boy BBD delay), PIPEWORKS (BF-2 flanger), UNHOLY BOWL (Holy Grail — Spring/Hall/Flerb), MARMOT (ProCo RAT), 12 STEPPER (OC-2 / Octavia octave pedal), GREEN SIN (TS-808/TS-9 Tube Screamer), JUDGEMENT DAY (4-band parametric EQ with Punk/Jazz/Metal/Flat voicings — mode auto-snaps knobs to preset defaults). Section-based chain ordering: 6 presets reorder DIST / MOD / DELAY / REVERB / EQ as sections, with 12 STEPPER always at the head of the chain. Dual FET compressors (input + output). Broadcast type_id 31. Every pedal's DSP lives in lms_core as lms_* primitives — no DSP duplication.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
   </category>
