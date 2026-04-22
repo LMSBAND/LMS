@@ -803,7 +803,7 @@ bc.bc_my_pbase > 0 ? (
 // ============================================================
 //  @GFX
 // ============================================================
-@gfx 1500 460
+@gfx 1500 484
 
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 S = gfx_w / 1500;
@@ -1060,29 +1060,87 @@ _old = slider36;
 );
 slider36 != _old ? slider_automate(2^35);
 
-// --- PEDAL PANEL LAYOUT (10 panels) ---
-body_y = order_y + order_h + floor(6 * S);
-panel_w = floor((gfx_w - margin * 2 - gap * 9) / 10);
+// --- PEDAL PANEL LAYOUT — grouped by section ---
+// Left-to-right: [PITCH] [DISTORTION] [MODULATION] [DELAY] [REVERB] [EQ]
+// Same-section panels are adjacent with a small `gap`; section boundaries use
+// a wider `sec_gap` plus a colored header strip above each group.
+sec_gap = floor(16 * S);
+sec_hdr_h = floor(14 * S);
+sec_hdr_y = order_y + order_h + floor(6 * S);
+body_y = sec_hdr_y + sec_hdr_h + floor(4 * S);
+// 10 panels, 4 inter-panel gaps (3 inside DIST + 1 inside MOD), 5 section boundaries
+panel_w = floor((gfx_w - margin * 2 - gap * 4 - sec_gap * 5) / 10);
 panel_h = floor(260 * S);
 bar_h = floor(16 * S); bar_sp = floor(20 * S); pad = floor(5 * S);
 
-// 1. DOA666
-px = margin;
-draw_panel(px, body_y, panel_w, panel_h, "DOA666", slider5);
-_old = slider5; slider5 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider5);
-slider5 != _old ? slider_automate(2^4);
-cy = body_y + floor(28 * S);
-_old = slider6; slider6 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider6, 0, 100, "Drive", 1);
-slider6 != _old ? slider_automate(2^5); cy += bar_sp;
-_old = slider7; slider7 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider7, 0, 100, "Blend", 1);
-slider7 != _old ? slider_automate(2^6); cy += bar_sp;
-_old = slider8; slider8 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider8, 0, 100, "Low", 1);
-slider8 != _old ? slider_automate(2^7); cy += bar_sp;
-_old = slider9; slider9 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider9, 0, 100, "High", 1);
-slider9 != _old ? slider_automate(2^8);
+// Panel x-positions (left-to-right in section order)
+px_12s = margin;
+px_gs  = px_12s + panel_w + sec_gap;   // DIST starts
+px_hwi = px_gs  + panel_w + gap;
+px_doa = px_hwi + panel_w + gap;
+px_ma  = px_doa + panel_w + gap;
+px_bm  = px_ma  + panel_w + sec_gap;   // MOD starts
+px_pw  = px_bm  + panel_w + gap;
+px_el  = px_pw  + panel_w + sec_gap;   // DELAY
+px_ub  = px_el  + panel_w + sec_gap;   // REVERB
+px_jd  = px_ub  + panel_w + sec_gap;   // EQ
 
-// 2. HARDWARE INCOMPATIBLE
-px = margin + (panel_w + gap) * 1;
+// --- SECTION HEADER STRIPS ---
+// Each group gets a short colored bar + label above its panels.
+function draw_section_header(sx, sy, sw, label, r, g, b)
+  local(_tw, _th) (
+  // Filled tint bar
+  gfx_r = r * 0.30; gfx_g = g * 0.30; gfx_b = b * 0.30;
+  gfx_rect(sx, sy, sw, sec_hdr_h);
+  // Top + bottom accent lines
+  gfx_r = r; gfx_g = g; gfx_b = b;
+  gfx_rect(sx, sy, sw, 1);
+  gfx_rect(sx, sy + sec_hdr_h - 1, sw, 1);
+  // Centered label
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_measurestr(label, _tw, _th);
+  gfx_x = sx + floor((sw - _tw) / 2);
+  gfx_y = sy + floor((sec_hdr_h - _th) / 2);
+  gfx_drawstr(label);
+);
+
+draw_section_header(px_12s, sec_hdr_y, panel_w,                              "PITCH",      0.70, 0.40, 0.95);
+draw_section_header(px_gs,  sec_hdr_y, (px_ma + panel_w) - px_gs,            "DISTORTION", 0.95, 0.45, 0.15);
+draw_section_header(px_bm,  sec_hdr_y, (px_pw + panel_w) - px_bm,            "MODULATION", 0.90, 0.25, 0.45);
+draw_section_header(px_el,  sec_hdr_y, panel_w,                              "DELAY",      0.30, 0.65, 0.85);
+draw_section_header(px_ub,  sec_hdr_y, panel_w,                              "REVERB",     0.30, 0.85, 0.45);
+draw_section_header(px_jd,  sec_hdr_y, panel_w,                              "EQ",         0.95, 0.75, 0.30);
+
+// --- 1. 12 STEPPER (PITCH) ---
+px = px_12s;
+draw_panel(px, body_y, panel_w, panel_h, "12 STEPPER", slider60);
+_old = slider60; slider60 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider60);
+slider60 != _old ? slider_automate(2^59);
+cy = body_y + floor(28 * S);
+_old = slider61; slider61 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider61, 0, 100, "Dry", 1);
+slider61 != _old ? slider_automate(2^60); cy += bar_sp;
+_old = slider62; slider62 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider62, 0, 100, "Oct -12", 1);
+slider62 != _old ? slider_automate(2^61); cy += bar_sp;
+_old = slider63; slider63 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider63, 0, 100, "Oct -24", 1);
+slider63 != _old ? slider_automate(2^62); cy += bar_sp;
+_old = slider64; slider64 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider64, 0, 100, "Oct +12", 1);
+slider64 != _old ? slider_automate(2^63);
+
+// --- 2. GREEN SIN (DISTORTION — Tube Screamer) ---
+px = px_gs;
+draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider65);
+_old = slider65; slider65 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider65);
+slider65 != _old ? slider_automate(2^64);
+cy = body_y + floor(28 * S);
+_old = slider66; slider66 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider66, 0, 100, "Drive", 1);
+slider66 != _old ? slider_automate(2^65); cy += bar_sp;
+_old = slider67; slider67 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider67, 0, 100, "Tone", 1);
+slider67 != _old ? slider_automate(2^66); cy += bar_sp;
+_old = slider68; slider68 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider68, 0, 100, "Level", 1);
+slider68 != _old ? slider_automate(2^67);
+
+// --- 3. HARDWARE INCOMPATIBLE (DISTORTION — BD-2) ---
+px = px_hwi;
 draw_panel(px, body_y, panel_w, panel_h, "HWARE INCMPT", slider10);
 _old = slider10; slider10 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider10);
 slider10 != _old ? slider_automate(2^9);
@@ -1096,8 +1154,36 @@ slider13 != _old ? slider_automate(2^12); cy += bar_sp;
 _old = slider14; slider14 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider14, 0, 100, "Tight", 1);
 slider14 != _old ? slider_automate(2^13);
 
-// 3. BLACK MASS
-px = margin + (panel_w + gap) * 2;
+// --- 4. DOA666 (DISTORTION — ODB-3) ---
+px = px_doa;
+draw_panel(px, body_y, panel_w, panel_h, "DOA666", slider5);
+_old = slider5; slider5 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider5);
+slider5 != _old ? slider_automate(2^4);
+cy = body_y + floor(28 * S);
+_old = slider6; slider6 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider6, 0, 100, "Drive", 1);
+slider6 != _old ? slider_automate(2^5); cy += bar_sp;
+_old = slider7; slider7 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider7, 0, 100, "Blend", 1);
+slider7 != _old ? slider_automate(2^6); cy += bar_sp;
+_old = slider8; slider8 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider8, 0, 100, "Low", 1);
+slider8 != _old ? slider_automate(2^7); cy += bar_sp;
+_old = slider9; slider9 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider9, 0, 100, "High", 1);
+slider9 != _old ? slider_automate(2^8);
+
+// --- 5. MARMOT (DISTORTION — RAT) ---
+px = px_ma;
+draw_panel(px, body_y, panel_w, panel_h, "MARMOT", slider56);
+_old = slider56; slider56 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider56);
+slider56 != _old ? slider_automate(2^55);
+cy = body_y + floor(28 * S);
+_old = slider57; slider57 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider57, 0, 100, "Drive", 1);
+slider57 != _old ? slider_automate(2^56); cy += bar_sp;
+_old = slider58; slider58 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider58, 0, 100, "Tone", 1);
+slider58 != _old ? slider_automate(2^57); cy += bar_sp;
+_old = slider59; slider59 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider59, 0, 100, "Level", 1);
+slider59 != _old ? slider_automate(2^58);
+
+// --- 6. BLACK MASS (MODULATION — Chorus) ---
+px = px_bm;
 draw_panel(px, body_y, panel_w, panel_h, "BLACK MASS", slider15);
 _old = slider15; slider15 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider15);
 slider15 != _old ? slider_automate(2^14);
@@ -1111,25 +1197,8 @@ slider18 != _old ? slider_automate(2^17); cy += bar_sp;
 _old = slider19; slider19 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider19, 0, 100, "Tone", 1);
 slider19 != _old ? slider_automate(2^18);
 
-// 4. THE ELEPHANT
-px = margin + (panel_w + gap) * 3;
-draw_panel(px, body_y, panel_w, panel_h, "THE ELEPHANT", slider20);
-_old = slider20; slider20 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider20);
-slider20 != _old ? slider_automate(2^19);
-cy = body_y + floor(28 * S);
-_old = slider21; slider21 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider21, 30, 600, "Delay ms", 1);
-slider21 != _old ? slider_automate(2^20); cy += bar_sp;
-_old = slider22; slider22 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider22, 0, 90, "Feedbk", 1);
-slider22 != _old ? slider_automate(2^21); cy += bar_sp;
-_old = slider23; slider23 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider23, 0, 100, "Blend", 1);
-slider23 != _old ? slider_automate(2^22); cy += bar_sp;
-_old = slider24; slider24 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider24, 0, 100, "Ch Dep", 1);
-slider24 != _old ? slider_automate(2^23); cy += bar_sp;
-_old = slider25; slider25 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider25, 0, 100, "Ch Rate", 1);
-slider25 != _old ? slider_automate(2^24);
-
-// 5. PIPEWORKS
-px = margin + (panel_w + gap) * 4;
+// --- 7. PIPEWORKS (MODULATION — Flanger) ---
+px = px_pw;
 draw_panel(px, body_y, panel_w, panel_h, "PIPEWORKS", slider26);
 _old = slider26; slider26 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider26);
 slider26 != _old ? slider_automate(2^25);
@@ -1145,8 +1214,25 @@ slider30 != _old ? slider_automate(2^29); cy += bar_sp;
 _old = slider31; slider31 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider31, 0, 100, "Mix", 1);
 slider31 != _old ? slider_automate(2^30);
 
-// 6. UNHOLY BOWL
-px = margin + (panel_w + gap) * 5;
+// --- 8. THE ELEPHANT (DELAY — Memory Boy) ---
+px = px_el;
+draw_panel(px, body_y, panel_w, panel_h, "THE ELEPHANT", slider20);
+_old = slider20; slider20 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider20);
+slider20 != _old ? slider_automate(2^19);
+cy = body_y + floor(28 * S);
+_old = slider21; slider21 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider21, 30, 600, "Delay ms", 1);
+slider21 != _old ? slider_automate(2^20); cy += bar_sp;
+_old = slider22; slider22 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider22, 0, 90, "Feedbk", 1);
+slider22 != _old ? slider_automate(2^21); cy += bar_sp;
+_old = slider23; slider23 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider23, 0, 100, "Blend", 1);
+slider23 != _old ? slider_automate(2^22); cy += bar_sp;
+_old = slider24; slider24 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider24, 0, 100, "Ch Dep", 1);
+slider24 != _old ? slider_automate(2^23); cy += bar_sp;
+_old = slider25; slider25 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider25, 0, 100, "Ch Rate", 1);
+slider25 != _old ? slider_automate(2^24);
+
+// --- 9. UNHOLY BOWL (REVERB) ---
+px = px_ub;
 draw_panel(px, body_y, panel_w, panel_h, "UNHOLY BOWL", slider32);
 _old = slider32; slider32 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider32);
 slider32 != _old ? slider_automate(2^31);
@@ -1158,49 +1244,8 @@ slider34 != _old ? slider_automate(2^33); cy += bar_sp;
 _old = slider35; slider35 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider35, 0, 100, "Tone", 1);
 slider35 != _old ? slider_automate(2^34);
 
-// 7. MARMOT
-px = margin + (panel_w + gap) * 6;
-draw_panel(px, body_y, panel_w, panel_h, "MARMOT", slider56);
-_old = slider56; slider56 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider56);
-slider56 != _old ? slider_automate(2^55);
-cy = body_y + floor(28 * S);
-_old = slider57; slider57 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider57, 0, 100, "Drive", 1);
-slider57 != _old ? slider_automate(2^56); cy += bar_sp;
-_old = slider58; slider58 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider58, 0, 100, "Tone", 1);
-slider58 != _old ? slider_automate(2^57); cy += bar_sp;
-_old = slider59; slider59 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider59, 0, 100, "Level", 1);
-slider59 != _old ? slider_automate(2^58);
-
-// 8. 12 STEPPER
-px = margin + (panel_w + gap) * 7;
-draw_panel(px, body_y, panel_w, panel_h, "12 STEPPER", slider60);
-_old = slider60; slider60 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider60);
-slider60 != _old ? slider_automate(2^59);
-cy = body_y + floor(28 * S);
-_old = slider61; slider61 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider61, 0, 100, "Dry", 1);
-slider61 != _old ? slider_automate(2^60); cy += bar_sp;
-_old = slider62; slider62 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider62, 0, 100, "Oct -12", 1);
-slider62 != _old ? slider_automate(2^61); cy += bar_sp;
-_old = slider63; slider63 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider63, 0, 100, "Oct -24", 1);
-slider63 != _old ? slider_automate(2^62); cy += bar_sp;
-_old = slider64; slider64 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider64, 0, 100, "Oct +12", 1);
-slider64 != _old ? slider_automate(2^63);
-
-// 9. GREEN SIN (Tube Screamer)
-px = margin + (panel_w + gap) * 8;
-draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider65);
-_old = slider65; slider65 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider65);
-slider65 != _old ? slider_automate(2^64);
-cy = body_y + floor(28 * S);
-_old = slider66; slider66 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider66, 0, 100, "Drive", 1);
-slider66 != _old ? slider_automate(2^65); cy += bar_sp;
-_old = slider67; slider67 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider67, 0, 100, "Tone", 1);
-slider67 != _old ? slider_automate(2^66); cy += bar_sp;
-_old = slider68; slider68 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider68, 0, 100, "Level", 1);
-slider68 != _old ? slider_automate(2^67);
-
-// 10. JUDGEMENT DAY (Parametric EQ)
-px = margin + (panel_w + gap) * 9;
+// --- 10. JUDGEMENT DAY (EQ — Parametric) ---
+px = px_jd;
 draw_panel(px, body_y, panel_w, panel_h, "JUDGEMENT DAY", slider70);
 _old = slider70; slider70 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider70);
 slider70 != _old ? slider_automate(2^69);
