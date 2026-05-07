@@ -2590,23 +2590,26 @@ LMS_INV_LOG2 = 1.4426950408889634;
 
 // Initialize YIN detector. buf_offset = starting memory address.
 // Reserves buf_offset to buf_offset+4299.
-function lms_yin_init(buf_offset)
+function lms_yin_init(buf_offset, min_freq)
 (
+  // Default min_freq if caller passes 0 (or omits the arg, EEL2 fills with 0)
+  min_freq <= 0 ? min_freq = 80;
+
   // Circular audio buffer
   this.buf = buf_offset;
   this.buf_len = 2048;
   this.write_pos = 0;
 
-  // YIN workspace
-  this.yin = buf_offset + 2048;   // 601 slots (tau 0..600)
-
-  // Linear workspace for analysis (avoids modulo in inner loop)
-  this.lin = buf_offset + 2650;   // 1200 slots
-
   // Detection range (recompute if srate changes)
-  this.tau_min = ceil(srate / 1000);  // ~1000 Hz max
-  this.tau_max = ceil(srate / 80);    // ~80 Hz min
-  this.W = 480;                       // integration window
+  this.tau_min = ceil(srate / 1000);   // ~1000 Hz max
+  this.tau_max = ceil(srate / min_freq);
+  this.W = 480;                        // integration window
+
+  // YIN workspace — sized exactly to tau_max (one slot per lag)
+  this.yin = buf_offset + 2048;        // tau_max + 1 slots
+
+  // Linear workspace packed right after — W + tau_max slots
+  this.lin = buf_offset + 2048 + this.tau_max + 1;
 
   // YIN threshold
   this.threshold = 0.15;
@@ -2622,10 +2625,10 @@ function lms_yin_init(buf_offset)
   this.prev_freq = 0;
   this.smooth_alpha = 0.7;  // 0-1: higher = more responsive
 
-  // Zero all buffers
+  // Zero all buffers (sizes derived from tau_max)
   memset(this.buf, 0, this.buf_len);
-  memset(this.yin, 0, 601);
-  memset(this.lin, 0, 1200);
+  memset(this.yin, 0, this.tau_max + 1);
+  memset(this.lin, 0, this.W + this.tau_max);
 );
 
 // Write one sample into the detector's circular buffer.
@@ -2739,8 +2742,8 @@ function lms_yin_detect()
     this.confidence = 0;
   );
 
-  // Range check
-  (raw_freq < 70 || raw_freq > 1100) ? (
+  // Range check — use the actual configured detection range
+  (raw_freq < (srate / this.tau_max) * 0.95 || raw_freq > 1100) ? (
     raw_freq = 0;
     this.confidence = 0;
   );
@@ -3594,7 +3597,8 @@ function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
 //  IN-TUNE LED, and click-to-engage MUTE button (5ms ramped silence for
 //  silent stage tuning).
 //
-//  Caller must reserve 4096 mem slots for the YIN buffer.
+//  Caller must reserve 8192 mem slots for the YIN buffer (covers down to
+//  drop-A guitar / low-B 5-string bass even at 96kHz; ~4300 used at 48kHz).
 //
 //  Usage:
 //    @init:    TUNER_BUF = ...;          // 4096 reserved slots
@@ -3608,7 +3612,13 @@ function lms_draw_tuner(tx, ty, tw, th, freq, conf, midi_int, cents, S)
 
 function lms_tuner_init(yin_buf)
 (
-  this.yin.lms_yin_init(yin_buf);
+  // min_freq=55 → tau_max ≈ 873 @ 48kHz, covers down to drop-A on bass and
+  // every drop tuning on guitar (drop D 73Hz, drop C 65Hz, drop B 62Hz).
+  this.yin.lms_yin_init(yin_buf, 55);
+
+  // Power state — tuner is OFF by default to keep CPU free.
+  // Turn on via the GUI's PWR button.
+  this.on = 0;
 
   // Smoothed display state
   this.disp_freq  = 0;
@@ -3616,7 +3626,13 @@ function lms_tuner_init(yin_buf)
   this.disp_midi  = 0;
   this.disp_alive = 0;        // 0..1: confidence-weighted aliveness; fades when no signal
 
-  // Mute control — click MUTE button to fade output to silence (5ms ramp)
+  // YIN detection is decimated — it costs ~300k ops per call. Detecting
+  // every block can starve the audio thread on small buffer sizes (clicks).
+  // Running every Nth block gives plenty of update rate for a tuner UI.
+  this.detect_counter  = 0;
+  this.detect_interval = 4;
+
+  // Mute control — click MUTE to fade output to silence (5ms ramp)
   this.mute_on    = 0;
   this.mute_gain  = 1.0;
   this.mute_coeff = exp(-1 / (0.005 * srate));
@@ -3625,22 +3641,36 @@ function lms_tuner_init(yin_buf)
 function lms_tuner_write(x)
   local(target)
 (
-  this.yin.lms_yin_write(x);
-  target = this.mute_on ? 0 : 1.0;
+  this.on ? (
+    this.yin.lms_yin_write(x);
+  );
+  // Mute target: only silences when tuner is on AND mute is engaged.
+  target = (this.on && this.mute_on) ? 0 : 1.0;
   this.mute_gain = target + (this.mute_gain - target) * this.mute_coeff;
 );
 
 function lms_tuner_block()
 (
-  this.yin.lms_yin_detect();
-  this.yin.confidence > 0.6 && this.yin.freq > 0 ? (
-    this.disp_freq  = this.disp_freq  * 0.7 + this.yin.freq  * 0.3;
-    this.disp_cents = this.disp_cents * 0.7 + this.yin.cents * 0.3;
-    this.disp_midi  = this.yin.midi_int;
-    this.disp_alive = 1.0;
+  this.on ? (
+    this.detect_counter += 1;
+    this.detect_counter >= this.detect_interval ? (
+      this.detect_counter = 0;
+      this.yin.lms_yin_detect();
+      // Tighter confidence gate (was 0.6) — refuses noise that produced
+      // jitter; heavy smoothing on cents (alpha 0.18) keeps the needle
+      // calm so it doesn't dance around.
+      this.yin.confidence > 0.75 && this.yin.freq > 0 ? (
+        this.disp_freq  = this.disp_freq  * 0.7  + this.yin.freq  * 0.3;
+        this.disp_cents = this.disp_cents * 0.82 + this.yin.cents * 0.18;
+        this.disp_midi  = this.yin.midi_int;
+        this.disp_alive = 1.0;
+      ) : (
+        this.disp_alive *= 0.88;
+      );
+    );
   ) : (
-    // Confidence dropped — fade alive flag so display dims gracefully
-    this.disp_alive *= 0.88;
+    // Tuner off — fade display to dark
+    this.disp_alive *= 0.85;
   );
 );
 
@@ -3650,6 +3680,7 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
         note_x, note_y,
         meter_x, meter_y, meter_w, meter_h, zone_w, cx, cents_clip, needle_x,
         side_x, led_x, led_y, led_r,
+        pwr_x, pwr_y, pwr_w, pwr_h,
         mute_x, mute_y, mute_w, mute_h, _mw, _mh,
         c_r, c_g, c_b)
 (
@@ -3660,14 +3691,60 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
   gfx_rect(tx, ty, tw, 1);
   gfx_rect(tx, ty + th - 1, tw, 1);
 
+  F_BIG = max(28, floor(54 * S));
+  F_MED = max(11, floor(15 * S));
+  F_SML = max(8,  floor(11 * S));
+
+  // --- PWR BUTTON (always present, top-left) ---
+  pwr_w = floor(54 * S);
+  pwr_h = floor(26 * S);
+  pwr_x = tx + floor(10 * S);
+  pwr_y = ty + (th - pwr_h) / 2;
+  this.on ? (
+    gfx_r = 0.30; gfx_g = 0.85; gfx_b = 0.40;
+    gfx_rect(pwr_x, pwr_y, pwr_w, pwr_h);
+    gfx_r = 0.04; gfx_g = 0.10; gfx_b = 0.05;
+  ) : (
+    gfx_r = 0.13; gfx_g = 0.13; gfx_b = 0.16;
+    gfx_rect(pwr_x, pwr_y, pwr_w, pwr_h);
+    gfx_r = 0.42; gfx_g = 0.42; gfx_b = 0.46;
+    gfx_rect(pwr_x, pwr_y, pwr_w, 1);
+    gfx_rect(pwr_x, pwr_y + pwr_h - 1, pwr_w, 1);
+    gfx_rect(pwr_x, pwr_y, 1, pwr_h);
+    gfx_rect(pwr_x + pwr_w - 1, pwr_y, 1, pwr_h);
+    gfx_r = 0.62; gfx_g = 0.62; gfx_b = 0.66;
+  );
+  gfx_setfont(1, "Arial", F_SML);
+  gfx_measurestr("PWR", _mw, _mh);
+  gfx_x = pwr_x + (pwr_w - _mw) / 2;
+  gfx_y = pwr_y + (pwr_h - _mh) / 2;
+  gfx_drawstr("PWR");
+
+  // PWR click handler
+  (mouse_cap & 1) && !(lc & 1) &&
+    mouse_x >= pwr_x && mouse_x <= pwr_x + pwr_w &&
+    mouse_y >= pwr_y && mouse_y <= pwr_y + pwr_h ? (
+      this.on = 1 - this.on;
+      !this.on ? this.mute_on = 0;   // turning off also releases mute
+  );
+
+  // --- TUNER OFF placeholder ---
+  !this.on ? (
+    gfx_setfont(1, "Arial", F_MED);
+    gfx_r = 0.32; gfx_g = 0.32; gfx_b = 0.36;
+    gfx_measurestr("TUNER OFF — click PWR to engage", _mw, _mh);
+    gfx_x = tx + (tw - _mw) / 2;
+    gfx_y = ty + (th - _mh) / 2;
+    gfx_drawstr("TUNER OFF — click PWR to engage");
+  );
+
+  // Everything below only renders when the tuner is on
+  this.on ? (
+
   alive_a  = max(0.18, this.disp_alive);
   in_tune  = (abs(this.disp_cents) < 4) && (this.disp_alive > 0.5);
   midi_mod = ((this.disp_midi % 12) + 12) % 12;
   oct      = floor(this.disp_midi / 12) - 1;
-
-  F_BIG = max(28, floor(54 * S));
-  F_MED = max(11, floor(15 * S));
-  F_SML = max(8,  floor(11 * S));
 
   // --- NOTE NAME (left, large) ---
   c_r = in_tune ? 0.30 : 0.95;
@@ -3675,7 +3752,7 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
   c_b = in_tune ? 0.42 : 0.32;
   gfx_r = c_r * alive_a; gfx_g = c_g * alive_a; gfx_b = c_b * alive_a;
   gfx_setfont(1, "Arial", F_BIG);
-  note_x = tx + floor(28 * S);
+  note_x = tx + floor(80 * S);   // shifted right of the PWR button
   note_y = ty + floor((th - F_BIG) / 2);
 
   this.disp_alive > 0.1 ? (
@@ -3830,6 +3907,8 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
     mouse_y >= mute_y && mouse_y <= mute_y + mute_h ? (
       this.mute_on = 1 - this.mute_on;
   );
+
+  );  // close `this.on ? (`
 );
 
 

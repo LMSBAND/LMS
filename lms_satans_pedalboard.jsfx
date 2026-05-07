@@ -135,8 +135,9 @@ PW_BUF       = 135168;   PW_BUF_SIZE = 4096;            // flanger
 FLERB_FL_BUF = 139264;   FLERB_FL_SIZE = 4096;          // internal flanger for Flerb mode
 UB_FDN_BUF   = 143360;   UB_LINE_LEN  = 4096;           // hall FDN (4 lines × 4096)
 UB_PRE_BUF   = 159744;   UB_PRE_SIZE  = 2048;           // hall pre-delay
-// TUNER_BUF (YIN circular buffer + workspace, 4096 slots) reserved at 161908,
+// TUNER_BUF (YIN circular buffer + workspace, 8192 slots) reserved at 161908,
 // after the SECTION_/CHAIN_ORDER/EQ_DEFAULTS scratch arrays (see @init below).
+// Sized for min_freq=55 detection at sample rates up to 96kHz.
 
 // ------------------------------------------------------------
 //  SECTION-BASED CHAIN ORDER
@@ -372,8 +373,8 @@ EQ_DEFAULTS[15]=  0; EQ_DEFAULTS[16]=  0; EQ_DEFAULTS[17]=  0; EQ_DEFAULTS[18]= 
 // Init cache so the first @block doesn't clobber the user's saved state.
 eq_mode_last = slider71;
 
-// === TUNER (YIN-based, with strobe-style cents meter and silent-mute) ===
-TUNER_BUF = 161908;  // 4096 reserved slots for YIN circular buf + workspace
+// === TUNER (YIN-based, drop-tuning safe, OFF by default) ===
+TUNER_BUF = 161908;  // 8192 reserved slots — fits min_freq=55 up to 96kHz
 tuner.lms_tuner_init(TUNER_BUF);
 
 // Populate SECTION_ORDER from default preset, then flatten into CHAIN_ORDER
@@ -1380,3 +1381,4 @@ gfx_drawstr("NOTICE");
 @serialize
 file_var(0, bc.bc_following);
 file_var(0, bc.bc_my_id);
+file_var(0, tuner.on);
