@@ -135,6 +135,8 @@ PW_BUF       = 135168;   PW_BUF_SIZE = 4096;            // flanger
 FLERB_FL_BUF = 139264;   FLERB_FL_SIZE = 4096;          // internal flanger for Flerb mode
 UB_FDN_BUF   = 143360;   UB_LINE_LEN  = 4096;           // hall FDN (4 lines × 4096)
 UB_PRE_BUF   = 159744;   UB_PRE_SIZE  = 2048;           // hall pre-delay
+// TUNER_BUF (YIN circular buffer + workspace, 4096 slots) reserved at 161908,
+// after the SECTION_/CHAIN_ORDER/EQ_DEFAULTS scratch arrays (see @init below).
 
 // ------------------------------------------------------------
 //  SECTION-BASED CHAIN ORDER
@@ -370,6 +372,10 @@ EQ_DEFAULTS[15]=  0; EQ_DEFAULTS[16]=  0; EQ_DEFAULTS[17]=  0; EQ_DEFAULTS[18]= 
 // Init cache so the first @block doesn't clobber the user's saved state.
 eq_mode_last = slider71;
 
+// === TUNER (YIN-based, with strobe-style cents meter and silent-mute) ===
+TUNER_BUF = 161908;  // 4096 reserved slots for YIN circular buf + workspace
+tuner.lms_tuner_init(TUNER_BUF);
+
 // Populate SECTION_ORDER from default preset, then flatten into CHAIN_ORDER
 i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i += 1;);
 build_chain_order();
@@ -543,6 +549,9 @@ eq_lo = slider72; eq_mid = slider73; eq_hi = slider74; eq_pr = slider75;
 eq_level = lms_db2lin(slider76);
 pb_eq_l.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
 pb_eq_r.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
+
+// Run YIN pitch detection (per-block, so this isn't a per-sample cost)
+tuner.lms_tuner_block();
 
 bc.lms_bc_block();
 
@@ -759,6 +768,10 @@ bc.bc_my_pbase > 0 ? (
 //  @SAMPLE — the container: wire core pedals in series
 // ============================================================
 @sample
+// Feed the tuner the dry mono input — pre-effects so we always tune the source,
+// regardless of which pedals are engaged or master-bypass state.
+tuner.lms_tuner_write((spl0 + spl1) * 0.5);
+
 !master_bp ? (
   l_ = spl0 * in_trim;
   r_ = spl1 * in_trim;
@@ -799,11 +812,16 @@ bc.bc_my_pbase > 0 ? (
   spl1 = r_ * out_trim;
 );
 
+// Apply tuner mute (5ms ramped silence) at the very end, AFTER master_bp branch
+// so even bypassed audio gets muted while tuning.
+spl0 *= tuner.mute_gain;
+spl1 *= tuner.mute_gain;
+
 
 // ============================================================
 //  @GFX
 // ============================================================
-@gfx 1500 484
+@gfx 1500 580
 
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
 S = gfx_w / 1500;
@@ -984,9 +1002,14 @@ gfx_setfont(1, "Arial", F_TINY);
 gfx_x = bp_x + floor(22 * S); gfx_y = bp_y + floor(3 * S);
 gfx_drawstr("BYPASS");
 
-// --- IN COMP STRIP (horizontal, above pedal row) ---
+// --- TUNER STRIP (full-width, prominent under header) ---
 margin = floor(6 * S); gap = floor(4 * S);
-incomp_y = hdr_h + floor(6 * S);
+tuner_y = hdr_h + floor(6 * S);
+tuner_h = floor(72 * S);
+tuner.lms_tuner_draw(margin, tuner_y, gfx_w - margin*2, tuner_h, S, last_cap);
+
+// --- IN COMP STRIP (horizontal, above pedal row) ---
+incomp_y = tuner_y + tuner_h + floor(6 * S);
 incomp_h = floor(38 * S);
 comp_bar_h = floor(15 * S);
 
