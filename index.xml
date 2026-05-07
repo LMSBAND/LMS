@@ -77,6 +77,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="6.4" author="LMS" time="2026-05-06T18:00:00Z">
+        <changelog><![CDATA[v6.4 — Tuner module rebuilt. lms_tuner_* now wraps lms_yin_* (autocorrelation pitch detector) instead of the old zero-crossing detector — rock-solid tracking on guitar/bass-range fundamentals. New UI: huge note name with octave subscript, color-zoned cents meter with needle, frequency readout, IN-TUNE LED with halo, click-to-toggle MUTE button (5ms ramped silence for silent stage tuning), and a PWR button so detection runs only when needed. Detection rate decimated to every 4th block to keep CPU low. lms_yin_init now takes an optional min_freq parameter and packs its workspace tightly — the tuner uses min_freq=55 to handle every drop tuning down to drop A. Faker and Pitch Detector are unaffected (default min_freq=80 preserves their old footprint).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -1534,6 +1539,11 @@
     <reapack name="lms_satans_pedalboard.jsfx" type="effect" desc="Satan's Little Helper — all the satanic minions required to achieve your darkest most twisted musical fantasy">
       <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">
         <changelog><![CDATA[Initial release — 10-pedal container plugin. DOA666 (ODB-3 bass distortion), HARDWARE INCOMPATIBLE (BD-2 Blues Driver), BLACK MASS (CE-2 chorus), THE ELEPHANT (Memory Boy BBD delay), PIPEWORKS (BF-2 flanger), UNHOLY BOWL (Holy Grail — Spring/Hall/Flerb), MARMOT (ProCo RAT), 12 STEPPER (OC-2 / Octavia octave pedal), GREEN SIN (TS-808/TS-9 Tube Screamer), JUDGEMENT DAY (4-band parametric EQ with Punk/Jazz/Metal/Flat voicings — mode auto-snaps knobs to preset defaults). Section-based chain ordering: 6 presets reorder DIST / MOD / DELAY / REVERB / EQ as sections, with 12 STEPPER always at the head of the chain. Dual FET compressors (input + output). Broadcast type_id 31. Every pedal's DSP lives in lms_core as lms_* primitives — no DSP duplication.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-05-06T18:00:00Z">
+        <changelog><![CDATA[v1.1 — YIN-based tuner integrated as a featured strip between the title bar and IN COMP. Huge note name with octave, color-zoned cents meter with needle, frequency readout, IN-TUNE LED, click-to-toggle MUTE for silent stage tuning, and a PWR button (off by default to keep CPU free). Detection range covers every drop tuning down to drop A (55Hz). Detection rate decimated to every 4th block. PWR state persists across reloads. Requires lms_core 6.4.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
