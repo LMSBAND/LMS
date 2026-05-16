@@ -49,6 +49,16 @@ function lms_tanh(x)
   );
 );
 
+// Padé rational tanh — no exp(), for tight per-sample loops (Moog ladder, etc.)
+function lms_fast_tanh(x)
+  local(x2)
+(
+  x > 3 ? 1 : x < -3 ? -1 : (
+    x2 = x * x;
+    x * (27 + x2) / (27 + 9 * x2);
+  );
+);
+
 // dB to linear gain
 function lms_db2lin(db)
 (

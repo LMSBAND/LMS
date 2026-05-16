@@ -94,8 +94,8 @@ MEM_OSC2_PHASE = 1;
 MEM_SUB_PHASE  = 2;
 MEM_NOISE_SEED = 3;
 
-// Moog ladder filter state — 4 stages (mono mode)
-MEM_LADDER = 10;  // 10..13
+// Huovilainen Moog ladder — 4 stages + half-sample delay (mono mode)
+MEM_LADDER = 10;  // 10..14
 
 // Triangle oscillator integrators (mono mode)
 MEM_TRI1_INT = 20;
@@ -104,7 +104,7 @@ MEM_TRI2_INT = 21;
 // ---- Poly voice state ----
 MAX_VOICES = 8;
 VOICE_BASE = 300;
-VOICE_STRIDE = 21;
+VOICE_STRIDE = 24;
 // Per voice layout at VOICE_BASE + v * VOICE_STRIDE:
 //  [0] osc1_phase  [1] osc2_phase  [2] sub_phase
 //  [3] tri1_int    [4] tri2_int
@@ -114,6 +114,8 @@ VOICE_STRIDE = 21;
 //  [13] gate  [14] note  [15] vel
 //  [16] glide_freq  [17] target_freq
 //  [18] age  [19] smooth_cutoff  [20] smooth_vel
+//  [21] ladder half-sample delay  [22] ladder amf
+//  [23] thermal state
 
 // Init all voice state to zero
 memset(VOICE_BASE, 0, MAX_VOICES * VOICE_STRIDE);
@@ -164,12 +166,25 @@ MEM_TRI1_INT[0] = 0;
 MEM_TRI2_INT[0] = 0;
 MEM_SUB_PHASE[0] = 0;
 
-// Init ladder filter
+// Init Huovilainen ladder filter
 i = 0;
-loop(4,
+loop(5,
   MEM_LADDER[i] = 0;
   i += 1;
 );
+ladder_amf_m = 0;
+
+// Transistor thermal drift
+thermal_state_m = 0;
+thermal_heat = 1.0 - exp(-1.0 / (0.005 * srate));
+thermal_cool = 1.0 - exp(-1.0 / (0.150 * srate));
+
+// Per-stage transistor mismatch
+MEM_MISMATCH = 50;
+MEM_MISMATCH[0] = 1.000;
+MEM_MISMATCH[1] = 0.985;
+MEM_MISMATCH[2] = 1.017;
+MEM_MISMATCH[3] = 0.993;
 
 // Init Multidrive saturation (3 characters, each needs own state)
 sat_md.lms_sat_da_init();
@@ -1822,6 +1837,15 @@ pw2 = max(0.05, min(0.95, osc2_pw + lfo_pwm_mod));
 // ============================================================================
 poly_mode ? (
 
+  // Pre-compute values shared across all voices
+  lfo_filt_exp = 2 ^ (lfo_filt_mod * 2);
+  overload_gain = filt_overload > 0 ? (1 + filt_overload * 3) : 0;
+  inv_srate = 1 / srate;
+  inv_srate2 = inv_srate * 0.5;
+  filt_reso_4 = 4.0 * filt_reso;
+  mm0 = MEM_MISMATCH[0]; mm1 = MEM_MISMATCH[1];
+  mm2 = MEM_MISMATCH[2]; mm3 = MEM_MISMATCH[3];
+
   poly_out = 0;
   pv = 0;
   loop(MAX_VOICES,
@@ -1967,37 +1991,55 @@ poly_mode ? (
       v_va = vb[20];
       v_vf = vel_to_filter * v_vel;
 
-      // Per-voice ladder filter
+      // Per-voice Huovilainen ladder + thermal drift + mismatch
+      v_le = vb[5]*vb[5] + vb[6]*vb[6] + vb[7]*vb[7] + vb[8]*vb[8];
+      v_ts = vb[23];
+      v_le > v_ts ? (
+        v_ts += (v_le - v_ts) * thermal_heat;
+      ) : (
+        v_ts += (v_le - v_ts) * thermal_cool;
+      );
+      vb[23] = v_ts;
+
+      v_vt = 1.0 + v_ts * 0.08;
+      v_vti = 1.0 / v_vt;
+      v_s0 = v_vti * mm0; v_s1 = v_vti * mm1;
+      v_s2 = v_vti * mm2; v_s3 = v_vti * mm3;
+
       v_kbd = filt_kbd_track * (v_note - 60) / 12;
       v_mc = filt_cutoff;
       v_mc = v_mc * 2 ^ (v_kbd);
       v_mc = v_mc * 2 ^ (v_fel * filt_env_amt * 4 - filt_env_amt * 2);
       v_mc = v_mc * 2 ^ (v_vf * 2);
-      v_mc = v_mc * 2 ^ (lfo_filt_mod * 2);
+      v_mc = v_mc * lfo_filt_exp;
+      v_mc = v_mc * (1.0 + v_ts * 0.015);
       v_mc = max(20, min(srate * 0.45, v_mc));
 
-      // Smooth cutoff to prevent clicks on retrigger
       vb[19] += (v_mc - vb[19]) * 0.05;
       v_mc = vb[19];
 
-      v_fc = 2 * v_mc / srate;
-      v_fc = min(v_fc, 0.95);
-      v_f = v_fc * 1.16;
-      v_fb = filt_reso * (1.0 - 0.15 * v_f * v_f);
+      v_kfc = v_mc * inv_srate;
+      v_kf = v_mc * inv_srate2;
+      v_kfc2 = v_kfc * v_kfc;
+      v_kfcr = 1.8730 * v_kfc * v_kfc2 + 0.4955 * v_kfc2 - 0.6490 * v_kfc + 0.9988;
+      v_kacr = -3.9364 * v_kfc2 + 1.8409 * v_kfc + 0.9968;
+      v_tune = (1.0 - exp(-2 * $pi * v_kfcr * v_kf)) * v_vt;
+      v_res = filt_reso_4 * v_kacr;
+      v_amf = vb[22];
 
-      v_inp = v_mix - v_fb * 4.0 * vb[8];
-      filt_overload > 0 ? (
-        v_inp = lms_tanh(v_inp * (1 + filt_overload * 3));
-      ) : (
-        v_inp = lms_tanh(v_inp);
+      loop(2,
+        v_inp = v_mix - v_res * v_amf;
+        overload_gain > 0 ? ( v_inp = v_inp * overload_gain; );
+        vb[5] += v_tune * (lms_fast_tanh(v_inp * v_s0) - lms_fast_tanh(vb[5] * v_s0));
+        vb[6] += v_tune * (lms_fast_tanh(vb[5] * v_s1) - lms_fast_tanh(vb[6] * v_s1));
+        vb[7] += v_tune * (lms_fast_tanh(vb[6] * v_s2) - lms_fast_tanh(vb[7] * v_s2));
+        vb[8] += v_tune * (lms_fast_tanh(vb[7] * v_s3) - lms_fast_tanh(vb[8] * v_s3));
+        v_amf = (vb[8] + vb[21]) * 0.5;
+        vb[21] = vb[8];
       );
+      vb[22] = v_amf;
 
-      vb[5] += v_f * (v_inp - vb[5]);
-      vb[6] += v_f * (vb[5] - vb[6]);
-      vb[7] += v_f * (vb[6] - vb[7]);
-      vb[8] += v_f * (vb[7] - vb[8]);
-
-      v_out = vb[8] * v_ael * v_va * lfo_amp_mod;
+      v_out = v_amf * v_ael * v_va * lfo_amp_mod;
 
       poly_out += v_out;
     );
@@ -2174,38 +2216,57 @@ md_amount > 0 ? (
   );
 );
 
-// ---- Moog Ladder Filter (LP24 only) ----
+// ---- Moog Ladder Filter — Huovilainen + thermal drift + mismatch (LP24) ----
+
+// Thermal drift (mono)
+ladder_energy = MEM_LADDER[0] * MEM_LADDER[0]
+              + MEM_LADDER[1] * MEM_LADDER[1]
+              + MEM_LADDER[2] * MEM_LADDER[2]
+              + MEM_LADDER[3] * MEM_LADDER[3];
+ladder_energy > thermal_state_m ? (
+  thermal_state_m += (ladder_energy - thermal_state_m) * thermal_heat;
+) : (
+  thermal_state_m += (ladder_energy - thermal_state_m) * thermal_cool;
+);
+
+vt = 1.0 + thermal_state_m * 0.08;
+vt_inv = 1.0 / vt;
+s0 = vt_inv * MEM_MISMATCH[0]; s1 = vt_inv * MEM_MISMATCH[1];
+s2 = vt_inv * MEM_MISMATCH[2]; s3 = vt_inv * MEM_MISMATCH[3];
+
 kbd_offset = filt_kbd_track * (current_note - 60) / 12;
 mod_cutoff = filt_cutoff;
 mod_cutoff = mod_cutoff * 2 ^ (kbd_offset);
 mod_cutoff = mod_cutoff * 2 ^ (filt_env_level * filt_env_amt * 4 - filt_env_amt * 2);
 mod_cutoff = mod_cutoff * 2 ^ (vel_filt * 2);
 mod_cutoff = mod_cutoff * 2 ^ (lfo_filt_mod * 2);
+mod_cutoff = mod_cutoff * (1.0 + thermal_state_m * 0.015);
 mod_cutoff = max(20, min(srate * 0.45, mod_cutoff));
 
-// Smooth cutoff to prevent clicks on retrigger
 smooth_cutoff_m += (mod_cutoff - smooth_cutoff_m) * 0.05;
 mod_cutoff = smooth_cutoff_m;
 
-fc = 2 * mod_cutoff / srate;
-fc = min(fc, 0.95);
-f = fc * 1.16;
-fb = filt_reso * (1.0 - 0.15 * f * f);
+kfc = mod_cutoff / srate;
+kf = mod_cutoff / (srate * 2);
+kfc2 = kfc * kfc;
+kfcr = 1.8730 * kfc * kfc2 + 0.4955 * kfc2 - 0.6490 * kfc + 0.9988;
+kacr = -3.9364 * kfc2 + 1.8409 * kfc + 0.9968;
+tune = (1.0 - exp(-2 * $pi * kfcr * kf)) * vt;
+res_scaled = 4.0 * filt_reso * kacr;
 
 input_l = mix_out;
-input_l -= fb * 4.0 * MEM_LADDER[3];
-filt_overload > 0 ? (
-  input_l = lms_tanh(input_l * (1 + filt_overload * 3));
-) : (
-  input_l = lms_tanh(input_l);
+loop(2,
+  inp = input_l - res_scaled * ladder_amf_m;
+  filt_overload > 0 ? ( inp = inp * (1 + filt_overload * 3); );
+  MEM_LADDER[0] += tune * (lms_fast_tanh(inp * s0) - lms_fast_tanh(MEM_LADDER[0] * s0));
+  MEM_LADDER[1] += tune * (lms_fast_tanh(MEM_LADDER[0] * s1) - lms_fast_tanh(MEM_LADDER[1] * s1));
+  MEM_LADDER[2] += tune * (lms_fast_tanh(MEM_LADDER[1] * s2) - lms_fast_tanh(MEM_LADDER[2] * s2));
+  MEM_LADDER[3] += tune * (lms_fast_tanh(MEM_LADDER[2] * s3) - lms_fast_tanh(MEM_LADDER[3] * s3));
+  ladder_amf_m = (MEM_LADDER[3] + MEM_LADDER[4]) * 0.5;
+  MEM_LADDER[4] = MEM_LADDER[3];
 );
 
-MEM_LADDER[0] += f * (input_l      - MEM_LADDER[0]);
-MEM_LADDER[1] += f * (MEM_LADDER[0] - MEM_LADDER[1]);
-MEM_LADDER[2] += f * (MEM_LADDER[1] - MEM_LADDER[2]);
-MEM_LADDER[3] += f * (MEM_LADDER[2] - MEM_LADDER[3]);
-
-filt_out = MEM_LADDER[3];
+filt_out = ladder_amf_m;
 
 // ---- Amp envelope + velocity ----
 synth_out = filt_out * amp_env_level * vel_amp * lfo_amp_mod;

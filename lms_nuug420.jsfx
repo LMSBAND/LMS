@@ -98,9 +98,8 @@ MEM_OSC2_PHASE = 8;     // 8..15
 MEM_SUB_PHASE  = 16;
 MEM_NOISE_SEED = 17;
 
-// Moog ladder filter state — 4 stages × 2 channels
-MEM_LADDER_L = 20;      // 20..23
-MEM_LADDER_R = 24;      // 24..27
+// Huovilainen Moog ladder — 4 stages + half-sample delay
+MEM_LADDER_L = 20;      // 20..24
 
 // Envelope states
 amp_env_stage = 0;
@@ -151,13 +150,25 @@ loop(8,
 );
 MEM_SUB_PHASE[0] = 0;
 
-// Init ladder filter
+// Init Huovilainen ladder filter
 i = 0;
-loop(4,
+loop(5,
   MEM_LADDER_L[i] = 0;
-  MEM_LADDER_R[i] = 0;
   i += 1;
 );
+ladder_amf = 0;
+
+// Transistor thermal drift (fast heat, slow cool — like real silicon)
+thermal_state = 0;
+thermal_heat = 1.0 - exp(-1.0 / (0.005 * srate));
+thermal_cool = 1.0 - exp(-1.0 / (0.150 * srate));
+
+// Per-stage transistor mismatch (component tolerance)
+MEM_MISMATCH = 50;
+MEM_MISMATCH[0] = 1.000;
+MEM_MISMATCH[1] = 0.985;
+MEM_MISMATCH[2] = 1.017;
+MEM_MISMATCH[3] = 0.993;
 
 // Init saturation (mono — single instance for all drive types)
 sat_mono.lms_sat_warm_init();
@@ -1299,40 +1310,63 @@ mix_out = osc1_mix * osc1_level
         + (sub_on ? sub_out * sub_level : 0)
         + noise_out * noise_level;
 
-// ---- Moog Ladder Filter ----
+// ---- Moog Ladder Filter (Huovilainen + thermal drift + transistor mismatch) ----
 
-// Calculate modulated cutoff
+// Thermal drift — track energy dissipated across the ladder
+ladder_energy = MEM_LADDER_L[0] * MEM_LADDER_L[0]
+              + MEM_LADDER_L[1] * MEM_LADDER_L[1]
+              + MEM_LADDER_L[2] * MEM_LADDER_L[2]
+              + MEM_LADDER_L[3] * MEM_LADDER_L[3];
+ladder_energy > thermal_state ? (
+  thermal_state += (ladder_energy - thermal_state) * thermal_heat;
+) : (
+  thermal_state += (ladder_energy - thermal_state) * thermal_cool;
+);
+
+// Vt scaling: hotter → higher thermal voltage → softer saturation knee
+vt = 1.0 + thermal_state * 0.08;
+vt_inv = 1.0 / vt;
+
+// Per-stage scaling: thermal voltage × transistor mismatch
+s0 = vt_inv * MEM_MISMATCH[0];
+s1 = vt_inv * MEM_MISMATCH[1];
+s2 = vt_inv * MEM_MISMATCH[2];
+s3 = vt_inv * MEM_MISMATCH[3];
+
+// Modulated cutoff (thermal drift nudges frequency)
 mod_cutoff = filt_cutoff;
-// Envelope modulation (exponential mapping for musical response)
 mod_cutoff = mod_cutoff * 2 ^ (filt_env_level * filt_env_amt * 4 - filt_env_amt * 2);
-// Velocity modulation
 mod_cutoff = mod_cutoff * 2 ^ (vel_filt * 2);
-// LFO modulation
 mod_cutoff = mod_cutoff * 2 ^ (lfo_filt_mod * 2);
-// Clamp
+mod_cutoff = mod_cutoff * (1.0 + thermal_state * 0.015);
 mod_cutoff = max(20, min(srate * 0.45, mod_cutoff));
 
-// Ladder filter coefficients
-fc = 2 * mod_cutoff / srate;
-fc = min(fc, 0.95);
-f = fc * 1.16;
-fb = filt_reso * (1.0 - 0.15 * f * f);
+// Huovilainen coefficients
+kfc = mod_cutoff / srate;
+kf = mod_cutoff / (srate * 2);
+kfc2 = kfc * kfc;
+kfcr = 1.8730 * kfc * kfc2 + 0.4955 * kfc2 - 0.6490 * kfc + 0.9988;
+kacr = -3.9364 * kfc2 + 1.8409 * kfc + 0.9968;
+tune = (1.0 - exp(-2 * $pi * kfcr * kf)) * vt;
+res_scaled = 4.0 * filt_reso * kacr;
 
-// Process left channel (mono synth, but we'll make stereo from effects)
+// 2x oversampled ladder with per-stage nonlinearity + thermal/mismatch
 input_l = mix_out;
-input_l -= fb * 4.0 * MEM_LADDER_L[3];
-input_l = lms_tanh(input_l);
+loop(2,
+  inp = input_l - res_scaled * ladder_amf;
+  MEM_LADDER_L[0] += tune * (lms_fast_tanh(inp * s0) - lms_fast_tanh(MEM_LADDER_L[0] * s0));
+  MEM_LADDER_L[1] += tune * (lms_fast_tanh(MEM_LADDER_L[0] * s1) - lms_fast_tanh(MEM_LADDER_L[1] * s1));
+  MEM_LADDER_L[2] += tune * (lms_fast_tanh(MEM_LADDER_L[1] * s2) - lms_fast_tanh(MEM_LADDER_L[2] * s2));
+  MEM_LADDER_L[3] += tune * (lms_fast_tanh(MEM_LADDER_L[2] * s3) - lms_fast_tanh(MEM_LADDER_L[3] * s3));
+  ladder_amf = (MEM_LADDER_L[3] + MEM_LADDER_L[4]) * 0.5;
+  MEM_LADDER_L[4] = MEM_LADDER_L[3];
+);
 
-MEM_LADDER_L[0] += f * (input_l    - MEM_LADDER_L[0]);
-MEM_LADDER_L[1] += f * (MEM_LADDER_L[0] - MEM_LADDER_L[1]);
-MEM_LADDER_L[2] += f * (MEM_LADDER_L[1] - MEM_LADDER_L[2]);
-MEM_LADDER_L[3] += f * (MEM_LADDER_L[2] - MEM_LADDER_L[3]);
-
-// Select filter mode output
-filt_mode == 0 ? ( filt_out = MEM_LADDER_L[3]; )       // LP 24dB
-: filt_mode == 1 ? ( filt_out = MEM_LADDER_L[1]; )     // LP 12dB
-: filt_mode == 2 ? ( filt_out = mix_out - MEM_LADDER_L[3]; )  // HP 24dB
-: ( filt_out = MEM_LADDER_L[1] - MEM_LADDER_L[3]; );   // BP 12dB
+// Filter mode output
+filt_mode == 0 ? ( filt_out = ladder_amf; )              // LP 24dB
+: filt_mode == 1 ? ( filt_out = MEM_LADDER_L[1]; )       // LP 12dB
+: filt_mode == 2 ? ( filt_out = mix_out - ladder_amf; )   // HP 24dB
+: ( filt_out = MEM_LADDER_L[1] - ladder_amf; );           // BP 12dB
 
 // ---- Amp envelope + velocity ----
 synth_out = filt_out * amp_env_level * vel_amp * lfo_amp_mod;
