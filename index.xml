@@ -82,6 +82,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="6.5" author="LMS" time="2026-05-16T18:00:00Z">
+        <changelog><![CDATA[v6.5 — lms_fast_tanh: Padé rational tanh approximation (no exp call) for tight per-sample loops. Used by Huovilainen Moog ladder filters in Nuug420 and Lil Stinker. Same accuracy as lms_tanh in audio range, ~16x faster.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -784,6 +789,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-05-16T18:00:00Z">
+        <changelog><![CDATA[v2.0 — Huovilainen nonlinear Moog ladder filter. Per-stage tanh models transistor differential pairs from actual circuit physics (replaces simplified 1-pole cascade). 2x oversampled forward Euler with Huovilainen frequency/amplitude correction polynomials and half-sample delay phase compensation. Thermal drift: signal energy heats transistors (5ms attack / 150ms release), modulating thermal voltage (softer saturation) and cutoff frequency (filter opens slightly under load). Transistor mismatch: per-stage tolerance offsets create asymmetric harmonic distribution. Eliminates inter-note clipping artifacts from the old linear stages. All 4 filter modes preserved (LP24/LP12/HP24/BP12).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Mono/Poly Analog Synth">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -796,6 +805,10 @@
       </version>
           <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-05-16T18:00:00Z">
+        <changelog><![CDATA[v2.0 — Huovilainen nonlinear Moog ladder filter (mono + 8-voice poly). Per-stage tanh models transistor differential pairs from actual circuit physics. 2x oversampled with frequency/amplitude correction polynomials and half-sample delay phase compensation. Per-voice thermal drift: independent energy tracking per poly voice (5ms heat / 150ms cool) modulates thermal voltage and cutoff — each voice's filter responds to its own signal energy. Transistor mismatch: per-stage tolerance offsets. Poly path optimized: LFO/overload/resonance hoisted out of voice loop, divisions converted to multiplications.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
       </version>
     </reapack>
