@@ -42,6 +42,7 @@ slider21:0<0,100,1>-Mic Distance (%)
 slider22:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T-75,4x12 V30,8x10 Sealed,4x12 Sheffield,1x15 Open,4x10 Sealed,4x12 Closed}>-Cabinet B
 slider23:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
+slider25:100<0,100,1>-Speaker Breakup (%)
 slider24:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
 
@@ -138,7 +139,7 @@ d_miller_freq = 8000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
   // Broadcast system (instance manager) — type 12, 24 synced params, stale @ 710000
-  bc.lms_bc_init(12, 24, 710000);
+  bc.lms_bc_init(12, 25, 710000);
   notice_show = 0;
 
 @slider
@@ -170,6 +171,8 @@ cab2_mic = slider23;
 cab2.lms_cab_set_mic(cab2_mic);
 cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
 cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
+cab.cab_breakup_amt = slider25 / 100;
+cab2.cab_breakup_amt = slider25 / 100;
 
 // Impedance interaction — rear panel tap + load mismatch
 amp_designed_ohms = slider24 == 0 ? 4 : slider24 == 1 ? 8 : 16;
@@ -229,6 +232,8 @@ cab2_mic = slider23;
 cab2.lms_cab_set_mic(cab2_mic);
 cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
 cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
+cab.cab_breakup_amt = slider25 / 100;
+cab2.cab_breakup_amt = slider25 / 100;
 
 // Impedance interaction — rear panel tap + load mismatch
 amp_designed_ohms = slider24 == 0 ? 4 : slider24 == 1 ? 8 : 16;
@@ -284,6 +289,7 @@ bc.bc_leader_pbase > 0 ? (
   slider22 = gmem[bc.bc_leader_pbase + 21];
   slider23 = gmem[bc.bc_leader_pbase + 22];
   slider24 = gmem[bc.bc_leader_pbase + 23];
+  slider25 = gmem[bc.bc_leader_pbase + 24];
 );
 
 // Steal: one-shot copy from target
@@ -311,6 +317,7 @@ bc.bc_did_steal ? (
   slider22 = gmem[bc.bc_steal_pbase + 21];
   slider23 = gmem[bc.bc_steal_pbase + 22];
   slider24 = gmem[bc.bc_steal_pbase + 23];
+  slider25 = gmem[bc.bc_steal_pbase + 24];
 );
 
 // Write our params for others to read
@@ -338,6 +345,7 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 21] = slider22;
   gmem[bc.bc_my_pbase + 22] = slider23;
   gmem[bc.bc_my_pbase + 23] = slider24;
+  gmem[bc.bc_my_pbase + 24] = slider25;
 );
 
 @sample
@@ -614,7 +622,7 @@ slider18 != _old ? slider_automate(2^17);
   cab_panel_y = body_y + p3h + gap;
   cab_panel_w = col_w * 2 + gap;
   cab_panel_x = margin;
-  cab_panel_h = floor(155 * S);
+  cab_panel_h = floor(175 * S);
   lms_draw_panel(cab_panel_x, cab_panel_y, cab_panel_w, cab_panel_h, "CABINET");
   cab_cy = cab_panel_y + floor(26 * S);
   cab_cw = floor(cab_panel_w * 0.60);
@@ -628,9 +636,11 @@ slider18 != _old ? slider_automate(2^17);
   slider22 != _old ? slider_automate(2^21);
   _old = slider23; slider23 = lms_draw_bar(cab_panel_x + 4, cab_cy + bar_sp * 3, cab_panel_w - 8, bar_h, slider23, 0, 100, "Mic B Distance", 1);
   slider23 != _old ? slider_automate(2^22);
+  _old = slider25; slider25 = lms_draw_bar(cab_panel_x + 4, cab_cy + bar_sp * 4, cab_panel_w - 8, bar_h, slider25, 0, 100, "Spkr Breakup", 1);
+  slider25 != _old ? slider_automate(2^24);
   // Impedance tap selector (clickable) + readout
   gfx_setfont(1, "Arial", F_TINY);
-  ohm_tap_y = cab_cy + bar_sp * 4 + floor(2 * S);
+  ohm_tap_y = cab_cy + bar_sp * 5 + floor(2 * S);
   ohm_tap_x = cab_panel_x + 4;
   ohm_tap_w = floor(70 * S);
   ohm_tap_h = floor(16 * S);
