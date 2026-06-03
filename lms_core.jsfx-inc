@@ -3169,6 +3169,7 @@ function lms_cab_init()
   this.cab_res_base_q = 2.0;
   this.last_dyn_lp_freq = 0;
   this.last_dyn_res_gain = 0;
+  this.cab_breakup_amt = 1.0;
 );
 
 
@@ -3348,7 +3349,7 @@ function lms_cab_proc(x, density)
 
       // Soft saturate the breakup band, mix back as parallel harmonics
       brk_sat = lms_tanh(brk_band * brk_drive) - brk_band;
-      out += brk_sat * 0.15;
+      out += brk_sat * 0.15 * this.cab_breakup_amt;
     );
 
     // --- Static EQ chain (preset bands) ---
@@ -3362,7 +3363,7 @@ function lms_cab_proc(x, density)
     this.cab_band_count >= 8 ? out = this.b8.lms_bq_proc(out);
 
     // --- Dynamic LP: speaker gets darker when pushed ---
-    dyn_lp_freq = this.cab_lp_base_freq - (density - 1.0) * this.cab_lp_base_freq * 0.25;
+    dyn_lp_freq = this.cab_lp_base_freq - (density - 1.0) * this.cab_lp_base_freq * 0.25 * this.cab_breakup_amt;
     dyn_lp_freq = max(this.cab_lp_base_freq * 0.60, min(this.cab_lp_base_freq, dyn_lp_freq));
     abs(dyn_lp_freq - this.last_dyn_lp_freq) > 20 ? (
       this.brk_lp.lms_bq_set_lp(dyn_lp_freq, this.cab_lp_base_q);
@@ -3371,7 +3372,7 @@ function lms_cab_proc(x, density)
     out = this.brk_lp.lms_bq_proc(out);
 
     // --- Dynamic resonance: cab resonance excited by excursion ---
-    dyn_res_gain = (density - 1.0) * 2.0;
+    dyn_res_gain = (density - 1.0) * 2.0 * this.cab_breakup_amt;
     dyn_res_gain = max(0, min(3.0, dyn_res_gain));
     abs(dyn_res_gain - this.last_dyn_res_gain) > 0.2 ? (
       this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, dyn_res_gain, this.cab_res_base_q);
