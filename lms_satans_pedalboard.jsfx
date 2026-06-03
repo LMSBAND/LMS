@@ -93,26 +93,26 @@ slider54:150<5,2000,1>-Out Release (ms)
 slider55:0<-12,24,0.1>-Out Makeup (dB)
 
 // MARMOT (ProCo RAT distortion)
-slider56:0<0,1,1{Off,On}>-MARMOT
+slider4:0<0,1,1{Off,On}>-MARMOT
 slider57:50<0,100,1>-MA Drive (%)
 slider58:50<0,100,1>-MA Tone (%)
 slider59:50<0,100,1>-MA Level (%)
 
 // 12 STEPPER (analog octave pedal)
-slider60:0<0,1,1{Off,On}>-12 STEPPER
+slider37:0<0,1,1{Off,On}>-12 STEPPER
 slider61:100<0,100,1>-12S Dry (%)
 slider62:50<0,100,1>-12S Oct -12
 slider63:0<0,100,1>-12S Oct -24
 slider64:0<0,100,1>-12S Oct +12
 
 // GREEN SIN (Ibanez Tube Screamer TS-808/TS-9)
-slider65:0<0,1,1{Off,On}>-GREEN SIN
+slider38:0<0,1,1{Off,On}>-GREEN SIN
 slider66:50<0,100,1>-GS Drive (%)
 slider67:50<0,100,1>-GS Tone (%)
 slider68:50<0,100,1>-GS Level (%)
 
 // JUDGEMENT DAY (Parametric EQ — Punk / Jazz / Metal / Flat)
-slider70:0<0,1,1{Off,On}>-JUDGEMENT DAY
+slider39:0<0,1,1{Off,On}>-JUDGEMENT DAY
 slider71:3<0,3,1{Punk,Jazz,Metal,Flat}>-JD Mode
 slider72:0<-12,12,0.1>-JD Low (dB)
 slider73:0<-12,12,0.1>-JD Mid (dB)
@@ -455,7 +455,7 @@ out_comp.lms_comp_set(slider51, slider52, slider53, slider54);
 out_comp_makeup = lms_db2lin(slider55);
 
 // MARMOT
-ma_on    = slider56;
+ma_on    = slider4;
 ma_drive = slider57 / 100;
 ma_tone  = slider58 / 100;
 ma_level = slider59 / 100;
@@ -463,14 +463,14 @@ pb_marmot_l.lms_marmot_set(ma_drive, ma_tone);
 pb_marmot_r.lms_marmot_set(ma_drive, ma_tone);
 
 // 12 STEPPER
-st_on  = slider60;
+st_on  = slider37;
 st_dry = slider61 / 100;
 st_dn1 = slider62 / 100;
 st_dn2 = slider63 / 100;
 st_up  = slider64 / 100;
 
 // GREEN SIN (Tube Screamer)
-ts_on    = slider65;
+ts_on    = slider38;
 ts_drive = slider66 / 100;
 ts_tone  = slider67 / 100;
 ts_level = slider68 / 100 * 2.0;  // 0..2× so user can make up level
@@ -478,7 +478,7 @@ pb_ts_l.lms_ts_set(ts_tone);
 pb_ts_r.lms_ts_set(ts_tone);
 
 // THE JUDGE (Parametric EQ)
-eq_on    = slider70;
+eq_on    = slider39;
 eq_mode  = slider71;
 eq_lo    = slider72;
 eq_mid   = slider73;
@@ -524,16 +524,16 @@ in_comp_makeup = lms_db2lin(slider45);
 out_comp_on = slider50;
 out_comp.lms_comp_set(slider51, slider52, slider53, slider54);
 out_comp_makeup = lms_db2lin(slider55);
-ma_on = slider56; ma_drive = slider57/100; ma_tone = slider58/100; ma_level = slider59/100;
+ma_on = slider4; ma_drive = slider57/100; ma_tone = slider58/100; ma_level = slider59/100;
 pb_marmot_l.lms_marmot_set(ma_drive, ma_tone);
 pb_marmot_r.lms_marmot_set(ma_drive, ma_tone);
-st_on = slider60; st_dry = slider61/100; st_dn1 = slider62/100; st_dn2 = slider63/100; st_up = slider64/100;
+st_on = slider37; st_dry = slider61/100; st_dn1 = slider62/100; st_dn2 = slider63/100; st_up = slider64/100;
 
-ts_on = slider65; ts_drive = slider66/100; ts_tone = slider67/100; ts_level = slider68/100 * 2.0;
+ts_on = slider38; ts_drive = slider66/100; ts_tone = slider67/100; ts_level = slider68/100 * 2.0;
 pb_ts_l.lms_ts_set(ts_tone);
 pb_ts_r.lms_ts_set(ts_tone);
 
-eq_on = slider70; eq_mode = slider71;
+eq_on = slider39; eq_mode = slider71;
 // JUDGEMENT DAY: when the mode changes, snap the knobs to that preset's
 // defaults so the user sees the actual curve values and can tweak from there.
 eq_mode_last != slider71 ? (
@@ -542,8 +542,6 @@ eq_mode_last != slider71 ? (
   slider74 = EQ_DEFAULTS[slider71 * 5 + 2];
   slider75 = EQ_DEFAULTS[slider71 * 5 + 3];
   slider76 = EQ_DEFAULTS[slider71 * 5 + 4];
-  slider_automate(2^71); slider_automate(2^72); slider_automate(2^73);
-  slider_automate(2^74); slider_automate(2^75);
   eq_mode_last = slider71;
 );
 eq_lo = slider72; eq_mid = slider73; eq_hi = slider74; eq_pr = slider75;
@@ -604,20 +602,20 @@ bc.bc_leader_pbase > 0 ? (
   slider53 = gmem[bc.bc_leader_pbase + 44];
   slider54 = gmem[bc.bc_leader_pbase + 45];
   slider55 = gmem[bc.bc_leader_pbase + 46];
-  slider56 = gmem[bc.bc_leader_pbase + 47];
+  slider4 = gmem[bc.bc_leader_pbase + 47];
   slider57 = gmem[bc.bc_leader_pbase + 48];
   slider58 = gmem[bc.bc_leader_pbase + 49];
   slider59 = gmem[bc.bc_leader_pbase + 50];
-  slider60 = gmem[bc.bc_leader_pbase + 51];
+  slider37 = gmem[bc.bc_leader_pbase + 51];
   slider61 = gmem[bc.bc_leader_pbase + 52];
   slider62 = gmem[bc.bc_leader_pbase + 53];
   slider63 = gmem[bc.bc_leader_pbase + 54];
   slider64 = gmem[bc.bc_leader_pbase + 55];
-  slider65 = gmem[bc.bc_leader_pbase + 56];
+  slider38 = gmem[bc.bc_leader_pbase + 56];
   slider66 = gmem[bc.bc_leader_pbase + 57];
   slider67 = gmem[bc.bc_leader_pbase + 58];
   slider68 = gmem[bc.bc_leader_pbase + 59];
-  slider70 = gmem[bc.bc_leader_pbase + 60];
+  slider39 = gmem[bc.bc_leader_pbase + 60];
   slider71 = gmem[bc.bc_leader_pbase + 61];
   slider72 = gmem[bc.bc_leader_pbase + 62];
   slider73 = gmem[bc.bc_leader_pbase + 63];
@@ -673,20 +671,20 @@ bc.bc_did_steal ? (
   slider53 = gmem[bc.bc_steal_pbase + 44];
   slider54 = gmem[bc.bc_steal_pbase + 45];
   slider55 = gmem[bc.bc_steal_pbase + 46];
-  slider56 = gmem[bc.bc_steal_pbase + 47];
+  slider4 = gmem[bc.bc_steal_pbase + 47];
   slider57 = gmem[bc.bc_steal_pbase + 48];
   slider58 = gmem[bc.bc_steal_pbase + 49];
   slider59 = gmem[bc.bc_steal_pbase + 50];
-  slider60 = gmem[bc.bc_steal_pbase + 51];
+  slider37 = gmem[bc.bc_steal_pbase + 51];
   slider61 = gmem[bc.bc_steal_pbase + 52];
   slider62 = gmem[bc.bc_steal_pbase + 53];
   slider63 = gmem[bc.bc_steal_pbase + 54];
   slider64 = gmem[bc.bc_steal_pbase + 55];
-  slider65 = gmem[bc.bc_steal_pbase + 56];
+  slider38 = gmem[bc.bc_steal_pbase + 56];
   slider66 = gmem[bc.bc_steal_pbase + 57];
   slider67 = gmem[bc.bc_steal_pbase + 58];
   slider68 = gmem[bc.bc_steal_pbase + 59];
-  slider70 = gmem[bc.bc_steal_pbase + 60];
+  slider39 = gmem[bc.bc_steal_pbase + 60];
   slider71 = gmem[bc.bc_steal_pbase + 61];
   slider72 = gmem[bc.bc_steal_pbase + 62];
   slider73 = gmem[bc.bc_steal_pbase + 63];
@@ -742,20 +740,20 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 44] = slider53;
   gmem[bc.bc_my_pbase + 45] = slider54;
   gmem[bc.bc_my_pbase + 46] = slider55;
-  gmem[bc.bc_my_pbase + 47] = slider56;
+  gmem[bc.bc_my_pbase + 47] = slider4;
   gmem[bc.bc_my_pbase + 48] = slider57;
   gmem[bc.bc_my_pbase + 49] = slider58;
   gmem[bc.bc_my_pbase + 50] = slider59;
-  gmem[bc.bc_my_pbase + 51] = slider60;
+  gmem[bc.bc_my_pbase + 51] = slider37;
   gmem[bc.bc_my_pbase + 52] = slider61;
   gmem[bc.bc_my_pbase + 53] = slider62;
   gmem[bc.bc_my_pbase + 54] = slider63;
   gmem[bc.bc_my_pbase + 55] = slider64;
-  gmem[bc.bc_my_pbase + 56] = slider65;
+  gmem[bc.bc_my_pbase + 56] = slider38;
   gmem[bc.bc_my_pbase + 57] = slider66;
   gmem[bc.bc_my_pbase + 58] = slider67;
   gmem[bc.bc_my_pbase + 59] = slider68;
-  gmem[bc.bc_my_pbase + 60] = slider70;
+  gmem[bc.bc_my_pbase + 60] = slider39;
   gmem[bc.bc_my_pbase + 61] = slider71;
   gmem[bc.bc_my_pbase + 62] = slider72;
   gmem[bc.bc_my_pbase + 63] = slider73;
@@ -1137,31 +1135,29 @@ draw_section_header(px_jd,  sec_hdr_y, panel_w,                              "EQ
 
 // --- 1. 12 STEPPER (PITCH) ---
 px = px_12s;
-draw_panel(px, body_y, panel_w, panel_h, "12 STEPPER", slider60);
-_old = slider60; slider60 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider60);
-slider60 != _old ? slider_automate(2^59);
+draw_panel(px, body_y, panel_w, panel_h, "12 STEPPER", slider37);
+_old = slider37; slider37 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider37);
+slider37 != _old ? slider_automate(2^36);
 cy = body_y + floor(28 * S);
 _old = slider61; slider61 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider61, 0, 100, "Dry", 1);
-slider61 != _old ? slider_automate(2^60); cy += bar_sp;
+cy += bar_sp;
 _old = slider62; slider62 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider62, 0, 100, "Oct -12", 1);
-slider62 != _old ? slider_automate(2^61); cy += bar_sp;
+cy += bar_sp;
 _old = slider63; slider63 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider63, 0, 100, "Oct -24", 1);
-slider63 != _old ? slider_automate(2^62); cy += bar_sp;
+cy += bar_sp;
 _old = slider64; slider64 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider64, 0, 100, "Oct +12", 1);
-slider64 != _old ? slider_automate(2^63);
 
 // --- 2. GREEN SIN (DISTORTION — Tube Screamer) ---
 px = px_gs;
-draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider65);
-_old = slider65; slider65 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider65);
-slider65 != _old ? slider_automate(2^64);
+draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider38);
+_old = slider38; slider38 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider38);
+slider38 != _old ? slider_automate(2^37);
 cy = body_y + floor(28 * S);
 _old = slider66; slider66 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider66, 0, 100, "Drive", 1);
-slider66 != _old ? slider_automate(2^65); cy += bar_sp;
+cy += bar_sp;
 _old = slider67; slider67 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider67, 0, 100, "Tone", 1);
-slider67 != _old ? slider_automate(2^66); cy += bar_sp;
+cy += bar_sp;
 _old = slider68; slider68 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider68, 0, 100, "Level", 1);
-slider68 != _old ? slider_automate(2^67);
 
 // --- 3. HARDWARE INCOMPATIBLE (DISTORTION — BD-2) ---
 px = px_hwi;
@@ -1195,16 +1191,15 @@ slider9 != _old ? slider_automate(2^8);
 
 // --- 5. MARMOT (DISTORTION — RAT) ---
 px = px_ma;
-draw_panel(px, body_y, panel_w, panel_h, "MARMOT", slider56);
-_old = slider56; slider56 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider56);
-slider56 != _old ? slider_automate(2^55);
+draw_panel(px, body_y, panel_w, panel_h, "MARMOT", slider4);
+_old = slider4; slider4 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider4);
+slider4 != _old ? slider_automate(2^3);
 cy = body_y + floor(28 * S);
 _old = slider57; slider57 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider57, 0, 100, "Drive", 1);
-slider57 != _old ? slider_automate(2^56); cy += bar_sp;
+cy += bar_sp;
 _old = slider58; slider58 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider58, 0, 100, "Tone", 1);
-slider58 != _old ? slider_automate(2^57); cy += bar_sp;
+cy += bar_sp;
 _old = slider59; slider59 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider59, 0, 100, "Level", 1);
-slider59 != _old ? slider_automate(2^58);
 
 // --- 6. BLACK MASS (MODULATION — Chorus) ---
 px = px_bm;
@@ -1270,9 +1265,9 @@ slider35 != _old ? slider_automate(2^34);
 
 // --- 10. JUDGEMENT DAY (EQ — Parametric) ---
 px = px_jd;
-draw_panel(px, body_y, panel_w, panel_h, "JUDGEMENT DAY", slider70);
-_old = slider70; slider70 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider70);
-slider70 != _old ? slider_automate(2^69);
+draw_panel(px, body_y, panel_w, panel_h, "JUDGEMENT DAY", slider39);
+_old = slider39; slider39 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider39);
+slider39 != _old ? slider_automate(2^38);
 cy = body_y + floor(28 * S);
 // Mode is a 4-way click cycle — draw_mode_sel only handles 3, so do it inline
 gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
@@ -1301,18 +1296,16 @@ _old = slider71;
   mouse_y >= cy && mouse_y <= cy + bar_h ? (
     slider71 = slider71 - 1; slider71 < 0 ? slider71 = 3;
 );
-slider71 != _old ? slider_automate(2^70);
 cy += bar_sp;
 _old = slider72; slider72 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider72, -12, 12, "Low", 1);
-slider72 != _old ? slider_automate(2^71); cy += bar_sp;
+cy += bar_sp;
 _old = slider73; slider73 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider73, -12, 12, "Mid", 1);
-slider73 != _old ? slider_automate(2^72); cy += bar_sp;
+cy += bar_sp;
 _old = slider74; slider74 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider74, -12, 12, "High", 1);
-slider74 != _old ? slider_automate(2^73); cy += bar_sp;
+cy += bar_sp;
 _old = slider75; slider75 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider75, -12, 12, "Pres", 1);
-slider75 != _old ? slider_automate(2^74); cy += bar_sp;
+cy += bar_sp;
 _old = slider76; slider76 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider76, -12, 12, "Level", 1);
-slider76 != _old ? slider_automate(2^75);
 
 // --- OUT COMP STRIP ---
 outcomp_y = body_y + panel_h + floor(8 * S);
@@ -1342,9 +1335,7 @@ slider52 != _old ? slider_automate(2^51);
 _old = slider53; slider53 = draw_bar(ocx0 + (comp_bar_w + gap) * 2, ocy0, comp_bar_w, comp_bar_h, slider53, 0.1, 100, "Att ms", 1);
 slider53 != _old ? slider_automate(2^52);
 _old = slider54; slider54 = draw_bar(ocx0 + (comp_bar_w + gap) * 3, ocy0, comp_bar_w, comp_bar_h, slider54, 5, 2000, "Rel ms", 1);
-slider54 != _old ? slider_automate(2^53);
 _old = slider55; slider55 = draw_bar(ocx0 + (comp_bar_w + gap) * 4, ocy0, comp_bar_w, comp_bar_h, slider55, -12, 24, "Makeup", 1);
-slider55 != _old ? slider_automate(2^54);
 
 // Instance manager
 bc_panel_y = bc.lms_bc_gfx(S, last_cap);
