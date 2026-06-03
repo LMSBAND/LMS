@@ -4910,6 +4910,54 @@ function lms_ts_proc(x, drive, level) local(pre, boost, pos, neg, clipped, mixed
   y * level;
 );
 
+// ------------------------------------------------------------
+// lms_klon — Klon Centaur transparent overdrive
+//   Charge pump (18V headroom), germanium diode clippers in
+//   op-amp feedback, clean/dirty blend that tracks the gain knob,
+//   post-clip treble control with presence peak around 1.7kHz.
+//   Germanium = softer/rounder/more compressed than silicon.
+// ------------------------------------------------------------
+function lms_klon_init() (
+  this.dc_in.lms_dc_init();
+  this.in_hp.lms_bq_init();
+  this.in_hp.lms_bq_set_hp(30, 0.5);
+  this.pre_lp.lms_bq_init();
+  this.pre_lp.lms_bq_set_lp(15000, 0.5);
+  this.tone_hs.lms_bq_init();
+  this.tone_hs.lms_bq_set_hishelf(2000, 0.0, 0.7);
+  this.pres_pk.lms_bq_init();
+  this.pres_pk.lms_bq_set_peak(1700, 2.0, 1.5);
+  this.dc_out.lms_dc_init();
+);
+function lms_klon_set(treble) local(hs_db) (
+  hs_db = (treble - 0.5) * 12.0;
+  this.tone_hs.lms_bq_set_hishelf(2000, hs_db, 0.7);
+  this.pres_pk.lms_bq_set_peak(1700, treble * 3.0, 1.5);
+);
+function lms_klon_proc(x, drive, level)
+  local(pre, boost, ge_clip, clean_amt, dirty_amt, mixed, y)
+(
+  pre = this.dc_in.lms_dc_proc_l(x);
+  pre = this.in_hp.lms_bq_proc(pre);
+  pre = this.pre_lp.lms_bq_proc(pre);
+  // Op-amp gain — 18V charge pump gives ~2× headroom vs 9V pedals
+  boost = 1 + drive * drive * 55;
+  pre = pre * boost;
+  // Germanium diode pair (1N34A) — ~0.3V forward voltage (vs 0.7V silicon)
+  // Softer knee, rounder saturation, more even-harmonic content
+  ge_clip = lms_tanh(pre * 0.45) * 1.8;
+  // The Klon's signature: clean/dirty blend tracks the gain knob
+  // Low gain = mostly clean with just a touch of edge
+  // High gain = mostly clipped, but never 100% — always some clean mixed in
+  clean_amt = (1.0 - drive * 0.85);
+  dirty_amt = 0.15 + drive * 0.85;
+  mixed = x * clean_amt + ge_clip * dirty_amt;
+  // Post-clip tone shaping — treble control + presence peak
+  y = this.tone_hs.lms_bq_proc(mixed);
+  y = this.pres_pk.lms_bq_proc(y);
+  y = this.dc_out.lms_dc_proc_l(y);
+  y * level;
+);
 
 // ------------------------------------------------------------
 // lms_paraeq — 4-band parametric EQ with genre voicings

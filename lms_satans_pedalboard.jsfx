@@ -111,6 +111,12 @@ slider66:50<0,100,1>-GS Drive (%)
 slider67:50<0,100,1>-GS Tone (%)
 slider68:50<0,100,1>-GS Level (%)
 
+// GOLDEN CALF (Klon Centaur — transparent overdrive)
+slider46:0<0,1,1{Off,On}>-GOLDEN CALF
+slider47:30<0,100,1>-GC Drive (%)
+slider48:50<0,100,1>-GC Treble (%)
+slider49:50<0,100,1>-GC Level (%)
+
 // JUDGEMENT DAY (Parametric EQ — Punk / Jazz / Metal / Flat)
 slider39:0<0,1,1{Off,On}>-JUDGEMENT DAY
 slider71:3<0,3,1{Punk,Jazz,Metal,Flat}>-JD Mode
@@ -146,7 +152,7 @@ UB_PRE_BUF   = 159744;   UB_PRE_SIZE  = 2048;           // hall pre-delay
 //  sections around. Within a section the pedal order is fixed. 12 STEPPER
 //  sits at the very front (octavers track cleanest on raw input).
 //
-//  Pedal IDs: 0=DOA 1=HWI 2=BM 3=EL 4=PW 5=UB 6=MARMOT 7=12STEPPER 8=TS 9=EQ
+//  Pedal IDs: 0=DOA 1=HWI 2=BM 3=EL 4=PW 5=UB 6=MARMOT 7=12STEPPER 8=TS 9=EQ 10=KLON
 //  Section IDs: 0=DIST, 1=MOD, 2=DELAY, 3=REVERB, 4=EQ
 //
 //  To add a new pedal: add it to SECTION_CONTENTS under its section and bump
@@ -159,10 +165,10 @@ SECTION_LENGTHS  = 161867;  // 5 ints — how many pedals in each section
 CHAIN_ORDER      = 161872;  // flattened pedal IDs (12 STEPPER + sections), 16-slot headroom
 
 // Section contents — pedal order WITHIN each section is fixed here.
-// DIST: GREEN SIN → HWI → DOA666 → MARMOT  (tight-to-loose stacking)
-SECTION_LENGTHS[0] = 4;
-SECTION_CONTENTS[0] = 8; SECTION_CONTENTS[1] = 1;
-SECTION_CONTENTS[2] = 0; SECTION_CONTENTS[3] = 6;
+// DIST: KLON → GREEN SIN → HWI → DOA666 → MARMOT  (transparent → tight → loose)
+SECTION_LENGTHS[0] = 5;
+SECTION_CONTENTS[0] = 10; SECTION_CONTENTS[1] = 8; SECTION_CONTENTS[2] = 1;
+SECTION_CONTENTS[3] = 0; SECTION_CONTENTS[4] = 6;
 // MOD: BLACK MASS → PIPEWORKS  (chorus before flanger)
 SECTION_LENGTHS[1] = 2;
 SECTION_CONTENTS[8] = 2; SECTION_CONTENTS[9] = 4;
@@ -260,6 +266,10 @@ pb_stepper.lms_12stepper_set(0.5);
 pb_ts_l.lms_ts_init();  pb_ts_r.lms_ts_init();
 pb_ts_l.lms_ts_set(0.5);  pb_ts_r.lms_ts_set(0.5);
 
+// GOLDEN CALF — Klon Centaur, stereo (paired L/R)
+pb_klon_l.lms_klon_init();  pb_klon_r.lms_klon_init();
+pb_klon_l.lms_klon_set(0.5);  pb_klon_r.lms_klon_set(0.5);
+
 // THE JUDGE — parametric EQ, stereo (paired L/R; linear so phase-aligned)
 pb_eq_l.lms_paraeq_init();  pb_eq_r.lms_paraeq_init();
 pb_eq_l.lms_paraeq_set(3, 0, 0, 0, 0);  pb_eq_r.lms_paraeq_set(3, 0, 0, 0, 0);
@@ -340,6 +350,12 @@ function run_ts() (
     r_ = pb_ts_r.lms_ts_proc(r_, ts_drive, ts_level);
   );
 );
+function run_klon() (
+  klon_on ? (
+    l_ = pb_klon_l.lms_klon_proc(l_, klon_drive, klon_level);
+    r_ = pb_klon_r.lms_klon_proc(r_, klon_drive, klon_level);
+  );
+);
 function run_eq() (
   eq_on ? (
     l_ = pb_eq_l.lms_paraeq_proc(l_) * eq_level;
@@ -361,6 +377,7 @@ chain_order_sel = 0;
 in_comp_on = 0; in_comp_makeup = 1.0;
 out_comp_on = 0; out_comp_makeup = 1.0;
 ts_on = 0; ts_drive = 0.5; ts_tone = 0.5; ts_level = 0.5;
+klon_on = 0; klon_drive = 0.3; klon_treble = 0.5; klon_level = 0.5;
 eq_on = 0; eq_mode = 3; eq_lo = 0; eq_mid = 0; eq_hi = 0; eq_pr = 0; eq_level = 1.0;
 
 // JUDGEMENT DAY preset knob defaults (applied when the user changes mode)
@@ -382,7 +399,7 @@ i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i +=
 build_chain_order();
 
 // Broadcast — type_id 31, 67 params, stale 960000
-bc.lms_bc_init(31, 67, 960000);
+bc.lms_bc_init(31, 71, 960000);
 notice_show = 0;
 buy_show = 0;
 
@@ -477,6 +494,14 @@ ts_level = slider68 / 100 * 2.0;  // 0..2× so user can make up level
 pb_ts_l.lms_ts_set(ts_tone);
 pb_ts_r.lms_ts_set(ts_tone);
 
+// GOLDEN CALF (Klon Centaur)
+klon_on    = slider46;
+klon_drive = slider47 / 100;
+klon_treble = slider48 / 100;
+klon_level = slider49 / 100;
+pb_klon_l.lms_klon_set(klon_treble);
+pb_klon_r.lms_klon_set(klon_treble);
+
 // THE JUDGE (Parametric EQ)
 eq_on    = slider39;
 eq_mode  = slider71;
@@ -532,6 +557,10 @@ st_on = slider37; st_dry = slider61/100; st_dn1 = slider62/100; st_dn2 = slider6
 ts_on = slider38; ts_drive = slider66/100; ts_tone = slider67/100; ts_level = slider68/100 * 2.0;
 pb_ts_l.lms_ts_set(ts_tone);
 pb_ts_r.lms_ts_set(ts_tone);
+
+klon_on = slider46; klon_drive = slider47/100; klon_treble = slider48/100; klon_level = slider49/100;
+pb_klon_l.lms_klon_set(klon_treble);
+pb_klon_r.lms_klon_set(klon_treble);
 
 eq_on = slider39; eq_mode = slider71;
 // JUDGEMENT DAY: when the mode changes, snap the knobs to that preset's
@@ -622,6 +651,10 @@ bc.bc_leader_pbase > 0 ? (
   slider74 = gmem[bc.bc_leader_pbase + 64];
   slider75 = gmem[bc.bc_leader_pbase + 65];
   slider76 = gmem[bc.bc_leader_pbase + 66];
+  slider46 = gmem[bc.bc_leader_pbase + 67];
+  slider47 = gmem[bc.bc_leader_pbase + 68];
+  slider48 = gmem[bc.bc_leader_pbase + 69];
+  slider49 = gmem[bc.bc_leader_pbase + 70];
 );
 bc.bc_did_steal ? (
   slider1  = gmem[bc.bc_steal_pbase + 0];
@@ -691,6 +724,10 @@ bc.bc_did_steal ? (
   slider74 = gmem[bc.bc_steal_pbase + 64];
   slider75 = gmem[bc.bc_steal_pbase + 65];
   slider76 = gmem[bc.bc_steal_pbase + 66];
+  slider46 = gmem[bc.bc_steal_pbase + 67];
+  slider47 = gmem[bc.bc_steal_pbase + 68];
+  slider48 = gmem[bc.bc_steal_pbase + 69];
+  slider49 = gmem[bc.bc_steal_pbase + 70];
 );
 bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 0]  = slider1;
@@ -760,6 +797,10 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 64] = slider74;
   gmem[bc.bc_my_pbase + 65] = slider75;
   gmem[bc.bc_my_pbase + 66] = slider76;
+  gmem[bc.bc_my_pbase + 67] = slider46;
+  gmem[bc.bc_my_pbase + 68] = slider47;
+  gmem[bc.bc_my_pbase + 69] = slider48;
+  gmem[bc.bc_my_pbase + 70] = slider49;
 );
 
 
@@ -796,7 +837,8 @@ tuner.lms_tuner_write((spl0 + spl1) * 0.5);
     slot_id == 6 ? run_marmot() :
     slot_id == 7 ? run_stepper() :
     slot_id == 8 ? run_ts() :
-    slot_id == 9 ? run_eq();
+    slot_id == 9 ? run_eq() :
+    slot_id == 10 ? run_klon();
     i += 1;
   );
 
@@ -1090,14 +1132,15 @@ sec_gap = floor(16 * S);
 sec_hdr_h = floor(14 * S);
 sec_hdr_y = order_y + order_h + floor(6 * S);
 body_y = sec_hdr_y + sec_hdr_h + floor(4 * S);
-// 10 panels, 4 inter-panel gaps (3 inside DIST + 1 inside MOD), 5 section boundaries
-panel_w = floor((gfx_w - margin * 2 - gap * 4 - sec_gap * 5) / 10);
+// 11 panels, 5 inter-panel gaps (4 inside DIST + 1 inside MOD), 5 section boundaries
+panel_w = floor((gfx_w - margin * 2 - gap * 5 - sec_gap * 5) / 11);
 panel_h = floor(260 * S);
 bar_h = floor(16 * S); bar_sp = floor(20 * S); pad = floor(5 * S);
 
 // Panel x-positions (left-to-right in section order)
 px_12s = margin;
-px_gs  = px_12s + panel_w + sec_gap;   // DIST starts
+px_kl  = px_12s + panel_w + sec_gap;   // DIST starts (Klon first — transparent boost)
+px_gs  = px_kl  + panel_w + gap;
 px_hwi = px_gs  + panel_w + gap;
 px_doa = px_hwi + panel_w + gap;
 px_ma  = px_doa + panel_w + gap;
@@ -1127,7 +1170,7 @@ function draw_section_header(sx, sy, sw, label, r, g, b)
 );
 
 draw_section_header(px_12s, sec_hdr_y, panel_w,                              "PITCH",      0.70, 0.40, 0.95);
-draw_section_header(px_gs,  sec_hdr_y, (px_ma + panel_w) - px_gs,            "DISTORTION", 0.95, 0.45, 0.15);
+draw_section_header(px_kl,  sec_hdr_y, (px_ma + panel_w) - px_kl,            "DISTORTION", 0.95, 0.45, 0.15);
 draw_section_header(px_bm,  sec_hdr_y, (px_pw + panel_w) - px_bm,            "MODULATION", 0.90, 0.25, 0.45);
 draw_section_header(px_el,  sec_hdr_y, panel_w,                              "DELAY",      0.30, 0.65, 0.85);
 draw_section_header(px_ub,  sec_hdr_y, panel_w,                              "REVERB",     0.30, 0.85, 0.45);
@@ -1147,7 +1190,19 @@ _old = slider63; slider63 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slide
 cy += bar_sp;
 _old = slider64; slider64 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider64, 0, 100, "Oct +12", 1);
 
-// --- 2. GREEN SIN (DISTORTION — Tube Screamer) ---
+// --- 2. GOLDEN CALF (DISTORTION — Klon Centaur) ---
+px = px_kl;
+draw_panel(px, body_y, panel_w, panel_h, "GOLDEN CALF", slider46);
+_old = slider46; slider46 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider46);
+slider46 != _old ? slider_automate(2^45);
+cy = body_y + floor(28 * S);
+_old = slider47; slider47 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider47, 0, 100, "Drive", 1);
+cy += bar_sp;
+_old = slider48; slider48 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider48, 0, 100, "Treble", 1);
+cy += bar_sp;
+_old = slider49; slider49 = draw_bar(px + pad, cy, panel_w - pad*2, bar_h, slider49, 0, 100, "Level", 1);
+
+// --- 3. GREEN SIN (DISTORTION — Tube Screamer) ---
 px = px_gs;
 draw_panel(px, body_y, panel_w, panel_h, "GREEN SIN", slider38);
 _old = slider38; slider38 = draw_toggle(px + panel_w - floor(26 * S), body_y + floor(3 * S), slider38);
