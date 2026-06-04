@@ -87,6 +87,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="6.6" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v6.6 — Speaker breakup slider. lms_cab_proc now takes a user-controllable breakup amount parameter, allowing per-amp speaker breakup intensity control from 0-100%. All 11 amp sims updated with new Speaker Breakup slider.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -357,6 +362,10 @@
         <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -411,6 +420,10 @@
         <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
+      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -461,6 +474,10 @@
         <changelog><![CDATA[v1.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -485,6 +502,10 @@
       </version>
       <version name="1.9" author="LMS" time="2026-04-21T18:00:00Z">
         <changelog><![CDATA[v1.9 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -541,6 +562,10 @@
         <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
+      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.8 — Jumped channel mode: run Normal and Top Boost channels in parallel for the classic linked-input Vox sound. Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -591,6 +616,10 @@
         <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -637,6 +666,10 @@
         <changelog><![CDATA[v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
+      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -662,20 +695,6 @@
           <version name="1.3" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
-      </version>
-    </reapack>
-    <reapack name="lms_density_seq.jsfx" type="effect" desc="LMS - Density Sequencer — Your Playing Is The Sequence">
-      <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
-        <changelog><![CDATA[Initial release — Density-reactive sequencer/instrument. Reads density state from any LMS amp plugin via gmem and generates rhythmic/melodic output driven by the harmonic content of your playing. Four modes: Drums (lo→kick, mid→snare, hi→hats, air→cymbals), Bass Synth (scale-quantized bass from density), Arp (density-driven arpeggiation with direction/range modulation), Drone (two oscillators with density-reactive filter and volume). Scale selection (minor/major pent, minor/major, chromatic), root note, swing, humanize. Pattern memory grid shows last 16 steps as density-colored cells. Built-in synth engine with 10 voices.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
-      </version>
-      <version name="0.2" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v0.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
-      </version>
-      <version name="0.3" author="LMS" time="2026-03-07T13:00:00Z">
-        <changelog><![CDATA[v0.3 — Notice updated to manifesto. Fix gmem namespace typo.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_density_seq.jsfx</source>
       </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
@@ -845,6 +864,10 @@
         <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+      <version name="1.9" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.9 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -873,6 +896,10 @@
       </version>
       <version name="1.7" author="LMS" time="2026-04-21T18:00:00Z">
         <changelog><![CDATA[v1.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
+      <version name="1.8" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
@@ -905,6 +932,10 @@
         <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+      <version name="1.9" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.9 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -935,32 +966,9 @@
         <changelog><![CDATA[v1.8 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
-    </reapack>
-    <reapack name="lms_harmony_map.jsfx" type="effect" desc="LMS Harmony Map — Timeline Chord Sequencer with Music Theory Navigation">
-      <version name="1.0" author="LMS" time="2026-03-18T12:00:00Z">
-        <changelog><![CDATA[Initial release — Timeline-locked chord sequencer based on harmonic proximity mathematics. Circle of fifths harmony map with diatonic highlighting, dominant resolution arrows, relative/parallel connections, diminished bridges, augmented links. Variable-width steps with bar duration controls, subdivisions per step, tick-level patterns. Per-step modifiers: SUS, 7th, b7, 9th, 6th, inversions. 8-pattern bank with colored tabs, duplicate, arrangement mode (8-row × N-col grid — step sequencer of step sequencers). P_* pointer system for zero-copy pattern playback in arrangement mode. Velocity editor per step. Key/mode transposition across all patterns. gmem broadcast (DrumBanger namespace) for suite-wide harmonic awareness. MIDI output synced to REAPER transport.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
-      </version>
-      <version name="2.0" author="LMS" time="2026-04-04T00:00:00Z">
-        <changelog><![CDATA[v2.0 — Song Mode: 16 patterns with labeled parts (Verse/Chorus/Bridge/Intro/Outro), song sequence with drag-and-drop reorder. Per-section modifiers: modulate key, force major/minor, arp, octave shift, velocity (Vol column with right-click slider popup). Conductor/Player multi-instance system (conductor broadcasts, players follow). Undo/redo (20 levels) with header buttons. Octave control in header. Per-sequence-entry DrumBanger pattern selector. Auto-switch viewed pattern to follow song playback. Full chord broadcast to gmem. ARR mode removed.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
-      </version>
-      <version name="2.1" author="LMS" time="2026-04-05T00:00:00Z">
-        <changelog><![CDATA[v2.1 — Fix: clicking DrumBanger pattern (D1-D8) in song sequence no longer also cycles the song part. Part zone and drum zone are now independent click targets.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
-      </version>
-      <version name="2.2" author="LMS" time="2026-04-05T12:00:00Z">
-        <changelog><![CDATA[v2.2 — Fix song mode timing stability: sequence builder always reads pattern durations from bank (eliminates cumulative offset drift when auto-switching patterns). Pattern tab highlight uses GFX snapshot during playback to prevent thread race flicker.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
-      </version>
-      <version name="2.3" author="LMS" time="2026-04-05T18:00:00Z">
-        <changelog><![CDATA[v2.3 — Fix song sequence tile flashing during playback. Root cause: @block sequence builder shared _sqi loop variable with @gfx renderer (JSFX globals). When @block ran mid-render, it stomped the GFX loop counter causing tiles to skip/repeat/appear in wrong slots. All @block sequence builder variables renamed to _b-prefixed to eliminate thread collision. Also: removed auto-switch pat_load during playback (P_* pointers read from bank directly), no more working copy thrashing.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      <version name="1.9" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.9 — Plexi/Mark II mode: switchable voicing between OR100 and Plexi/Mark II topology. Jumped channel mode: run Clean and Dirty channels in parallel for the classic linked-input sound with blendable channel levels. Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -1373,28 +1381,6 @@
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
       </version>
     </reapack>
-    <reapack name="DrumbangerDroneMIDI2.jsfx" type="effect" desc="LMS Drone Satellite for DRUMBANGER">
-      <version name="1.0" author="LMS" time="2026-02-16T00:00:00Z">
-        <changelog><![CDATA[Initial release — Drone satellite with follow/lock modes, scale mapping, live trigger passthrough.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-02-17T00:00:00Z">
-        <changelog><![CDATA[v1.1 — Added in-plugin NOTICE button with usage instructions (Follow/Lock workflow, scale/chord controls, Re-Capture/Clear).]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-      <version name="1.2" author="LMS" time="2026-02-21T00:00:00Z">
-        <changelog><![CDATA[v1.2 — 4K/HiDPI scaling (gfx_ext_retina), shakebot logo, right-aligned subtitles.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-      <version name="1.3" author="LMS" time="2026-03-03T00:00:00Z">
-        <changelog><![CDATA[v1.3 — Slot-based lock mode UI (8 numbered buttons), click-drag painting for step sequencer and 16x16 overview grid, overview cells match pad selector size, HiDPI scaling fix (S = min(w/h) prevents vertical overflow), Chord Mode defaults to Single (was Off), gmem pattern export (700000-700265) for Lua MIDI print, PRINT button stamps active pattern as MIDI item at edit cursor.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-      <version name="1.4" author="LMS" time="2026-03-07T13:00:00Z">
-        <changelog><![CDATA[v1.4 — PRINT button for stamping MIDI patterns as items. Slot-based pattern UI with click-drag painting for step and overview grids. Default Chord Mode changed to Single. Layout overflow fix.]]></changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/DrumbangerDroneMIDI2.jsfx</source>
-      </version>
-    </reapack>
   </category>
   <category name="DRUMBANGER/Scripts">
     <reapack name="drumbanger_load.lua" type="script" desc="DRUMBANGER: Load Sample">
@@ -1557,6 +1543,11 @@
       </version>
       <version name="1.1" author="LMS" time="2026-05-06T18:00:00Z">
         <changelog><![CDATA[v1.1 — YIN-based tuner integrated as a featured strip between the title bar and IN COMP. Huge note name with octave, color-zoned cents meter with needle, frequency readout, IN-TUNE LED, click-to-toggle MUTE for silent stage tuning, and a PWR button (off by default to keep CPU free). Detection range covers every drop tuning down to drop A (55Hz). Detection rate decimated to every 4th block. PWR state persists across reloads. Requires lms_core 6.4.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-06-04T00:00:00Z">
+        <changelog><![CDATA[v1.2 — Golden Calf (Klon Centaur): dual-gang gain structure with clean blend, germanium soft-clip, post-clip treble peaker and bass recovery. Fix: slider automation now works correctly on all pedal controls.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
