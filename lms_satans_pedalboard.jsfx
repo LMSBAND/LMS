@@ -141,6 +141,7 @@ PW_BUF       = 135168;   PW_BUF_SIZE = 4096;            // flanger
 FLERB_FL_BUF = 139264;   FLERB_FL_SIZE = 4096;          // internal flanger for Flerb mode
 UB_FDN_BUF   = 143360;   UB_LINE_LEN  = 4096;           // hall FDN (4 lines × 4096)
 UB_PRE_BUF   = 159744;   UB_PRE_SIZE  = 2048;           // hall pre-delay
+UB_SPRING_BUF = 170100;  UB_SPRING_SIZE = 11000;        // spring reverb (core hardcodes 50000 which lands inside EL_BUF)
 // TUNER_BUF (YIN circular buffer + workspace, 8192 slots) reserved at 161908,
 // after the SECTION_/CHAIN_ORDER/EQ_DEFAULTS scratch arrays (see @init below).
 // Sized for min_freq=55 detection at sample rates up to 96kHz.
@@ -242,6 +243,8 @@ pb_pw.lms_flanger_set(0.2);
 
 // UNHOLY BOWL — all three modes live here
 pb_ub_spring.lms_spring_init();
+pb_ub_spring.buf_base = UB_SPRING_BUF;
+memset(UB_SPRING_BUF, 0, UB_SPRING_SIZE);
 pb_ub_hall.lms_hall_init(UB_FDN_BUF, UB_LINE_LEN, UB_PRE_BUF, UB_PRE_SIZE);
 pb_ub_hall.lms_hall_set(0.5);
 // Flerb composes Hall → internal flanger on the wet tail:
