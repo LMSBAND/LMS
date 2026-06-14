@@ -55,7 +55,7 @@ function bassman_poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q)
   pres_freq = 2000 + presence * 4500;
   pres_db = presence * 7;
   pres_q = 0.9 + presence * 0.9;
-  this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
+  this.pres_f.lms_bq_set_peak(pres_freq, pres_db * 2, pres_q);
 );
 // === INSTANCES ===
 inp.lms_input_stage_init(4200, 0.55, 1000, -2.0, 0.035);

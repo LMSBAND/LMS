@@ -128,12 +128,12 @@ eq_profile > 0 && opto_blend > 0.01 ? (
     req_lo.lms_bq_set_loshelf(120, 0, 0.707);
   );
   abs(req_mid_db) > 0.05 ? (
-    req_mid.lms_bq_set_peak(3000, req_mid_db, 1.2);
+    req_mid.lms_bq_set_peak(3000, req_mid_db * 2, 1.2);
   ) : (
     req_mid.lms_bq_set_peak(3000, 0, 1.2);
   );
   abs(req_hi_db) > 0.05 ? (
-    req_hi.lms_bq_set_peak(5000, req_hi_db, 1.0);
+    req_hi.lms_bq_set_peak(5000, req_hi_db * 2, 1.0);
   ) : (
     req_hi.lms_bq_set_peak(5000, 0, 1.0);
   );

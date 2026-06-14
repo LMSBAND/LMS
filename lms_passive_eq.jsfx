@@ -81,11 +81,9 @@ notice_show = 0;
 
   // === HIGH BOOST (peaking EQ with variable bandwidth) ===
   // BW slider: 1=broad (low Q), 10=sharp (high Q)
-  // Note: gain_db halved because lms_bq_set_peak uses A=10^(dB/20)
-  // while original used A=10^(dB/40)
   high_boost_amt > 0 ? (
     Q = 0.3 + (high_bw - 1) * 0.3;  // Q from 0.3 to 3.0
-    hb.lms_bq_set_peak(high_freq, high_boost_amt * 0.75, Q);
+    hb.lms_bq_set_peak(high_freq, high_boost_amt * 1.5, Q);
   ) : (
     hb.lms_bq_init();
   );
@@ -142,7 +140,7 @@ low_cut_amt > 0 ? (
 // === HIGH BOOST (peaking EQ with variable bandwidth) ===
 high_boost_amt > 0 ? (
   Q = 0.3 + (high_bw - 1) * 0.3;
-  hb.lms_bq_set_peak(high_freq, high_boost_amt * 0.75, Q);
+  hb.lms_bq_set_peak(high_freq, high_boost_amt * 1.5, Q);
 ) : (
   hb.lms_bq_init();
 );

@@ -1,0 +1,509 @@
+desc:LMS - The Piece of Shit (5" Solid State Practice Amp)
+//tags: amp guitar solid-state practice-amp density-aware
+//author: LMS
+//version: 1.0
+//license: GPL-3.0
+filename:0,shakebot_logo.png
+
+import lms_core.jsfx-inc
+options:gmem=DrumBanger
+
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
+slider1:-6<-24,24,0.1>-Input Level (dB)
+slider2:30<0,100,0.1>-Gain (%)
+slider3:50<0,100,1>-Tone (%)
+slider4:-6<-24,24,0.1>-Volume (dB)
+
+@init
+
+// === INIT ===
+
+// Input coupling cap HP — even a $40 amp has one
+input_hp.lms_bq_init();
+input_hp.lms_bq_set_hp(80, 0.7);
+
+// "Preamp" — cheap op-amp gain stage, modeled as a triode with harsh
+// symmetric clipping (no tube warmth, no asymmetry, no character)
+// Low Miller LP = fizzy top end, low air = dull, tight density bands
+v1a.lms_triode_init(60, 6000, 7000, 300, 1500, 4000);
+
+// No PSU sag — it's a wall-wart switching supply, rock-solid voltage
+// No gate — practice amps are noisy and proud of it
+
+// Tone control — sweeps a LP from 800Hz (mud) to 8000Hz (ice pick)
+tone_lp.lms_bq_init();
+tone_lp.lms_bq_set_lp(4000, 0.5);
+
+// Class D solid-state power amp — hard symmetric clip, no transformer,
+// no cathode bias, no character. Just voltage rails and a wall.
+pa.lms_classd_pa_init(3.0, 8000, 0.75);
+
+// === 5" SPEAKER SIM (inline — not in cab table, this speaker doesn't
+// deserve to be alongside real cabs) ===
+// 5" cone in a sealed plastic box: no bass, all honk, dies at 4kHz
+spk_hp.lms_bq_init();
+spk_hp.lms_bq_set_hp(200, 0.60);
+
+spk_honk.lms_bq_init();
+spk_honk.lms_bq_set_peak(400, 10.0, 2.0);
+
+spk_cone.lms_bq_init();
+spk_cone.lms_bq_set_peak(1200, 7.0, 1.5);
+
+spk_lp.lms_bq_init();
+spk_lp.lms_bq_set_lp(3500, 0.45);
+
+spk_box.lms_bq_init();
+spk_box.lms_bq_set_peak(280, 6.0, 3.5);
+
+// Speaker breakup envelope (this speaker breaks up immediately)
+spk_brk_bp.lms_bq_init();
+spk_brk_bp.lms_bq_set_bp(1200, 1.5);
+spk_brk_env = 0;
+spk_brk_att = exp(-1 / (srate * 0.0005));
+spk_brk_rel = exp(-1 / (srate * 0.015));
+
+gain = 0.3; in_level = 1; out_level = 1;
+
+// Density matrix animation state
+DM_CELLS = 90000;
+memset(DM_CELLS, 0, 128);
+dm_frame = 0;
+d_env_lo = 0; d_env_mid = 0; d_env_hi = 0; d_env_air = 0;
+d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
+d_miller_freq = 6000; d_miller_q = 0.6; d_grid_cond = 0;
+d_drive_boost = 1.0; d_bplus = 1.0;
+
+// Broadcast system — type 32, 4 synced params
+bc.lms_bc_init(32, 4, 970000);
+
+notice_show = 0;
+
+@slider
+in_level = 10 ^ (slider1 / 20);
+gain = slider2 / 100;
+tone_lp.lms_bq_set_lp(800 + (slider3/100) * 7200, 0.5);
+out_level = 10 ^ (slider4 / 20);
+
+// ============================================================
+// @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
+// ============================================================
+@block
+// ---- Recalculate from sliders (GFX changes don't trigger @slider) ----
+in_level = 10 ^ (slider1 / 20);
+gain = slider2 / 100;
+tone_lp.lms_bq_set_lp(800 + (slider3/100) * 7200, 0.5);
+out_level = 10 ^ (slider4 / 20);
+
+// Broadcast: heartbeat, follow, steal, stale detection
+bc.lms_bc_block();
+
+// Follow: copy leader's params to our sliders
+bc.bc_leader_pbase > 0 ? (
+  slider1 = gmem[bc.bc_leader_pbase + 0];
+  slider2 = gmem[bc.bc_leader_pbase + 1];
+  slider3 = gmem[bc.bc_leader_pbase + 2];
+  slider4 = gmem[bc.bc_leader_pbase + 3];
+);
+
+// Steal: one-shot copy from target
+bc.bc_did_steal ? (
+  slider1 = gmem[bc.bc_steal_pbase + 0];
+  slider2 = gmem[bc.bc_steal_pbase + 1];
+  slider3 = gmem[bc.bc_steal_pbase + 2];
+  slider4 = gmem[bc.bc_steal_pbase + 3];
+);
+
+// Write our params for others to read
+bc.bc_my_pbase > 0 ? (
+  gmem[bc.bc_my_pbase + 0] = slider1;
+  gmem[bc.bc_my_pbase + 1] = slider2;
+  gmem[bc.bc_my_pbase + 2] = slider3;
+  gmem[bc.bc_my_pbase + 3] = slider4;
+);
+
+@sample
+mono = (spl0 + spl1) * 0.5 * in_level;
+mono = max(-1.0, min(1.0, mono));
+
+// 1. Input coupling cap
+mono = input_hp.lms_bq_proc(mono);
+
+// 2. Op-amp preamp (harsh, symmetric, no warmth)
+// pos_hard=2.5, neg_hard=2.5 — same both ways (no even harmonics)
+// pos_ceil=0.9, neg_ceil=0.9 — symmetric ceiling (transistor rails)
+// gc_thresh=0.8, gc_amount=0.0 — no grid conduction (no grid)
+v1a_drive = gain * 1.0;
+v1a_out = v1a.lms_triode_proc(mono, v1a_drive, 1.0, 2.5, 2.5, 0.9, 0.9, 0.8, 0.0);
+
+// 3. Tone control (800 Hz mud to 8000 Hz ice pick)
+v1a_out = tone_lp.lms_bq_proc(v1a_out);
+
+// 4. Class D power amp — just clips at the rails, that's it
+pa.drive = gain * 0.7;
+amp_out = pa.lms_classd_pa_proc(v1a_out, 1.0);
+
+// 5. The legendary 5" speaker
+// Speaker breakup — this thing breaks up if you look at it wrong
+spk_brk_band = spk_brk_bp.lms_bq_proc(amp_out);
+spk_brk_ax = abs(spk_brk_band);
+spk_brk_ax > spk_brk_env ? (
+  spk_brk_env = spk_brk_att * spk_brk_env + (1 - spk_brk_att) * spk_brk_ax;
+) : (
+  spk_brk_env = spk_brk_rel * spk_brk_env + (1 - spk_brk_rel) * spk_brk_ax;
+);
+spk_brk_drive = 2.0 + spk_brk_env * 6.0;
+spk_brk_sat = lms_tanh(spk_brk_band * spk_brk_drive) - spk_brk_band;
+amp_out += spk_brk_sat * 0.3;
+
+// HP — no bass, it's 5 inches
+amp_out = spk_hp.lms_bq_proc(amp_out);
+// The box honk — 400Hz plastic resonance
+amp_out = spk_honk.lms_bq_proc(amp_out);
+// Cheap cone breakup peak
+amp_out = spk_cone.lms_bq_proc(amp_out);
+// Box resonance
+amp_out = spk_box.lms_bq_proc(amp_out);
+// LP — speaker dies above 3.5kHz
+amp_out = spk_lp.lms_bq_proc(amp_out);
+
+// 6. Output
+amp_out *= out_level;
+amp_out = max(-0.95, min(0.95, amp_out));
+spl0 = amp_out;
+spl1 = amp_out;
+
+// Density state for GFX
+d_env_lo  = v1a.hd.env_lo;  d_env_mid = v1a.hd.env_mid;
+d_env_hi  = v1a.hd.env_hi;  d_env_air = v1a.hd.env_air;
+d_density = v1a.hd.density;
+d_mid_d   = v1a.hd.mid_density;  d_hi_d = v1a.hd.hi_density;  d_air_d = v1a.hd.air_density;
+d_miller_freq = v1a.last_miller_freq;  d_miller_q = v1a.last_miller_q;
+d_drive_boost = 1.0 + v1a.hd.mid_density * 0.4;
+d_grid_cond   = v1a.peak_env;
+d_bplus = 1.0;
+
+@gfx 560 504
+
+// ============================================================================
+//  SCALING
+// ============================================================================
+gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+S = gfx_w / 560;
+S < 0.5 ? S = 0.5;
+
+F_TITLE = max(10, floor(22 * S));
+F_LABEL = max(8, floor(12 * S));
+F_SMALL = max(7, floor(11 * S));
+F_TINY  = max(7, floor(10 * S));
+
+// ============================================================================
+//  COLORS — cheap tan plastic with yellowed knobs
+// ============================================================================
+COL_BG_R = 0.14; COL_BG_G = 0.12; COL_BG_B = 0.08;
+COL_PANEL_R = 0.18; COL_PANEL_G = 0.15; COL_PANEL_B = 0.10;
+COL_PANEL_HI_R = 0.22; COL_PANEL_HI_G = 0.18; COL_PANEL_HI_B = 0.13;
+COL_BORDER_R = 0.30; COL_BORDER_G = 0.25; COL_BORDER_B = 0.18;
+COL_TITLE_R = 0.85; COL_TITLE_G = 0.75; COL_TITLE_B = 0.45;
+COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
+COL_TEXT_R = 0.70; COL_TEXT_G = 0.65; COL_TEXT_B = 0.55;
+COL_DIM_R = 0.40; COL_DIM_G = 0.35; COL_DIM_B = 0.28;
+COL_ACCENT_R = 0.85; COL_ACCENT_G = 0.55; COL_ACCENT_B = 0.15;
+COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
+COL_CYAN_R = 0.65; COL_CYAN_G = 0.55; COL_CYAN_B = 0.25;
+COL_BAR_BG_R = 0.20; COL_BAR_BG_G = 0.17; COL_BAR_BG_B = 0.12;
+
+// ============================================================================
+//  BACKGROUND
+// ============================================================================
+hdr_h = floor(44 * S);
+gfx_r = COL_BG_R; gfx_g = COL_BG_G; gfx_b = COL_BG_B;
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_r = 0.10; gfx_g = 0.08; gfx_b = 0.05;
+gfx_rect(0, 0, gfx_w, hdr_h);
+gfx_r = COL_TITLE_R * 0.6; gfx_g = COL_TITLE_G * 0.6; gfx_b = COL_TITLE_B * 0.6;
+gfx_rect(0, hdr_h, gfx_w, max(1, floor(2 * S)));
+
+// ============================================================================
+//  LAYOUT
+// ============================================================================
+margin = floor(8 * S);
+gap = floor(6 * S);
+bar_h = floor(18 * S);
+bar_sp = floor(21 * S);
+pad = floor(4 * S);
+pad2 = pad * 2;
+gr_bar_h = max(2, floor(6 * S));
+body_y = floor(50 * S);
+
+// ============================================================================
+//  LOGO + TITLE
+// ============================================================================
+gfx_getimgdim(0, logo_img_w, logo_img_h);
+logo_img_w > 0 ? (
+  logo_h = floor(32 * S);
+  logo_w = floor(logo_h * (logo_img_w / logo_img_h));
+  logo_x = floor(6 * S);
+  logo_y = floor((hdr_h - logo_h) / 2);
+  gfx_blit(0, 1, 0, 0, 0, logo_img_w, logo_img_h, logo_x, logo_y, logo_w, logo_h);
+) : (
+  logo_w = 0;
+  logo_x = 0;
+);
+gfx_r = COL_TITLE_R; gfx_g = COL_TITLE_G; gfx_b = COL_TITLE_B;
+gfx_setfont(1, "Arial", F_TITLE);
+gfx_x = logo_x + logo_w + floor(8 * S); gfx_y = floor(10 * S);
+gfx_drawstr("THE PIECE OF SHIT");
+
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_measurestr("10W Solid State Practice Amp", sub_w, sub_h);
+gfx_x = gfx_w - sub_w - floor(10 * S); gfx_y = floor(10 * S);
+gfx_drawstr("10W Solid State Practice Amp");
+
+// ============================================================================
+//  AMP CONTROLS — one panel, three knobs, that's the whole amp
+// ============================================================================
+ctrl_w = gfx_w - margin * 2;
+lms_draw_panel(margin, body_y, ctrl_w, floor(120 * S), "CONTROLS");
+cy = body_y + floor(26 * S);
+cx = margin;
+cw = ctrl_w;
+
+_old = slider1; slider1 = lms_draw_bar(cx + 4, cy, cw - 8, bar_h, slider1, -24, 24, "Input dB", 1);
+slider1 != _old ? slider_automate(2^0);
+cy += bar_sp;
+_old = slider2; slider2 = lms_draw_bar(cx + 4, cy, cw - 8, bar_h, slider2, 0, 100, "Gain", 1);
+slider2 != _old ? slider_automate(2^1);
+cy += bar_sp;
+_old = slider3; slider3 = lms_draw_bar(cx + 4, cy, cw - 8, bar_h, slider3, 0, 100, "Tone", 1);
+slider3 != _old ? slider_automate(2^2);
+cy += bar_sp;
+_old = slider4; slider4 = lms_draw_bar(cx + 4, cy, cw - 8, bar_h, slider4, -24, 24, "Volume", 1);
+slider4 != _old ? slider_automate(2^3);
+
+// ============================================================================
+//  SPEAKER INFO — just to rub it in
+// ============================================================================
+spk_panel_y = body_y + floor(120 * S) + gap;
+lms_draw_panel(margin, spk_panel_y, ctrl_w, floor(50 * S), "SPEAKER");
+gfx_setfont(1, "Arial", F_SMALL);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
+gfx_x = margin + floor(8 * S); gfx_y = spk_panel_y + floor(26 * S);
+gfx_drawstr("1x5\" Generic Cone, Sealed Plastic Enclosure, 8 ohm, Not Replaceable");
+
+// ============================================================================
+//  DENSITY AWARENESS PANEL
+// ============================================================================
+dm_panel_y = spk_panel_y + floor(50 * S) + gap;
+dm_panel_w = ctrl_w;
+dm_panel_x = margin;
+dm_cell = max(3, floor(7 * S));
+dm_gap  = max(1, floor(1.5 * S));
+dm_cols = 16; dm_rows = 8;
+dm_grid_w = dm_cols * (dm_cell + dm_gap) - dm_gap;
+dm_grid_h = dm_rows * (dm_cell + dm_gap) - dm_gap;
+dm_meter_h = max(8, floor(12 * S));
+dm_meter_gap = max(2, floor(3 * S));
+dm_hdr = floor(22 * S);
+dm_pad = floor(4 * S);
+dm_panel_h = dm_hdr + dm_pad + dm_grid_h + dm_meter_gap + dm_meter_h + dm_pad;
+lms_draw_panel(dm_panel_x, dm_panel_y, dm_panel_w, dm_panel_h, "DENSITY AWARENESS");
+DM_LO_R = 0.12; DM_LO_G = 0.31; DM_LO_B = 0.86;
+DM_MI_R = 0.86; DM_MI_G = 0.63; DM_MI_B = 0.12;
+DM_HI_R = 0.86; DM_HI_G = 0.24; DM_HI_B = 0.12;
+DM_AI_R = 0.71; DM_AI_G = 0.16; DM_AI_B = 0.86;
+dm_band0 = min(1.0, d_env_lo * 8.0);
+dm_band1 = min(1.0, d_env_mid * 10.0);
+dm_band2 = min(1.0, d_env_hi * 12.0);
+dm_band3 = min(1.0, d_env_air * 16.0);
+dm_frame += 1; dm_t = dm_frame * 0.025;
+dm_gx = dm_panel_x + dm_pad;
+dm_gy = dm_panel_y + dm_hdr + dm_pad;
+dm_r = 0;
+loop(dm_rows,
+  dm_c = 0;
+  dm_band_idx = floor(dm_r / 2);
+  dm_band_idx == 0 ? ( dm_bval = dm_band0; dm_br = DM_LO_R; dm_bg = DM_LO_G; dm_bb = DM_LO_B; );
+  dm_band_idx == 1 ? ( dm_bval = dm_band1; dm_br = DM_MI_R; dm_bg = DM_MI_G; dm_bb = DM_MI_B; );
+  dm_band_idx == 2 ? ( dm_bval = dm_band2; dm_br = DM_HI_R; dm_bg = DM_HI_G; dm_bb = DM_HI_B; );
+  dm_band_idx == 3 ? ( dm_bval = dm_band3; dm_br = DM_AI_R; dm_bg = DM_AI_G; dm_bb = DM_AI_B; );
+  loop(dm_cols,
+    dm_ci = dm_r * dm_cols + dm_c;
+    dm_phase = sin(dm_t * ((dm_ci * 0.37 + dm_r * 1.1) * 0.1) + dm_c * 0.5 + dm_r * 0.8);
+    dm_target = max(0, min(1, dm_phase * dm_bval * 1.3));
+    dm_cur = DM_CELLS[dm_ci];
+    dm_cur += (dm_target - dm_cur) * 0.15;
+    DM_CELLS[dm_ci] = dm_cur;
+    dm_alpha = max(0.03, dm_cur * 0.9);
+    dm_cx = dm_gx + dm_c * (dm_cell + dm_gap);
+    dm_cy = dm_gy + dm_r * (dm_cell + dm_gap);
+    gfx_r = dm_br * dm_alpha; gfx_g = dm_bg * dm_alpha; gfx_b = dm_bb * dm_alpha;
+    gfx_rect(dm_cx, dm_cy, dm_cell, dm_cell);
+    dm_c += 1;
+  );
+  dm_r += 1;
+);
+dm_lbl_x = dm_gx + dm_grid_w + floor(6 * S);
+gfx_setfont(1, "Arial", F_TINY);
+dm_li = 0;
+loop(4,
+  dm_lbl_cy = dm_gy + dm_li * 2 * (dm_cell + dm_gap) + floor((dm_cell * 2 + dm_gap - F_TINY) / 2);
+  dm_li == 0 ? ( gfx_r = DM_LO_R; gfx_g = DM_LO_G; gfx_b = DM_LO_B; );
+  dm_li == 1 ? ( gfx_r = DM_MI_R; gfx_g = DM_MI_G; gfx_b = DM_MI_B; );
+  dm_li == 2 ? ( gfx_r = DM_HI_R; gfx_g = DM_HI_G; gfx_b = DM_HI_B; );
+  dm_li == 3 ? ( gfx_r = DM_AI_R; gfx_g = DM_AI_G; gfx_b = DM_AI_B; );
+  gfx_x = dm_lbl_x; gfx_y = dm_lbl_cy;
+  dm_li == 0 ? gfx_drawstr("LO");
+  dm_li == 1 ? gfx_drawstr("MID");
+  dm_li == 2 ? gfx_drawstr("HI");
+  dm_li == 3 ? gfx_drawstr("AIR");
+  dm_li += 1;
+);
+dm_info_x = dm_lbl_x + floor(30 * S);
+gfx_setfont(1, "Arial", F_TINY);
+gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+gfx_x = dm_info_x; gfx_y = dm_gy + floor(2 * S);
+gfx_drawstr("DENSITY");
+gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+gfx_setfont(1, "Arial", F_LABEL);
+gfx_x = dm_info_x; gfx_y = dm_gy + floor(14 * S);
+gfx_drawnumber(d_density, 2);
+gfx_drawstr("x");
+dm_my = dm_gy + dm_grid_h + dm_meter_gap;
+dm_meter_count = 5;
+dm_mw = floor((dm_panel_w - dm_pad * 2 - (dm_meter_count - 1) * dm_meter_gap) / dm_meter_count);
+dm_mx = dm_panel_x + dm_pad;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+dm_mfill = max(0, min(1, (d_miller_freq - 4000) / 2500)); dm_mfill_w = dm_mfill * dm_mw;
+dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("MLR LP");
+dm_mx += dm_mw + dm_meter_gap;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+dm_mfill = max(0, min(1, (d_miller_q - 0.6) / 0.35)); dm_mfill_w = dm_mfill * dm_mw;
+dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("MLR Q");
+dm_mx += dm_mw + dm_meter_gap;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+dm_mfill = max(0, min(1, d_grid_cond / 0.35)); dm_mfill_w = dm_mfill * dm_mw;
+dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("GRID");
+dm_mx += dm_mw + dm_meter_gap;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+dm_mfill = max(0, min(1, (d_drive_boost - 1.0) / 0.4)); dm_mfill_w = dm_mfill * dm_mw;
+dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("DRIVE");
+dm_mx += dm_mw + dm_meter_gap;
+gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B; gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
+dm_mfill = max(0, min(1, (d_bplus - 0.75) / 0.25)); dm_mfill_w = dm_mfill * dm_mw;
+dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
+gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
+gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("B+");
+
+// Instance Manager Panel
+bc_panel_y = bc.lms_bc_gfx(S, last_cap);
+
+last_cap = mouse_cap;
+
+// --- BUY + NOTICE BUTTONS ---
+notice_btn_x = gfx_w - floor(60 * S);
+notice_btn_y = bc_panel_y - floor(18 * S);
+buy_btn_x = notice_btn_x - floor(50 * S);
+buy_btn_y = notice_btn_y;
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+gfx_r = 0; gfx_g = 0; gfx_b = 0;
+gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+gfx_drawstr("BUY");
+(mouse_cap & 1) && mouse_x >= buy_btn_x && mouse_x <= buy_btn_x + floor(45 * S) && mouse_y >= buy_btn_y && mouse_y <= buy_btn_y + floor(15 * S) && !buy_clicked ? (
+  buy_show = !buy_show; buy_show ? notice_show = 0;
+  buy_clicked = 1;
+);
+!(mouse_cap & 1) ? buy_clicked = 0;
+gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+gfx_r = 0; gfx_g = 0; gfx_b = 0;
+gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+gfx_drawstr("NOTICE");
+(mouse_cap & 1) && mouse_x >= notice_btn_x && mouse_x <= notice_btn_x + floor(55 * S) && mouse_y >= notice_btn_y && mouse_y <= notice_btn_y + floor(15 * S) && !notice_clicked ? (
+  notice_show = !notice_show; notice_show ? buy_show = 0;
+  notice_clicked = 1;
+);
+!(mouse_cap & 1) ? notice_clicked = 0;
+buy_show ? (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h); gfx_a = 1;
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+  gfx_drawstr("SUPPORT LMS");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = floor(15 * S); gfx_y = floor(35 * S);
+  gfx_drawstr("These plugins are offered for free use by anyone not able to afford it.");
+  gfx_x = floor(15 * S); gfx_y = floor(50 * S);
+  gfx_drawstr("No need to prove anything to us. But if you can afford to buy this suite,");
+  gfx_x = floor(15 * S); gfx_y = floor(65 * S);
+  gfx_drawstr("we would sure appreciate it. 50 dollars gets you every update and every");
+  gfx_x = floor(15 * S); gfx_y = floor(80 * S);
+  gfx_drawstr("plugin added to this suite forever. Its in its baby stages and these will");
+  gfx_x = floor(15 * S); gfx_y = floor(95 * S);
+  gfx_drawstr("only get doper over time. We also offer 6 months installments. But if you");
+  gfx_x = floor(15 * S); gfx_y = floor(110 * S);
+  gfx_drawstr("dont have the money, dont sweat it, you can use as much and as long as");
+  gfx_x = floor(15 * S); gfx_y = floor(125 * S);
+  gfx_drawstr("you like. Hail Satan. - LMS");
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = floor(15 * S); gfx_y = floor(150 * S);
+  gfx_drawstr("bryanleaf.gumroad.com/l/zzgmzx");
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+  gfx_drawstr("BUY");
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+  gfx_drawstr("NOTICE");
+);
+notice_show ? (
+  gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h); gfx_a = 1;
+  gfx_r = 0.9; gfx_g = 0.8; gfx_b = 0.5;
+  gfx_x = floor(15 * S); gfx_y = floor(10 * S);
+  gfx_drawstr("NOTICE: THEY ARE TRYING TO STEAL YOUR COMPUTER");
+  gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.7;
+  gfx_x = floor(15 * S); gfx_y = floor(30 * S);
+  gfx_drawstr("The algorithms in our favorite software are decades old.");
+  gfx_x = floor(15 * S); gfx_y = floor(45 * S);
+  gfx_drawstr("A mathematical model is a truth about the world,");
+  gfx_x = floor(15 * S); gfx_y = floor(60 * S);
+  gfx_drawstr("not a copyrightable product. You do not have to stay");
+  gfx_x = floor(15 * S); gfx_y = floor(75 * S);
+  gfx_drawstr("a slave to subscription software. Install Linux.");
+  gfx_x = floor(15 * S); gfx_y = floor(90 * S);
+  gfx_drawstr("Build your own tools. Believe in yourself.");
+  gfx_r = 0.5; gfx_g = 0.7; gfx_b = 1.0;
+  gfx_x = floor(15 * S); gfx_y = floor(115 * S);
+  gfx_drawstr("github.com/LMSBAND  |  instagram.com/LMSSKABAND");
+  gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
+  gfx_rect(buy_btn_x, buy_btn_y, floor(45 * S), floor(15 * S));
+  gfx_rect(notice_btn_x, notice_btn_y, floor(55 * S), floor(15 * S));
+  gfx_r = 0; gfx_g = 0; gfx_b = 0;
+  gfx_x = buy_btn_x + floor(4 * S); gfx_y = buy_btn_y + floor(2 * S);
+  gfx_drawstr("BUY");
+  gfx_x = notice_btn_x + floor(4 * S); gfx_y = notice_btn_y + floor(2 * S);
+  gfx_drawstr("NOTICE");
+);
+
+// ============================================================
+// @SERIALIZE — Persist follow state
+// ============================================================
+@serialize
+file_var(0, bc.bc_following);
+file_var(0, bc.bc_my_id);

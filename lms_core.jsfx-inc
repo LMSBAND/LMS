@@ -174,7 +174,7 @@ function lms_bq_set_bp(freq, q)
 function lms_bq_set_peak(freq, gain_db, q)
   local(a, w0, alpha, a0_inv)
 (
-  a = 10 ^ (gain_db / 20);
+  a = 10 ^ (gain_db / 40);
   w0 = 2 * $pi * freq / srate;
   alpha = sin(w0) / (2 * q);
   a0_inv = 1 / (1 + alpha / a);
@@ -607,7 +607,7 @@ function lms_dc_init()
 (
   this.xl = 0; this.xr = 0;
   this.yl = 0; this.yr = 0;
-  this.r = 1 - (20 / srate);
+  this.r = 1 - (2 * $pi * 20 / srate);
 );
 
 // Initialize DC blocker with custom cutoff frequency
@@ -615,7 +615,7 @@ function lms_dc_init_freq(freq)
 (
   this.xl = 0; this.xr = 0;
   this.yl = 0; this.yr = 0;
-  this.r = 1 - (freq / srate);
+  this.r = 1 - (2 * $pi * freq / srate);
 );
 
 // Process left channel
@@ -726,7 +726,7 @@ function lms_tmb_set(bass, mid, treble)
   mid_q = this.mid_q_lo + mid * this.mid_q_range;
   mid_gain = (0.5 - mid) * this.mid_db;
   mid_gain -= (bass - 0.5) * this.xcouple_bass + (treble - 0.5) * this.xcouple_treb;
-  this.f_mid.lms_bq_set_peak(this.mid_freq, mid_gain, mid_q);
+  this.f_mid.lms_bq_set_peak(this.mid_freq, mid_gain * 2, mid_q);
 
   treb_freq = this.treb_lo + treble * this.treb_range;
   treb_gain = (treble - 0.5) * this.treb_db;
@@ -771,7 +771,7 @@ function lms_svt_eq_set(bass, mid, mid_freq_sel, treble, ulo_on, uhi_on)
   mid_freq_sel == 4 ? ( mid_freq = 3000; mid_q_base = 3.0; );
   mid_q = mid_q_base + (1.0 - mid) * 0.5;
   mid_db = (mid - 0.5) * 30;
-  this.f_mid.lms_bq_set_peak(mid_freq, mid_db, mid_q);
+  this.f_mid.lms_bq_set_peak(mid_freq, mid_db * 2, mid_q);
 
   // Treble: 6kHz high shelf, ±10dB
   treb_db = (treble - 0.5) * 20;
@@ -780,7 +780,7 @@ function lms_svt_eq_set(bass, mid, mid_freq_sel, treble, ulo_on, uhi_on)
   // Ultra Lo: +2dB@40Hz shelf + -10dB@500Hz notch (when on)
   ulo_on == 1 ? (
     this.f_ulo_shelf.lms_bq_set_loshelf(40, 2, 0.7);
-    this.f_ulo_notch.lms_bq_set_peak(500, -10, 1.5);
+    this.f_ulo_notch.lms_bq_set_peak(500, -20, 1.5);
   ) : (
     this.f_ulo_shelf.lms_bq_set_loshelf(40, 0, 0.7);
     this.f_ulo_notch.lms_bq_set_peak(500, 0, 1.5);
@@ -814,7 +814,7 @@ function lms_topboost_init()
   this.f_bass.lms_bq_init();
   this.f_treb.lms_bq_init();
   this.f_mid.lms_bq_init();
-  this.f_mid.lms_bq_set_peak(1000, 2.0, 0.8);
+  this.f_mid.lms_bq_set_peak(1000, 4.0, 0.8);
 );
 
 function lms_topboost_set(bass, treble)
@@ -1213,7 +1213,7 @@ function lms_pp_pa_xfmr(sensitivity, lp_coeff, sat_mult, sat_div)
 function lms_pp_pa_xfmr_res(freq, db, q)
 (
   this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(freq, db, q);
+  this.xfmr_res.lms_bq_set_peak(freq, db * 2, q);
   this.pa_has_xfmr_res = 1;
 );
 
@@ -1347,7 +1347,7 @@ function lms_se_pa_xfmr(sensitivity, lp_coeff, sat_mult, sat_div)
 function lms_se_pa_xfmr_res(freq, db, q)
 (
   this.xfmr_res.lms_bq_init();
-  this.xfmr_res.lms_bq_set_peak(freq, db, q);
+  this.xfmr_res.lms_bq_set_peak(freq, db * 2, q);
   this.pa_has_xfmr_res = 1;
 );
 
@@ -3181,7 +3181,7 @@ function lms_cab_set_band(btype, freq, param1, param2)
   ) : btype == CAB_BT_LP ? (
     this.lms_bq_set_lp(freq, param1);
   ) : btype == CAB_BT_PK ? (
-    this.lms_bq_set_peak(freq, param1, param2);
+    this.lms_bq_set_peak(freq, param1 * 2, param2);
   ) : (
     // passthrough (CAB_BT_NONE or unknown)
     this.b0 = 1; this.b1 = 0; this.b2 = 0;
@@ -3375,7 +3375,7 @@ function lms_cab_proc(x, density)
     dyn_res_gain = (density - 1.0) * 2.0 * this.cab_breakup_amt;
     dyn_res_gain = max(0, min(3.0, dyn_res_gain));
     abs(dyn_res_gain - this.last_dyn_res_gain) > 0.2 ? (
-      this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, dyn_res_gain, this.cab_res_base_q);
+      this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, dyn_res_gain * 2, this.cab_res_base_q);
       this.last_dyn_res_gain = dyn_res_gain;
     );
     out = this.brk_res.lms_bq_proc(out);
@@ -4707,7 +4707,7 @@ function lms_crushinator_init() (
   this.pre_pres.lms_bq_init();
   this.pre_pres.lms_bq_set_hishelf(2500, 0.0, 0.7);
   this.pre_mid.lms_bq_init();
-  this.pre_mid.lms_bq_set_peak(800, 3.0, 1.0);
+  this.pre_mid.lms_bq_set_peak(800, 6.0, 1.0);
   this.post_lo.lms_bq_init();
   this.post_lo.lms_bq_set_loshelf(100, 0.0, 0.6);
   this.post_hi.lms_bq_init();
@@ -4926,13 +4926,13 @@ function lms_klon_init() (
   this.tone_hs.lms_bq_init();
   this.tone_hs.lms_bq_set_hishelf(2000, 0.0, 0.7);
   this.pres_pk.lms_bq_init();
-  this.pres_pk.lms_bq_set_peak(1700, 2.0, 1.5);
+  this.pres_pk.lms_bq_set_peak(1700, 4.0, 1.5);
   this.dc_out.lms_dc_init();
 );
 function lms_klon_set(treble) local(hs_db) (
   hs_db = (treble - 0.5) * 12.0;
   this.tone_hs.lms_bq_set_hishelf(2000, hs_db, 0.7);
-  this.pres_pk.lms_bq_set_peak(1700, treble * 3.0, 1.5);
+  this.pres_pk.lms_bq_set_peak(1700, treble * 6.0, 1.5);
 );
 function lms_klon_proc(x, drive, level)
   local(pre, boost, ge_clip, clean_amt, dirty_amt, mixed, y)
@@ -4982,29 +4982,29 @@ function lms_paraeq_set(mode, lo_db, mid_db, hi_db, pr_db) (
     // PUNK — tight HP, mid peak narrow + mid-centred, aggressive presence
     this.hp.lms_bq_set_hp(80, 0.5);
     this.lo.lms_bq_set_loshelf(120, lo_db, 0.7);
-    this.md.lms_bq_set_peak(600,  mid_db, 1.0);
-    this.pr.lms_bq_set_peak(3500, pr_db, 0.9);
+    this.md.lms_bq_set_peak(600,  mid_db * 2, 1.0);
+    this.pr.lms_bq_set_peak(3500, pr_db * 2, 0.9);
     this.hi.lms_bq_set_hishelf(8000, hi_db, 0.7);
   ) : mode == 1 ? (
     // JAZZ — gentle HP, warm mid (low-mid centred, wider), rolled presence
     this.hp.lms_bq_set_hp(40, 0.5);
     this.lo.lms_bq_set_loshelf(180, lo_db, 0.7);
-    this.md.lms_bq_set_peak(800,  mid_db, 0.7);
-    this.pr.lms_bq_set_peak(3000, pr_db, 0.7);
+    this.md.lms_bq_set_peak(800,  mid_db * 2, 0.7);
+    this.pr.lms_bq_set_peak(3000, pr_db * 2, 0.7);
     this.hi.lms_bq_set_hishelf(6000, hi_db, 0.7);
   ) : mode == 2 ? (
     // METAL — deep scoop-ready mid @ 500Hz Q1.0, chug-friendly HP, air shelf
     this.hp.lms_bq_set_hp(60, 0.5);
     this.lo.lms_bq_set_loshelf(100, lo_db, 0.7);
-    this.md.lms_bq_set_peak(500,  mid_db, 1.0);
-    this.pr.lms_bq_set_peak(3500, pr_db, 1.0);
+    this.md.lms_bq_set_peak(500,  mid_db * 2, 1.0);
+    this.pr.lms_bq_set_peak(3500, pr_db * 2, 1.0);
     this.hi.lms_bq_set_hishelf(7000, hi_db, 0.7);
   ) : (
     // FLAT — generic voicing
     this.hp.lms_bq_set_hp(20, 0.5);
     this.lo.lms_bq_set_loshelf(150, lo_db, 0.7);
-    this.md.lms_bq_set_peak(1000, mid_db, 0.7);
-    this.pr.lms_bq_set_peak(3500, pr_db, 0.7);
+    this.md.lms_bq_set_peak(1000, mid_db * 2, 0.7);
+    this.pr.lms_bq_set_peak(3500, pr_db * 2, 0.7);
     this.hi.lms_bq_set_hishelf(8000, hi_db, 0.7);
   );
 );

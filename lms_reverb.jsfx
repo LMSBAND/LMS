@@ -395,9 +395,9 @@ bc.bc_my_pbase > 0 ? (
   modal_boost_db = max(0.0, min(6.0, modal_boost_db));
   abs(modal_boost_db - last_modal_boost) > 0.2 ? (
     modal_q = 2.0 + room_size * 6.0;
-    modal0.lms_bq_set_peak(modal_f1, modal_boost_db, modal_q);
-    modal1.lms_bq_set_peak(modal_f2, modal_boost_db * 0.7, modal_q * 0.8);
-    modal2.lms_bq_set_peak(modal_f3, modal_boost_db * 0.5, modal_q * 0.6);
+    modal0.lms_bq_set_peak(modal_f1, modal_boost_db * 2, modal_q);
+    modal1.lms_bq_set_peak(modal_f2, modal_boost_db * 2 * 0.7, modal_q * 0.8);
+    modal2.lms_bq_set_peak(modal_f3, modal_boost_db * 2 * 0.5, modal_q * 0.6);
     last_modal_boost = modal_boost_db;
   );
 

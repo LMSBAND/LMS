@@ -57,7 +57,7 @@ function poweramp_set(drive, presence) local(pres_freq, pres_db, pres_q) (
   pres_freq = 3000 + presence * 4000;
   pres_db = presence * 10;
   pres_q = 1.5 + presence * 1.5;
-  this.pres_f.lms_bq_set_peak(pres_freq, pres_db, pres_q);
+  this.pres_f.lms_bq_set_peak(pres_freq, pres_db * 2, pres_q);
 );
 // === INSTANCES ===
 inp.lms_input_stage_init(5000, 0.55, 1500, -1.5, 0.030);

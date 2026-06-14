@@ -111,10 +111,10 @@ notice_show = 0;
   ls.lms_bq_set_loshelf(slider8, slider7, 0.707);
 
   // Low-mid parametric
-  lm.lms_bq_set_peak(slider10, slider9, slider11);
+  lm.lms_bq_set_peak(slider10, slider9 * 2, slider11);
 
   // Hi-mid parametric
-  hm.lms_bq_set_peak(slider13, slider12, slider14);
+  hm.lms_bq_set_peak(slider13, slider12 * 2, slider14);
 
   // High shelf
   hs.lms_bq_set_hishelf(slider16, slider15, 0.707);
@@ -179,9 +179,9 @@ lpf_on ? (
 
 ls.lms_bq_set_loshelf(slider8, slider7, 0.707);
 
-lm.lms_bq_set_peak(slider10, slider9, slider11);
+lm.lms_bq_set_peak(slider10, slider9 * 2, slider11);
 
-hm.lms_bq_set_peak(slider13, slider12, slider14);
+hm.lms_bq_set_peak(slider13, slider12 * 2, slider14);
 
 hs.lms_bq_set_hishelf(slider16, slider15, 0.707);
 
