@@ -580,6 +580,7 @@ mode == 1 ? (
 //  SCALING
 // ============================================================================
 gfx_ext_retina > 0 ? gfx_ext_retina = 1;
+!(mouse_cap & 1) ? (cap_bx = -1; cap_by = -1);
 S = gfx_w / 560;
 S < 0.5 ? S = 0.5;
 
@@ -644,13 +645,15 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
     gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
     gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
-  mouse_cap & 1 ? (
+  (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= bx && mouse_x <= bx + bw &&
     mouse_y >= by && mouse_y <= by + bh ? (
-      new_norm = (mouse_x - bx) / bw;
-      new_norm = max(0, min(1, new_norm));
-      val = vmin + new_norm * (vmax - vmin);
-    );
+      cap_bx = bx; cap_by = by;
+  );
+  (mouse_cap & 1) && cap_bx == bx && cap_by == by ? (
+    new_norm = (mouse_x - bx) / bw;
+    new_norm = max(0, min(1, new_norm));
+    val = vmin + new_norm * (vmax - vmin);
   );
   val;
 );
