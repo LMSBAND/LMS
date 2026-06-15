@@ -15,17 +15,20 @@ slider4:0<0,1,1{Compress,Limit}>-Mode
 slider5:50<0,100,1>-Emphasis (%)
 slider6:100<0,100,1>-Mix (%)
 slider7:0<0,100,1>-Warmth (%)
+slider8:0<0,300,1>-Lo Crossover (Hz) [0=Off]
 
 @init
 
   opto.lms_opto_init();
   dc_out.lms_dc_init();
+  xover.lms_xover_init();
+  xover_freq = 0;
 
   notice_show = 0;
   buy_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(18, 7, 810000);
+  bc.lms_bc_init(18, 8, 810000);
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -37,6 +40,8 @@ slider7:0<0,100,1>-Warmth (%)
   warmth = slider7 / 100;
 
   opto.lms_opto_set(peak_red, mode, emphasis, warmth);
+  xover_freq = slider8;
+  xover_freq > 0 ? xover.lms_xover_set(xover_freq);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -52,6 +57,8 @@ mix = slider6 / 100;
 warmth = slider7 / 100;
 
 opto.lms_opto_set(peak_red, mode, emphasis, warmth);
+xover_freq = slider8;
+xover_freq > 0 ? xover.lms_xover_set(xover_freq);
 
 // Broadcast: heartbeat, follow, steal, stale detection
 bc.lms_bc_block();
@@ -65,6 +72,7 @@ bc.bc_leader_pbase > 0 ? (
   slider5 = gmem[bc.bc_leader_pbase + 4];
   slider6 = gmem[bc.bc_leader_pbase + 5];
   slider7 = gmem[bc.bc_leader_pbase + 6];
+  slider8 = gmem[bc.bc_leader_pbase + 7];
 );
 
 // Steal: one-shot copy from target
@@ -76,6 +84,7 @@ bc.bc_did_steal ? (
   slider5 = gmem[bc.bc_steal_pbase + 4];
   slider6 = gmem[bc.bc_steal_pbase + 5];
   slider7 = gmem[bc.bc_steal_pbase + 6];
+  slider8 = gmem[bc.bc_steal_pbase + 7];
 );
 
 // Write our params for others to read
@@ -87,6 +96,7 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 4] = slider5;
   gmem[bc.bc_my_pbase + 5] = slider6;
   gmem[bc.bc_my_pbase + 6] = slider7;
+  gmem[bc.bc_my_pbase + 7] = slider8;
 );
 
 @sample
@@ -97,16 +107,22 @@ bc.bc_my_pbase > 0 ? (
   r = spl1 * in_gain;
 
   // Subtle tube coloration (always-on 12AX7 output stage character)
-  // Warmth slider controls drive amount: 0 = clean, 100 = noticeable warmth
   warmth > 0.01 ? (
     l = opto.sat_l.lms_sat_warm(l, warmth * 0.15, 0.0);
     r = opto.sat_r.lms_sat_warm(r, warmth * 0.15, 0.0);
   );
 
-  // T4B optical compression
-  opto.lms_opto_proc(l, r);
-  l *= opto.gr;
-  r *= opto.gr;
+  // Lo crossover: split signal, compress only hi band
+  xover_freq > 0 ? (
+    xover.lms_xover_proc(l, r);
+    opto.lms_opto_proc(xover.hi_l, xover.hi_r);
+    l = xover.lo_l + xover.hi_l * opto.gr;
+    r = xover.lo_r + xover.hi_r * opto.gr;
+  ) : (
+    opto.lms_opto_proc(l, r);
+    l *= opto.gr;
+    r *= opto.gr;
+  );
 
   // Makeup gain
   l *= makeup;
@@ -316,7 +332,7 @@ gfx_drawstr("Density-Aware Opto Compressor");
 // ============================================================================
 //  LEFT COLUMN: CONTROLS
 // ============================================================================
-ctrl_h = floor(200 * S);
+ctrl_h = floor(222 * S);
 draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
 cy = body_y + floor(26 * S);
 
@@ -346,6 +362,10 @@ cy += bar_sp;
 
 _old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Mix", 1);
 slider6 != _old ? slider_automate(2^5);
+cy += bar_sp;
+
+_old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 300, "Lo Xover Hz", 1);
+slider8 != _old ? slider_automate(2^7);
 
 // ============================================================================
 //  RIGHT COLUMN: METERING

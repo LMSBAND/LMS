@@ -4396,6 +4396,41 @@ function lms_bc_gfx(S, lc)
 );
 
 
+// ============================================================
+// LR4 STEREO CROSSOVER — Linkwitz-Riley 4th order (24dB/oct)
+//   Two cascaded Butterworth biquads per band. Sums perfectly flat.
+//
+//   xover.lms_xover_init();
+//   xover.lms_xover_set(freq);
+//   xover.lms_xover_proc(l, r);
+//   // outputs: xover.lo_l, xover.lo_r, xover.hi_l, xover.hi_r
+// ============================================================
+
+function lms_xover_init() (
+  this.lp1.lms_bq_init();
+  this.lp2.lms_bq_init();
+  this.hp1.lms_bq_init();
+  this.hp2.lms_bq_init();
+  this.freq = 0;
+);
+
+function lms_xover_set(freq) (
+  freq != this.freq ? (
+    this.lp1.lms_bq_set_lp(freq, 0.707);
+    this.lp2.lms_bq_set_lp(freq, 0.707);
+    this.hp1.lms_bq_set_hp(freq, 0.707);
+    this.hp2.lms_bq_set_hp(freq, 0.707);
+    this.freq = freq;
+  );
+);
+
+function lms_xover_proc(l, r) (
+  this.lo_l = this.lp2.lms_bq_proc_l(this.lp1.lms_bq_proc_l(l));
+  this.lo_r = this.lp2.lms_bq_proc_r(this.lp1.lms_bq_proc_r(r));
+  this.hi_l = this.hp2.lms_bq_proc_l(this.hp1.lms_bq_proc_l(l));
+  this.hi_r = this.hp2.lms_bq_proc_r(this.hp1.lms_bq_proc_r(r));
+);
+
 
 // ============================================================
 // PEDAL PRIMITIVES — reusable by any plugin (see lms_satans_pedalboard.jsfx)

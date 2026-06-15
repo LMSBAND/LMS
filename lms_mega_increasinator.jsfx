@@ -16,11 +16,14 @@ slider5:0<-24,0,0.1>-Gain Reduction (dB)
 slider6:0<0,100,1>-Opto Pre-Limit (%)
 slider7:0<0,7,1{Off,Clean,Loud,Open,Pop,Hardcore,Hip-Hop,Punk}>-EQ Profile
 slider8:100<0,200,1>-EQ Intensity (%)
+slider9:0<0,300,1>-Lo Crossover (Hz) [0=Off]
 
 @init
 
   lim.lms_lim_init();
   opto.lms_opto_init();
+  xover.lms_xover_init();
+  xover_freq = 0;
 
   // Reactive EQ filter instances (4-band density-driven)
   req_lo.lms_bq_init();     // low shelf 120 Hz — tighten bass
@@ -43,8 +46,8 @@ slider8:100<0,200,1>-EQ Intensity (%)
   target_boost = 1.0;
   opto_blend = 0;
 
-  // Broadcast system (instance manager) — type 19, 7 synced params, stale @ 820000
-  bc.lms_bc_init(19, 7, 820000);
+  // Broadcast system (instance manager) — type 19, 8 synced params, stale @ 820000
+  bc.lms_bc_init(19, 8, 820000);
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -54,6 +57,8 @@ slider8:100<0,200,1>-EQ Intensity (%)
   opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
   eq_profile = slider7;
   eq_intensity = slider8 / 100;
+  xover_freq = slider9;
+  xover_freq > 0 ? xover.lms_xover_set(xover_freq);
 
 // ============================================================
 // @BLOCK — Broadcast, heartbeat, stale-check, follow, steal
@@ -67,6 +72,8 @@ opto_blend = slider6 / 100;
 opto_blend > 0.01 ? opto.lms_opto_set(opto_blend * 0.7, 0, 0.5, 0.0);
 eq_profile = slider7;
 eq_intensity = slider8 / 100;
+xover_freq = slider9;
+xover_freq > 0 ? xover.lms_xover_set(xover_freq);
 
 // ---- Reactive EQ coefficient update (4-band + intensity) ----
 eq_profile > 0 && opto_blend > 0.01 ? (
@@ -174,6 +181,7 @@ bc.bc_leader_pbase > 0 ? (
   slider6 = gmem[bc.bc_leader_pbase + 4];
   slider7 = gmem[bc.bc_leader_pbase + 5];
   slider8 = gmem[bc.bc_leader_pbase + 6];
+  slider9 = gmem[bc.bc_leader_pbase + 7];
 );
 
 // Steal: one-shot copy from target
@@ -185,6 +193,7 @@ bc.bc_did_steal ? (
   slider6 = gmem[bc.bc_steal_pbase + 4];
   slider7 = gmem[bc.bc_steal_pbase + 5];
   slider8 = gmem[bc.bc_steal_pbase + 6];
+  slider9 = gmem[bc.bc_steal_pbase + 7];
 );
 
 // Write our params for others to read
@@ -196,6 +205,7 @@ bc.bc_my_pbase > 0 ? (
   gmem[bc.bc_my_pbase + 4] = slider6;
   gmem[bc.bc_my_pbase + 5] = slider7;
   gmem[bc.bc_my_pbase + 6] = slider8;
+  gmem[bc.bc_my_pbase + 7] = slider9;
 );
 
 @sample
@@ -205,12 +215,17 @@ bc.bc_my_pbase > 0 ? (
   r = spl1 * in_gain;
 
   // Opto pre-limiter: smooth dynamics before the brick-wall
-  // Like running an LA-2A into an L2 — opto catches the big swings musically,
-  // brick-wall catches whatever's left. Less brick-wall work = fewer artifacts.
   opto_blend > 0.01 ? (
-    opto.lms_opto_proc(l, r);
-    l = l * (1 - opto_blend) + (l * opto.gr) * opto_blend;
-    r = r * (1 - opto_blend) + (r * opto.gr) * opto_blend;
+    xover_freq > 0 ? (
+      xover.lms_xover_proc(l, r);
+      opto.lms_opto_proc(xover.hi_l, xover.hi_r);
+      l = xover.lo_l + xover.hi_l * (1 - opto_blend) + (xover.hi_l * opto.gr) * opto_blend;
+      r = xover.lo_r + xover.hi_r * (1 - opto_blend) + (xover.hi_r * opto.gr) * opto_blend;
+    ) : (
+      opto.lms_opto_proc(l, r);
+      l = l * (1 - opto_blend) + (l * opto.gr) * opto_blend;
+      r = r * (1 - opto_blend) + (r * opto.gr) * opto_blend;
+    );
   );
 
   // Reactive EQ: density-driven spectral shaping before brick-wall
@@ -411,7 +426,7 @@ gfx_drawstr("Auto-Makeup Brick-Wall Limiter");
 // ============================================================================
 //  LEFT COLUMN: CONTROLS
 // ============================================================================
-ctrl_h = floor(196 * S);
+ctrl_h = floor(218 * S);
 draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
 cy = body_y + floor(26 * S);
 
@@ -493,6 +508,11 @@ cy += bar_sp;
 // EQ Intensity
 _old = slider8; slider8 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider8, 0, 200, "EQ Intens %", 1);
 slider8 != _old ? slider_automate(2^7);
+cy += bar_sp;
+
+// Lo Crossover
+_old = slider9; slider9 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider9, 0, 300, "Lo Xover Hz", 1);
+slider9 != _old ? slider_automate(2^8);
 
 // ============================================================================
 //  RIGHT COLUMN: METERING
