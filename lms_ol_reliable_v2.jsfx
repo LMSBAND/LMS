@@ -85,6 +85,7 @@ pa.lms_pp_pa_init(3.0, 1.6, 1.5, 0.85);
 pa.lms_pp_pa_cathode(0.010, 0.200, 0.15);
 pa.lms_pp_pa_xfmr(3.5, 0.986, 1.2, 0.25);
 pa.lms_pp_pa_xfmr_res(4000, 2.0, 2.0);
+pa.lms_pp_pa_hyst(0.12);
 pa.alias_lp.lms_bq_init();
 pa.alias_lp.lms_bq_set_lp(12000, 0.4);
 pa.tonecut.lms_bq_init();

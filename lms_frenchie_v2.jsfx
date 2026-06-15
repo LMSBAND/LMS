@@ -67,6 +67,7 @@ pa.lms_se_pa_init(2.0, 1.8, 0.7, 0.6, 1.0, 0.85);
 pa.lms_se_pa_cathode(0.005, 0.150, 0.20);
 pa.lms_se_pa_xfmr(4.0, 0.988, 1.5, 0.3);
 pa.lms_se_pa_xfmr_res(3500, 2.5, 2.0);
+pa.lms_se_pa_hyst(0.15);
 pa.lms_se_pa_alias_lp(10000, 0.4);
 
 // Simple Champ tone control (just a LP that sweeps)

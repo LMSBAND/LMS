@@ -98,6 +98,7 @@ bassman_pa.lms_pp_pa_cathode(0.004, 0.100, 0.14);
 bassman_pa.lms_pp_pa_xfmr(2.4, 0.984, 1.0, 0.20);
 bassman_pa.lms_pp_pa_xfmr_res(3200, 2.0, 1.8);
 bassman_pa.lms_pp_pa_nfb(4000, 800, 2500, 5000);
+bassman_pa.lms_pp_pa_hyst(0.08);
 bassman_pa.pres_f.lms_bq_init();
 bassman_pa.bassman_poweramp_set(0.5, 0.5);
 

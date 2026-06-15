@@ -106,6 +106,7 @@ twin_pa.lms_pp_pa_cathode(0.003, 0.060, 0.08);
 twin_pa.lms_pp_pa_xfmr(1.8, 0.982, 0.8, 0.15);
 twin_pa.lms_pp_pa_xfmr_res(3800, 1.5, 2.0);
 twin_pa.lms_pp_pa_nfb(5000, 600, 3000, 6000);
+twin_pa.lms_pp_pa_hyst(0.08);
 twin_pa.pres_f.lms_bq_init();
 twin_pa.twin_poweramp_set(0.5, 0.5);
 
@@ -115,6 +116,7 @@ deluxe_pa.lms_pp_pa_cathode(0.004, 0.120, 0.15);
 deluxe_pa.lms_pp_pa_xfmr(3.0, 0.985, 1.2, 0.25);
 deluxe_pa.lms_pp_pa_xfmr_res(3500, 2.0, 2.0);
 deluxe_pa.lms_pp_pa_nfb(4500, 700, 2800, 5500);
+deluxe_pa.lms_pp_pa_hyst(0.08);
 deluxe_pa.pres_f.lms_bq_init();
 deluxe_pa.deluxe_poweramp_set(0.5, 0.5);
 

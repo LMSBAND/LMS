@@ -100,6 +100,7 @@ pa.lms_pp_pa_cathode(0.003, 0.080, 0.12);
 pa.lms_pp_pa_xfmr(2.8, 0.984, 1.1, 0.22);
 pa.lms_pp_pa_xfmr_res(3000, 2.0, 1.8);
 pa.lms_pp_pa_nfb(4500, 600, 2800, 5500);
+pa.lms_pp_pa_hyst(0.12);
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
 spring.lms_spring_init();

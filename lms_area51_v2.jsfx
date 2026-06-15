@@ -118,6 +118,7 @@ pa.lms_pp_pa_deadzone(0.02);
 pa.lms_pp_pa_xfmr(2.5, 0.985, 1.2, 0.25);
 pa.lms_pp_pa_xfmr_res(4200, 2.0, 2.5);
 pa.lms_pp_pa_nfb(5500, 700, 3500, 6500);
+pa.lms_pp_pa_hyst(0.10);
 pa.pres_f.lms_bq_init();
 pa.poweramp_set(0.5, 0.5, 0.5);
 

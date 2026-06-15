@@ -94,6 +94,7 @@ ts.lms_tmb_set(0.5, 0.5, 0.5);
 pa.lms_pp_pa_init(2.5, 1.4, 1.35, 0.85);
 pa.lms_pp_pa_xfmr(3.0, 0.984, 1.0, 0.2);
 pa.lms_pp_pa_nfb(6000, 800, 3500, 7000);
+pa.lms_pp_pa_hyst(0.12);
 pa.pres_f.lms_bq_init();
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
