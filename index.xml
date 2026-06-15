@@ -92,6 +92,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="6.7" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v6.7 — DSP corrections from Linus Torvalds C port review. DC blocker: add missing 2*pi factor (cutoff was 3.2Hz instead of 20Hz). Peaking EQ: fix A=10^(dB/20) to correct A=10^(dB/40), all callsites compensated. Klon presence peak doubled to match. Mouse capture system for draw_bar sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -100,6 +105,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-04-04T00:00:00Z">
         <changelog><![CDATA[v1.1 — Fix: only clear audio buffers on first load or sample rate change — prevents reverb tail wipe when changing presets or reopening GUI. Init guard wraps all buffer zeroing and write position resets.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.2 — Modal resonance EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
     </reapack>
@@ -148,6 +157,10 @@
         <changelog><![CDATA[v7.0 — Built-in reverb. Spring reverb (from core) and Schroeder room reverb (4 LP-damped comb filters + stereo allpass diffusion). Dark/Neutral/Bright tone control. Pre-comp or post-comp routing. Sliders 27-31.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
+      <version name="7.1" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v7.1 — Peaking EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_traumatizer.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -186,6 +199,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
+      <version name="5.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -218,6 +235,10 @@
       </version>
           <version name="6.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
+      <version name="6.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v6.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
     </reapack>
@@ -254,6 +275,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
+      <version name="5.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_henge.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -286,6 +311,10 @@
       </version>
           <version name="5.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
+      </version>
+      <version name="5.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
     </reapack>
@@ -364,6 +393,10 @@
       </version>
       <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
+      <version name="2.9" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.9 — Triode neg_hard 0.9→0.935: fixes crossover distortion at zero crossing (slope now matches positive branch). From Linus Torvalds C port review.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
     </reapack>
@@ -620,6 +653,10 @@
         <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="2.9" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -670,6 +707,10 @@
         <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
+      <version name="2.9" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -696,6 +737,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.4" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.4 — Peaking EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -708,6 +753,10 @@
       </version>
           <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
       </version>
     </reapack>
@@ -728,6 +777,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
@@ -740,6 +793,10 @@
       </version>
           <version name="2.1" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+      <version name="2.2" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.2 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
@@ -760,6 +817,10 @@
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.3 — Mouse capture on sliders prevents accidental edits while dragging.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -772,6 +833,10 @@
       </version>
           <version name="1.2" author="LMS" time="2026-03-07T22:00:00Z">
         <changelog><![CDATA[Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
       </version>
     </reapack>
@@ -812,6 +877,10 @@
         <changelog><![CDATA[v2.0 — Huovilainen nonlinear Moog ladder filter. Per-stage tanh models transistor differential pairs from actual circuit physics (replaces simplified 1-pole cascade). 2x oversampled forward Euler with Huovilainen frequency/amplitude correction polynomials and half-sample delay phase compensation. Thermal drift: signal energy heats transistors (5ms attack / 150ms release), modulating thermal voltage (softer saturation) and cutoff frequency (filter opens slightly under load). Transistor mismatch: per-stage tolerance offsets create asymmetric harmonic distribution. Eliminates inter-note clipping artifacts from the old linear stages. All 4 filter modes preserved (LP24/LP12/HP24/BP12).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.1 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Mono/Poly Analog Synth">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -828,6 +897,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-05-16T18:00:00Z">
         <changelog><![CDATA[v2.0 — Huovilainen nonlinear Moog ladder filter (mono + 8-voice poly). Per-stage tanh models transistor differential pairs from actual circuit physics. 2x oversampled with frequency/amplitude correction polynomials and half-sample delay phase compensation. Per-voice thermal drift: independent energy tracking per poly voice (5ms heat / 150ms cool) modulates thermal voltage and cutoff — each voice's filter responds to its own signal energy. Transistor mismatch: per-stage tolerance offsets. Poly path optimized: LFO/overload/resonance hoisted out of voice loop, divisions converted to multiplications.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+      <version name="2.1" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.1 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
       </version>
     </reapack>
@@ -868,6 +941,10 @@
         <changelog><![CDATA[v1.9 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v2.0 — Peaking EQ callsite correction (core 6.7).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -900,6 +977,10 @@
       </version>
       <version name="1.8" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog><![CDATA[v1.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
+      <version name="1.9" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
     </reapack>
@@ -1548,6 +1629,11 @@
       </version>
       <version name="1.2" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog><![CDATA[v1.2 — Golden Calf (Klon Centaur): dual-gang gain structure with clean blend, germanium soft-clip, post-clip treble peaker and bass recovery. Fix: slider automation now works correctly on all pedal controls.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
+        <changelog><![CDATA[v1.3 — Fix spring reverb + BBD delay buffer collision (Unholy Bowl spring buffer overlapped Elephant delay). Mouse capture on sliders prevents accidental edits while dragging.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
