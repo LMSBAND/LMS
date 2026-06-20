@@ -299,6 +299,8 @@ function lms_sat_da_init() (
   this.miller_base_freq = 8000;
   this.last_miller_freq = 8000;
   this.last_miller_q = 0.6;
+  this.miller_smooth = exp(-1/(srate * 0.150));
+  this.miller_freq_smooth = 8000;
   // Air shelf (density-driven HF control)
   this.air_shelf.lms_bq_init();
   this.air_shelf.lms_bq_set_hishelf(5000, 0.0, 0.7);
@@ -414,8 +416,10 @@ function lms_sat_da_proc(x, drive, bias, pos_hard, neg_hard, pos_ceil, neg_ceil,
   );
 
   // 6. Miller LP — density drives cutoff (AFTER clipping, on output)
-  lp_freq = this.miller_base_freq - (this.hd_density - 1.0) * 500;
-  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
+  lp_freq = this.miller_base_freq + (2.5 - this.hd_density) * 6000;
+  lp_freq = max(this.miller_base_freq - 1500, min(20000, lp_freq));
+  this.miller_freq_smooth = this.miller_smooth * this.miller_freq_smooth + (1 - this.miller_smooth) * lp_freq;
+  lp_freq = this.miller_freq_smooth;
   lp_q = 0.6 + this.hd_hi_density * 0.35;
   lp_q = max(0.6, min(0.95, lp_q));
   abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (
@@ -1070,6 +1074,8 @@ function lms_triode_init(hp_freq, lp_freq, air_freq, hd_lo, hd_mid, hd_air)
   this.miller_base_freq = lp_freq;
   this.last_miller_freq = lp_freq;
   this.last_miller_q = 0.6;
+  this.miller_smooth = exp(-1/(srate * 0.150));
+  this.miller_freq_smooth = lp_freq;
   // Air shelf (density-driven fizz control)
   this.air_shelf.lms_bq_init();
   this.air_shelf.lms_bq_set_hishelf(air_freq, 0.0, 0.7);
@@ -1124,8 +1130,10 @@ function lms_triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil
     b = gc_out;
   );
   // 7. Miller LP (density-driven cutoff and Q)
-  lp_freq = this.miller_base_freq - (this.hd.density - 1.0) * 500;
-  lp_freq = max(this.miller_base_freq - 1500, min(this.miller_base_freq + 500, lp_freq));
+  lp_freq = this.miller_base_freq + (2.5 - this.hd.density) * 6000;
+  lp_freq = max(this.miller_base_freq - 1500, min(20000, lp_freq));
+  this.miller_freq_smooth = this.miller_smooth * this.miller_freq_smooth + (1 - this.miller_smooth) * lp_freq;
+  lp_freq = this.miller_freq_smooth;
   lp_q = 0.6 + this.hd.hi_density * 0.35;
   lp_q = max(0.6, min(0.95, lp_q));
   abs(lp_freq - this.last_miller_freq) > 30 || abs(lp_q - this.last_miller_q) > 0.02 ? (

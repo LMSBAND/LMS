@@ -388,7 +388,7 @@ amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack (Orange FMV — bass-shifted, mid-forward)
 amp_out = ts.lms_tmb_proc(amp_out);
-amp_out *= 7.0;  // restore level after tone stack insertion loss
+amp_out *= 1.0 + gain * 6.0;
 
 // 6b. V2b (12AT7 MK2 / 12AX7 MK1 — final tube stage before Class D)
 // This is the last tube coloration before the solid-state power amp.

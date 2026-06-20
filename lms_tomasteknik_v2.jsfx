@@ -452,7 +452,7 @@ v1b_out = v1b.lms_triode_proc(v1_out, v1b_drive, bplus, 0.8, 0.7, 0.95, 1.05, 0.
 
 // 5. Tone stack (after preamp, before power amp — like real SVT)
 amp_out = ts.lms_svt_eq_proc(v1b_out);
-amp_out *= 6.0;
+amp_out *= 1.0 + gain * 5.0;
 
 // 5b. 12AU7 driver stage — soft, round, pillowy
 //     Lower mu than 12AX7 (~20 vs ~100), softer clipping

@@ -426,7 +426,7 @@ amp_out = cf.lms_cf_proc(v1a_out, bplus);
 
 // 7. Fender tone stack (AB763 — different from Marshall)
 amp_out = ts.lms_tmb_proc(amp_out);
-amp_out *= 6.0;  // restore level after tone stack insertion loss (~12dB)
+amp_out *= 1.0 + gain * 5.0;
 
 // 8. Phase inverter (12AT7 LTP — LESS gain than Marshall's 12AX7 LTP)
 // This is WHY the Twin stays clean longer: the PI barely distorts.

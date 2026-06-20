@@ -433,7 +433,7 @@ channel == 0 ? (
 
   // Tone stack (higher makeup — fewer stages to recover from)
   amp_out = ts.lms_tmb_proc(amp_out);
-  amp_out *= 5.5;
+  amp_out *= 1.0 + gain * 4.5;
 
   // V4 recovery — kept gentle so headroom survives
   v4_drive = post_gain * 0.10;
@@ -475,7 +475,7 @@ channel == 0 ? (
 
   // Tone stack
   amp_out = ts.lms_tmb_proc(amp_out);
-  amp_out *= 5.5;
+  amp_out *= 1.0 + gain * 4.5;
 
   // V4 recovery — Post Gain stage (higher drive on Lead)
   v4_drive = post_gain * 0.30;

@@ -403,7 +403,7 @@ amp_out = cf.lms_cf_proc(v1a_out, bplus);
 
 // 7. Bassman tone stack (5F6-A — THE original Fender TMB)
 amp_out = ts.lms_tmb_proc(amp_out);
-amp_out *= 6.0;  // restore level after tone stack insertion loss (~12dB)
+amp_out *= 1.0 + gain * 5.0;
 
 // 8. Phase inverter (12AX7 LTP — MORE gain than Twin's 12AT7)
 // Bassman uses 12AX7 in the PI (higher gain = drives power amp harder).

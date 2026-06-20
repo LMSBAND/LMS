@@ -476,10 +476,10 @@ amp_out = ts.lms_tmb_proc(amp_out);
 // === GAIN RECOVERY (V4a) ===
 // Clean: lighter recovery. Vintage/Modern: full recovery.
 channel == 0 ? (
-  amp_out *= 3.5;
+  amp_out *= 1.0 + gain * 2.5;
   v4a_drive = 0.10;
 ) : (
-  amp_out *= 5.5;
+  amp_out *= 1.0 + gain * 4.5;
   v4a_drive = gain * 0.20;
 );
 amp_out = v4a.lms_triode_proc(amp_out, v4a_drive, bplus,

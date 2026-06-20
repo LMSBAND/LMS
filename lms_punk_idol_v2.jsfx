@@ -392,7 +392,7 @@ amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack
 amp_out = ts.lms_tmb_proc(amp_out);
-amp_out *= 8.0;
+amp_out *= 1.0 + gain * 7.0;
 
 // 6b. Phase inverter — 12AX7 LTP drives EL34 grids
 // At high master: clips before power tubes = "fizz" character

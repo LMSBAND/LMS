@@ -43,6 +43,8 @@ slider18:0<0,11,1{Off,1x12 Greenback,1x12 Jensen,1x12 Blue,2x12 Jensen,4x12 G12T
 slider19:0<0,100,1>-Mic B Distance (%)
 // --- SPEAKER BREAKUP ---
 slider25:100<0,100,1>-Speaker Breakup (%)
+// --- BRIGHT ---
+slider26:0<0,1,1{Off,On}>-Bright
 // --- IMPEDANCE TAP ---
 slider20:2<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
 
@@ -121,6 +123,10 @@ ohm_lo_gain = 0;
 ohm_lo.lms_bq_init();
 cab_load_ohms = 16;
 
+bright_cap.lms_bq_init();
+bright_cap.lms_bq_set_hishelf(2000, 4.0, 0.7);
+bright_on = 0;
+
 gain = 0.5; in_level = 1; out_level = 1; master = 0.5;
 channel = 0; input_intensity = 0.5; sag_depth = 0.5; jump_mix = 0.5;
 tonecut = 0.5;
@@ -171,6 +177,7 @@ cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
 cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
 cab.cab_breakup_amt = slider25 / 100;
 cab2.cab_breakup_amt = slider25 / 100;
+bright_on = slider26;
 
 // Impedance interaction — rear panel tap + load mismatch
 amp_designed_ohms = slider20 == 0 ? 4 : slider20 == 1 ? 8 : 16;
@@ -232,6 +239,7 @@ cab_dual = cab_on && cab_type > 0 && cab2_type > 0;
 cab_b_solo = cab_on && cab_type == 0 && cab2_type > 0;
 cab.cab_breakup_amt = slider25 / 100;
 cab2.cab_breakup_amt = slider25 / 100;
+bright_on = slider26;
 
 // Impedance interaction — rear panel tap + load mismatch
 amp_designed_ohms = slider20 == 0 ? 4 : slider20 == 1 ? 8 : 16;
@@ -354,6 +362,9 @@ input_intensity > 0.0 ? (
 // 2. Input coupling cap
 mono = input_hp.lms_bq_proc(mono);
 
+// 2b. Bright cap — Vox Brilliant channel treble boost
+bright_on ? ( mono = bright_cap.lms_bq_proc(mono); );
+
 // 3. PSU sag (shared rail)
 bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mult);
 
@@ -385,27 +396,25 @@ ef86_out = coupling_hp.lms_bq_proc(ef86_out);
 
 // 5. Channel routing: Normal, Top Boost, or Jumped
 channel == 0 ? (
-  // Normal: EF86 straight to PI
+  // Normal: EF86 straight to tone stack (no 12AX7 second stage)
   amp_out = ef86_out;
 ) : channel == 1 ? (
-  // Top Boost: EF86 → 12AX7 → bass/treble RC network
+  // Top Boost: EF86 → 12AX7 → tone stack
   v1_drive = gain * 0.45;
   amp_out = v1.lms_triode_proc(ef86_out, v1_drive, bplus, 1.3, 1.1, 0.80, 0.95, 0.30, 0.15);
-  amp_out = tb.lms_topboost_proc(amp_out);
 ) : (
   // Jumped: both paths run, passive resistive mix at PI grid
-  // Normal path — EF86 output direct
   jump_normal = ef86_out;
-  // Top Boost path — EF86 → 12AX7 → tone stack
   v1_drive = gain * 0.45;
   jump_tb = v1.lms_triode_proc(ef86_out, v1_drive, bplus, 1.3, 1.1, 0.80, 0.95, 0.30, 0.15);
-  jump_tb = tb.lms_topboost_proc(jump_tb);
   // Passive resistive mix — plate resistors form a voltage divider
   // Mixing two signals through resistors attenuates ~6dB (0.7x)
   amp_out = (jump_normal * (1.0 - jump_mix) + jump_tb * jump_mix) * 0.7;
 );
+// Tone stack — all channels
+amp_out = tb.lms_topboost_proc(amp_out);
 
-amp_out *= 6.0;
+amp_out *= 1.0 + gain * 5.0;
 
 // 5b. v1.1: Cathodyne phase inverter — THE Vox bloom
 // At low master: transparent. At high master: asymmetric clipping = harmonic bloom
@@ -594,8 +603,11 @@ slider9 != _old ? slider_automate(2^8);
 //  COL 2: TONE / POWER
 // ============================================================================
 c2x = margin + col_w + gap;
-lms_draw_panel(c2x, body_y, col_w, 26 + 5 * bar_sp, "TONE / POWER");
+lms_draw_panel(c2x, body_y, col_w, 26 + 6 * bar_sp, "TONE / POWER");
 cy = body_y + floor(26 * S);
+_old = slider26; slider26 = lms_draw_toggle(c2x + pad, cy + 2, slider26, "Bright");
+slider26 != _old ? slider_automate(2^25);
+cy += bar_sp;
 _old = slider4; slider4 = lms_draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider4, 0, 100, "Bass", 1);
 slider4 != _old ? slider_automate(2^3);
 cy += bar_sp;
@@ -793,7 +805,7 @@ slider23 != _old ? slider_automate(2^22);
   // Meter 1: MILLER LP
   gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(dm_mx, dm_my, dm_mw, dm_meter_h);
-  dm_mfill = max(0, min(1, (d_miller_freq - 5000) / 3500));
+  dm_mfill = max(0, min(1, (d_miller_freq - 5000) / 15000));
   dm_mfill_w = dm_mfill * dm_mw;
   dm_mfill_w > 0 ? ( gfx_r = COL_CYAN_R * 0.6; gfx_g = COL_CYAN_G * 0.6; gfx_b = COL_CYAN_B * 0.6; gfx_rect(dm_mx, dm_my, dm_mfill_w, dm_meter_h); gfx_r = COL_CYAN_R; gfx_g = COL_CYAN_G; gfx_b = COL_CYAN_B; gfx_rect(dm_mx, dm_my, dm_mfill_w, 1); );
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
@@ -802,7 +814,7 @@ slider23 != _old ? slider_automate(2^22);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
   gfx_setfont(1, "Arial", max(7, floor(9 * S)));
   gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
-  gfx_drawstr("MLR LP");
+  d_miller_freq >= 10000 ? gfx_drawstr(sprintf(#, "%.1fk", d_miller_freq / 1000)) : gfx_drawstr(sprintf(#, "%dHz", floor(d_miller_freq)));
   // Meter 2: MILLER Q
   dm_mx += dm_mw + dm_meter_gap;
   gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;

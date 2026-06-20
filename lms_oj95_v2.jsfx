@@ -157,11 +157,11 @@ amp_mode = slider13;
 ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 master = slider7 / 100;
 amp_mode == 0 ? (
-  pa.lms_pp_pa_init(2.2, 1.35, 1.30, 0.85);
-  pa.lms_pp_pa_xfmr(2.8, 0.984, 1.1, 0.22);
+  pa.pa_drive_mult = 2.2; pa.pa_push_hard = 1.35; pa.pa_pull_hard = 1.30; pa.pa_output_gain = 0.85;
+  pa.pa_xfmr_sens = 2.8; pa.pa_xfmr_lp_a = 0.984; pa.pa_xfmr_sat_mult = 1.1; pa.pa_xfmr_sat_div = 0.22;
 ) : (
-  pa.lms_pp_pa_init(1.8, 1.15, 1.10, 0.90);
-  pa.lms_pp_pa_xfmr(3.2, 0.988, 0.9, 0.18);
+  pa.pa_drive_mult = 1.8; pa.pa_push_hard = 1.15; pa.pa_pull_hard = 1.10; pa.pa_output_gain = 0.90;
+  pa.pa_xfmr_sens = 3.2; pa.pa_xfmr_lp_a = 0.988; pa.pa_xfmr_sat_mult = 0.9; pa.pa_xfmr_sat_div = 0.18;
 );
 pa.poweramp_set(master, 0.5);
 input_intensity = slider8 / 100;
@@ -226,11 +226,11 @@ amp_mode = slider13;
 ts.lms_tmb_set(slider4/100, slider5/100, slider6/100);
 master = slider7 / 100;
 amp_mode == 0 ? (
-  pa.lms_pp_pa_init(2.2, 1.35, 1.30, 0.85);
-  pa.lms_pp_pa_xfmr(2.8, 0.984, 1.1, 0.22);
+  pa.pa_drive_mult = 2.2; pa.pa_push_hard = 1.35; pa.pa_pull_hard = 1.30; pa.pa_output_gain = 0.85;
+  pa.pa_xfmr_sens = 2.8; pa.pa_xfmr_lp_a = 0.984; pa.pa_xfmr_sat_mult = 1.1; pa.pa_xfmr_sat_div = 0.22;
 ) : (
-  pa.lms_pp_pa_init(1.8, 1.15, 1.10, 0.90);
-  pa.lms_pp_pa_xfmr(3.2, 0.988, 0.9, 0.18);
+  pa.pa_drive_mult = 1.8; pa.pa_push_hard = 1.15; pa.pa_pull_hard = 1.10; pa.pa_output_gain = 0.90;
+  pa.pa_xfmr_sens = 3.2; pa.pa_xfmr_lp_a = 0.988; pa.pa_xfmr_sat_mult = 0.9; pa.pa_xfmr_sat_div = 0.18;
 );
 pa.poweramp_set(master, 0.5);
 input_intensity = slider8 / 100;
@@ -433,7 +433,7 @@ amp_out = cf.lms_cf_proc(amp_out, bplus);
 
 // 6. Tone stack (Orange FMV — 39k slope, mid-forward)
 amp_out = ts.lms_tmb_proc(amp_out);
-amp_out *= 7.0;  // slightly less loss recovery (Orange tone stack scoops less)
+amp_out *= 1.0 + gain * 6.0;
 
 // 6b. Phase inverter — 12AX7 LTP (warmer than Marshall)
 // Orange LTP: slightly lower bandwidth, rounder clipping character.
