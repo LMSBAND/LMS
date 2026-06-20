@@ -1005,15 +1005,25 @@ beats_per_measure > 0 ? (
   beat_in_pattern = beat_position - pattern_cycle * total_beats;
   raw_pos = beat_in_pattern * 4;  // fractional step position (0 to total_pattern_steps)
 
-  // Swing: shift the split point within each pair of steps
-  // At 0% swing = straight (split at 1.0), at 100% = heavy shuffle (split at 1.9)
-  swing_split = 1.0 + (slider2 / 100) * 0.9;
-  pair = (raw_pos / 2) | 0;           // which pair
-  pos_in_pair = raw_pos - pair * 2;   // 0.0 to 2.0
-  pos_in_pair < swing_split ? (
-    timeline_step = pair * 2;
+  // Swing: 8th-note shuffle — delay the off-beat 8th within each beat
+  // At 0% = straight (split at 2.0), at 100% = heavy shuffle (split at 3.8)
+  swing_split = 2.0 + (slider2 / 100) * 1.8;
+  swing_group = (raw_pos / 4) | 0;            // which beat
+  pos_in_group = raw_pos - swing_group * 4;   // 0.0 to 4.0
+  pos_in_group < swing_split ? (
+    // On-beat 8th note (steps 0, 1 of beat)
+    pos_in_group < swing_split * 0.5 ? (
+      timeline_step = swing_group * 4;
+    ) : (
+      timeline_step = swing_group * 4 + 1;
+    );
   ) : (
-    timeline_step = pair * 2 + 1;
+    // Off-beat 8th note (steps 2, 3 of beat)
+    pos_in_group < swing_split + (4.0 - swing_split) * 0.5 ? (
+      timeline_step = swing_group * 4 + 2;
+    ) : (
+      timeline_step = swing_group * 4 + 3;
+    );
   );
 
   timeline_step = max(0, min(timeline_step, total_pattern_steps - 1));
@@ -1108,12 +1118,12 @@ seq_mode && transport_playing && (timeline_step != seq_step || transport_started
 seq_step = timeline_step;
 
 // Swing-adjusted step duration for sub-step timing
-// Even steps are longer, odd steps shorter (swing stretches the pair)
-swing_split = 1.0 + (slider2 / 100) * 0.9;
-seq_step % 2 == 0 ? (
-  actual_step_dur = swing_split * step_samples;
+// On-beat 8th (steps 0,1 of beat) longer, off-beat (steps 2,3) shorter
+swing_split = 2.0 + (slider2 / 100) * 1.8;
+(seq_step % 4) < 2 ? (
+  actual_step_dur = (swing_split / 2.0) * step_samples;
 ) : (
-  actual_step_dur = (2.0 - swing_split) * step_samples;
+  actual_step_dur = ((4.0 - swing_split) / 2.0) * step_samples;
 );
 
 // Sub-step timing: fire sub-steps 1, 2, 3 when their time arrives
