@@ -97,6 +97,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="6.8" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v6.8 — LR4 crossover (lms_lr4_init/proc — Linkwitz-Riley 4th-order lo/hi split for sidechain frequency targeting). Transformer hysteresis (lms_pp_pa_hyst/lms_se_pa_hyst — B-H loop model: magnetization state chases anhysteretic tanh curve with nonlinear directional lag, creates even harmonics on signal reversals and bloom on power chords; width scaled per amp 0.05-0.15). Miller LP opens to 15-18kHz at low density for clean sparkle, closes to base freq only at max density, 150ms smoother prevents sweep artifacts. Tone stack recovery scales with gain (1+gain*N) instead of fixed multiplier — gain at zero gives true clean headroom.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -399,6 +404,10 @@
         <changelog><![CDATA[v2.9 — Triode neg_hard 0.9→0.935: fixes crossover distortion at zero crossing (slope now matches positive branch). From Linus Torvalds C port review.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords, 0.15 width for small 5W Champ OT). Miller LP opens to 15-18kHz at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -457,6 +466,10 @@
         <changelog><![CDATA[v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
+      <version name="2.9" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.9 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -511,6 +524,10 @@
         <changelog><![CDATA[v1.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+      <version name="1.9" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v1.9 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -539,6 +556,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog><![CDATA[v2.0 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+      <version name="2.1" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.1 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -599,6 +620,10 @@
         <changelog><![CDATA[v2.8 — Jumped channel mode: run Normal and Top Boost channels in parallel for the classic linked-input Vox sound. Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
+      <version name="2.9" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.9 — Bright switch (+4dB shelf at 2kHz). Tone stack now active on all channels (bass/treble no longer dead on Normal). Output transformer hysteresis. Miller LP opens at clean for sparkle with frequency meter, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -657,6 +682,10 @@
         <changelog><![CDATA[v2.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -711,6 +740,10 @@
         <changelog><![CDATA[v2.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
+      <version name="3.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -741,6 +774,10 @@
         <changelog><![CDATA[v1.4 — Peaking EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.5" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v1.5 — LR4 lo crossover: Linkwitz-Riley 4th-order split on sidechain input for frequency-targeted limiting. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -757,6 +794,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v1.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
+      </version>
+      <version name="1.4" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v1.4 — LR4 lo crossover: Linkwitz-Riley 4th-order split on sidechain input for frequency-targeted opto compression. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
       </version>
     </reapack>
@@ -945,6 +986,10 @@
         <changelog><![CDATA[v2.0 — Peaking EQ callsite correction (core 6.7).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.1 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -983,6 +1028,10 @@
         <changelog><![CDATA[v1.9 — Peaking EQ callsite correction (core 6.7).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Hybrid Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1017,6 +1066,10 @@
         <changelog><![CDATA[v1.9 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8. (No transformer hysteresis — Class D solid-state power section has no output transformer.)]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1049,6 +1102,10 @@
       </version>
       <version name="1.9" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog><![CDATA[v1.9 — Plexi/Mark II mode: switchable voicing between OR100 and Plexi/Mark II topology. Jumped channel mode: run Clean and Dirty channels in parallel for the classic linked-input sound with blendable channel levels. Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Fix: Mark II mode switch no longer resets PA state every block (was causing ring-mod artifacts by reinitializing DC block, transformer, cathode bias, NFB, and hysteresis). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
@@ -1425,6 +1482,44 @@
       </version>
       <version name="1.9" author="LMS" time="2026-04-05T12:00:00Z">
         <changelog><![CDATA[v1.9 — Fix Harmony Map pattern switch timing: force step re-trigger on pattern change so beat 1 of the new pattern fires immediately instead of being skipped. Previously the first beat played the old pattern due to gmem read ordering between plugins.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-hat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-hat-808.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hat-open-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hat-open-808.wav</source>
+        <source file="pool/Kit1-808/06-hat-closed-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-hat-closed-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-lo-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-lo-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-mid-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-mid-808.wav</source>
+        <source file="pool/Kit1-808/09-tom-hi-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-hi-808.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride-808.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-conga-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-conga-808.wav</source>
+        <source file="pool/Kit1-808/14-perc-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-perc-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-maracas-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-maracas-808.wav</source>
+        <source file="pool/Kit1-808/16-claves-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-claves-808.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-dusty.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-dusty.wav</source>
+        <source file="pool/Kit2-LoFi/02-kick-sub.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-kick-sub.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
+      <version name="2.0" author="LMS" time="2026-06-27T00:00:00Z">
+        <changelog><![CDATA[v2.0 — Fix swing: swing now applies 8th-note shuffle (pairs of 8th notes) instead of incorrectly shuffling 16th-note pairs. Swing at 50% is now straight 8ths, 66% is standard shuffle, 75% is hard swing.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
         <source file="NOTICE.TXT" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/NOTICE.TXT</source>
         <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
