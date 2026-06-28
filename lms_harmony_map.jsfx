@@ -214,7 +214,7 @@ preview_ticks = 0;
 HARMONY_BUS = 960000;
 
 // Broadcast system
-bc.lms_bc_init(29, 10, 930000);  // 10 params: 0-6 sliders, 7=role, 8=num_pats, 9=seed_gen
+bc.lms_bc_init(30, 10, 930000);  // 10 params: 0-6 sliders, 7=role, 8=num_pats, 9=seed_gen
 
 // ============================================================================
 //  MUSIC THEORY FUNCTIONS

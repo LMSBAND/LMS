@@ -1178,7 +1178,7 @@ rand_flash = 0;
 notice_show = 0;
 
 // Broadcast system (instance manager)
-bc.lms_bc_init(29, 39, 900000);
+bc.lms_bc_init(29, 39, 945000);
 
 // ============================================================================
 //  POLYBLEP ANTIALIASING

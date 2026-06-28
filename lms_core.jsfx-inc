@@ -3006,7 +3006,7 @@ function lms_cab_table_init()
   b[4]=3; b[5]=700;  b[6]=2.0;  b[7]=1.2;     // PK 700Hz +2dB
   b[8]=3; b[9]=1600; b[10]=-3.0; b[11]=0.8;   // PK 1600Hz -3dB
   b[12]=3; b[13]=3000; b[14]=4.0; b[15]=1.5;  // PK 3000Hz +4dB (cone breakup)
-  b[16]=2; b[17]=5500; b[18]=0.60; b[19]=0;   // LP 5500Hz
+  b[16]=0; b[17]=0; b[18]=0; b[19]=0;          // (freed — LP moved to core equation)
   b[20]=3; b[21]=90; b[22]=2.0; b[23]=2.5;    // RES 90Hz +2dB (open-back)
 
   // ---- Preset 2: 1x12 Jensen C12N Open (Deluxe) ----
@@ -3017,7 +3017,7 @@ function lms_cab_table_init()
   b[4]=3; b[5]=95;   b[6]=2.2;  b[7]=1.9;     // PK 95Hz +2.2dB
   b[8]=3; b[9]=650;  b[10]=-2.5; b[11]=0.75;  // PK 650Hz -2.5dB
   b[12]=3; b[13]=2500; b[14]=2.5; b[15]=1.2;  // PK 2500Hz +2.5dB (cone breakup)
-  b[16]=2; b[17]=5500; b[18]=0.65; b[19]=0;   // LP 5500Hz
+  b[16]=0; b[17]=0; b[18]=0; b[19]=0;          // (freed — LP moved to core equation)
   b[20]=3; b[21]=100; b[22]=1.8; b[23]=1.8;   // RES 100Hz +1.8dB (open-back)
 
   // ---- Preset 3: 1x12 Alnico Blue Open (AC15) ----
@@ -3029,7 +3029,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=800;  b[10]=-2.0; b[11]=1.2;   // PK 800Hz -2dB
   b[12]=3; b[13]=2500; b[14]=4.0; b[15]=1.8;  // PK 2500Hz +4dB (cone breakup)
   b[16]=3; b[17]=4500; b[18]=-3.0; b[19]=1.0; // PK 4500Hz -3dB
-  b[20]=2; b[21]=5500; b[22]=0.55; b[23]=0;   // LP 5500Hz
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=180; b[26]=1.5; b[27]=2.0;   // RES 180Hz +1.5dB (open-back)
 
   // ---- Preset 4: 2x12 Jensen C12N Open (Twin) ----
@@ -3040,7 +3040,7 @@ function lms_cab_table_init()
   b[4]=3; b[5]=90;   b[6]=2.5;  b[7]=2.0;     // PK 90Hz +2.5dB
   b[8]=3; b[9]=600;  b[10]=-2.0; b[11]=0.8;   // PK 600Hz -2dB
   b[12]=3; b[13]=2800; b[14]=3.0; b[15]=1.3;  // PK 2800Hz +3dB (cone breakup)
-  b[16]=2; b[17]=6000; b[18]=0.65; b[19]=0;   // LP 6000Hz
+  b[16]=0; b[17]=0; b[18]=0; b[19]=0;          // (freed — LP moved to core equation)
   b[20]=3; b[21]=90; b[22]=2.0; b[23]=2.0;    // RES 90Hz +2dB (open-back)
 
   // ---- Preset 5: 4x12 G12T-75 Closed (Marshall) ----
@@ -3051,7 +3051,7 @@ function lms_cab_table_init()
   b[4]=3; b[5]=100;  b[6]=3.0;  b[7]=1.8;     // PK 100Hz +3dB
   b[8]=3; b[9]=1200; b[10]=-4.0; b[11]=0.9;   // PK 1200Hz -4dB (mid scoop)
   b[12]=3; b[13]=3500; b[14]=5.0; b[15]=1.4;  // PK 3500Hz +5dB (cone breakup)
-  b[16]=2; b[17]=6500; b[18]=0.65; b[19]=0;   // LP 6500Hz
+  b[16]=0; b[17]=0; b[18]=0; b[19]=0;          // (freed — LP moved to core equation)
   b[20]=3; b[21]=110; b[22]=1.5; b[23]=3.0;   // RES 110Hz +1.5dB (closed-back)
 
   // ---- Preset 6: 4x12 V30 Closed (Mesa) ----
@@ -3064,7 +3064,7 @@ function lms_cab_table_init()
   b[12]=3; b[13]=800; b[14]=-3.0; b[15]=0.7;  // PK 800Hz -3dB (V30 voice coil dip)
   b[16]=3; b[17]=2200; b[18]=2.0; b[19]=1.5;  // PK 2200Hz +2dB (Mesa bark)
   b[20]=3; b[21]=4000; b[22]=6.0; b[23]=1.6;  // PK 4000Hz +6dB (V30 cone breakup)
-  b[24]=2; b[25]=7000; b[26]=0.68; b[27]=0;   // LP 7000Hz
+  b[24]=0; b[25]=0; b[26]=0; b[27]=0;          // (freed — LP moved to core equation)
   b[28]=3; b[29]=120; b[30]=1.5; b[31]=3.0;   // RES 120Hz +1.5dB (closed-back)
 
   // ---- Preset 7: 8x10 Sealed (Ampeg SVT) ----
@@ -3076,7 +3076,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=400;  b[10]=-3.0; b[11]=0.8;   // PK 400Hz -3dB (SVT mid scoop)
   b[12]=3; b[13]=1800; b[14]=3.0; b[15]=1.5;  // PK 1800Hz +3dB (upper-mid grind)
   b[16]=3; b[17]=2800; b[18]=-2.0; b[19]=1.0; // PK 2800Hz -2dB (presence dip)
-  b[20]=2; b[21]=4000; b[22]=0.55; b[23]=0;   // LP 4000Hz (early rolloff)
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=60; b[26]=1.5; b[27]=3.0;    // RES 60Hz +1.5dB (sealed air spring)
 
   // ---- Preset 8: 4x12 Sheffield 1200 Closed (5150) ----
@@ -3088,7 +3088,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=500;  b[10]=-2.5; b[11]=0.9;   // PK 500Hz -2.5dB (boxiness scoop)
   b[12]=3; b[13]=1500; b[14]=-1.5; b[15]=1.0;  // PK 1500Hz -1.5dB (honk reduction)
   b[16]=3; b[17]=3200; b[18]=4.5; b[19]=1.5;  // PK 3200Hz +4.5dB (cone breakup bite)
-  b[20]=2; b[21]=6000; b[22]=0.60; b[23]=0;   // LP 6000Hz (smooth top)
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=100; b[26]=1.8; b[27]=3.0;   // RES 100Hz +1.8dB (closed-back, tight)
 
   // ---- Preset 9: 1x15 Open (Bassman) ----
@@ -3100,7 +3100,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=250;  b[10]=-2.0; b[11]=0.8;   // PK 250Hz -2dB (boxiness scoop)
   b[12]=3; b[13]=600; b[14]=-1.5; b[15]=1.0;  // PK 600Hz -1.5dB (mid scoop, 15" character)
   b[16]=3; b[17]=1200; b[18]=2.5; b[19]=1.5;  // PK 1200Hz +2.5dB (cone breakup, lower than 10"/12")
-  b[20]=2; b[21]=3500; b[22]=0.50; b[23]=0;   // LP 3500Hz (early rolloff, big cone)
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=70; b[26]=2.5; b[27]=2.0;    // RES 70Hz +2.5dB (open-back bloom)
 
   // ---- Preset 10: 4x10 Sealed (Orange OBC410 / bass cab) ----
@@ -3114,7 +3114,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=250;  b[10]=2.0; b[11]=0.8;    // PK 250Hz +2dB (midrange body, 10" character)
   b[12]=3; b[13]=800; b[14]=-1.5; b[15]=1.0;  // PK 800Hz -1.5dB (slight boxiness scoop)
   b[16]=3; b[17]=2000; b[18]=2.0; b[19]=1.5;  // PK 2kHz +2dB (attack/presence from 10" cones)
-  b[20]=2; b[21]=4500; b[22]=0.55; b[23]=0;   // LP 4500Hz (10" speakers roll off early)
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=90; b[26]=3.0; b[27]=2.5;    // RES 90Hz +3dB (sealed cab resonance, tight)
 
   // ---- Preset 11: 4x12 Closed (closed-back 4x12, V30s, Orange voicing) ----
@@ -3129,7 +3129,7 @@ function lms_cab_table_init()
   b[8]=3; b[9]=350;  b[10]=2.0; b[11]=0.7;    // PK 350Hz +2dB (Orange low-mid thickness)
   b[12]=3; b[13]=700; b[14]=-1.0; b[15]=1.0;  // PK 700Hz -1dB (mild boxiness scoop)
   b[16]=3; b[17]=1500; b[18]=3.0; b[19]=1.8;  // PK 1.5kHz +3dB (the Orange BARK — V30 cone breakup in birch ply)
-  b[20]=2; b[21]=5500; b[22]=0.55; b[23]=0;   // LP 5500Hz (V30 rolloff, slightly warmer than open-back)
+  b[20]=0; b[21]=0; b[22]=0; b[23]=0;          // (freed — LP moved to core equation)
   b[24]=3; b[25]=110; b[26]=2.0; b[27]=2.0;   // RES 110Hz +2dB (closed-back resonance, focused)
 );
 
@@ -3188,6 +3188,9 @@ function lms_cab_init()
   this.brk_lp.lms_bq_init();
   this.brk_res.lms_bq_init();
 
+  // Dust cap radiation (computed from breakup_freq in lms_cab_set)
+  this.dust_cap.lms_bq_init();
+
   // Mic position: hi-shelf (off-axis darkening) + lo-shelf (proximity rolloff)
   this.mic_hi.lms_bq_init();
   this.mic_lo.lms_bq_init();
@@ -3202,8 +3205,8 @@ function lms_cab_init()
   this.cab_current_preset = -1;  // force first set
   this.cab_band_count = 0;
   this.cab_breakup_freq = 0;
-  this.cab_lp_base_freq = 6000;
-  this.cab_lp_base_q = 0.65;
+  this.cab_lp_base_freq = 12000;
+  this.cab_lp_base_q = 0.4;
   this.cab_res_base_freq = 100;
   this.cab_res_base_gain = 1.5;
   this.cab_res_base_q = 2.0;
@@ -3233,7 +3236,7 @@ function lms_cab_set_band(btype, freq, param1, param2)
 // ---- Load preset into this instance's biquads. ----
 // preset_id: 0=bypass, 1-7=cab voicing
 function lms_cab_set(preset_id)
-  local(p, b, bc, btype, freq, param1, param2, i, lp_found)
+  local(p, b, bc, btype, freq, param1, param2, i)
 (
   preset_id != this.cab_current_preset ? (
     this.cab_current_preset = preset_id;
@@ -3252,55 +3255,54 @@ function lms_cab_set(preset_id)
       this.cab_band_count = bc;
       this.cab_breakup_freq = p[1];
       b = p + 2;
-      lp_found = 0;
 
       // Band 1
       bc >= 1 ? (
         btype = b[0]; freq = b[1]; param1 = b[2]; param2 = b[3];
         this.b1.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 2
       bc >= 2 ? (
         btype = b[4]; freq = b[5]; param1 = b[6]; param2 = b[7];
         this.b2.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 3
       bc >= 3 ? (
         btype = b[8]; freq = b[9]; param1 = b[10]; param2 = b[11];
         this.b3.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 4
       bc >= 4 ? (
         btype = b[12]; freq = b[13]; param1 = b[14]; param2 = b[15];
         this.b4.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 5
       bc >= 5 ? (
         btype = b[16]; freq = b[17]; param1 = b[18]; param2 = b[19];
         this.b5.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 6
       bc >= 6 ? (
         btype = b[20]; freq = b[21]; param1 = b[22]; param2 = b[23];
         this.b6.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 7
       bc >= 7 ? (
         btype = b[24]; freq = b[25]; param1 = b[26]; param2 = b[27];
         this.b7.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
       // Band 8
       bc >= 8 ? (
         btype = b[28]; freq = b[29]; param1 = b[30]; param2 = b[31];
         this.b8.lms_cab_set_band(btype, freq, param1, param2);
-        btype == CAB_BT_LP ? ( this.cab_lp_base_freq = freq; this.cab_lp_base_q = param1; lp_found = 1; );
+
       );
 
       // Find the last PK band for resonance tracking (always last band)
@@ -3320,11 +3322,18 @@ function lms_cab_set(preset_id)
         this.brk_bp.lms_bq_set_bp(this.cab_breakup_freq, 1.5);
       );
 
-      // Init dynamic filters at base values
-      lp_found ? (
-        this.brk_lp.lms_bq_set_lp(this.cab_lp_base_freq, this.cab_lp_base_q);
-        this.last_dyn_lp_freq = this.cab_lp_base_freq;
-      );
+      // Dust cap radiation: small center dome radiates above cone breakup.
+      // Frequency scales with speaker size (bigger cone = lower breakup = lower dust cap).
+      this.cab_dust_cap_freq = max(5000, min(12000, this.cab_breakup_freq * 2.5));
+      this.dust_cap.lms_bq_set_peak(this.cab_dust_cap_freq, 3.0, 0.6);
+
+      // Air ceiling LP: gentle rolloff, sole LP (no more double-stacking).
+      // Replaces old per-preset brick-wall LP that killed everything above 5-7kHz.
+      this.cab_lp_base_freq = max(8000, min(16000, this.cab_breakup_freq * 5));
+      this.cab_lp_base_q = 0.4;
+      this.brk_lp.lms_bq_set_lp(this.cab_lp_base_freq, this.cab_lp_base_q);
+      this.last_dyn_lp_freq = this.cab_lp_base_freq;
+
       this.brk_res.lms_bq_set_peak(this.cab_res_base_freq, 0, this.cab_res_base_q);
       this.last_dyn_res_gain = 0;
     );
@@ -3401,6 +3410,9 @@ function lms_cab_proc(x, density)
     this.cab_band_count >= 6 ? out = this.b6.lms_bq_proc(out);
     this.cab_band_count >= 7 ? out = this.b7.lms_bq_proc(out);
     this.cab_band_count >= 8 ? out = this.b8.lms_bq_proc(out);
+
+    // --- Dust cap radiation: broad peak from center dome ---
+    out = this.dust_cap.lms_bq_proc(out);
 
     // --- Dynamic LP: speaker gets darker when pushed ---
     dyn_lp_freq = this.cab_lp_base_freq - (density - 1.0) * this.cab_lp_base_freq * 0.25 * this.cab_breakup_amt;
@@ -4001,7 +4013,7 @@ function lms_bc_init(type_id, param_count, stale_hb_addr)
   this.bc_page = 0;
   this.bc_steal_mode = 0;
   this.bc_instance_count = 0;
-  this.bc_following = 0;
+  // bc_following preserved across @init — managed by manager/UI
   this.bc_did_steal = 0;
   this.bc_my_pbase = 0;
   this.bc_leader_pbase = 0;
@@ -4036,6 +4048,7 @@ function lms_bc_init(type_id, param_count, stale_hb_addr)
     gmem[sb + 2] = this.BC_MY_TYPE;
     gmem[sb + 3] = 0;
     gmem[sb + 4] = this.BC_PARAM_COUNT;
+    // gmem[sb + 6] preserved — track tag written by LMS Manager, survives stop/play
     this.bc_my_pbase = sb + 8;
   );
 );
@@ -4050,6 +4063,20 @@ function lms_bc_block()
   this.bc_leader_slot = -1;
   this.bc_leader_pbase = 0;
   this.bc_did_steal = 0;
+
+  // Manager command channel: gmem[sb+5] = follow request from Lua
+  this.bc_my_slot >= 0 ? (
+    sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
+    gmem[sb + 5] != 0 ? (
+      gmem[sb + 5] == -1 ? (
+        this.bc_following = 0;
+        this.bc_follow_slot = -1;
+      ) : (
+        this.bc_following = gmem[sb + 5];
+      );
+      gmem[sb + 5] = 0;
+    );
+  );
 
   // Ownership check — detect if slot was stolen
   this.bc_my_slot >= 0 ? (
@@ -4091,10 +4118,7 @@ function lms_bc_block()
       );
       bc_scan += 1;
     );
-    this.bc_leader_slot < 0 ? (
-      this.bc_following = 0;
-      this.bc_follow_slot = -1;
-    ) : (
+    this.bc_leader_slot >= 0 ? (
       this.bc_follow_slot = this.bc_leader_slot;
     );
   );
@@ -4229,45 +4253,7 @@ function lms_bc_gfx(S, lc)
     this.bc_steal_mode = 0;
   );
 
-  // STEAL button
-  stl_x = gfx_w - floor(125 * S);
-  stl_y = bc_panel_y + floor(4 * S);
-  stl_w = floor(50 * S);
-  stl_h = floor(20 * S);
-  this.bc_steal_mode ? (
-    gfx_r = 0.6; gfx_g = 0.2; gfx_b = 0.1;
-  ) : (
-    gfx_r = 0.2; gfx_g = 0.1; gfx_b = 0.1;
-  );
-  gfx_rect(stl_x, stl_y, stl_w, stl_h);
-  gfx_r = 0.9; gfx_g = 0.5; gfx_b = 0.2;
-  gfx_x = stl_x + floor(6 * S); gfx_y = stl_y + floor(4 * S);
-  gfx_drawstr("STEAL");
-  (mouse_cap & 1) && !(lc & 1) &&
-    mouse_x >= stl_x && mouse_x < stl_x + stl_w &&
-    mouse_y >= stl_y && mouse_y < stl_y + stl_h ? (
-    this.bc_steal_mode = !this.bc_steal_mode;
-    !this.bc_panel_expanded ? this.bc_panel_expanded = 1;
-  );
-
-  // UNFOLLOW button
-  this.bc_following > 0 ? (
-    unf_x = gfx_w - floor(65 * S);
-    unf_y = bc_panel_y + floor(4 * S);
-    unf_w = floor(55 * S);
-    unf_h = floor(20 * S);
-    gfx_r = 0.1; gfx_g = 0.2; gfx_b = 0.1;
-    gfx_rect(unf_x, unf_y, unf_w, unf_h);
-    gfx_r = 0.5; gfx_g = 0.9; gfx_b = 0.5;
-    gfx_x = unf_x + floor(4 * S); gfx_y = unf_y + floor(4 * S);
-    gfx_drawstr("UNFLW");
-    (mouse_cap & 1) && !(lc & 1) &&
-      mouse_x >= unf_x && mouse_x < unf_x + unf_w &&
-      mouse_y >= unf_y && mouse_y < unf_y + unf_h ? (
-      this.bc_following = 0;
-      this.bc_follow_slot = -1;
-    );
-  );
+  // Follow/steal managed by LMS Manager — no in-plugin controls
 
   // Expanded instance list
   this.bc_panel_expanded ? (
@@ -4380,49 +4366,6 @@ function lms_bc_gfx(S, lc)
             ) : (
               gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
               gfx_drawstr("[UNASSIGNED]");
-            );
-            gfx_r = 0.35; gfx_g = 0.45; gfx_b = 0.35;
-            this.bc_steal_mode ? (
-              gfx_drawstr("  click: steal");
-            ) : (
-              gfx_drawstr("  click: follow");
-            );
-
-            // Click handler with cycle detection
-            (mouse_cap & 1) && !(lc & 1) &&
-              mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
-              mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) ? (
-              this.bc_steal_mode ? (
-                this.bc_steal_target = isid;
-                this.bc_steal_pending = 1;
-                this.bc_steal_mode = 0;
-              ) : (
-                bc_can_follow = 1;
-                bc_cursor = isid;
-                bc_hops = 0;
-                while(bc_cursor > 0 && bc_hops < this.BC_MAX_INST) (
-                  bc_cursor == this.bc_my_id ? (
-                    bc_can_follow = 0;
-                    bc_cursor = 0;
-                  ) : (
-                    bc_next = 0;
-                    bc_cs = 0;
-                    loop(this.BC_MAX_INST,
-                      csb = this.BC_MY_REGION + bc_cs * this.BC_SLOT_SIZE;
-                      gmem[csb + 1] == bc_cursor ? (
-                        bc_next = gmem[csb + 3];
-                        bc_cs = this.BC_MAX_INST;
-                      );
-                      bc_cs += 1;
-                    );
-                    bc_cursor = bc_next;
-                  );
-                  bc_hops += 1;
-                );
-                bc_can_follow ? (
-                  this.bc_following = isid;
-                );
-              );
             );
           );
         );

@@ -170,8 +170,8 @@ d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
 d_miller_freq = 8000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
-  // Broadcast system (instance manager) — type 17, 24 synced params, stale @ 740000
-  bc.lms_bc_init(17, 25, 740000);
+  // Broadcast system (instance manager) — type 17, 24 synced params, stale @ 760000
+  bc.lms_bc_init(17, 25, 760000);
   notice_show = 0;
 
 @slider

@@ -88,8 +88,6 @@ pa.lms_pp_pa_cathode(0.010, 0.200, 0.15);
 pa.lms_pp_pa_xfmr(3.5, 0.986, 1.2, 0.25);
 pa.lms_pp_pa_xfmr_res(4000, 2.0, 2.0);
 pa.lms_pp_pa_hyst(0.12);
-pa.alias_lp.lms_bq_init();
-pa.alias_lp.lms_bq_set_lp(12000, 0.4);
 pa.tonecut.lms_bq_init();
 pa.tonecut.lms_bq_set_lp(20000, 0.5);
 pa.poweramp_set(0.5, 0.5);
@@ -372,7 +370,7 @@ bplus = psu.lms_psu_proc(abs(mono) * (1.0 + gain * 2.0), sag_depth * ohm_sag_mul
 // Screen grid current increases as signal approaches plate saturation
 // Creates the "glassy" ceiling that's different from triode grid conduction
 // Applied BEFORE ef86.triode_proc — shapes what the EF86 sees
-ef86_drive = gain * 0.65;
+ef86_drive = gain * 0.45;
 ef86_in = mono;
 screen_compress = 0;
 ef86_in > 0.6 * bplus ? (
@@ -382,12 +380,12 @@ ef86_in > 0.6 * bplus ? (
 
 // 4. EF86 pentode preamp — the defining sound
 ef86_out = ef86.lms_triode_proc(ef86_in, ef86_drive, bplus,
-  0.9,   // pos_hard: soft positive (screen current limiting)
-  2.0,   // neg_hard: HARD negative (pentode cutoff — the AC15 signature)
-  0.90,  // pos_ceil
-  0.65,  // neg_ceil: LOW — pentode cuts off early on negative
-  0.40,  // gc_thresh
-  0.10   // gc_amount
+  1.0,   // pos_hard: linear at clean, soft compress near ceiling
+  1.4,   // neg_hard: pentode cutoff only at high drive (not at clean!)
+  0.95,  // pos_ceil: pentode has massive plate headroom
+  0.80,  // neg_ceil: cutoff ceiling — lower than pos but not at whisper levels
+  0.55,  // gc_thresh: EF86 grid is far from signal in normal operation
+  0.08   // gc_amount
 );
 
 // 4b. v1.1: Interstage coupling cap — 0.01uF × 100k = 160Hz HP
@@ -444,8 +442,6 @@ fx_bypass == 0 ? (
 //    v1.1: Now includes output transformer saturation + winding resonance
 amp_out *= master;
 amp_out = pa.lms_pp_pa_proc(amp_out, bplus);
-
-amp_out = pa.alias_lp.lms_bq_proc(amp_out);
 
 amp_out = pa.tonecut.lms_bq_proc(amp_out);
 

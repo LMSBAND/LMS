@@ -369,7 +369,7 @@ gui_scope_zoom = 1;
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(12, 48, 900000);
+  bc.lms_bc_init(33, 48, 935000);
 
 // ============================================================================
 //  SATURATION & INTERPOLATION — now provided by lms_core.jsfx-inc
