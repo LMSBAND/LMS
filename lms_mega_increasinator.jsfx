@@ -17,6 +17,7 @@ slider6:0<0,100,1>-Opto Pre-Limit (%)
 slider7:0<0,7,1{Off,Clean,Loud,Open,Pop,Hardcore,Hip-Hop,Punk}>-EQ Profile
 slider8:100<0,200,1>-EQ Intensity (%)
 slider9:0<0,300,1>-Lo Crossover (Hz) [0=Off]
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -47,7 +48,7 @@ slider9:0<0,300,1>-Lo Crossover (Hz) [0=Off]
   opto_blend = 0;
 
   // Broadcast system (instance manager) — type 19, 8 synced params, stale @ 820000
-  bc.lms_bc_init(19, 8, 820000);
+  bc.lms_bc_init(19, 8);
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -170,7 +171,7 @@ opto_blend > 0.01 ? (
 );
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -902,5 +903,5 @@ notice_show ? (
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

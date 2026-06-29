@@ -23,6 +23,7 @@ slider6:0<0,10,0.1>-High Atten (Cut)
 slider7:2<0,4,1{3k,4k,5k,8k,10k,12k,16k}>-High Boost Freq
 slider8:0<0,1,1{Off,On}>-Tube Saturation
 slider9:0<-12,12,0.1>-Output (dB)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 // Biquad filter instances (via lms_core.jsfx-inc)
@@ -36,7 +37,7 @@ hc.lms_bq_init();
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(6, 9, 10000);
+  bc.lms_bc_init(6, 9);
 
 @slider
   // === LOW FREQUENCY SELECTION ===
@@ -153,7 +154,7 @@ high_cut_amt > 0 ? (
 );
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -614,5 +615,5 @@ slider9 != _old ? slider_automate(2^8);
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

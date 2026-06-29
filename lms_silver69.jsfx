@@ -16,6 +16,7 @@ slider5:50<0,100,1>-Emphasis (%)
 slider6:100<0,100,1>-Mix (%)
 slider7:0<0,100,1>-Warmth (%)
 slider8:0<0,300,1>-Lo Crossover (Hz) [0=Off]
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -28,7 +29,7 @@ slider8:0<0,300,1>-Lo Crossover (Hz) [0=Off]
   buy_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(18, 8, 810000);
+  bc.lms_bc_init(18, 8);
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -61,7 +62,7 @@ xover_freq = slider8;
 xover_freq > 0 ? xover.lms_xover_set(xover_freq);
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -598,5 +599,5 @@ notice_show ? (
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

@@ -18,6 +18,7 @@ slider7:30<0,100,1>-Wow & Flutter (%)
 slider8:30<0,100,1>-Tape Age (%)
 slider9:0<0,100,1>-Spring Reverb (%)
 slider10:50<0,100,1>-Dry/Wet (%)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
   // Delay buffer - max 2 seconds
@@ -80,7 +81,7 @@ slider10:50<0,100,1>-Dry/Wet (%)
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(8, 10, 500000);
+  bc.lms_bc_init(8, 10);
 
 @slider
   mode = slider1;
@@ -161,7 +162,7 @@ bass_hp_freq = 60 + (1 - bass) * 400;
 bass_hp_coeff = exp(-2 * $pi * bass_hp_freq / srate);
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -780,5 +781,5 @@ slider9 != _old ? slider_automate(2^8);
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

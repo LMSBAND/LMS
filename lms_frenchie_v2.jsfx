@@ -40,6 +40,7 @@ slider16:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider25:100<0,100,1>-Speaker Breakup (%)
 slider17:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -112,7 +113,7 @@ d_drive_boost = 1.0; d_bplus = 1.0;
 
 
   // Broadcast system (instance manager) — type 11, 17 synced params, stale @ 700000
-  bc.lms_bc_init(11, 18, 700000);
+  bc.lms_bc_init(11, 18);
 
   notice_show = 0;
 
@@ -229,7 +230,7 @@ cab_load_ohms > 0 ? (
 
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -794,5 +795,5 @@ slider20 != _old ? slider_automate(2^19);
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

@@ -14,6 +14,7 @@ slider4:0<0,15,1>-MIDI Channel (0=1)
 slider5:0<0,5,1{Triad,7th,9th,Power,sus2,sus4}>-Voicing
 slider6:0<-2,3,1>-Octave
 slider7:1<1,32,1>-Edit Bar
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 gfx_clear = -1;  // disable auto-clear, we draw the full background manually in @gfx
@@ -214,7 +215,7 @@ preview_ticks = 0;
 HARMONY_BUS = 960000;
 
 // Broadcast system
-bc.lms_bc_init(30, 10, 930000);  // 10 params: 0-6 sliders, 7=role, 8=num_pats, 9=seed_gen
+bc.lms_bc_init(30, 10);  // 10 params: 0-6 sliders, 7=role, 8=num_pats, 9=seed_gen
 
 // ============================================================================
 //  MUSIC THEORY FUNCTIONS
@@ -718,7 +719,7 @@ build_diatonic(slider1, slider2);
 build_diatonic(slider1, slider2);
 
 // Broadcast
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 bc.bc_leader_pbase > 0 ? (
   slider1 = gmem[bc.bc_leader_pbase + 0];
   slider2 = gmem[bc.bc_leader_pbase + 1];
@@ -3276,8 +3277,8 @@ last_cap = mouse_cap;
 //  @SERIALIZE
 // ============================================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);
 file_var(0, current_pat);
 file_var(0, num_pats);
 num_pats < 1 ? num_pats = 1;

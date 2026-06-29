@@ -82,6 +82,7 @@ slider49:0<0,12,1{INIT,Fat Bass,Acid Lead,Warm Pad,Sub Growl,Pluck,Brass,Hoover,
 slider50:0<0,4,1{All,Bass,Lead,Pad,FX}>-Random Category
 slider51:0<0,1,1{-,RANDOMIZE!}>-Randomize!
 slider52:50<0,100,1>-FX Mix (%)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 in_pin:none
 out_pin:Left
@@ -369,7 +370,7 @@ gui_scope_zoom = 1;
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(33, 48, 935000);
+  bc.lms_bc_init(33, 48);
 
 // ============================================================================
 //  SATURATION & INTERPOLATION — now provided by lms_core.jsfx-inc
@@ -850,7 +851,7 @@ glide_ms > 0 && glide_on ? (
 delay_samples = min(delay_time_ms * 0.001 * srate, DELAY_BUF_SIZE - 1);
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -2226,5 +2227,5 @@ bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 last_cap = mouse_cap;
 
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

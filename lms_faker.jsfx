@@ -17,6 +17,7 @@ slider6:0.15<0.05,0.50,0.01>-Sensitivity
 slider7:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>-Key
 slider8:0<0,2,1{Chromatic,Major,Minor}>-Scale
 slider9:100<20,500,1>-Min Note (ms)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
   // ============================================================
@@ -177,7 +178,7 @@ slider9:100<20,500,1>-Min Note (ms)
   // ============================================================
   // BROADCAST SYSTEM — Instance Registry
   // ============================================================
-  bc.lms_bc_init(23, 9, 860000);
+  bc.lms_bc_init(23, 9);
 
 @slider
   speed_pct = slider1 / 100;
@@ -515,7 +516,7 @@ vi_effective_speed > 0.01 ? (
 );
 
 // ---- Broadcast system ----
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params
 bc.bc_leader_pbase > 0 ? (
@@ -1372,8 +1373,8 @@ pt_serial_magic_val == PT_SERIAL_MAGIC ? (
   pt_serial_version = 2;
   file_var(0, pt_serial_version);
 
-  file_var(0, bc.bc_following);
-  file_var(0, bc.bc_my_id);
+  file_var(0, bc.bc_ser_compat_1);
+  file_var(0, bc.bc_ser_compat_2);
 
   // v1: Pitch Tendencies data
   pt_serial_version >= 1 ? (
@@ -1402,7 +1403,7 @@ pt_serial_magic_val == PT_SERIAL_MAGIC ? (
   // ---- Legacy format (pre-tendencies) ----
   // pt_serial_magic_val consumed the old bc_following value
   bc.bc_following = pt_serial_magic_val;
-  file_var(0, bc.bc_my_id);
+  file_var(0, bc.bc_ser_compat_2);
 
   // Initialize tendency data to defaults
   pt_si = 0;

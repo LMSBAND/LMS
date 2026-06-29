@@ -78,6 +78,7 @@ slider41:0<0,73,1{INIT,Fat Bass,Acid Squelch,Thick Lead,Sub Bass,Pluck,Bark,Bras
 slider42:0<0,6,1{All,Bass,Lead,Pad,Keys,FX,Poly}>-Preset Category
 slider43:0<0,1,1{-,RANDOMIZE!}>-Randomize!
 slider44:0<0,1,1{Mono,Poly 8}>-Voice Mode
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 in_pin:none
 out_pin:Left
@@ -1178,7 +1179,7 @@ rand_flash = 0;
 notice_show = 0;
 
 // Broadcast system (instance manager)
-bc.lms_bc_init(29, 39, 945000);
+bc.lms_bc_init(29, 39);
 
 // ============================================================================
 //  POLYBLEP ANTIALIASING
@@ -1584,7 +1585,7 @@ glide_ms > 0 && glide_on ? (
 );
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -3083,4 +3084,4 @@ bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 last_cap = mouse_cap;
 
 @serialize
-file_var(0, bc.bc_following);
+file_var(0, bc.bc_ser_compat_1);

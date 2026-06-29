@@ -58,6 +58,7 @@ slider36:0<-12,24,0.1>-Comp Gain (dB)
 slider37:0<0,1,1{Compress,Limit}>-Comp Mode
 slider38:50<0,100,1>-Emphasis (%)
 slider39:100<0,100,1>-Comp Mix (%)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -164,7 +165,7 @@ d_miller_freq = 7000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(28, 29, 920000);
+  bc.lms_bc_init(28, 29);
   notice_show = 0;
 
 @slider
@@ -308,7 +309,7 @@ opto.lms_opto_set(comp_peak_red, comp_mode, comp_emphasis, 0.0);
 
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -1027,5 +1028,5 @@ slider31 != _old ? slider_automate(2^30);
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

@@ -35,6 +35,7 @@ slider13:60<0,100,1>-Bleed Reject (%)
 // Output
 slider14:0<-24,0,0.1>-Gate GR (dB)
 slider15:100<0,100,1>-Mix (%)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -158,7 +159,7 @@ slider15:100<0,100,1>-Mix (%)
   buy_show = 0;
 
   // Broadcast system (instance manager) — type 21, 13 synced params, stale @ 840000
-  bc.lms_bc_init(21, 13, 840000);
+  bc.lms_bc_init(21, 13);
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -208,7 +209,7 @@ bleed_reject = slider13 / 100;
 mix = slider15 / 100;
 
 // ---- Broadcast: heartbeat, follow, steal, stale detection ----
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -1702,6 +1703,6 @@ notice_show ? (
 );
 
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);
 file_var(0, cal_offset);

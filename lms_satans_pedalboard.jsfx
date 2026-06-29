@@ -125,6 +125,7 @@ slider73:0<-12,12,0.1>-JD Mid (dB)
 slider74:0<-12,12,0.1>-JD High (dB)
 slider75:0<-12,12,0.1>-JD Presence (dB)
 slider76:0<-12,12,0.1>-JD Level (dB)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 
 // ============================================================
@@ -402,7 +403,7 @@ i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i +=
 build_chain_order();
 
 // Broadcast — type_id 31, 67 params, stale 960000
-bc.lms_bc_init(31, 71, 960000);
+bc.lms_bc_init(31, 71);
 notice_show = 0;
 buy_show = 0;
 
@@ -584,7 +585,7 @@ pb_eq_r.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
 // Run YIN pitch detection (per-block, so this isn't a per-sample cost)
 tuner.lms_tuner_block();
 
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 bc.bc_leader_pbase > 0 ? (
   slider1  = gmem[bc.bc_leader_pbase + 0];
@@ -1431,6 +1432,6 @@ gfx_drawstr("NOTICE");
 //  @SERIALIZE
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);
 file_var(0, tuner.on);

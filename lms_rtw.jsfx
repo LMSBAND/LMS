@@ -6,7 +6,6 @@ filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
 
-options:gmem=DrumBanger
 
 slider1:0<-12,36,0.1>-Preamp Drive (dB)
 slider2:0<0,2,1{Clean,Warm,Hot}>-Saturation Mode
@@ -86,9 +85,6 @@ slider31:0<-12,12,0.1>-Output Gain (dB)
   verb_tone.lms_bq_init();
 
 notice_show = 0;
-
-  // Broadcast system (instance manager)
-  bc.lms_bc_init(4, 31, 10000);
 
 @slider
   preamp_gain = lms_db2lin(slider1);
@@ -214,114 +210,6 @@ verb_tone_sel == 2 ? room_damp = 0.15;
 verb_tone_sel == 0 ? verb_tone.lms_bq_set_lp(3000, 0.707);
 verb_tone_sel == 1 ? verb_tone.lms_bq_set_lp(8000, 0.707);
 verb_tone_sel == 2 ? verb_tone.lms_bq_set_hishelf(4000, 3, 0.707);
-
-// Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
-
-// Follow: copy leader's params to our sliders
-bc.bc_leader_pbase > 0 ? (
-  slider1 = gmem[bc.bc_leader_pbase + 0];
-  slider2 = gmem[bc.bc_leader_pbase + 1];
-  slider3 = gmem[bc.bc_leader_pbase + 2];
-  slider4 = gmem[bc.bc_leader_pbase + 3];
-  slider5 = gmem[bc.bc_leader_pbase + 4];
-  slider6 = gmem[bc.bc_leader_pbase + 5];
-  slider7 = gmem[bc.bc_leader_pbase + 6];
-  slider8 = gmem[bc.bc_leader_pbase + 7];
-  slider9 = gmem[bc.bc_leader_pbase + 8];
-  slider10 = gmem[bc.bc_leader_pbase + 9];
-  slider11 = gmem[bc.bc_leader_pbase + 10];
-  slider12 = gmem[bc.bc_leader_pbase + 11];
-  slider13 = gmem[bc.bc_leader_pbase + 12];
-  slider14 = gmem[bc.bc_leader_pbase + 13];
-  slider15 = gmem[bc.bc_leader_pbase + 14];
-  slider16 = gmem[bc.bc_leader_pbase + 15];
-  slider17 = gmem[bc.bc_leader_pbase + 16];
-  slider18 = gmem[bc.bc_leader_pbase + 17];
-  slider19 = gmem[bc.bc_leader_pbase + 18];
-  slider20 = gmem[bc.bc_leader_pbase + 19];
-  slider21 = gmem[bc.bc_leader_pbase + 20];
-  slider22 = gmem[bc.bc_leader_pbase + 21];
-  slider23 = gmem[bc.bc_leader_pbase + 22];
-  slider24 = gmem[bc.bc_leader_pbase + 23];
-  slider25 = gmem[bc.bc_leader_pbase + 24];
-  slider26 = gmem[bc.bc_leader_pbase + 25];
-  slider27 = gmem[bc.bc_leader_pbase + 26];
-  slider28 = gmem[bc.bc_leader_pbase + 27];
-  slider29 = gmem[bc.bc_leader_pbase + 28];
-  slider30 = gmem[bc.bc_leader_pbase + 29];
-  slider31 = gmem[bc.bc_leader_pbase + 30];
-);
-
-// Steal: one-shot copy from target
-bc.bc_did_steal ? (
-  slider1 = gmem[bc.bc_steal_pbase + 0];
-  slider2 = gmem[bc.bc_steal_pbase + 1];
-  slider3 = gmem[bc.bc_steal_pbase + 2];
-  slider4 = gmem[bc.bc_steal_pbase + 3];
-  slider5 = gmem[bc.bc_steal_pbase + 4];
-  slider6 = gmem[bc.bc_steal_pbase + 5];
-  slider7 = gmem[bc.bc_steal_pbase + 6];
-  slider8 = gmem[bc.bc_steal_pbase + 7];
-  slider9 = gmem[bc.bc_steal_pbase + 8];
-  slider10 = gmem[bc.bc_steal_pbase + 9];
-  slider11 = gmem[bc.bc_steal_pbase + 10];
-  slider12 = gmem[bc.bc_steal_pbase + 11];
-  slider13 = gmem[bc.bc_steal_pbase + 12];
-  slider14 = gmem[bc.bc_steal_pbase + 13];
-  slider15 = gmem[bc.bc_steal_pbase + 14];
-  slider16 = gmem[bc.bc_steal_pbase + 15];
-  slider17 = gmem[bc.bc_steal_pbase + 16];
-  slider18 = gmem[bc.bc_steal_pbase + 17];
-  slider19 = gmem[bc.bc_steal_pbase + 18];
-  slider20 = gmem[bc.bc_steal_pbase + 19];
-  slider21 = gmem[bc.bc_steal_pbase + 20];
-  slider22 = gmem[bc.bc_steal_pbase + 21];
-  slider23 = gmem[bc.bc_steal_pbase + 22];
-  slider24 = gmem[bc.bc_steal_pbase + 23];
-  slider25 = gmem[bc.bc_steal_pbase + 24];
-  slider26 = gmem[bc.bc_steal_pbase + 25];
-  slider27 = gmem[bc.bc_steal_pbase + 26];
-  slider28 = gmem[bc.bc_steal_pbase + 27];
-  slider29 = gmem[bc.bc_steal_pbase + 28];
-  slider30 = gmem[bc.bc_steal_pbase + 29];
-  slider31 = gmem[bc.bc_steal_pbase + 30];
-);
-
-// Write our params for others to read
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0] = slider1;
-  gmem[bc.bc_my_pbase + 1] = slider2;
-  gmem[bc.bc_my_pbase + 2] = slider3;
-  gmem[bc.bc_my_pbase + 3] = slider4;
-  gmem[bc.bc_my_pbase + 4] = slider5;
-  gmem[bc.bc_my_pbase + 5] = slider6;
-  gmem[bc.bc_my_pbase + 6] = slider7;
-  gmem[bc.bc_my_pbase + 7] = slider8;
-  gmem[bc.bc_my_pbase + 8] = slider9;
-  gmem[bc.bc_my_pbase + 9] = slider10;
-  gmem[bc.bc_my_pbase + 10] = slider11;
-  gmem[bc.bc_my_pbase + 11] = slider12;
-  gmem[bc.bc_my_pbase + 12] = slider13;
-  gmem[bc.bc_my_pbase + 13] = slider14;
-  gmem[bc.bc_my_pbase + 14] = slider15;
-  gmem[bc.bc_my_pbase + 15] = slider16;
-  gmem[bc.bc_my_pbase + 16] = slider17;
-  gmem[bc.bc_my_pbase + 17] = slider18;
-  gmem[bc.bc_my_pbase + 18] = slider19;
-  gmem[bc.bc_my_pbase + 19] = slider20;
-  gmem[bc.bc_my_pbase + 20] = slider21;
-  gmem[bc.bc_my_pbase + 21] = slider22;
-  gmem[bc.bc_my_pbase + 22] = slider23;
-  gmem[bc.bc_my_pbase + 23] = slider24;
-  gmem[bc.bc_my_pbase + 24] = slider25;
-  gmem[bc.bc_my_pbase + 25] = slider26;
-  gmem[bc.bc_my_pbase + 26] = slider27;
-  gmem[bc.bc_my_pbase + 27] = slider28;
-  gmem[bc.bc_my_pbase + 28] = slider29;
-  gmem[bc.bc_my_pbase + 29] = slider30;
-  gmem[bc.bc_my_pbase + 30] = slider31;
-);
 
 @sample
   l = spl0;
@@ -896,14 +784,11 @@ out_y = body_y + c3_panel_h + floor(6 * S);
 draw_panel(margin, out_y, gfx_w - margin * 2, floor(46 * S), "OUTPUT");
 _old = slider31; slider31 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider31, -12, 12, "Output dB", 1);
 slider31 != _old ? slider_automate(2^30);
-  // Instance Manager Panel (from lms_core broadcast system)
-  bc_panel_y = bc.lms_bc_gfx(S, last_cap);
-
   last_cap = mouse_cap;
 
   // --- BUY + NOTICE BUTTONS ---
   notice_btn_x = gfx_w - floor(60 * S);
-  notice_btn_y = bc_panel_y - floor(18 * S);
+  notice_btn_y = out_y + floor(52 * S);
   buy_btn_x = notice_btn_x - floor(50 * S);
   buy_btn_y = notice_btn_y;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
@@ -990,8 +875,8 @@ slider31 != _old ? slider_automate(2^30);
   );
 
 // ============================================================
-// @SERIALIZE — Persist follow state
+// @SERIALIZE
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

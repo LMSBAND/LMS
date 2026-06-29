@@ -3990,204 +3990,97 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
 // Then write your own params:
 //   gmem[bc.bc_my_pbase + N] = sliderX;
 
-function lms_bc_init(type_id, param_count, stale_hb_addr)
-  local(i, sb, sid)
+function lms_bc_init(type_id, param_count)
 (
   this.BC_BASE = 100000;
   this.BC_SLOT_SIZE = 512;
   this.BC_MAX_INST = 32;
-  this.BC_STALE_TIMEOUT = 2;
   this.BC_MY_TYPE = type_id;
   this.BC_PARAM_COUNT = param_count;
   this.BC_MY_REGION = this.BC_BASE + type_id * 16384;
-  this.BC_STALE_HB = stale_hb_addr;
-  this.BC_STALE_CT = stale_hb_addr + 32;
 
-  this.bc_my_id == 0 ? this.bc_my_id = floor(rand() * 1073741824) + 1;
   this.bc_my_slot = -1;
-  this.bc_follow_slot = -1;
+  this.bc_following = 0;
   this.bc_leader_slot = -1;
-  this.bc_steal_pending = 0;
-  this.bc_steal_target = 0;
+  this.bc_leader_pbase = 0;
+  this.bc_did_steal = 0;
+  this.bc_steal_pbase = 0;
+  this.bc_my_pbase = 0;
+  this.bc_instance_count = 0;
   this.bc_panel_expanded = 0;
   this.bc_page = 0;
-  this.bc_steal_mode = 0;
-  this.bc_instance_count = 0;
-  // bc_following preserved across @init — managed by manager/UI
-  this.bc_did_steal = 0;
-  this.bc_my_pbase = 0;
-  this.bc_leader_pbase = 0;
-  this.bc_steal_pbase = 0;
-
-  // Init stale tracking
-  i = 0;
-  loop(this.BC_MAX_INST,
-    this.BC_STALE_HB[i] = -1;
-    this.BC_STALE_CT[i] = 0;
-    i += 1;
-  );
-
-  // Find or allocate slot
-  i = 0;
-  loop(this.BC_MAX_INST,
-    this.bc_my_slot < 0 ? (
-      sb = this.BC_MY_REGION + i * this.BC_SLOT_SIZE;
-      sid = gmem[sb + 1];
-      (sid == 0 || sid == this.bc_my_id) ? (
-        this.bc_my_slot = i;
-      );
-    );
-    i += 1;
-  );
-
-  // Register in slot
-  this.bc_my_slot >= 0 ? (
-    sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
-    gmem[sb + 0] = 0;
-    gmem[sb + 1] = this.bc_my_id;
-    gmem[sb + 2] = this.BC_MY_TYPE;
-    gmem[sb + 3] = 0;
-    gmem[sb + 4] = this.BC_PARAM_COUNT;
-    // gmem[sb + 6] preserved — track tag written by LMS Manager, survives stop/play
-    this.bc_my_pbase = sb + 8;
-  );
 );
 
-// Call in @block. Sets bc_leader_pbase when following,
-// bc_did_steal + bc_steal_pbase when steal completed.
+// Call in @block with the manager-assigned track slider.
+// mgr_track = slider value (track_idx + 1, 0 = unassigned).
+// Sets bc_leader_pbase when following, bc_did_steal + bc_steal_pbase on steal.
 // Caller reads gmem[pbase + N] for leader/steal params,
 // then writes gmem[bc.bc_my_pbase + N] = sliderX.
-function lms_bc_block()
-  local(sb, tsb, lsb, bc_i, bc_scan, tshb, tsid)
+function lms_bc_block(mgr_track)
+  local(sb, lsb, bc_scan)
 (
   this.bc_leader_slot = -1;
   this.bc_leader_pbase = 0;
   this.bc_did_steal = 0;
+  this.bc_steal_pbase = 0;
 
-  // Manager command channel: gmem[sb+5] = follow request from Lua
-  this.bc_my_slot >= 0 ? (
+  mgr_track = floor(mgr_track);
+  mgr_track > 0 && mgr_track <= this.BC_MAX_INST ? (
+    this.bc_my_slot = mgr_track - 1;
     sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
-    gmem[sb + 5] != 0 ? (
-      gmem[sb + 5] == -1 ? (
-        this.bc_following = 0;
-        this.bc_follow_slot = -1;
-      ) : (
-        this.bc_following = gmem[sb + 5];
+
+    gmem[sb + 0] += 1;
+    gmem[sb + 1] = mgr_track;
+    gmem[sb + 2] = this.BC_MY_TYPE;
+    gmem[sb + 4] = this.BC_PARAM_COUNT;
+    this.bc_my_pbase = sb + 8;
+
+    // Follow: manager writes leader track_idx+1 to slot+3
+    this.bc_following = floor(gmem[sb + 3]);
+    this.bc_following > 0 && this.bc_following != mgr_track ? (
+      lsb = this.BC_MY_REGION + (this.bc_following - 1) * this.BC_SLOT_SIZE;
+      gmem[lsb + 1] > 0 ? (
+        this.bc_leader_slot = this.bc_following - 1;
+        this.bc_leader_pbase = lsb + 8;
+      );
+    ) : (
+      this.bc_following = 0;
+    );
+
+    // Steal: one-shot copy command at slot+5
+    floor(gmem[sb + 5]) > 0 ? (
+      lsb = this.BC_MY_REGION + (floor(gmem[sb + 5]) - 1) * this.BC_SLOT_SIZE;
+      gmem[lsb + 1] > 0 ? (
+        this.bc_steal_pbase = lsb + 8;
+        this.bc_did_steal = 1;
       );
       gmem[sb + 5] = 0;
     );
-  );
 
-  // Ownership check — detect if slot was stolen
-  this.bc_my_slot >= 0 ? (
-    sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
-    gmem[sb + 1] != this.bc_my_id ? (
-      this.bc_my_id = floor(rand() * 1073741824) + 1;
-      this.bc_my_slot = -1;
-      bc_i = 0;
-      loop(this.BC_MAX_INST,
-        this.bc_my_slot < 0 ? (
-          tsb = this.BC_MY_REGION + bc_i * this.BC_SLOT_SIZE;
-          gmem[tsb + 1] == 0 ? this.bc_my_slot = bc_i;
-        );
-        bc_i += 1;
-      );
-      this.bc_my_slot >= 0 ? (
-        sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
-        gmem[sb + 0] = 0;
-        gmem[sb + 1] = this.bc_my_id;
-        gmem[sb + 2] = this.BC_MY_TYPE;
-        gmem[sb + 3] = this.bc_following;
-        gmem[sb + 4] = this.BC_PARAM_COUNT;
-        this.bc_my_pbase = sb + 8;
-      );
-    );
-  );
-
-  // Follow logic — find leader, expose pbase for caller to read
-  this.bc_my_slot >= 0 && this.bc_following > 0 ? (
+    // Count instances
+    this.bc_instance_count = 0;
     bc_scan = 0;
     loop(this.BC_MAX_INST,
-      bc_scan != this.bc_my_slot ? (
-        lsb = this.BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE;
-        gmem[lsb + 1] == this.bc_following ? (
-          this.bc_leader_slot = bc_scan;
-          this.bc_leader_pbase = lsb + 8;
-          bc_scan = this.BC_MAX_INST;
-        );
-      );
-      bc_scan += 1;
-    );
-    this.bc_leader_slot >= 0 ? (
-      this.bc_follow_slot = this.bc_leader_slot;
-    );
-  );
-
-  // Steal logic — find target, expose pbase for caller to read
-  this.bc_my_slot >= 0 && this.bc_steal_pending ? (
-    bc_scan = 0;
-    loop(this.BC_MAX_INST,
-      lsb = this.BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE;
-      gmem[lsb + 1] == this.bc_steal_target ? (
-        this.bc_steal_pbase = lsb + 8;
-        this.bc_did_steal = 1;
-        bc_scan = this.BC_MAX_INST;
-      );
-      bc_scan += 1;
-    );
-    this.bc_steal_pending = 0;
-    this.bc_steal_target = 0;
-    this.bc_steal_mode = 0;
-  );
-
-  // Heartbeat + following state
-  this.bc_my_slot >= 0 ? (
-    sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
-    gmem[sb + 0] += 1;
-    gmem[sb + 3] = this.bc_following;
-    this.bc_my_pbase = sb + 8;
-  );
-
-  // Stale timeout check + instance count
-  this.bc_instance_count = 0;
-  bc_scan = 0;
-  loop(this.BC_MAX_INST,
-    tsb = this.BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE;
-    tsid = gmem[tsb + 1];
-    tsid > 0 ? (
-      bc_scan == this.bc_my_slot ? (
+      gmem[this.BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE + 1] > 0 ?
         this.bc_instance_count += 1;
-      ) : (
-        tshb = gmem[tsb + 0];
-        tshb == this.BC_STALE_HB[bc_scan] ? (
-          this.BC_STALE_CT[bc_scan] += samplesblock / srate;
-          this.BC_STALE_CT[bc_scan] > this.BC_STALE_TIMEOUT ? (
-            gmem[tsb + 1] = 0;
-            this.BC_STALE_CT[bc_scan] = 0;
-          );
-        ) : (
-          this.BC_STALE_HB[bc_scan] = tshb;
-          this.BC_STALE_CT[bc_scan] = 0;
-          this.bc_instance_count += 1;
-        );
-      );
+      bc_scan += 1;
     );
-    bc_scan += 1;
+  ) : (
+    this.bc_my_slot = -1;
+    this.bc_my_pbase = 0;
+    this.bc_following = 0;
   );
 );
 
-// Full GFX instance manager panel. Call in @gfx.
-// Returns bc_panel_y (top of panel) for positioning BUY/NOTICE buttons.
+// GFX instance panel. Shows track assignment and follow state.
 function lms_bc_gfx(S, lc)
   local(bc_rows_per_page, bc_row_h, bc_bar_h, bc_panel_h, bc_panel_y,
-        exp_x, exp_y, exp_w, exp_h, stl_x, stl_y, stl_w, stl_h,
-        unf_x, unf_y, unf_w, unf_h,
+        exp_x, exp_y, exp_w, exp_h,
         row_y, row_h, bc_my_page, bc_active_slots, bc_total_pages,
         pg_btn_w, pg_btn_h, pg_prev_x, pg_prev_y,
         bc_page_start, bc_page_end, bc_visible,
-        bc_s, isb, isid, draw_row_y, iwho, bc_has_follower, bc_fsc, fsb2,
-        bc_can_follow, bc_cursor, bc_hops, bc_next, bc_cs, csb,
-        bc_fs, fsb, f_small, f_tiny, you_x, bc_si)
+        bc_s, isb, istk, draw_row_y, iwho, bc_has_follower, bc_fsc, fsb2,
+        f_small, f_tiny, you_x, bc_si)
 (
   f_small = max(7, floor(11 * S));
   f_tiny = max(7, floor(10 * S));
@@ -4199,18 +4092,16 @@ function lms_bc_gfx(S, lc)
   bc_panel_y = gfx_h - bc_panel_h;
   this.bc_panel_y = bc_panel_y;
 
-  // Panel background
   gfx_r = 0.04; gfx_g = 0.04; gfx_b = 0.06;
   gfx_rect(0, bc_panel_y, gfx_w, bc_panel_h);
   gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.20;
   gfx_rect(0, bc_panel_y, gfx_w, 1);
 
-  // Instance counter
   gfx_setfont(1, "Arial", f_small);
   gfx_r = 0.95; gfx_g = 0.45; gfx_b = 0.15;
   gfx_x = floor(8 * S); gfx_y = bc_panel_y + floor(8 * S);
   this.bc_my_slot >= 0 ? (
-    gfx_drawstr("I");
+    gfx_drawstr("T");
     gfx_drawnumber(this.bc_my_slot + 1, 0);
     gfx_drawstr("/");
     gfx_drawnumber(this.bc_instance_count, 0);
@@ -4218,25 +4109,15 @@ function lms_bc_gfx(S, lc)
     gfx_drawstr("--");
   );
 
-  // Following indicator
   this.bc_following > 0 ? (
     gfx_r = 0.2; gfx_g = 0.8; gfx_b = 0.3;
-    gfx_drawstr("  Following: I");
-    bc_fs = 0;
-    loop(this.BC_MAX_INST,
-      fsb = this.BC_MY_REGION + bc_fs * this.BC_SLOT_SIZE;
-      gmem[fsb + 1] == this.bc_following ? (
-        gfx_drawnumber(bc_fs + 1, 0);
-        bc_fs = this.BC_MAX_INST;
-      );
-      bc_fs += 1;
-    );
+    gfx_drawstr("  Following: T");
+    gfx_drawnumber(this.bc_following, 0);
   ) : (
     gfx_r = 0.3; gfx_g = 0.3; gfx_b = 0.4;
     gfx_drawstr("  Following: --");
   );
 
-  // EXPAND/COLLAPSE button
   exp_x = gfx_w - floor(200 * S);
   exp_y = bc_panel_y + floor(4 * S);
   exp_w = floor(65 * S);
@@ -4250,12 +4131,8 @@ function lms_bc_gfx(S, lc)
     mouse_x >= exp_x && mouse_x < exp_x + exp_w &&
     mouse_y >= exp_y && mouse_y < exp_y + exp_h ? (
     this.bc_panel_expanded = !this.bc_panel_expanded;
-    this.bc_steal_mode = 0;
   );
 
-  // Follow/steal managed by LMS Manager — no in-plugin controls
-
-  // Expanded instance list
   this.bc_panel_expanded ? (
     row_y = bc_panel_y + bc_bar_h;
     row_h = bc_row_h;
@@ -4270,7 +4147,6 @@ function lms_bc_gfx(S, lc)
     bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
     this.bc_page >= bc_total_pages ? this.bc_page = bc_total_pages - 1;
 
-    // Pagination
     pg_btn_w = floor(18 * S); pg_btn_h = floor(14 * S);
     pg_prev_x = floor(8 * S);
     pg_prev_y = bc_panel_y + bc_bar_h + bc_rows_per_page * row_h + floor(2 * S);
@@ -4315,19 +4191,17 @@ function lms_bc_gfx(S, lc)
       );
     );
 
-    // Instance rows
     bc_page_start = this.bc_page * bc_rows_per_page;
     bc_page_end = bc_page_start + bc_rows_per_page - 1;
     bc_visible = 0;
     bc_s = 0;
     loop(this.BC_MAX_INST,
       isb = this.BC_MY_REGION + bc_s * this.BC_SLOT_SIZE;
-      isid = gmem[isb + 1];
-      isid > 0 ? (
+      istk = floor(gmem[isb + 1]);
+      istk > 0 ? (
         bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
           draw_row_y = row_y + (bc_visible - bc_page_start) * row_h;
 
-          // Hover highlight
           mouse_y >= draw_row_y && mouse_y < draw_row_y + row_h &&
             mouse_x >= floor(8 * S) && mouse_x < gfx_w - floor(8 * S) &&
             bc_s != this.bc_my_slot ? (
@@ -4342,30 +4216,32 @@ function lms_bc_gfx(S, lc)
             gfx_r = 0.7; gfx_g = 0.7; gfx_b = 0.8;
           );
           gfx_x = floor(12 * S); gfx_y = draw_row_y + floor(1 * S);
-          gfx_drawstr("I");
-          gfx_drawnumber(bc_s + 1, 0);
+          gfx_drawstr("T");
+          gfx_drawnumber(istk, 0);
           gfx_drawstr("  ");
 
           bc_s == this.bc_my_slot ? (
             gfx_drawstr("[YOU]");
           ) : (
-            iwho = gmem[isb + 3];
+            iwho = floor(gmem[isb + 3]);
             bc_has_follower = 0;
             bc_fsc = 0;
             loop(this.BC_MAX_INST,
               fsb2 = this.BC_MY_REGION + bc_fsc * this.BC_SLOT_SIZE;
-              gmem[fsb2 + 1] > 0 && gmem[fsb2 + 3] == isid ? bc_has_follower = 1;
+              gmem[fsb2 + 1] > 0 && floor(gmem[fsb2 + 3]) == istk ? bc_has_follower = 1;
               bc_fsc += 1;
             );
             iwho > 0 ? (
               gfx_r = 0.4; gfx_g = 0.6; gfx_b = 0.9;
-              gfx_drawstr("[FOLLOWER]");
+              gfx_drawstr("[FOLLOWING T");
+              gfx_drawnumber(iwho, 0);
+              gfx_drawstr("]");
             ) : bc_has_follower ? (
               gfx_r = 0.95; gfx_g = 0.78; gfx_b = 0.35;
               gfx_drawstr("[LEADER]");
             ) : (
               gfx_r = 0.38; gfx_g = 0.38; gfx_b = 0.45;
-              gfx_drawstr("[UNASSIGNED]");
+              gfx_drawstr("[INDEPENDENT]");
             );
           );
         );

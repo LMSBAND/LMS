@@ -15,6 +15,7 @@ slider5:50<0,100,0.1>-Odd Harmonics (%)
 slider6:1<0,4,1{Warm Tube,Hot Tube,Tape,Rectifier,Fuzz}>-Mode
 slider7:100<20,20000,1>-Tone (Hz)
 slider8:0<0,100,0.1>-Bias (%)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
   // Initialize density-aware saturation (L/R independent state)
@@ -28,7 +29,7 @@ slider8:0<0,100,0.1>-Bias (%)
 notice_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(7, 8, 10000);
+  bc.lms_bc_init(7, 8);
 
 @slider
   drive = slider1 / 100;
@@ -59,7 +60,7 @@ bias = slider8 / 100;
 tone.lms_tone_set(slider7);
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -521,5 +522,5 @@ loop(100,
 // @SERIALIZE — Persist follow state
 // ============================================================
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);

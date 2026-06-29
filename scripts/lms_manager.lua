@@ -1,8 +1,7 @@
 -- LMS Plugin Manager
 -- ==================
--- ReaImGui-based control plane for the entire LMS plugin suite.
--- Scans tracks for LMS instances, reads broadcast/gmem state,
--- and provides named follow/sync/pattern routing controls.
+-- ReaImGui control plane for the LMS plugin suite.
+-- Scans tracks, provides follow/steal via direct TrackFX param copy.
 --
 -- Requires: ReaImGui (install via ReaPack)
 -- Install: Actions > Show Action List > New Action > Load ReaScript
@@ -25,45 +24,40 @@ end
 -- Constants
 -- ============================================================================
 
-local BC_BASE = 100000
-local BC_SLOT_SIZE = 512
-local BC_MAX_INSTANCES = 32
-local BC_SLOTS_PER_TYPE = 16384
-
 local NOTE_NAMES = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"}
 local QUALITY_NAMES = {"maj","min","7","maj7","min7","dim","aug","sus4","sus2",
                        "add9","m9","9","6","m6","dim7","m7b5"}
 
 local TYPE_REGISTRY = {
-  [4]  = {name = "RTW Channel Strip", cat = "mix"},
-  [5]  = {name = "Traumatizer",       cat = "mix"},
-  [6]  = {name = "Passive EQ",        cat = "mix"},
-  [7]  = {name = "Tube Sat",          cat = "mix"},
-  [8]  = {name = "Henge",             cat = "reverb"},
-  [9]  = {name = "Henge on Crack",    cat = "reverb"},
-  [11] = {name = "Frenchie",          cat = "amp"},
-  [12] = {name = "Punk Idol",         cat = "amp"},
-  [13] = {name = "Fridge",            cat = "amp"},
-  [14] = {name = "Ol' Reliable",      cat = "amp"},
-  [15] = {name = "TRSOB",             cat = "amp"},
-  [16] = {name = "Twins",             cat = "amp"},
-  [17] = {name = "Area51",            cat = "amp"},
-  [18] = {name = "Silver69",          cat = "comp"},
-  [19] = {name = "Mega Increasinator",cat = "comp"},
-  [20] = {name = "Drum Trigger",      cat = "drum"},
-  [21] = {name = "Smart Gate",        cat = "gate"},
-  [22] = {name = "Pitch Detector",    cat = "pitch"},
-  [23] = {name = "Faker",             cat = "pitch"},
-  [24] = {name = "Bottom Feeder",     cat = "amp"},
-  [25] = {name = "Nightmare",         cat = "amp"},
-  [26] = {name = "OJ95",              cat = "amp"},
-  [27] = {name = "Reverb",            cat = "reverb"},
-  [28] = {name = "Tomas Teknik",      cat = "amp"},
-  [29] = {name = "Lil Stinker",       cat = "synth"},
-  [30] = {name = "Harmony Map",       cat = "seq"},
-  [31] = {name = "Satan's Pedalboard",cat = "fx"},
-  [32] = {name = "Piece of Shit",     cat = "amp"},
-  [33] = {name = "Nuug420",           cat = "synth"},
+  [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 31},
+  [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 0},
+  [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 0},
+  [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 0},
+  [8]  = {name = "Henge",             cat = "reverb", sliders = 0},
+  [9]  = {name = "Henge on Crack",    cat = "reverb", sliders = 0},
+  [11] = {name = "Frenchie",          cat = "amp",    sliders = 0},
+  [12] = {name = "Punk Idol",         cat = "amp",    sliders = 0},
+  [13] = {name = "Fridge",            cat = "amp",    sliders = 0},
+  [14] = {name = "Ol' Reliable",      cat = "amp",    sliders = 0},
+  [15] = {name = "TRSOB",             cat = "amp",    sliders = 0},
+  [16] = {name = "Twins",             cat = "amp",    sliders = 0},
+  [17] = {name = "Area51",            cat = "amp",    sliders = 0},
+  [18] = {name = "Silver69",          cat = "comp",   sliders = 0},
+  [19] = {name = "Mega Increasinator",cat = "comp",   sliders = 0},
+  [20] = {name = "Drum Trigger",      cat = "drum",   sliders = 0},
+  [21] = {name = "Smart Gate",        cat = "gate",   sliders = 0},
+  [22] = {name = "Pitch Detector",    cat = "pitch",  sliders = 0},
+  [23] = {name = "Faker",             cat = "pitch",  sliders = 0},
+  [24] = {name = "Bottom Feeder",     cat = "amp",    sliders = 0},
+  [25] = {name = "Nightmare",         cat = "amp",    sliders = 0},
+  [26] = {name = "OJ95",              cat = "amp",    sliders = 0},
+  [27] = {name = "Reverb",            cat = "reverb", sliders = 0},
+  [28] = {name = "Tomas Teknik",      cat = "amp",    sliders = 0},
+  [29] = {name = "Lil Stinker",       cat = "synth",  sliders = 0},
+  [30] = {name = "Harmony Map",       cat = "seq",    sliders = 0},
+  [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 0},
+  [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 0},
+  [33] = {name = "Nuug420",           cat = "synth",  sliders = 0},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -161,15 +155,16 @@ local CAT_COLORS = {
 -- State
 -- ============================================================================
 
-local instances = {}       -- all found LMS instances on tracks
-local bc_state = {}        -- broadcast slot state per type_id
-local db_state = {}        -- DrumBanger custom bus state
-local hm_state = {}        -- Harmony Map state
-local pitch_state = {}     -- Pitch bus state
-local mega_state = {}      -- Mega Increasinator metering
+local instances = {}
+local db_state = {}
+local hm_state = {}
+local pitch_state = {}
+local mega_state = {}
 local scan_timer = 0
-local SCAN_INTERVAL = 1.0  -- rescan tracks every N seconds
-local prev_heartbeats = {} -- track heartbeat changes to detect alive vs stale
+local SCAN_INTERVAL = 1.0
+
+-- Follow: follows[type_id][follower_track_idx] = leader_track_idx
+local follows = {}
 
 -- ============================================================================
 -- Track Scanning
@@ -190,13 +185,10 @@ local function extract_lms_name(fx_name)
   return nil
 end
 
-local debug_fx_names = {}
-
 local function scan_one_track(track, ti, track_name)
   local num_fx = r.TrackFX_GetCount(track)
   for fi = 0, num_fx - 1 do
     local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    debug_fx_names[#debug_fx_names + 1] = fx_name
     local lms_name, override_type = extract_lms_name(fx_name)
     local type_id = override_type or (lms_name and JSFX_TO_TYPE[lms_name])
     if lms_name and type_id then
@@ -215,7 +207,6 @@ end
 
 local function scan_tracks()
   instances = {}
-  debug_fx_names = {}
 
   local master = r.GetMasterTrack(0)
   if master then
@@ -231,55 +222,65 @@ local function scan_tracks()
 end
 
 -- ============================================================================
--- gmem Reading
+-- Follow / Steal — pure TrackFX param copy
+-- ============================================================================
+
+local function find_instance(type_id, track_idx)
+  for _, inst in ipairs(instances) do
+    if inst.type_id == type_id and inst.track_idx == track_idx then
+      return inst
+    end
+  end
+  return nil
+end
+
+local function set_follow(type_id, follower_track_idx, leader_track_idx)
+  if not follows[type_id] then follows[type_id] = {} end
+  follows[type_id][follower_track_idx] = leader_track_idx
+end
+
+local function get_follow(type_id, track_idx)
+  return follows[type_id] and follows[type_id][track_idx]
+end
+
+local function copy_params(src_inst, dst_inst)
+  local info = TYPE_REGISTRY[src_inst.type_id]
+  local count = info and info.sliders or 0
+  if count <= 0 then return end
+  for p = 0, count - 1 do
+    local val = r.TrackFX_GetParam(src_inst.track, src_inst.fx_idx, p)
+    local cur = r.TrackFX_GetParam(dst_inst.track, dst_inst.fx_idx, p)
+    if math.abs(val - cur) > 1e-6 then
+      r.TrackFX_SetParam(dst_inst.track, dst_inst.fx_idx, p, val)
+    end
+  end
+end
+
+local function apply_follows()
+  for type_id, type_follows in pairs(follows) do
+    for follower_tidx, leader_tidx in pairs(type_follows) do
+      local follower = find_instance(type_id, follower_tidx)
+      local leader = find_instance(type_id, leader_tidx)
+      if follower and leader then
+        copy_params(leader, follower)
+      end
+    end
+  end
+end
+
+local function steal_params(type_id, dst_track_idx, src_track_idx)
+  local dst = find_instance(type_id, dst_track_idx)
+  local src = find_instance(type_id, src_track_idx)
+  if dst and src then
+    copy_params(src, dst)
+  end
+end
+
+-- ============================================================================
+-- gmem Reading (DrumBanger, Harmony Map, Pitch, Mega — these still use gmem)
 -- ============================================================================
 
 r.gmem_attach("DrumBanger")
-
-local function read_broadcast_state()
-  -- Full scan: rebuild alive set (runs on SCAN_INTERVAL only)
-  bc_state = {}
-  local new_hb = {}
-  for type_id, info in pairs(TYPE_REGISTRY) do
-    local base = BC_BASE + type_id * BC_SLOTS_PER_TYPE
-    local slots = {}
-    for s = 0, BC_MAX_INSTANCES - 1 do
-      local addr = base + s * BC_SLOT_SIZE
-      local hb = r.gmem_read(addr)
-      if hb ~= 0 then
-        local key = type_id .. "_" .. s
-        local prev = prev_heartbeats[key]
-        local alive = (prev ~= nil and prev ~= hb)
-        new_hb[key] = hb
-        if alive then
-          slots[#slots + 1] = {
-            slot = s,
-            addr = addr,
-            heartbeat = hb,
-            alive = true,
-            instance_id = r.gmem_read(addr + 1),
-            type_id_read = r.gmem_read(addr + 2),
-            following = r.gmem_read(addr + 3),
-            param_count = r.gmem_read(addr + 4),
-          }
-        end
-      end
-    end
-    if #slots > 0 then
-      bc_state[type_id] = {info = info, slots = slots}
-    end
-  end
-  prev_heartbeats = new_hb
-end
-
-local function update_broadcast_live()
-  -- Fast per-frame update: just refresh follow state on existing slots
-  for _, state in pairs(bc_state) do
-    for _, slot in ipairs(state.slots) do
-      slot.following = r.gmem_read(slot.addr + 3)
-    end
-  end
-end
 
 local function read_drumbanger_state()
   db_state = {
@@ -355,150 +356,15 @@ local function quality_name(q)
 end
 
 -- ============================================================================
--- Slot-to-Track Correlation
--- ============================================================================
-
-local slot_to_track = {}    -- key: "type_slot" -> instance
-local slot_id_cache = {}    -- key: "type_slot" -> instance_id (detect slot reuse)
-local MATCH_PARAMS = 4
-
-local function correlate_slots()
-  local type_to_tracks = {}
-  for _, inst in ipairs(instances) do
-    if type(inst.type_id) == "number" then
-      if not type_to_tracks[inst.type_id] then type_to_tracks[inst.type_id] = {} end
-      type_to_tracks[inst.type_id][#type_to_tracks[inst.type_id] + 1] = inst
-    end
-  end
-
-  for type_id, state in pairs(bc_state) do
-    local tracks = type_to_tracks[type_id]
-    if not tracks then goto continue end
-
-    -- Check for stale tags (instance_id changed = slot was reclaimed)
-    for _, slot in ipairs(state.slots) do
-      local key = type_id .. "_" .. slot.slot
-      local cached_id = slot_id_cache[key]
-      local current_id = math.floor(slot.instance_id)
-      if cached_id and cached_id ~= current_id then
-        slot_to_track[key] = nil
-        r.gmem_write(slot.addr + 6, 0)
-      end
-      slot_id_cache[key] = current_id
-    end
-
-    -- Read existing tags
-    local tagged = {}
-    local untagged = {}
-    local used_tracks = {}
-    for _, slot in ipairs(state.slots) do
-      local key = type_id .. "_" .. slot.slot
-      local tag = math.floor(r.gmem_read(slot.addr + 6))
-      if tag > 0 then
-        -- Tag exists — find the track by index
-        local track_idx = tag - 1  -- 1-based in gmem, 0-based track idx (-1 = master)
-        for _, inst in ipairs(tracks) do
-          if inst.track_idx == track_idx then
-            slot_to_track[key] = inst
-            used_tracks[inst] = true
-            break
-          end
-        end
-        if not slot_to_track[key] then
-          -- Tag is stale (track removed?), clear it
-          r.gmem_write(slot.addr + 6, 0)
-          untagged[#untagged + 1] = slot
-        end
-      else
-        untagged[#untagged + 1] = slot
-      end
-    end
-
-    -- Param-match untagged slots (one-time, before follow corrupts params)
-    for _, slot in ipairs(untagged) do
-      local key = type_id .. "_" .. slot.slot
-      local bc_params = {}
-      local pc = math.min(math.floor(slot.param_count), MATCH_PARAMS)
-      for p = 0, pc - 1 do
-        bc_params[p] = r.gmem_read(slot.addr + 8 + p)
-      end
-
-      local best_inst = nil
-      local best_err = math.huge
-      for _, inst in ipairs(tracks) do
-        if not used_tracks[inst] then
-          local err = 0
-          for p = 0, pc - 1 do
-            local val = r.TrackFX_GetParam(inst.track, inst.fx_idx, p)
-            err = err + math.abs(val - (bc_params[p] or 0))
-          end
-          if err < best_err then
-            best_err = err
-            best_inst = inst
-          end
-        end
-      end
-
-      if best_inst then
-        slot_to_track[key] = best_inst
-        used_tracks[best_inst] = true
-        -- Write the tag — lock it down
-        local tag_val = best_inst.track_idx + 1  -- 1-based (0 = untagged)
-        if best_inst.track_idx == -1 then tag_val = 9999 end  -- master
-        r.gmem_write(slot.addr + 6, tag_val)
-      end
-    end
-    ::continue::
-  end
-end
-
--- ============================================================================
--- Follow Controls
--- ============================================================================
-
-local function slot_track_label(type_id, slot)
-  local inst = slot_to_track[type_id .. "_" .. slot.slot]
-  if inst then
-    return inst.track_name
-  end
-  return "Instance " .. math.floor(slot.instance_id)
-end
-
-local function find_instances_of_type(type_id)
-  local found = {}
-  if bc_state[type_id] then
-    for _, slot in ipairs(bc_state[type_id].slots) do
-      local label = slot_track_label(type_id, slot)
-      found[#found + 1] = {
-        id = slot.instance_id,
-        label = label,
-        slot = slot,
-      }
-    end
-  end
-  return found
-end
-
-local function set_follow(slot_addr, target_id)
-  -- Write to command channel (slot+5), not slot+3 which gets overwritten
-  -- -1 = unfollow, positive = follow that instance ID
-  r.gmem_write(slot_addr + 5, target_id == 0 and -1 or target_id)
-end
-
--- ============================================================================
 -- UI Rendering
 -- ============================================================================
 
 local ctx = r.ImGui_CreateContext("LMS Manager")
 
 local FlagsNone = r.ImGui_WindowFlags_None()
-local TreeDefault = r.ImGui_TreeNodeFlags_DefaultOpen()
-local TreeLeaf = r.ImGui_TreeNodeFlags_Leaf()
 local ColHeader = r.ImGui_Col_Header()
-local ColText = r.ImGui_Col_Text()
 
 local show_window = true
-local selected_tab = 0
 
 local function draw_status_dot(ctx, alive)
   local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
@@ -529,8 +395,7 @@ end
 -- ---- Overview Tab ----
 
 local function draw_overview(ctx)
-  r.ImGui_Text(ctx, string.format("Instances: %d   |   Broadcast types active: %d",
-    #instances, (function() local n=0; for _ in pairs(bc_state) do n=n+1 end; return n end)()))
+  r.ImGui_Text(ctx, string.format("Instances: %d", #instances))
   r.ImGui_Separator(ctx)
 
   if #instances == 0 then
@@ -538,7 +403,6 @@ local function draw_overview(ctx)
     return
   end
 
-  -- Group by category
   local by_cat = {}
   for _, inst in ipairs(instances) do
     local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
@@ -555,14 +419,7 @@ local function draw_overview(ctx)
       r.ImGui_PushStyleColor(ctx, ColHeader, color)
       if r.ImGui_CollapsingHeader(ctx, cat:upper() .. " (" .. #group .. ")") then
         for _, inst in ipairs(group) do
-          local alive = false
-          if type(inst.type_id) == "number" and bc_state[inst.type_id] then
-            for _, slot in ipairs(bc_state[inst.type_id].slots) do
-              if slot.alive then alive = true; break end
-            end
-          end
-          if inst.type_id == "drumbanger" and db_state.heartbeat ~= 0 then alive = true end
-          draw_status_dot(ctx, alive)
+          draw_status_dot(ctx, true)
           local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
           local name = info and info.name or inst.lms_name
           local track_num = inst.track_idx == -1 and "MASTER" or tostring(inst.track_idx + 1)
@@ -578,17 +435,6 @@ end
 -- Track Management Actions
 -- ============================================================================
 
-local function get_rtw_fxname()
-  -- Find what REAPER calls RTW by checking an existing instance
-  for _, inst in ipairs(instances) do
-    if inst.type_id == 4 then
-      return inst.fx_name
-    end
-  end
-  -- Fallback: try common name formats
-  return nil
-end
-
 local function track_has_fx_type(track, type_id)
   local num_fx = r.TrackFX_GetCount(track)
   for fi = 0, num_fx - 1 do
@@ -601,7 +447,6 @@ local function track_has_fx_type(track, type_id)
 end
 
 local function add_rtw_to_all_tracks()
-  -- Find a track that already has RTW and copy from it
   local src_track = nil
   local src_fx = -1
   for _, inst in ipairs(instances) do
@@ -635,7 +480,6 @@ local function organize_track_fx(track)
   local num_fx = r.TrackFX_GetCount(track)
   if num_fx < 2 then return end
 
-  -- Find Smart Gate and RTW positions
   local gate_idx = -1
   local rtw_idx = -1
   for fi = 0, num_fx - 1 do
@@ -646,10 +490,8 @@ local function organize_track_fx(track)
     if tid == 4 then rtw_idx = fi end
   end
 
-  -- Move Smart Gate to position 0
   if gate_idx > 0 then
     r.TrackFX_CopyToTrack(track, gate_idx, track, 0, true)
-    -- Indices shift after move
     if rtw_idx >= 0 then
       if rtw_idx < gate_idx then rtw_idx = rtw_idx + 1
       elseif rtw_idx == gate_idx then rtw_idx = 0
@@ -657,7 +499,6 @@ local function organize_track_fx(track)
     end
   end
 
-  -- Move RTW to last position
   num_fx = r.TrackFX_GetCount(track)
   if rtw_idx >= 0 and rtw_idx < num_fx - 1 then
     r.TrackFX_CopyToTrack(track, rtw_idx, track, num_fx - 1, true)
@@ -681,14 +522,14 @@ local function copy_fx_chain(src_track, dst_track)
   scan_tracks()
 end
 
--- context menu state
 local ctx_menu_track = nil
 local ctx_menu_track_name = nil
+local ctx_menu_track_idx = nil
 
 -- ---- Broadcast Tab ----
 
 local function draw_broadcast(ctx)
-  r.ImGui_Text(ctx, "Broadcast System — Follow / Steal Relationships")
+  r.ImGui_Text(ctx, "Follow / Steal — Manager copies params directly between plugins")
   r.ImGui_Separator(ctx)
 
   -- Toolbar
@@ -701,119 +542,137 @@ local function draw_broadcast(ctx)
   end
   r.ImGui_SameLine(ctx)
 
-  -- Dump button
+  -- Dump
   if r.ImGui_Button(ctx, "Dump to console") then
-    r.ShowConsoleMsg("\n=== LMS Broadcast State ===\n")
-    r.ShowConsoleMsg(string.format("Instances on tracks: %d\n", #instances))
-    r.ShowConsoleMsg("\n-- Track Scan --\n")
+    r.ShowConsoleMsg("\n=== LMS MANAGER STATE ===\n")
+    r.ShowConsoleMsg(string.format("Instances: %d\n\n", #instances))
+
+    r.ShowConsoleMsg("-- Instances --\n")
     for _, inst in ipairs(instances) do
       local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
       local name = info and info.name or inst.lms_name
       local tn = inst.track_idx == -1 and "MASTER" or tostring(inst.track_idx + 1)
-      r.ShowConsoleMsg(string.format("  Track %s (%s): %s  type_id=%s\n", tn, inst.track_name, name, tostring(inst.type_id)))
+      local leader = type(inst.type_id) == "number" and get_follow(inst.type_id, inst.track_idx)
+      local follow_str = leader and ("follows Track " .. (leader + 1)) or "independent"
+      r.ShowConsoleMsg(string.format("  Track %-2s (%s): %s [type %s] %s\n",
+        tn, inst.track_name, name, tostring(inst.type_id), follow_str))
     end
-    r.ShowConsoleMsg("\n-- Active Broadcast Slots --\n")
-    for type_id, state in pairs(bc_state) do
-      r.ShowConsoleMsg(string.format("\n  %s (type %d) — %d slot(s):\n", state.info.name, type_id, #state.slots))
-      for _, slot in ipairs(state.slots) do
-        r.ShowConsoleMsg(string.format("    slot %d: id=%d  following=%d  params=%d  alive=%s\n",
-          slot.slot, math.floor(slot.instance_id), math.floor(slot.following),
-          math.floor(slot.param_count), tostring(slot.alive)))
+
+    r.ShowConsoleMsg("\n-- Follow Relationships --\n")
+    local any_follow = false
+    for type_id, type_follows in pairs(follows) do
+      for follower_tidx, leader_tidx in pairs(type_follows) do
+        any_follow = true
+        local info = TYPE_REGISTRY[type_id]
+        local name = info and info.name or ("Type " .. type_id)
+        local follower = find_instance(type_id, follower_tidx)
+        local leader = find_instance(type_id, leader_tidx)
+        r.ShowConsoleMsg(string.format("  %s: %s (T%d) → %s (T%d)\n",
+          name,
+          follower and follower.track_name or "?", follower_tidx + 1,
+          leader and leader.track_name or "?", leader_tidx + 1))
       end
     end
+    if not any_follow then
+      r.ShowConsoleMsg("  (none)\n")
+    end
+
     r.ShowConsoleMsg("===========================\n")
   end
 
   r.ImGui_Spacing(ctx)
 
-  -- Build track lookup for labeling
-  local type_to_tracks = {}
+  -- Group instances by type
+  local by_type = {}
   for _, inst in ipairs(instances) do
     if type(inst.type_id) == "number" then
-      if not type_to_tracks[inst.type_id] then type_to_tracks[inst.type_id] = {} end
-      type_to_tracks[inst.type_id][#type_to_tracks[inst.type_id] + 1] = inst
+      if not by_type[inst.type_id] then by_type[inst.type_id] = {} end
+      by_type[inst.type_id][#by_type[inst.type_id] + 1] = inst
     end
   end
 
   local any = false
-  for type_id, state in pairs(bc_state) do
-    any = true
-    local color = CAT_COLORS[state.info.cat] or 0xAAAAAAFF
+  for type_id, group in pairs(by_type) do
+    if #group > 0 then
+      any = true
+      local info = TYPE_REGISTRY[type_id]
+      local color = info and CAT_COLORS[info.cat] or 0xAAAAAAFF
+      local name = info and info.name or ("Type " .. type_id)
+      local can_follow = info and info.sliders > 0 and #group > 1
 
-    -- Build header with track names
-    local tracks = type_to_tracks[type_id]
-    local track_names = ""
-    if tracks then
       local names = {}
-      for _, t in ipairs(tracks) do names[#names + 1] = t.track_name end
-      track_names = "  —  " .. table.concat(names, ", ")
-    end
-    local header = state.info.name .. " (" .. #state.slots .. ")" .. track_names
+      for _, inst in ipairs(group) do names[#names + 1] = inst.track_name end
+      local header = name .. " (" .. #group .. ")  —  " .. table.concat(names, ", ")
 
-    r.ImGui_PushStyleColor(ctx, ColHeader, color)
-    if r.ImGui_CollapsingHeader(ctx, header) then
-      for _, slot in ipairs(state.slots) do
-        local id = math.floor(slot.instance_id)
-        local following = math.floor(slot.following)
+      r.ImGui_PushStyleColor(ctx, ColHeader, color)
+      if r.ImGui_CollapsingHeader(ctx, header) then
+        for _, inst in ipairs(group) do
+          local tn = inst.track_idx == -1 and "MASTER" or tostring(inst.track_idx + 1)
 
-        draw_status_dot(ctx, slot.alive)
+          draw_status_dot(ctx, true)
 
-        local label = slot_track_label(type_id, slot)
-        local correlated_inst = slot_to_track[type_id .. "_" .. slot.slot]
-        if correlated_inst then
-          if r.ImGui_SmallButton(ctx, label .. "##bc_" .. type_id .. "_" .. slot.slot) then
-            toggle_fx(correlated_inst)
+          -- Clickable name
+          local label = inst.track_name .. " [T" .. tn .. "]"
+          if r.ImGui_SmallButton(ctx, label .. "##bc_" .. type_id .. "_" .. inst.track_idx) then
+            toggle_fx(inst)
           end
           if r.ImGui_IsItemClicked(ctx, 1) then
-            ctx_menu_track = correlated_inst.track
-            ctx_menu_track_name = correlated_inst.track_name
-            ctx_menu_track_idx = correlated_inst.track_idx
+            ctx_menu_track = inst.track
+            ctx_menu_track_name = inst.track_name
+            ctx_menu_track_idx = inst.track_idx
             r.ImGui_OpenPopup(ctx, "track_ctx_menu")
           end
-        else
-          r.ImGui_Text(ctx, label)
-        end
-        r.ImGui_SameLine(ctx, 280)
 
-        -- Follow dropdown
-        local follow_label = "None"
-        if following ~= 0 then
-          local follow_found = false
-          for _, peer_slot in ipairs(state.slots) do
-            if math.floor(peer_slot.instance_id) == following then
-              follow_label = slot_track_label(type_id, peer_slot)
-              follow_found = true
-              break
+          if can_follow then
+            r.ImGui_SameLine(ctx, 250)
+
+            -- Follow dropdown
+            local leader_tidx = get_follow(type_id, inst.track_idx)
+            local follow_label = "None"
+            if leader_tidx then
+              local leader = find_instance(type_id, leader_tidx)
+              follow_label = leader and leader.track_name or ("Track " .. (leader_tidx + 1))
             end
-          end
-          if not follow_found then
-            follow_label = "ID " .. following
-          end
-        end
 
-        r.ImGui_SetNextItemWidth(ctx, 220)
-        if r.ImGui_BeginCombo(ctx, "##follow_" .. type_id .. "_" .. id, "Follow: " .. follow_label) then
-          if r.ImGui_Selectable(ctx, "None", following == 0) then
-            set_follow(slot.addr, 0)
-          end
-          local peers = find_instances_of_type(type_id)
-          for _, peer in ipairs(peers) do
-            if math.floor(peer.id) ~= id then
-              local sel = (following == math.floor(peer.id))
-              if r.ImGui_Selectable(ctx, peer.label, sel) then
-                set_follow(slot.addr, peer.id)
+            r.ImGui_SetNextItemWidth(ctx, 200)
+            if r.ImGui_BeginCombo(ctx, "##fol_" .. type_id .. "_" .. inst.track_idx, "Follow: " .. follow_label) then
+              if r.ImGui_Selectable(ctx, "None", not leader_tidx) then
+                set_follow(type_id, inst.track_idx, nil)
               end
+              for _, peer in ipairs(group) do
+                if peer.track_idx ~= inst.track_idx then
+                  local peer_tn = peer.track_idx == -1 and "MASTER" or tostring(peer.track_idx + 1)
+                  local sel = (leader_tidx == peer.track_idx)
+                  if r.ImGui_Selectable(ctx, peer.track_name .. " [T" .. peer_tn .. "]", sel) then
+                    set_follow(type_id, inst.track_idx, peer.track_idx)
+                  end
+                end
+              end
+              r.ImGui_EndCombo(ctx)
+            end
+
+            -- Steal button
+            r.ImGui_SameLine(ctx)
+            if r.ImGui_BeginCombo(ctx, "##stl_" .. type_id .. "_" .. inst.track_idx, "Steal") then
+              for _, peer in ipairs(group) do
+                if peer.track_idx ~= inst.track_idx then
+                  local peer_tn = peer.track_idx == -1 and "MASTER" or tostring(peer.track_idx + 1)
+                  if r.ImGui_Selectable(ctx, peer.track_name .. " [T" .. peer_tn .. "]") then
+                    steal_params(type_id, inst.track_idx, peer.track_idx)
+                  end
+                end
+              end
+              r.ImGui_EndCombo(ctx)
             end
           end
-          r.ImGui_EndCombo(ctx)
         end
       end
+      r.ImGui_PopStyleColor(ctx)
     end
-    r.ImGui_PopStyleColor(ctx)
   end
 
   if not any then
-    r.ImGui_TextWrapped(ctx, "No active broadcast instances. Load a project with LMS plugins.")
+    r.ImGui_TextWrapped(ctx, "No LMS plugins found. Add some and hit Rescan.")
   end
 
   -- Right-click context menu
@@ -860,7 +719,6 @@ local function draw_drumbanger(ctx)
     return
   end
 
-  -- Transport
   local playing = db_state.playing ~= 0
   r.ImGui_Text(ctx, string.format("Transport: %s   BPM: %.1f   Pattern: %d   Measure: %d",
     playing and "PLAYING" or "STOPPED",
@@ -868,7 +726,6 @@ local function draw_drumbanger(ctx)
     math.floor(db_state.pattern) + 1,
     math.floor(db_state.measure) + 1))
 
-  -- Step display
   local step = math.floor(db_state.seq_step)
   local steps = math.floor(db_state.steps_per_measure)
   if steps > 0 and steps <= 64 then
@@ -886,7 +743,6 @@ local function draw_drumbanger(ctx)
     r.ImGui_Dummy(ctx, steps * (box + gap), box + 4)
   end
 
-  -- Pad grid
   r.ImGui_Spacing(ctx)
   r.ImGui_Text(ctx, "Pad Activity:")
   local draw_list = r.ImGui_GetWindowDrawList(ctx)
@@ -909,7 +765,6 @@ local function draw_drumbanger(ctx)
   end
   r.ImGui_Dummy(ctx, 4 * (pad_size + pad_gap), 4 * (pad_size + pad_gap) + 4)
 
-  -- Consumers
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
   r.ImGui_Text(ctx, "Consumers listening to DrumBanger bus:")
@@ -946,10 +801,10 @@ local function draw_harmony(ctx)
   local root = root_name(math.floor(hm_state.root))
   local qual = quality_name(math.floor(hm_state.quality))
   local key = root_name(math.floor(hm_state.key))
-  local step = math.floor(hm_state.step) + 1
+  local step_val = math.floor(hm_state.step) + 1
 
   r.ImGui_Text(ctx, string.format("Key: %s   Step: %d   Current Chord: %s%s",
-    key, step, root, qual))
+    key, step_val, root, qual))
 
   if hm_state.song_mode ~= 0 then
     r.ImGui_Text(ctx, string.format("Song Mode: ON   Part: %d   Drum Pattern: %d",
@@ -959,7 +814,6 @@ local function draw_harmony(ctx)
     r.ImGui_Text(ctx, "Song Mode: OFF")
   end
 
-  -- Chord readout for current pattern
   r.ImGui_Spacing(ctx)
   r.ImGui_Text(ctx, "Current pattern chords:")
   local divs = math.floor(hm_state.divisions)
@@ -982,7 +836,6 @@ local function draw_metering(ctx)
   r.ImGui_Text(ctx, "Live Metering from LMS Plugins")
   r.ImGui_Separator(ctx)
 
-  -- Mega Increasinator
   r.ImGui_Spacing(ctx)
   if mega_state.gr_db ~= 0 or mega_state.true_peak ~= 0 then
     r.ImGui_Text(ctx, "Mega Increasinator:")
@@ -992,7 +845,6 @@ local function draw_metering(ctx)
     r.ImGui_TextDisabled(ctx, "Mega Increasinator: no data")
   end
 
-  -- Pitch
   r.ImGui_Spacing(ctx)
   if pitch_state.heartbeat ~= 0 then
     r.ImGui_Text(ctx, "Pitch Detection:")
@@ -1010,7 +862,6 @@ end
 local function draw_main(ctx)
   local visible, open = r.ImGui_Begin(ctx, "LMS Plugin Manager", true, FlagsNone)
   if visible then
-    -- Toolbar
     if r.ImGui_Button(ctx, "Rescan Tracks") then
       scan_tracks()
     end
@@ -1019,7 +870,6 @@ local function draw_main(ctx)
 
     r.ImGui_Spacing(ctx)
 
-    -- Tabs
     if r.ImGui_BeginTabBar(ctx, "main_tabs") then
       if r.ImGui_BeginTabItem(ctx, "Overview") then
         draw_overview(ctx)
@@ -1059,23 +909,21 @@ scan_tracks()
 local last_time = r.time_precise()
 
 local function loop()
-  -- Periodic rescan
   local now = r.time_precise()
   if now - last_time > SCAN_INTERVAL then
     scan_tracks()
-    read_broadcast_state()
-    correlate_slots()
     last_time = now
   end
 
-  -- Read gmem every frame (lightweight updates only)
-  update_broadcast_live()
+  -- Apply follow relationships every frame
+  apply_follows()
+
+  -- Read gmem for non-broadcast plugins
   read_drumbanger_state()
   read_harmony_state()
   read_pitch_state()
   read_mega_state()
 
-  -- Draw
   local open = draw_main(ctx)
 
   if open then

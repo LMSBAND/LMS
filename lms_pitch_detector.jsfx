@@ -15,6 +15,7 @@ slider5:1<0,1,1{Off,On}>-MIDI Output
 slider6:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>-Key
 slider7:0<0,2,1{Chromatic,Major,Minor}>-Scale
 slider8:100<20,500,1>-Min Note (ms)
+slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
   // ============================================================
@@ -110,7 +111,7 @@ slider8:100<20,500,1>-Min Note (ms)
   buy_show = 0;
 
   // Broadcast system (instance manager)
-  bc.lms_bc_init(22, 8, 850000);
+  bc.lms_bc_init(22, 8);
 
 @slider
   pd.threshold = slider1;
@@ -384,7 +385,7 @@ midi_enabled ? (
 );
 
 // Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block();
+bc.lms_bc_block(_mgr_track);
 
 // Follow: copy leader's params to our sliders
 bc.bc_leader_pbase > 0 ? (
@@ -941,8 +942,8 @@ vi_ar_active ? (
   notice_show ? lms_gfx_notice();
 
 @serialize
-file_var(0, bc.bc_following);
-file_var(0, bc.bc_my_id);
+file_var(0, bc.bc_ser_compat_1);
+file_var(0, bc.bc_ser_compat_2);
 file_var(0, slider6);
 file_var(0, slider7);
 file_var(0, slider8);
