@@ -30,34 +30,34 @@ local QUALITY_NAMES = {"maj","min","7","maj7","min7","dim","aug","sus4","sus2",
 
 local TYPE_REGISTRY = {
   [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 31},
-  [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 0},
-  [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 0},
-  [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 0},
-  [8]  = {name = "Henge",             cat = "reverb", sliders = 0},
-  [9]  = {name = "Henge on Crack",    cat = "reverb", sliders = 0},
-  [11] = {name = "Frenchie",          cat = "amp",    sliders = 0},
-  [12] = {name = "Punk Idol",         cat = "amp",    sliders = 0},
-  [13] = {name = "Fridge",            cat = "amp",    sliders = 0},
-  [14] = {name = "Ol' Reliable",      cat = "amp",    sliders = 0},
-  [15] = {name = "TRSOB",             cat = "amp",    sliders = 0},
-  [16] = {name = "Twins",             cat = "amp",    sliders = 0},
-  [17] = {name = "Area51",            cat = "amp",    sliders = 0},
-  [18] = {name = "Silver69",          cat = "comp",   sliders = 0},
-  [19] = {name = "Mega Increasinator",cat = "comp",   sliders = 0},
-  [20] = {name = "Drum Trigger",      cat = "drum",   sliders = 0},
-  [21] = {name = "Smart Gate",        cat = "gate",   sliders = 0},
-  [22] = {name = "Pitch Detector",    cat = "pitch",  sliders = 0},
-  [23] = {name = "Faker",             cat = "pitch",  sliders = 0},
-  [24] = {name = "Bottom Feeder",     cat = "amp",    sliders = 0},
-  [25] = {name = "Nightmare",         cat = "amp",    sliders = 0},
-  [26] = {name = "OJ95",              cat = "amp",    sliders = 0},
-  [27] = {name = "Reverb",            cat = "reverb", sliders = 0},
-  [28] = {name = "Tomas Teknik",      cat = "amp",    sliders = 0},
-  [29] = {name = "Lil Stinker",       cat = "synth",  sliders = 0},
-  [30] = {name = "Harmony Map",       cat = "seq",    sliders = 0},
-  [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 0},
-  [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 0},
-  [33] = {name = "Nuug420",           cat = "synth",  sliders = 0},
+  [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 10},
+  [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 9},
+  [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 8},
+  [8]  = {name = "Henge",             cat = "reverb", sliders = 10},
+  [9]  = {name = "Henge on Crack",    cat = "reverb", sliders = 20},
+  [11] = {name = "Frenchie",          cat = "amp",    sliders = 20},
+  [12] = {name = "Punk Idol",         cat = "amp",    sliders = 24},
+  [13] = {name = "Fridge",            cat = "amp",    sliders = 32},
+  [14] = {name = "Ol' Reliable",      cat = "amp",    sliders = 26},
+  [15] = {name = "TRSOB",             cat = "amp",    sliders = 28},
+  [16] = {name = "Twins",             cat = "amp",    sliders = 25},
+  [17] = {name = "Area51",            cat = "amp",    sliders = 28},
+  [18] = {name = "Silver69",          cat = "comp",   sliders = 8},
+  [19] = {name = "Mega Increasinator",cat = "comp",   sliders = 9},
+  [20] = {name = "Drum Trigger",      cat = "drum",   sliders = 20},
+  [21] = {name = "Smart Gate",        cat = "gate",   sliders = 16},
+  [22] = {name = "Pitch Detector",    cat = "pitch",  sliders = 8},
+  [23] = {name = "Faker",             cat = "pitch",  sliders = 9},
+  [24] = {name = "Bottom Feeder",     cat = "amp",    sliders = 25},
+  [25] = {name = "Nightmare",         cat = "amp",    sliders = 24},
+  [26] = {name = "OJ95",              cat = "amp",    sliders = 26},
+  [27] = {name = "Reverb",            cat = "reverb", sliders = 11},
+  [28] = {name = "Tomas Teknik",      cat = "amp",    sliders = 37},
+  [29] = {name = "Lil Stinker",       cat = "synth",  sliders = 44},
+  [30] = {name = "Harmony Map",       cat = "seq",    sliders = 7},
+  [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 71},
+  [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4},
+  [33] = {name = "Nuug420",           cat = "synth",  sliders = 52},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -539,6 +539,10 @@ local function draw_broadcast(ctx)
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Organize all FX") then
     organize_all_tracks()
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Clear All Follows") then
+    follows = {}
   end
   r.ImGui_SameLine(ctx)
 

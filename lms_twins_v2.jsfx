@@ -6,7 +6,6 @@ desc:LMS - The Twins v2 (Density-Aware Dual American Clean)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R
@@ -45,7 +44,6 @@ slider23:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider26:100<0,100,1>-Speaker Breakup (%)
 slider24:0<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
-slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -174,8 +172,6 @@ d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
 d_miller_freq = 8500; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
-  // Broadcast system (instance manager) — type 16, 24 synced params, stale @ 750000
-  bc.lms_bc_init(16, 25);
   notice_show = 0;
 
 @slider
@@ -302,93 +298,6 @@ cab_load_ohms > 0 ? (
   ohm_lo.lms_bq_init();
 );
 
-
-// Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block(_mgr_track);
-
-// Follow: copy leader's params to our sliders
-bc.bc_leader_pbase > 0 ? (
-  slider1 = gmem[bc.bc_leader_pbase + 0];
-  slider2 = gmem[bc.bc_leader_pbase + 1];
-  slider3 = gmem[bc.bc_leader_pbase + 2];
-  slider4 = gmem[bc.bc_leader_pbase + 3];
-  slider5 = gmem[bc.bc_leader_pbase + 4];
-  slider6 = gmem[bc.bc_leader_pbase + 5];
-  slider7 = gmem[bc.bc_leader_pbase + 6];
-  slider8 = gmem[bc.bc_leader_pbase + 7];
-  slider9 = gmem[bc.bc_leader_pbase + 8];
-  slider10 = gmem[bc.bc_leader_pbase + 9];
-  slider11 = gmem[bc.bc_leader_pbase + 10];
-  slider12 = gmem[bc.bc_leader_pbase + 11];
-  slider13 = gmem[bc.bc_leader_pbase + 12];
-  slider15 = gmem[bc.bc_leader_pbase + 14];
-  slider16 = gmem[bc.bc_leader_pbase + 15];
-  slider17 = gmem[bc.bc_leader_pbase + 16];
-  slider18 = gmem[bc.bc_leader_pbase + 17];
-  slider19 = gmem[bc.bc_leader_pbase + 18];
-  slider20 = gmem[bc.bc_leader_pbase + 19];
-  slider21 = gmem[bc.bc_leader_pbase + 20];
-  slider22 = gmem[bc.bc_leader_pbase + 21];
-  slider23 = gmem[bc.bc_leader_pbase + 22];
-  slider24 = gmem[bc.bc_leader_pbase + 23];
-  slider26 = gmem[bc.bc_leader_pbase + 24];
-);
-
-// Steal: one-shot copy from target
-bc.bc_did_steal ? (
-  slider1 = gmem[bc.bc_steal_pbase + 0];
-  slider2 = gmem[bc.bc_steal_pbase + 1];
-  slider3 = gmem[bc.bc_steal_pbase + 2];
-  slider4 = gmem[bc.bc_steal_pbase + 3];
-  slider5 = gmem[bc.bc_steal_pbase + 4];
-  slider6 = gmem[bc.bc_steal_pbase + 5];
-  slider7 = gmem[bc.bc_steal_pbase + 6];
-  slider8 = gmem[bc.bc_steal_pbase + 7];
-  slider9 = gmem[bc.bc_steal_pbase + 8];
-  slider10 = gmem[bc.bc_steal_pbase + 9];
-  slider11 = gmem[bc.bc_steal_pbase + 10];
-  slider12 = gmem[bc.bc_steal_pbase + 11];
-  slider13 = gmem[bc.bc_steal_pbase + 12];
-  slider15 = gmem[bc.bc_steal_pbase + 14];
-  slider16 = gmem[bc.bc_steal_pbase + 15];
-  slider17 = gmem[bc.bc_steal_pbase + 16];
-  slider18 = gmem[bc.bc_steal_pbase + 17];
-  slider19 = gmem[bc.bc_steal_pbase + 18];
-  slider20 = gmem[bc.bc_steal_pbase + 19];
-  slider21 = gmem[bc.bc_steal_pbase + 20];
-  slider22 = gmem[bc.bc_steal_pbase + 21];
-  slider23 = gmem[bc.bc_steal_pbase + 22];
-  slider24 = gmem[bc.bc_steal_pbase + 23];
-  slider26 = gmem[bc.bc_steal_pbase + 24];
-);
-
-// Write our params for others to read
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0] = slider1;
-  gmem[bc.bc_my_pbase + 1] = slider2;
-  gmem[bc.bc_my_pbase + 2] = slider3;
-  gmem[bc.bc_my_pbase + 3] = slider4;
-  gmem[bc.bc_my_pbase + 4] = slider5;
-  gmem[bc.bc_my_pbase + 5] = slider6;
-  gmem[bc.bc_my_pbase + 6] = slider7;
-  gmem[bc.bc_my_pbase + 7] = slider8;
-  gmem[bc.bc_my_pbase + 8] = slider9;
-  gmem[bc.bc_my_pbase + 9] = slider10;
-  gmem[bc.bc_my_pbase + 10] = slider11;
-  gmem[bc.bc_my_pbase + 11] = slider12;
-  gmem[bc.bc_my_pbase + 12] = slider13;
-  gmem[bc.bc_my_pbase + 14] = slider15;
-  gmem[bc.bc_my_pbase + 15] = slider16;
-  gmem[bc.bc_my_pbase + 16] = slider17;
-  gmem[bc.bc_my_pbase + 17] = slider18;
-  gmem[bc.bc_my_pbase + 18] = slider19;
-  gmem[bc.bc_my_pbase + 19] = slider20;
-  gmem[bc.bc_my_pbase + 20] = slider21;
-  gmem[bc.bc_my_pbase + 21] = slider22;
-  gmem[bc.bc_my_pbase + 22] = slider23;
-  gmem[bc.bc_my_pbase + 23] = slider24;
-  gmem[bc.bc_my_pbase + 24] = slider26;
-);
 
 @sample
 
@@ -869,14 +778,12 @@ slider18 != _old ? slider_automate(2^17);
   gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2);
   gfx_drawstr("B+");
 
-// Instance Manager Panel (from lms_core broadcast system)
-  bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
   last_cap = mouse_cap;
 
   // --- BUY + NOTICE BUTTONS ---
   notice_btn_x = gfx_w - floor(60 * S);
-  notice_btn_y = bc_panel_y - floor(18 * S);
+  notice_btn_y = gfx_h - floor(20 * S);
   buy_btn_x = notice_btn_x - floor(50 * S);
   buy_btn_y = notice_btn_y;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;

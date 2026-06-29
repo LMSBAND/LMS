@@ -6,7 +6,6 @@ desc:LMS - The Frenchie v2 (Density-Aware 5W Class A)
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R
@@ -40,7 +39,6 @@ slider16:0<0,100,1>-Mic B Distance (%)
 // --- IMPEDANCE TAP ---
 slider25:100<0,100,1>-Speaker Breakup (%)
 slider17:1<0,2,1{4 ohm,8 ohm,16 ohm}>-Impedance Tap
-slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 
@@ -111,9 +109,6 @@ d_density = 1.0; d_mid_d = 0; d_hi_d = 0; d_air_d = 0;
 d_miller_freq = 8000; d_miller_q = 0.6; d_grid_cond = 0;
 d_drive_boost = 1.0; d_bplus = 1.0;
 
-
-  // Broadcast system (instance manager) — type 11, 17 synced params, stale @ 700000
-  bc.lms_bc_init(11, 18);
 
   notice_show = 0;
 
@@ -228,75 +223,6 @@ cab_load_ohms > 0 ? (
   ohm_lo.lms_bq_init();
 );
 
-
-// Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block(_mgr_track);
-
-// Follow: copy leader's params to our sliders
-bc.bc_leader_pbase > 0 ? (
-  slider1  = gmem[bc.bc_leader_pbase + 0];
-  slider2  = gmem[bc.bc_leader_pbase + 1];
-  slider3  = gmem[bc.bc_leader_pbase + 2];
-  slider4  = gmem[bc.bc_leader_pbase + 3];
-  slider5  = gmem[bc.bc_leader_pbase + 4];
-  slider6  = gmem[bc.bc_leader_pbase + 5];
-  slider7  = gmem[bc.bc_leader_pbase + 6];
-  slider8  = gmem[bc.bc_leader_pbase + 7];
-  // pbase+8 empty (slider9 removed)
-  slider10 = gmem[bc.bc_leader_pbase + 9];
-  slider11 = gmem[bc.bc_leader_pbase + 10];
-  slider12 = gmem[bc.bc_leader_pbase + 11];
-  slider13 = gmem[bc.bc_leader_pbase + 12];
-  slider14 = gmem[bc.bc_leader_pbase + 13];
-  slider15 = gmem[bc.bc_leader_pbase + 14];
-  slider16 = gmem[bc.bc_leader_pbase + 15];
-  slider17 = gmem[bc.bc_leader_pbase + 16];
-  slider25 = gmem[bc.bc_leader_pbase + 17];
-);
-
-// Steal: one-shot copy from target
-bc.bc_did_steal ? (
-  slider1  = gmem[bc.bc_steal_pbase + 0];
-  slider2  = gmem[bc.bc_steal_pbase + 1];
-  slider3  = gmem[bc.bc_steal_pbase + 2];
-  slider4  = gmem[bc.bc_steal_pbase + 3];
-  slider5  = gmem[bc.bc_steal_pbase + 4];
-  slider6  = gmem[bc.bc_steal_pbase + 5];
-  slider7  = gmem[bc.bc_steal_pbase + 6];
-  slider8  = gmem[bc.bc_steal_pbase + 7];
-  // pbase+8 empty (slider9 removed)
-  slider10 = gmem[bc.bc_steal_pbase + 9];
-  slider11 = gmem[bc.bc_steal_pbase + 10];
-  slider12 = gmem[bc.bc_steal_pbase + 11];
-  slider13 = gmem[bc.bc_steal_pbase + 12];
-  slider14 = gmem[bc.bc_steal_pbase + 13];
-  slider15 = gmem[bc.bc_steal_pbase + 14];
-  slider16 = gmem[bc.bc_steal_pbase + 15];
-  slider17 = gmem[bc.bc_steal_pbase + 16];
-  slider25 = gmem[bc.bc_steal_pbase + 17];
-);
-
-// Write our params for others to read
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0]  = slider1;
-  gmem[bc.bc_my_pbase + 1]  = slider2;
-  gmem[bc.bc_my_pbase + 2]  = slider3;
-  gmem[bc.bc_my_pbase + 3]  = slider4;
-  gmem[bc.bc_my_pbase + 4]  = slider5;
-  gmem[bc.bc_my_pbase + 5]  = slider6;
-  gmem[bc.bc_my_pbase + 6]  = slider7;
-  gmem[bc.bc_my_pbase + 7]  = slider8;
-  // pbase+8 empty (slider9 removed)
-  gmem[bc.bc_my_pbase + 9]  = slider10;
-  gmem[bc.bc_my_pbase + 10] = slider11;
-  gmem[bc.bc_my_pbase + 11] = slider12;
-  gmem[bc.bc_my_pbase + 12] = slider13;
-  gmem[bc.bc_my_pbase + 13] = slider14;
-  gmem[bc.bc_my_pbase + 14] = slider15;
-  gmem[bc.bc_my_pbase + 15] = slider16;
-  gmem[bc.bc_my_pbase + 16] = slider17;
-  gmem[bc.bc_my_pbase + 17] = slider25;
-);
 
 @sample
 mono = (spl0 + spl1) * 0.5 * in_level;
@@ -698,14 +624,12 @@ slider20 != _old ? slider_automate(2^19);
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B; gfx_rect(dm_mx, dm_my, dm_mw, 1); gfx_rect(dm_mx, dm_my + dm_meter_h - 1, dm_mw, 1); gfx_rect(dm_mx, dm_my, 1, dm_meter_h); gfx_rect(dm_mx + dm_mw - 1, dm_my, 1, dm_meter_h);
   gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B; gfx_setfont(1, "Arial", max(7, floor(9 * S))); gfx_x = dm_mx + floor(2 * S); gfx_y = dm_my + floor((dm_meter_h - floor(9 * S)) / 2); gfx_drawstr("B+");
 
-  // Instance Manager Panel (from lms_core broadcast system)
-  bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
   last_cap = mouse_cap;
 
   // --- BUY + NOTICE BUTTONS ---
   notice_btn_x = gfx_w - floor(60 * S);
-  notice_btn_y = bc_panel_y - floor(18 * S);
+  notice_btn_y = gfx_h - floor(20 * S);
   buy_btn_x = notice_btn_x - floor(50 * S);
   buy_btn_y = notice_btn_y;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;

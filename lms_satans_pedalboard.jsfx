@@ -6,7 +6,6 @@ desc:LMS - Satan's Little Pedal Board (DOA666 / Hardware Incompatible / Black Ma
 filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
-options:gmem=DrumBanger
 
 in_pin:Input L
 in_pin:Input R
@@ -125,7 +124,6 @@ slider73:0<-12,12,0.1>-JD Mid (dB)
 slider74:0<-12,12,0.1>-JD High (dB)
 slider75:0<-12,12,0.1>-JD Presence (dB)
 slider76:0<-12,12,0.1>-JD Level (dB)
-slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 
 // ============================================================
@@ -402,8 +400,6 @@ tuner.lms_tuner_init(TUNER_BUF);
 i = 0; loop(5, SECTION_ORDER[i] = SECTION_PRESETS[chain_order_sel * 5 + i]; i += 1;);
 build_chain_order();
 
-// Broadcast — type_id 31, 67 params, stale 960000
-bc.lms_bc_init(31, 71);
 notice_show = 0;
 buy_show = 0;
 
@@ -584,228 +580,6 @@ pb_eq_r.lms_paraeq_set(eq_mode, eq_lo, eq_mid, eq_hi, eq_pr);
 
 // Run YIN pitch detection (per-block, so this isn't a per-sample cost)
 tuner.lms_tuner_block();
-
-bc.lms_bc_block(_mgr_track);
-
-bc.bc_leader_pbase > 0 ? (
-  slider1  = gmem[bc.bc_leader_pbase + 0];
-  slider2  = gmem[bc.bc_leader_pbase + 1];
-  slider3  = gmem[bc.bc_leader_pbase + 2];
-  slider5  = gmem[bc.bc_leader_pbase + 3];
-  slider6  = gmem[bc.bc_leader_pbase + 4];
-  slider7  = gmem[bc.bc_leader_pbase + 5];
-  slider8  = gmem[bc.bc_leader_pbase + 6];
-  slider9  = gmem[bc.bc_leader_pbase + 7];
-  slider10 = gmem[bc.bc_leader_pbase + 8];
-  slider11 = gmem[bc.bc_leader_pbase + 9];
-  slider12 = gmem[bc.bc_leader_pbase + 10];
-  slider13 = gmem[bc.bc_leader_pbase + 11];
-  slider14 = gmem[bc.bc_leader_pbase + 12];
-  slider15 = gmem[bc.bc_leader_pbase + 13];
-  slider16 = gmem[bc.bc_leader_pbase + 14];
-  slider17 = gmem[bc.bc_leader_pbase + 15];
-  slider18 = gmem[bc.bc_leader_pbase + 16];
-  slider19 = gmem[bc.bc_leader_pbase + 17];
-  slider20 = gmem[bc.bc_leader_pbase + 18];
-  slider21 = gmem[bc.bc_leader_pbase + 19];
-  slider22 = gmem[bc.bc_leader_pbase + 20];
-  slider23 = gmem[bc.bc_leader_pbase + 21];
-  slider24 = gmem[bc.bc_leader_pbase + 22];
-  slider25 = gmem[bc.bc_leader_pbase + 23];
-  slider26 = gmem[bc.bc_leader_pbase + 24];
-  slider27 = gmem[bc.bc_leader_pbase + 25];
-  slider28 = gmem[bc.bc_leader_pbase + 26];
-  slider29 = gmem[bc.bc_leader_pbase + 27];
-  slider30 = gmem[bc.bc_leader_pbase + 28];
-  slider31 = gmem[bc.bc_leader_pbase + 29];
-  slider32 = gmem[bc.bc_leader_pbase + 30];
-  slider33 = gmem[bc.bc_leader_pbase + 31];
-  slider34 = gmem[bc.bc_leader_pbase + 32];
-  slider35 = gmem[bc.bc_leader_pbase + 33];
-  slider36 = gmem[bc.bc_leader_pbase + 34];
-  slider40 = gmem[bc.bc_leader_pbase + 35];
-  slider41 = gmem[bc.bc_leader_pbase + 36];
-  slider42 = gmem[bc.bc_leader_pbase + 37];
-  slider43 = gmem[bc.bc_leader_pbase + 38];
-  slider44 = gmem[bc.bc_leader_pbase + 39];
-  slider45 = gmem[bc.bc_leader_pbase + 40];
-  slider50 = gmem[bc.bc_leader_pbase + 41];
-  slider51 = gmem[bc.bc_leader_pbase + 42];
-  slider52 = gmem[bc.bc_leader_pbase + 43];
-  slider53 = gmem[bc.bc_leader_pbase + 44];
-  slider54 = gmem[bc.bc_leader_pbase + 45];
-  slider55 = gmem[bc.bc_leader_pbase + 46];
-  slider4 = gmem[bc.bc_leader_pbase + 47];
-  slider57 = gmem[bc.bc_leader_pbase + 48];
-  slider58 = gmem[bc.bc_leader_pbase + 49];
-  slider59 = gmem[bc.bc_leader_pbase + 50];
-  slider37 = gmem[bc.bc_leader_pbase + 51];
-  slider61 = gmem[bc.bc_leader_pbase + 52];
-  slider62 = gmem[bc.bc_leader_pbase + 53];
-  slider63 = gmem[bc.bc_leader_pbase + 54];
-  slider64 = gmem[bc.bc_leader_pbase + 55];
-  slider38 = gmem[bc.bc_leader_pbase + 56];
-  slider66 = gmem[bc.bc_leader_pbase + 57];
-  slider67 = gmem[bc.bc_leader_pbase + 58];
-  slider68 = gmem[bc.bc_leader_pbase + 59];
-  slider39 = gmem[bc.bc_leader_pbase + 60];
-  slider71 = gmem[bc.bc_leader_pbase + 61];
-  slider72 = gmem[bc.bc_leader_pbase + 62];
-  slider73 = gmem[bc.bc_leader_pbase + 63];
-  slider74 = gmem[bc.bc_leader_pbase + 64];
-  slider75 = gmem[bc.bc_leader_pbase + 65];
-  slider76 = gmem[bc.bc_leader_pbase + 66];
-  slider46 = gmem[bc.bc_leader_pbase + 67];
-  slider47 = gmem[bc.bc_leader_pbase + 68];
-  slider48 = gmem[bc.bc_leader_pbase + 69];
-  slider49 = gmem[bc.bc_leader_pbase + 70];
-);
-bc.bc_did_steal ? (
-  slider1  = gmem[bc.bc_steal_pbase + 0];
-  slider2  = gmem[bc.bc_steal_pbase + 1];
-  slider3  = gmem[bc.bc_steal_pbase + 2];
-  slider5  = gmem[bc.bc_steal_pbase + 3];
-  slider6  = gmem[bc.bc_steal_pbase + 4];
-  slider7  = gmem[bc.bc_steal_pbase + 5];
-  slider8  = gmem[bc.bc_steal_pbase + 6];
-  slider9  = gmem[bc.bc_steal_pbase + 7];
-  slider10 = gmem[bc.bc_steal_pbase + 8];
-  slider11 = gmem[bc.bc_steal_pbase + 9];
-  slider12 = gmem[bc.bc_steal_pbase + 10];
-  slider13 = gmem[bc.bc_steal_pbase + 11];
-  slider14 = gmem[bc.bc_steal_pbase + 12];
-  slider15 = gmem[bc.bc_steal_pbase + 13];
-  slider16 = gmem[bc.bc_steal_pbase + 14];
-  slider17 = gmem[bc.bc_steal_pbase + 15];
-  slider18 = gmem[bc.bc_steal_pbase + 16];
-  slider19 = gmem[bc.bc_steal_pbase + 17];
-  slider20 = gmem[bc.bc_steal_pbase + 18];
-  slider21 = gmem[bc.bc_steal_pbase + 19];
-  slider22 = gmem[bc.bc_steal_pbase + 20];
-  slider23 = gmem[bc.bc_steal_pbase + 21];
-  slider24 = gmem[bc.bc_steal_pbase + 22];
-  slider25 = gmem[bc.bc_steal_pbase + 23];
-  slider26 = gmem[bc.bc_steal_pbase + 24];
-  slider27 = gmem[bc.bc_steal_pbase + 25];
-  slider28 = gmem[bc.bc_steal_pbase + 26];
-  slider29 = gmem[bc.bc_steal_pbase + 27];
-  slider30 = gmem[bc.bc_steal_pbase + 28];
-  slider31 = gmem[bc.bc_steal_pbase + 29];
-  slider32 = gmem[bc.bc_steal_pbase + 30];
-  slider33 = gmem[bc.bc_steal_pbase + 31];
-  slider34 = gmem[bc.bc_steal_pbase + 32];
-  slider35 = gmem[bc.bc_steal_pbase + 33];
-  slider36 = gmem[bc.bc_steal_pbase + 34];
-  slider40 = gmem[bc.bc_steal_pbase + 35];
-  slider41 = gmem[bc.bc_steal_pbase + 36];
-  slider42 = gmem[bc.bc_steal_pbase + 37];
-  slider43 = gmem[bc.bc_steal_pbase + 38];
-  slider44 = gmem[bc.bc_steal_pbase + 39];
-  slider45 = gmem[bc.bc_steal_pbase + 40];
-  slider50 = gmem[bc.bc_steal_pbase + 41];
-  slider51 = gmem[bc.bc_steal_pbase + 42];
-  slider52 = gmem[bc.bc_steal_pbase + 43];
-  slider53 = gmem[bc.bc_steal_pbase + 44];
-  slider54 = gmem[bc.bc_steal_pbase + 45];
-  slider55 = gmem[bc.bc_steal_pbase + 46];
-  slider4 = gmem[bc.bc_steal_pbase + 47];
-  slider57 = gmem[bc.bc_steal_pbase + 48];
-  slider58 = gmem[bc.bc_steal_pbase + 49];
-  slider59 = gmem[bc.bc_steal_pbase + 50];
-  slider37 = gmem[bc.bc_steal_pbase + 51];
-  slider61 = gmem[bc.bc_steal_pbase + 52];
-  slider62 = gmem[bc.bc_steal_pbase + 53];
-  slider63 = gmem[bc.bc_steal_pbase + 54];
-  slider64 = gmem[bc.bc_steal_pbase + 55];
-  slider38 = gmem[bc.bc_steal_pbase + 56];
-  slider66 = gmem[bc.bc_steal_pbase + 57];
-  slider67 = gmem[bc.bc_steal_pbase + 58];
-  slider68 = gmem[bc.bc_steal_pbase + 59];
-  slider39 = gmem[bc.bc_steal_pbase + 60];
-  slider71 = gmem[bc.bc_steal_pbase + 61];
-  slider72 = gmem[bc.bc_steal_pbase + 62];
-  slider73 = gmem[bc.bc_steal_pbase + 63];
-  slider74 = gmem[bc.bc_steal_pbase + 64];
-  slider75 = gmem[bc.bc_steal_pbase + 65];
-  slider76 = gmem[bc.bc_steal_pbase + 66];
-  slider46 = gmem[bc.bc_steal_pbase + 67];
-  slider47 = gmem[bc.bc_steal_pbase + 68];
-  slider48 = gmem[bc.bc_steal_pbase + 69];
-  slider49 = gmem[bc.bc_steal_pbase + 70];
-);
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0]  = slider1;
-  gmem[bc.bc_my_pbase + 1]  = slider2;
-  gmem[bc.bc_my_pbase + 2]  = slider3;
-  gmem[bc.bc_my_pbase + 3]  = slider5;
-  gmem[bc.bc_my_pbase + 4]  = slider6;
-  gmem[bc.bc_my_pbase + 5]  = slider7;
-  gmem[bc.bc_my_pbase + 6]  = slider8;
-  gmem[bc.bc_my_pbase + 7]  = slider9;
-  gmem[bc.bc_my_pbase + 8]  = slider10;
-  gmem[bc.bc_my_pbase + 9]  = slider11;
-  gmem[bc.bc_my_pbase + 10] = slider12;
-  gmem[bc.bc_my_pbase + 11] = slider13;
-  gmem[bc.bc_my_pbase + 12] = slider14;
-  gmem[bc.bc_my_pbase + 13] = slider15;
-  gmem[bc.bc_my_pbase + 14] = slider16;
-  gmem[bc.bc_my_pbase + 15] = slider17;
-  gmem[bc.bc_my_pbase + 16] = slider18;
-  gmem[bc.bc_my_pbase + 17] = slider19;
-  gmem[bc.bc_my_pbase + 18] = slider20;
-  gmem[bc.bc_my_pbase + 19] = slider21;
-  gmem[bc.bc_my_pbase + 20] = slider22;
-  gmem[bc.bc_my_pbase + 21] = slider23;
-  gmem[bc.bc_my_pbase + 22] = slider24;
-  gmem[bc.bc_my_pbase + 23] = slider25;
-  gmem[bc.bc_my_pbase + 24] = slider26;
-  gmem[bc.bc_my_pbase + 25] = slider27;
-  gmem[bc.bc_my_pbase + 26] = slider28;
-  gmem[bc.bc_my_pbase + 27] = slider29;
-  gmem[bc.bc_my_pbase + 28] = slider30;
-  gmem[bc.bc_my_pbase + 29] = slider31;
-  gmem[bc.bc_my_pbase + 30] = slider32;
-  gmem[bc.bc_my_pbase + 31] = slider33;
-  gmem[bc.bc_my_pbase + 32] = slider34;
-  gmem[bc.bc_my_pbase + 33] = slider35;
-  gmem[bc.bc_my_pbase + 34] = slider36;
-  gmem[bc.bc_my_pbase + 35] = slider40;
-  gmem[bc.bc_my_pbase + 36] = slider41;
-  gmem[bc.bc_my_pbase + 37] = slider42;
-  gmem[bc.bc_my_pbase + 38] = slider43;
-  gmem[bc.bc_my_pbase + 39] = slider44;
-  gmem[bc.bc_my_pbase + 40] = slider45;
-  gmem[bc.bc_my_pbase + 41] = slider50;
-  gmem[bc.bc_my_pbase + 42] = slider51;
-  gmem[bc.bc_my_pbase + 43] = slider52;
-  gmem[bc.bc_my_pbase + 44] = slider53;
-  gmem[bc.bc_my_pbase + 45] = slider54;
-  gmem[bc.bc_my_pbase + 46] = slider55;
-  gmem[bc.bc_my_pbase + 47] = slider4;
-  gmem[bc.bc_my_pbase + 48] = slider57;
-  gmem[bc.bc_my_pbase + 49] = slider58;
-  gmem[bc.bc_my_pbase + 50] = slider59;
-  gmem[bc.bc_my_pbase + 51] = slider37;
-  gmem[bc.bc_my_pbase + 52] = slider61;
-  gmem[bc.bc_my_pbase + 53] = slider62;
-  gmem[bc.bc_my_pbase + 54] = slider63;
-  gmem[bc.bc_my_pbase + 55] = slider64;
-  gmem[bc.bc_my_pbase + 56] = slider38;
-  gmem[bc.bc_my_pbase + 57] = slider66;
-  gmem[bc.bc_my_pbase + 58] = slider67;
-  gmem[bc.bc_my_pbase + 59] = slider68;
-  gmem[bc.bc_my_pbase + 60] = slider39;
-  gmem[bc.bc_my_pbase + 61] = slider71;
-  gmem[bc.bc_my_pbase + 62] = slider72;
-  gmem[bc.bc_my_pbase + 63] = slider73;
-  gmem[bc.bc_my_pbase + 64] = slider74;
-  gmem[bc.bc_my_pbase + 65] = slider75;
-  gmem[bc.bc_my_pbase + 66] = slider76;
-  gmem[bc.bc_my_pbase + 67] = slider46;
-  gmem[bc.bc_my_pbase + 68] = slider47;
-  gmem[bc.bc_my_pbase + 69] = slider48;
-  gmem[bc.bc_my_pbase + 70] = slider49;
-);
 
 
 // ============================================================
@@ -1399,13 +1173,11 @@ slider53 != _old ? slider_automate(2^52);
 _old = slider54; slider54 = draw_bar(ocx0 + (comp_bar_w + gap) * 3, ocy0, comp_bar_w, comp_bar_h, slider54, 5, 2000, "Rel ms", 1);
 _old = slider55; slider55 = draw_bar(ocx0 + (comp_bar_w + gap) * 4, ocy0, comp_bar_w, comp_bar_h, slider55, -12, 24, "Makeup", 1);
 
-// Instance manager
-bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 last_cap = mouse_cap;
 
 // BUY + NOTICE
 notice_btn_x = gfx_w - floor(60 * S);
-notice_btn_y = bc_panel_y - floor(18 * S);
+notice_btn_y = gfx_h - floor(20 * S);
 buy_btn_x = notice_btn_x - floor(50 * S);
 buy_btn_y = notice_btn_y;
 gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;

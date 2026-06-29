@@ -78,7 +78,6 @@ slider41:0<0,73,1{INIT,Fat Bass,Acid Squelch,Thick Lead,Sub Bass,Pluck,Bark,Bras
 slider42:0<0,6,1{All,Bass,Lead,Pad,Keys,FX,Poly}>-Preset Category
 slider43:0<0,1,1{-,RANDOMIZE!}>-Randomize!
 slider44:0<0,1,1{Mono,Poly 8}>-Voice Mode
-slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 in_pin:none
 out_pin:Left
@@ -1178,8 +1177,6 @@ rand_flash = 0;
 
 notice_show = 0;
 
-// Broadcast system (instance manager)
-bc.lms_bc_init(29, 39);
 
 // ============================================================================
 //  POLYBLEP ANTIALIASING
@@ -1584,59 +1581,6 @@ glide_ms > 0 && glide_on ? (
   glide_coeff = 0;
 );
 
-// Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block(_mgr_track);
-
-// Follow: copy leader's params to our sliders
-bc.bc_leader_pbase > 0 ? (
-  slider1 = gmem[bc.bc_leader_pbase + 0]; slider2 = gmem[bc.bc_leader_pbase + 1]; slider3 = gmem[bc.bc_leader_pbase + 2];
-  slider4 = gmem[bc.bc_leader_pbase + 3]; slider5 = gmem[bc.bc_leader_pbase + 4]; slider6 = gmem[bc.bc_leader_pbase + 5];
-  slider7 = gmem[bc.bc_leader_pbase + 6]; slider8 = gmem[bc.bc_leader_pbase + 7]; slider9 = gmem[bc.bc_leader_pbase + 8];
-  slider10 = gmem[bc.bc_leader_pbase + 9]; slider11 = gmem[bc.bc_leader_pbase + 10]; slider12 = gmem[bc.bc_leader_pbase + 11];
-  slider13 = gmem[bc.bc_leader_pbase + 12]; slider14 = gmem[bc.bc_leader_pbase + 13]; slider15 = gmem[bc.bc_leader_pbase + 14];
-  slider16 = gmem[bc.bc_leader_pbase + 15]; slider17 = gmem[bc.bc_leader_pbase + 16]; slider18 = gmem[bc.bc_leader_pbase + 17];
-  slider19 = gmem[bc.bc_leader_pbase + 18]; slider20 = gmem[bc.bc_leader_pbase + 19]; slider21 = gmem[bc.bc_leader_pbase + 20];
-  slider22 = gmem[bc.bc_leader_pbase + 21]; slider23 = gmem[bc.bc_leader_pbase + 22]; slider24 = gmem[bc.bc_leader_pbase + 23];
-  slider25 = gmem[bc.bc_leader_pbase + 24]; slider26 = gmem[bc.bc_leader_pbase + 25]; slider27 = gmem[bc.bc_leader_pbase + 26];
-  slider28 = gmem[bc.bc_leader_pbase + 27]; slider29 = gmem[bc.bc_leader_pbase + 28]; slider30 = gmem[bc.bc_leader_pbase + 29];
-  slider31 = gmem[bc.bc_leader_pbase + 30]; slider32 = gmem[bc.bc_leader_pbase + 31]; slider33 = gmem[bc.bc_leader_pbase + 32];
-  slider34 = gmem[bc.bc_leader_pbase + 33]; slider35 = gmem[bc.bc_leader_pbase + 34]; slider36 = gmem[bc.bc_leader_pbase + 35];
-  slider37 = gmem[bc.bc_leader_pbase + 36]; slider38 = gmem[bc.bc_leader_pbase + 37]; slider39 = gmem[bc.bc_leader_pbase + 38];
-);
-
-// Steal: one-shot copy from target
-bc.bc_did_steal ? (
-  slider1 = gmem[bc.bc_steal_pbase + 0]; slider2 = gmem[bc.bc_steal_pbase + 1]; slider3 = gmem[bc.bc_steal_pbase + 2];
-  slider4 = gmem[bc.bc_steal_pbase + 3]; slider5 = gmem[bc.bc_steal_pbase + 4]; slider6 = gmem[bc.bc_steal_pbase + 5];
-  slider7 = gmem[bc.bc_steal_pbase + 6]; slider8 = gmem[bc.bc_steal_pbase + 7]; slider9 = gmem[bc.bc_steal_pbase + 8];
-  slider10 = gmem[bc.bc_steal_pbase + 9]; slider11 = gmem[bc.bc_steal_pbase + 10]; slider12 = gmem[bc.bc_steal_pbase + 11];
-  slider13 = gmem[bc.bc_steal_pbase + 12]; slider14 = gmem[bc.bc_steal_pbase + 13]; slider15 = gmem[bc.bc_steal_pbase + 14];
-  slider16 = gmem[bc.bc_steal_pbase + 15]; slider17 = gmem[bc.bc_steal_pbase + 16]; slider18 = gmem[bc.bc_steal_pbase + 17];
-  slider19 = gmem[bc.bc_steal_pbase + 18]; slider20 = gmem[bc.bc_steal_pbase + 19]; slider21 = gmem[bc.bc_steal_pbase + 20];
-  slider22 = gmem[bc.bc_steal_pbase + 21]; slider23 = gmem[bc.bc_steal_pbase + 22]; slider24 = gmem[bc.bc_steal_pbase + 23];
-  slider25 = gmem[bc.bc_steal_pbase + 24]; slider26 = gmem[bc.bc_steal_pbase + 25]; slider27 = gmem[bc.bc_steal_pbase + 26];
-  slider28 = gmem[bc.bc_steal_pbase + 27]; slider29 = gmem[bc.bc_steal_pbase + 28]; slider30 = gmem[bc.bc_steal_pbase + 29];
-  slider31 = gmem[bc.bc_steal_pbase + 30]; slider32 = gmem[bc.bc_steal_pbase + 31]; slider33 = gmem[bc.bc_steal_pbase + 32];
-  slider34 = gmem[bc.bc_steal_pbase + 33]; slider35 = gmem[bc.bc_steal_pbase + 34]; slider36 = gmem[bc.bc_steal_pbase + 35];
-  slider37 = gmem[bc.bc_steal_pbase + 36]; slider38 = gmem[bc.bc_steal_pbase + 37]; slider39 = gmem[bc.bc_steal_pbase + 38];
-);
-
-// Write our params for others to read
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0] = slider1; gmem[bc.bc_my_pbase + 1] = slider2; gmem[bc.bc_my_pbase + 2] = slider3;
-  gmem[bc.bc_my_pbase + 3] = slider4; gmem[bc.bc_my_pbase + 4] = slider5; gmem[bc.bc_my_pbase + 5] = slider6;
-  gmem[bc.bc_my_pbase + 6] = slider7; gmem[bc.bc_my_pbase + 7] = slider8; gmem[bc.bc_my_pbase + 8] = slider9;
-  gmem[bc.bc_my_pbase + 9] = slider10; gmem[bc.bc_my_pbase + 10] = slider11; gmem[bc.bc_my_pbase + 11] = slider12;
-  gmem[bc.bc_my_pbase + 12] = slider13; gmem[bc.bc_my_pbase + 13] = slider14; gmem[bc.bc_my_pbase + 14] = slider15;
-  gmem[bc.bc_my_pbase + 15] = slider16; gmem[bc.bc_my_pbase + 16] = slider17; gmem[bc.bc_my_pbase + 17] = slider18;
-  gmem[bc.bc_my_pbase + 18] = slider19; gmem[bc.bc_my_pbase + 19] = slider20; gmem[bc.bc_my_pbase + 20] = slider21;
-  gmem[bc.bc_my_pbase + 21] = slider22; gmem[bc.bc_my_pbase + 22] = slider23; gmem[bc.bc_my_pbase + 23] = slider24;
-  gmem[bc.bc_my_pbase + 24] = slider25; gmem[bc.bc_my_pbase + 25] = slider26; gmem[bc.bc_my_pbase + 26] = slider27;
-  gmem[bc.bc_my_pbase + 27] = slider28; gmem[bc.bc_my_pbase + 28] = slider29; gmem[bc.bc_my_pbase + 29] = slider30;
-  gmem[bc.bc_my_pbase + 30] = slider31; gmem[bc.bc_my_pbase + 31] = slider32; gmem[bc.bc_my_pbase + 32] = slider33;
-  gmem[bc.bc_my_pbase + 33] = slider34; gmem[bc.bc_my_pbase + 34] = slider35; gmem[bc.bc_my_pbase + 35] = slider36;
-  gmem[bc.bc_my_pbase + 36] = slider37; gmem[bc.bc_my_pbase + 37] = slider38; gmem[bc.bc_my_pbase + 38] = slider39;
-);
 
 // ---- DrumBanger gmem integration ----
 slider40 > 0 ? (
@@ -3078,8 +3022,6 @@ slider40 == 0 ? gfx_drawstr("MIDI")
   slider40 < 0 ? slider40 = 8;
 );
 
-// Instance Manager Panel (from lms_core broadcast system)
-bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
 last_cap = mouse_cap;
 

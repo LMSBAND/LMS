@@ -6,7 +6,6 @@ filename:0,shakebot_logo.png
 
 import lms_core.jsfx-inc
 
-options:gmem=DrumBanger
 
 // Classic Passive EQ emulation
 // - Low boost + cut interact (slightly offset frequencies = the magic dip-and-bump)
@@ -23,7 +22,6 @@ slider6:0<0,10,0.1>-High Atten (Cut)
 slider7:2<0,4,1{3k,4k,5k,8k,10k,12k,16k}>-High Boost Freq
 slider8:0<0,1,1{Off,On}>-Tube Saturation
 slider9:0<-12,12,0.1>-Output (dB)
-slider100:_mgr_track=0<0,100,1>-LMS_MGR
 
 @init
 // Biquad filter instances (via lms_core.jsfx-inc)
@@ -36,8 +34,6 @@ hc.lms_bq_init();
 
 notice_show = 0;
 
-  // Broadcast system (instance manager)
-  bc.lms_bc_init(6, 9);
 
 @slider
   // === LOW FREQUENCY SELECTION ===
@@ -153,47 +149,6 @@ high_cut_amt > 0 ? (
   hc.lms_bq_init();
 );
 
-// Broadcast: heartbeat, follow, steal, stale detection
-bc.lms_bc_block(_mgr_track);
-
-// Follow: copy leader's params to our sliders
-bc.bc_leader_pbase > 0 ? (
-  slider1 = gmem[bc.bc_leader_pbase + 0];
-  slider2 = gmem[bc.bc_leader_pbase + 1];
-  slider3 = gmem[bc.bc_leader_pbase + 2];
-  slider4 = gmem[bc.bc_leader_pbase + 3];
-  slider5 = gmem[bc.bc_leader_pbase + 4];
-  slider6 = gmem[bc.bc_leader_pbase + 5];
-  slider7 = gmem[bc.bc_leader_pbase + 6];
-  slider8 = gmem[bc.bc_leader_pbase + 7];
-  slider9 = gmem[bc.bc_leader_pbase + 8];
-);
-
-// Steal: one-shot copy from target
-bc.bc_did_steal ? (
-  slider1 = gmem[bc.bc_steal_pbase + 0];
-  slider2 = gmem[bc.bc_steal_pbase + 1];
-  slider3 = gmem[bc.bc_steal_pbase + 2];
-  slider4 = gmem[bc.bc_steal_pbase + 3];
-  slider5 = gmem[bc.bc_steal_pbase + 4];
-  slider6 = gmem[bc.bc_steal_pbase + 5];
-  slider7 = gmem[bc.bc_steal_pbase + 6];
-  slider8 = gmem[bc.bc_steal_pbase + 7];
-  slider9 = gmem[bc.bc_steal_pbase + 8];
-);
-
-// Write our params for others to read
-bc.bc_my_pbase > 0 ? (
-  gmem[bc.bc_my_pbase + 0] = slider1;
-  gmem[bc.bc_my_pbase + 1] = slider2;
-  gmem[bc.bc_my_pbase + 2] = slider3;
-  gmem[bc.bc_my_pbase + 3] = slider4;
-  gmem[bc.bc_my_pbase + 4] = slider5;
-  gmem[bc.bc_my_pbase + 5] = slider6;
-  gmem[bc.bc_my_pbase + 6] = slider7;
-  gmem[bc.bc_my_pbase + 7] = slider8;
-  gmem[bc.bc_my_pbase + 8] = slider9;
-);
 
 @sample
   l = spl0;
@@ -518,14 +473,12 @@ _old = slider8; slider8 = draw_toggle(margin + 8, bot_y + 26, slider8, "Tube Sat
 slider8 != _old ? slider_automate(2^7);
 _old = slider9; slider9 = draw_bar(margin + 160, bot_y + 26, gfx_w - margin * 2 - 164, bar_h, slider9, -12, 12, "Output dB", 1);
 slider9 != _old ? slider_automate(2^8);
-  // Instance Manager Panel (from lms_core broadcast system)
-  bc_panel_y = bc.lms_bc_gfx(S, last_cap);
 
   last_cap = mouse_cap;
 
   // --- BUY + NOTICE BUTTONS ---
   notice_btn_x = gfx_w - floor(60 * S);
-  notice_btn_y = bc_panel_y - floor(18 * S);
+  notice_btn_y = gfx_h - floor(20 * S);
   buy_btn_x = notice_btn_x - floor(50 * S);
   buy_btn_y = notice_btn_y;
   gfx_r = 0.6; gfx_g = 0.5; gfx_b = 0.3;
