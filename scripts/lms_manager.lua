@@ -366,6 +366,12 @@ local ColHeader = r.ImGui_Col_Header()
 
 local show_window = true
 
+-- Rename state
+local rename_track = nil       -- track MediaTrack* being renamed
+local rename_track_idx = nil
+local rename_buf = ""
+local rename_focus = false
+
 local function draw_status_dot(ctx, alive)
   local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
   local draw_list = r.ImGui_GetWindowDrawList(ctx)
@@ -395,38 +401,133 @@ end
 -- ---- Overview Tab ----
 
 local function draw_overview(ctx)
-  r.ImGui_Text(ctx, string.format("Instances: %d", #instances))
-  r.ImGui_Separator(ctx)
-
   if #instances == 0 then
     r.ImGui_TextWrapped(ctx, "No LMS plugins found on any track. Add some JSFX and hit Rescan.")
     return
   end
 
-  local by_cat = {}
+  -- Group by track
+  local by_track = {}
+  local track_order = {}
   for _, inst in ipairs(instances) do
-    local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
-    local cat = info and info.cat or "other"
-    if not by_cat[cat] then by_cat[cat] = {} end
-    by_cat[cat][#by_cat[cat] + 1] = inst
+    local key = inst.track_idx
+    if not by_track[key] then
+      by_track[key] = {track = inst.track, track_idx = inst.track_idx, track_name = inst.track_name, plugins = {}}
+      track_order[#track_order + 1] = key
+    end
+    by_track[key].plugins[#by_track[key].plugins + 1] = inst
   end
 
-  local cat_order = {"amp","comp","mix","drum","gate","pitch","synth","seq","fx","reverb","other"}
-  for _, cat in ipairs(cat_order) do
-    local group = by_cat[cat]
-    if group then
-      local color = CAT_COLORS[cat] or 0xAAAAAAFF
-      r.ImGui_PushStyleColor(ctx, ColHeader, color)
-      if r.ImGui_CollapsingHeader(ctx, cat:upper() .. " (" .. #group .. ")") then
-        for _, inst in ipairs(group) do
-          draw_status_dot(ctx, true)
-          local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
-          local name = info and info.name or inst.lms_name
-          local track_num = inst.track_idx == -1 and "MASTER" or tostring(inst.track_idx + 1)
-          draw_clickable_plugin(ctx, inst, string.format("%-20s  Track %s: %s", name, track_num, inst.track_name))
+  -- Track count + plugin count
+  r.ImGui_Text(ctx, string.format("%d tracks  |  %d plugins", #track_order, #instances))
+  r.ImGui_Separator(ctx)
+
+  for _, tidx in ipairs(track_order) do
+    local tinfo = by_track[tidx]
+    local track_num = tidx == -1 and "M" or tostring(tidx + 1)
+
+    -- Track header with mute/solo indicators
+    local muted = tidx >= 0 and r.GetMediaTrackInfo_Value(tinfo.track, "B_MUTE") == 1
+    local soloed = tidx >= 0 and r.GetMediaTrackInfo_Value(tinfo.track, "I_SOLO") > 0
+    local flags = ""
+    if muted then flags = flags .. " [MUTE]" end
+    if soloed then flags = flags .. " [SOLO]" end
+
+    local header_label = string.format("T%s: %s  (%d fx)%s###track_%d",
+      track_num, tinfo.track_name, #tinfo.plugins, flags, tidx)
+
+    if r.ImGui_CollapsingHeader(ctx, header_label, r.ImGui_TreeNodeFlags_DefaultOpen()) then
+
+      -- Rename: double-click the header to start renaming
+      if r.ImGui_IsItemHovered(ctx) and r.ImGui_IsMouseDoubleClicked(ctx, 0) and tidx >= 0 then
+        rename_track = tinfo.track
+        rename_track_idx = tidx
+        rename_buf = tinfo.track_name
+        rename_focus = true
+      end
+
+      -- Show rename input if this track is being renamed
+      if rename_track_idx == tidx then
+        r.ImGui_SetNextItemWidth(ctx, 200)
+        if rename_focus then
+          r.ImGui_SetKeyboardFocusHere(ctx)
+          rename_focus = false
+        end
+        local enter_pressed, new_buf = r.ImGui_InputText(ctx, "##rename_" .. tidx, rename_buf,
+          r.ImGui_InputTextFlags_EnterReturnsTrue())
+        rename_buf = new_buf
+        if enter_pressed then
+          r.GetSetMediaTrackInfo_String(rename_track, "P_NAME", rename_buf, true)
+          tinfo.track_name = rename_buf
+          -- Update all instances for this track
+          for _, inst in ipairs(instances) do
+            if inst.track_idx == tidx then inst.track_name = rename_buf end
+          end
+          rename_track = nil
+          rename_track_idx = nil
+          scan_tracks()
+        end
+        r.ImGui_SameLine(ctx)
+        if r.ImGui_SmallButton(ctx, "Cancel##ren") then
+          rename_track = nil
+          rename_track_idx = nil
         end
       end
-      r.ImGui_PopStyleColor(ctx)
+
+      -- Track controls: mute / solo / bypass all FX
+      if tidx >= 0 then
+        if muted then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0xCC4444FF) end
+        if r.ImGui_SmallButton(ctx, muted and "M##mute_" .. tidx or "M##mute_" .. tidx) then
+          r.SetMediaTrackInfo_Value(tinfo.track, "B_MUTE", muted and 0 or 1)
+        end
+        if muted then r.ImGui_PopStyleColor(ctx) end
+        r.ImGui_SameLine(ctx)
+
+        if soloed then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
+        if r.ImGui_SmallButton(ctx, "S##solo_" .. tidx) then
+          r.SetMediaTrackInfo_Value(tinfo.track, "I_SOLO", soloed and 0 or 2)
+        end
+        if soloed then r.ImGui_PopStyleColor(ctx) end
+        r.ImGui_SameLine(ctx)
+        r.ImGui_TextDisabled(ctx, "|")
+        r.ImGui_SameLine(ctx)
+      end
+
+      -- Plugin list
+      for pi, inst in ipairs(tinfo.plugins) do
+        local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
+        local name = info and info.name or inst.lms_name
+        local cat = info and info.cat or "other"
+        local color = CAT_COLORS[cat] or 0xAAAAAAFF
+
+        -- FX enabled/disabled
+        local enabled = r.TrackFX_GetEnabled(inst.track, inst.fx_idx)
+
+        if not enabled then
+          r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0x666666FF)
+        end
+
+        -- Category dot
+        local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
+        local draw_list = r.ImGui_GetWindowDrawList(ctx)
+        r.ImGui_DrawList_AddCircleFilled(draw_list, cx + 6, cy + 9, 4, enabled and color or 0x444444FF)
+        r.ImGui_Dummy(ctx, 14, 16)
+        r.ImGui_SameLine(ctx)
+
+        -- Clickable plugin name — opens FX window
+        if r.ImGui_SmallButton(ctx, name .. "##ov_" .. tidx .. "_" .. pi) then
+          toggle_fx(inst)
+        end
+
+        -- Right-click to bypass
+        if r.ImGui_IsItemClicked(ctx, 1) then
+          r.TrackFX_SetEnabled(inst.track, inst.fx_idx, not enabled)
+        end
+
+        if not enabled then
+          r.ImGui_PopStyleColor(ctx)
+        end
+      end
     end
   end
 end
