@@ -77,6 +77,7 @@ local DISPLAY_TO_TYPE = {
   ["ol reliable"]          = 14,
   ["area51"]               = 17,
   ["area 51"]              = 17,
+  ["area 50"]              = 17,
   ["frenchie"]             = 11,
   ["bottom feeder"]        = 24,
   ["nightmare"]            = 25,
