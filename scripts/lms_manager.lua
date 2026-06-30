@@ -361,6 +361,7 @@ end
 -- ============================================================================
 
 local ctx = r.ImGui_CreateContext("LMS Manager")
+local ui_scale = 1.0
 
 local FlagsNone = r.ImGui_WindowFlags_None()
 local ColHeader = r.ImGui_Col_Header()
@@ -1033,6 +1034,7 @@ end
 -- ---- Main Window ----
 
 local function draw_main(ctx)
+  r.ImGui_PushFont(ctx, nil, math.floor(13 * ui_scale))
   local visible, open = r.ImGui_Begin(ctx, "LMS Plugin Manager", true, FlagsNone)
   if visible then
     if r.ImGui_Button(ctx, "Rescan Tracks") then
@@ -1040,6 +1042,10 @@ local function draw_main(ctx)
     end
     r.ImGui_SameLine(ctx)
     r.ImGui_TextDisabled(ctx, string.format("(%d instances)", #instances))
+    r.ImGui_SameLine(ctx, r.ImGui_GetWindowWidth(ctx) - 160)
+    r.ImGui_SetNextItemWidth(ctx, 120)
+    local changed_s, new_s = r.ImGui_SliderDouble(ctx, "##scale", ui_scale, 0.6, 2.0, "%.1fx")
+    if changed_s then ui_scale = new_s end
 
     r.ImGui_Spacing(ctx)
 
@@ -1069,6 +1075,7 @@ local function draw_main(ctx)
 
     r.ImGui_End(ctx)
   end
+  r.ImGui_PopFont(ctx)
 
   return open
 end
