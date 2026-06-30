@@ -1615,6 +1615,76 @@ gmem[222] > 0 ? (
   gmem[222] = 0;
 );
 
+// ---- Manager command bus gmem[400-412] (consumed-by-zeroing) ----
+gmem[400] > 0 ? (
+  _mgr_pad = (gmem[400] | 0) - 1;
+  _mgr_vel = gmem[401] | 0;
+  _mgr_vel <= 0 ? _mgr_vel = 100;
+  _mgr_pad >= 0 && _mgr_pad < NUM_PADS ? trigger_pad(_mgr_pad, _mgr_vel);
+  gmem[400] = 0; gmem[401] = 0;
+);
+gmem[402] > 0 ? (
+  _mgr_pat = (gmem[402] | 0) - 1;
+  _mgr_pat >= 0 && _mgr_pat < NUM_PATTERNS ? (
+    slider3 = _mgr_pat;
+    slider_automate(slider3);
+    PAT_DISPLAY_BAR[slider3] = 0;
+  );
+  gmem[402] = 0;
+);
+gmem[403] > 0 ? (
+  transport_playing ? (
+    // Can't stop REAPER transport from JSFX, but toggle seq mode
+    slider5 = 1 - slider5;
+    slider_automate(slider5);
+    seq_mode = (slider5 == 1);
+  ) : (
+    slider5 = 1;
+    slider_automate(slider5);
+    seq_mode = 1;
+  );
+  gmem[403] = 0;
+);
+gmem[404] > 0 ? (
+  _mgr_step = (gmem[404] | 0) - 1;
+  _mgr_spad = gmem[405] | 0;
+  _mgr_step >= 0 && _mgr_step < total_pattern_steps && _mgr_spad >= 0 && _mgr_spad < NUM_PADS ? (
+    toggle_seq_step(slider3, _mgr_step, _mgr_spad);
+  );
+  gmem[404] = 0; gmem[405] = 0;
+);
+gmem[406] > 0 ? (
+  _mgr_bar = (gmem[406] | 0) - 1;
+  _mgr_bar >= 0 && _mgr_bar < PAT_BAR_COUNT[slider3] ? (
+    PAT_DISPLAY_BAR[slider3] = _mgr_bar;
+  );
+  gmem[406] = 0;
+);
+gmem[407] > 0 ? (
+  _mgr_src = (gmem[407] | 0) - 1;
+  _mgr_dst = (gmem[408] | 0) - 1;
+  _mgr_src >= 0 && _mgr_dst >= 0 && _mgr_src < MAX_BARS && _mgr_dst < MAX_BARS ? (
+    copy_bar(slider3, _mgr_src, _mgr_dst);
+  );
+  gmem[407] = 0; gmem[408] = 0;
+);
+gmem[409] > 0 ? (
+  _mgr_clr = (gmem[409] | 0) - 1;
+  _mgr_clr >= 0 && _mgr_clr < MAX_BARS ? (
+    _clr_s0 = _mgr_clr * steps_per_bar;
+    _clr_p = 0;
+    loop(NUM_PADS,
+      _clr_s = _clr_s0;
+      loop(steps_per_bar,
+        set_seq_step(slider3, _clr_s, _clr_p, 0);
+        _clr_s += 1;
+      );
+      _clr_p += 1;
+    );
+  );
+  gmem[409] = 0;
+);
+
 // ---- Broadcast state to gmem[] for DrumbangerDrone instances ----
 // gmem[0-9] reserved for sampling service, drone broadcast uses [10+]
 gmem[10] += 1;                                // heartbeat
@@ -1664,6 +1734,17 @@ gmem[313] = (slider71 / 100 * 127) | 0;        // comp peak (0-127)
 gmem[314] = ((slider72 + 12) / 24 * 127) | 0;  // comp gain (0-127)
 gmem[315] = (slider70 / 100 * 127) | 0;        // saturation (0-127)
 gmem[316] = (slider2 / 100 * 127) | 0;         // swing (0-127)
+
+// ---- Manager extended broadcast gmem[317-397] ----
+_mgr_p = 0;
+loop(NUM_PADS,
+  gmem[365 + _mgr_p] = slider(10 + _mgr_p);     // pad volume (0-1)
+  gmem[381 + _mgr_p] = slider(30 + _mgr_p);     // pad pan (-1 to 1)
+  _mgr_p += 1;
+);
+gmem[397] = PAT_DISPLAY_BAR[slider3];            // current display bar
+gmem[398] = steps_per_bar;                       // steps per single bar
+gmem[399] = total_pattern_steps;                 // total steps in pattern
 
 // ============================================================
 // @SAMPLE — Audio generation (runs per sample)

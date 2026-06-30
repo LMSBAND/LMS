@@ -163,6 +163,7 @@ local pitch_state = {}
 local mega_state = {}
 local scan_timer = 0
 local SCAN_INTERVAL = 1.0
+local db_edit_pad = 0
 
 -- Follow: follows[type_id][follower_track_idx] = leader_track_idx
 local follows = {}
@@ -206,6 +207,14 @@ local function scan_one_track(track, ti, track_name)
   end
 end
 
+local function ensure_low_latency(track)
+  local flags = r.GetMediaTrackInfo_Value(track, "I_PERFFLAGS")
+  local int_flags = math.floor(flags)
+  if int_flags & 2 == 0 then
+    r.SetMediaTrackInfo_Value(track, "I_PERFFLAGS", int_flags | 2)
+  end
+end
+
 local function scan_tracks()
   instances = {}
 
@@ -219,6 +228,12 @@ local function scan_tracks()
     local track = r.GetTrack(0, ti)
     local _, track_name = r.GetTrackName(track)
     scan_one_track(track, ti, track_name)
+  end
+
+  for _, inst in ipairs(instances) do
+    if inst.lms_name == "lms_drumbanger" then
+      ensure_low_latency(inst.track)
+    end
   end
 end
 
@@ -283,6 +298,13 @@ end
 
 r.gmem_attach("DrumBanger")
 
+local function find_db_instance()
+  for _, inst in ipairs(instances) do
+    if inst.lms_name == "lms_drumbanger" then return inst end
+  end
+  return nil
+end
+
 local function read_drumbanger_state()
   db_state = {
     heartbeat = r.gmem_read(10),
@@ -293,12 +315,21 @@ local function read_drumbanger_state()
     playing = r.gmem_read(15),
     seq_mode = r.gmem_read(16),
     measure = r.gmem_read(17),
+    display_bar = r.gmem_read(397),
+    steps_per_bar = r.gmem_read(398),
+    total_steps = r.gmem_read(399),
+    bar_count = r.gmem_read(310),
+    kit = r.gmem_read(308),
+    record = r.gmem_read(303),
+    selected_pad = r.gmem_read(304),
     pads = {},
   }
   for p = 0, 15 do
     db_state.pads[p] = {
       velocity = r.gmem_read(100 + p),
       playing = r.gmem_read(120 + p),
+      volume = r.gmem_read(365 + p),
+      pan = r.gmem_read(381 + p),
     }
   end
 end
@@ -882,80 +913,319 @@ end
 
 -- ---- DrumBanger Tab ----
 
+local function db_set_param(slider_idx, value)
+  local inst = find_db_instance()
+  if inst then
+    r.TrackFX_SetParam(inst.track, inst.fx_idx, slider_idx, value)
+  end
+end
+
+local function db_get_param(slider_idx)
+  local inst = find_db_instance()
+  if inst then
+    return r.TrackFX_GetParam(inst.track, inst.fx_idx, slider_idx)
+  end
+  return 0
+end
+
 local function draw_drumbanger(ctx)
   local alive = (db_state.heartbeat or 0) ~= 0
   draw_status_dot(ctx, alive)
+  r.ImGui_SameLine(ctx)
   r.ImGui_Text(ctx, alive and "DrumBanger ONLINE" or "DrumBanger OFFLINE")
-  r.ImGui_Separator(ctx)
 
   if not alive then
-    r.ImGui_TextWrapped(ctx, "No DrumBanger heartbeat detected.")
+    r.ImGui_Separator(ctx)
+    r.ImGui_TextWrapped(ctx, "No DrumBanger heartbeat detected. Add DrumBanger to a track to begin.")
     return
   end
 
   local playing = db_state.playing ~= 0
-  r.ImGui_Text(ctx, string.format("Transport: %s   BPM: %.1f   Pattern: %d   Measure: %d",
-    playing and "PLAYING" or "STOPPED",
-    db_state.bpm,
-    math.floor(db_state.pattern) + 1,
-    math.floor(db_state.measure) + 1))
+  local seq_on = (db_state.seq_mode or 0) ~= 0
+  local pattern = math.floor(db_state.pattern or 0)
+  local bar_count = math.max(1, math.floor(db_state.bar_count or 1))
+  local display_bar = math.floor(db_state.display_bar or 0)
+  local steps_per_bar = math.max(1, math.floor(db_state.steps_per_bar or 16))
+  local total_steps = math.max(1, math.floor(db_state.total_steps or 16))
+  local cur_step = math.floor(db_state.seq_step or 0)
 
-  local step = math.floor(db_state.seq_step)
-  local steps = math.floor(db_state.steps_per_measure)
-  if steps > 0 and steps <= 64 then
-    r.ImGui_Spacing(ctx)
-    local draw_list = r.ImGui_GetWindowDrawList(ctx)
-    local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
-    local box = 18
-    local gap = 3
-    for s = 0, steps - 1 do
-      local x = cx + s * (box + gap)
-      local color = (s == step) and 0x44FF44FF or 0x333333FF
-      if s % 4 == 0 and s ~= step then color = 0x555555FF end
-      r.ImGui_DrawList_AddRectFilled(draw_list, x, cy, x + box, cy + box, color)
+  -- === TRANSPORT BAR ===
+  r.ImGui_SameLine(ctx, r.ImGui_GetWindowWidth(ctx) - 220)
+  if r.ImGui_SmallButton(ctx, seq_on and "SEQ ON##db" or "SEQ OFF##db") then
+    r.gmem_write(403, 1)
+  end
+  r.ImGui_SameLine(ctx)
+  r.ImGui_TextDisabled(ctx, string.format("BPM: %.0f  Kit: %d", db_state.bpm or 120, math.floor(db_state.kit or 0) + 1))
+
+  r.ImGui_Separator(ctx)
+
+  -- Pattern select buttons
+  r.ImGui_Text(ctx, "Pattern:")
+  r.ImGui_SameLine(ctx)
+  for pat = 0, 7 do
+    if pat > 0 then r.ImGui_SameLine(ctx) end
+    local label = tostring(pat + 1)
+    if pat == pattern then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF)
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_ButtonHovered(), 0x55CC55FF)
     end
-    r.ImGui_Dummy(ctx, steps * (box + gap), box + 4)
+    if r.ImGui_SmallButton(ctx, label .. "##pat") then
+      r.gmem_write(402, pat + 1)
+    end
+    if pat == pattern then
+      r.ImGui_PopStyleColor(ctx, 2)
+    end
+  end
+
+  -- Bar select buttons
+  if bar_count > 1 then
+    r.ImGui_SameLine(ctx, 0, 20)
+    r.ImGui_TextDisabled(ctx, "|")
+    r.ImGui_SameLine(ctx)
+    r.ImGui_Text(ctx, "Bar:")
+    r.ImGui_SameLine(ctx)
+    for b = 0, bar_count - 1 do
+      if b > 0 then r.ImGui_SameLine(ctx) end
+      if b == display_bar then
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x4488CCFF)
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_ButtonHovered(), 0x55AAEEFF)
+      end
+      if r.ImGui_SmallButton(ctx, tostring(b + 1) .. "##bar") then
+        r.gmem_write(406, b + 1)
+      end
+      if b == display_bar then
+        r.ImGui_PopStyleColor(ctx, 2)
+      end
+    end
+    r.ImGui_SameLine(ctx, 0, 10)
+    if r.ImGui_SmallButton(ctx, "Copy##bar") then
+      local src = display_bar
+      local dst = (display_bar + 1) % bar_count
+      r.gmem_write(408, dst + 1)
+      r.gmem_write(407, src + 1)
+    end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Clear##bar") then
+      r.gmem_write(409, display_bar + 1)
+    end
   end
 
   r.ImGui_Spacing(ctx)
-  r.ImGui_Text(ctx, "Pad Activity:")
-  local draw_list = r.ImGui_GetWindowDrawList(ctx)
-  local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
-  local pad_size = 36
+
+  -- === PAD GRID (4x4) + PAD CONTROLS side by side ===
+  local avail_w = r.ImGui_GetContentRegionAvail(ctx)
+  local pad_size = 48
   local pad_gap = 4
+  local grid_w = 4 * (pad_size + pad_gap)
+
+  -- Pad grid (left side)
+  local draw_list = r.ImGui_GetWindowDrawList(ctx)
+  local gx, gy = r.ImGui_GetCursorScreenPos(ctx)
+
   for p = 0, 15 do
     local col = p % 4
     local row = math.floor(p / 4)
-    local x = cx + col * (pad_size + pad_gap)
-    local y = cy + row * (pad_size + pad_gap)
+    local x = gx + col * (pad_size + pad_gap)
+    local y = gy + row * (pad_size + pad_gap)
     local vel = db_state.pads[p] and db_state.pads[p].velocity or 0
-    local playing_pad = db_state.pads[p] and db_state.pads[p].playing or 0
-    local brightness = math.max(vel / 127, playing_pad > 0 and 0.3 or 0)
+    local pad_playing = db_state.pads[p] and db_state.pads[p].playing or 0
+    local is_selected = (p == db_edit_pad)
+
+    local brightness = math.max(vel / 127, pad_playing > 0 and 0.3 or 0)
     local g = math.floor(brightness * 200)
-    local color = (0xFF000000) + (g * 256) + (math.floor(g * 0.5) * 65536) + 0xFF
-    r.ImGui_DrawList_AddRectFilled(draw_list, x, y, x + pad_size, y + pad_size, color)
-    r.ImGui_DrawList_AddRect(draw_list, x, y, x + pad_size, y + pad_size, 0x666666FF)
+    local bg = (0xFF000000) + (g * 256) + (math.floor(g * 0.5) * 65536) + 0xFF
+    r.ImGui_DrawList_AddRectFilled(draw_list, x, y, x + pad_size, y + pad_size, bg)
+
+    local border = is_selected and 0xFFFF44FF or 0x666666FF
+    local thickness = is_selected and 2 or 1
+    r.ImGui_DrawList_AddRect(draw_list, x, y, x + pad_size, y + pad_size, border, 0, 0, thickness)
     r.ImGui_DrawList_AddText(draw_list, x + 4, y + 4, 0xFFFFFFFF, tostring(p + 1))
   end
-  r.ImGui_Dummy(ctx, 4 * (pad_size + pad_gap), 4 * (pad_size + pad_gap) + 4)
+
+  r.ImGui_Dummy(ctx, grid_w, 4 * (pad_size + pad_gap))
+
+  -- Invisible buttons over pads for click detection
+  r.ImGui_SetCursorScreenPos(ctx, gx, gy)
+  for p = 0, 15 do
+    local col = p % 4
+    local row = math.floor(p / 4)
+    r.ImGui_SetCursorScreenPos(ctx, gx + col * (pad_size + pad_gap), gy + row * (pad_size + pad_gap))
+    if r.ImGui_InvisibleButton(ctx, "##pad" .. p, pad_size, pad_size) then
+      db_edit_pad = p
+      r.gmem_write(401, 100)
+      r.gmem_write(400, p + 1)
+    end
+  end
+  r.ImGui_SetCursorScreenPos(ctx, gx, gy + 4 * (pad_size + pad_gap) + 4)
+
+  -- Pad controls (below grid)
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Text(ctx, string.format("Pad %d Controls:", db_edit_pad + 1))
+
+  local inst = find_db_instance()
+  if inst then
+    local vol = r.TrackFX_GetParam(inst.track, inst.fx_idx, 10 + db_edit_pad)
+    local pan = r.TrackFX_GetParam(inst.track, inst.fx_idx, 30 + db_edit_pad)
+    local pitch = r.TrackFX_GetParam(inst.track, inst.fx_idx, 50 + db_edit_pad)
+
+    r.ImGui_SetNextItemWidth(ctx, 120)
+    local v_chg, v_new = r.ImGui_SliderDouble(ctx, "Vol##padctl", vol, 0, 1, "%.2f")
+    if v_chg then db_set_param(10 + db_edit_pad, v_new) end
+    r.ImGui_SameLine(ctx)
+
+    r.ImGui_SetNextItemWidth(ctx, 120)
+    local p_chg, p_new = r.ImGui_SliderDouble(ctx, "Pan##padctl", pan, -1, 1, "%.2f")
+    if p_chg then db_set_param(30 + db_edit_pad, p_new) end
+    r.ImGui_SameLine(ctx)
+
+    r.ImGui_SetNextItemWidth(ctx, 120)
+    local pt_chg, pt_new = r.ImGui_SliderDouble(ctx, "Pitch##padctl", pitch, -24, 24, "%.1f st")
+    if pt_chg then db_set_param(50 + db_edit_pad, pt_new) end
+  end
 
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
-  r.ImGui_Text(ctx, "Consumers listening to DrumBanger bus:")
-  local consumers = {}
-  for _, inst in ipairs(instances) do
-    if inst.lms_name == "lms_lil_stinker" or inst.lms_name == "lms_nuug420" then
-      consumers[#consumers + 1] = inst
+
+  -- === STEP SEQUENCER (selected pad, current bar) ===
+  r.ImGui_Text(ctx, string.format("Steps — Pad %d, Bar %d:", db_edit_pad + 1, display_bar + 1))
+
+  local bar_start = display_bar * steps_per_bar
+  local bar_end = math.min(bar_start + steps_per_bar, total_steps)
+  local step_count = bar_end - bar_start
+  if step_count > 0 and step_count <= 64 then
+    local seq_box = 24
+    local seq_gap = 3
+    local sx, sy = r.ImGui_GetCursorScreenPos(ctx)
+
+    for s = 0, step_count - 1 do
+      local abs_step = bar_start + s
+      local addr = 1000 + pattern * 1024 + abs_step * 16 + db_edit_pad
+      local vel = r.gmem_read(addr)
+      local is_active = vel > 0
+      local is_playhead = (abs_step == cur_step) and playing
+
+      local x = sx + s * (seq_box + seq_gap)
+      local bg
+      if is_playhead and is_active then
+        bg = 0x44FF44FF
+      elseif is_playhead then
+        bg = 0x228822FF
+      elseif is_active then
+        local b = math.floor(math.min(vel / 127, 1) * 180) + 75
+        bg = (0xFF000000) + (b * 65536) + (math.floor(b * 0.4) * 256) + 0xFF
+      else
+        bg = (s % 4 == 0) and 0x444444FF or 0x2A2A2AFF
+      end
+
+      r.ImGui_DrawList_AddRectFilled(draw_list, x, sy, x + seq_box, sy + seq_box, bg)
+      r.ImGui_DrawList_AddRect(draw_list, x, sy, x + seq_box, sy + seq_box, 0x666666FF)
+
+      if is_active then
+        local bar_h = math.floor(vel / 127 * (seq_box - 4))
+        r.ImGui_DrawList_AddRectFilled(draw_list,
+          x + 2, sy + seq_box - 2 - bar_h,
+          x + seq_box - 2, sy + seq_box - 2,
+          0xFFFFFF44)
+      end
+    end
+
+    r.ImGui_Dummy(ctx, step_count * (seq_box + seq_gap), seq_box + 4)
+
+    -- Click detection for step toggles
+    r.ImGui_SetCursorScreenPos(ctx, sx, sy)
+    for s = 0, step_count - 1 do
+      local abs_step = bar_start + s
+      r.ImGui_SetCursorScreenPos(ctx, sx + s * (seq_box + seq_gap), sy)
+      if r.ImGui_InvisibleButton(ctx, "##step" .. s, seq_box, seq_box) then
+        r.gmem_write(405, db_edit_pad)
+        r.gmem_write(404, abs_step + 1)
+      end
+    end
+    r.ImGui_SetCursorScreenPos(ctx, sx, sy + seq_box + 4)
+  end
+
+  -- === FULL GRID VIEW (all pads, compact) ===
+  r.ImGui_Spacing(ctx)
+  if r.ImGui_TreeNode(ctx, "Full Grid View") then
+    local fg_box = 14
+    local fg_gap = 2
+    local fgx, fgy = r.ImGui_GetCursorScreenPos(ctx)
+
+    -- Pad labels column
+    for p = 0, 15 do
+      local ly = fgy + p * (fg_box + fg_gap)
+      local label_col = (p == db_edit_pad) and 0xFFFF44FF or 0xAAAAAAFF
+      r.ImGui_DrawList_AddText(draw_list, fgx, ly, label_col, string.format("%2d", p + 1))
+    end
+
+    local grid_offset_x = fgx + 24
+    for p = 0, 15 do
+      for s = 0, step_count - 1 do
+        local abs_step = bar_start + s
+        local addr = 1000 + pattern * 1024 + abs_step * 16 + p
+        local vel = r.gmem_read(addr)
+        local is_active = vel > 0
+        local is_playhead = (abs_step == cur_step) and playing
+
+        local x = grid_offset_x + s * (fg_box + fg_gap)
+        local y = fgy + p * (fg_box + fg_gap)
+
+        local bg
+        if is_playhead and is_active then
+          bg = 0x44FF44FF
+        elseif is_playhead then
+          bg = 0x1A441AFF
+        elseif is_active then
+          local b = math.floor(math.min(vel / 127, 1) * 160) + 60
+          bg = (0xFF000000) + (b * 65536) + (math.floor(b * 0.3) * 256) + 0xFF
+        else
+          bg = (s % 4 == 0) and 0x333333FF or 0x222222FF
+        end
+
+        r.ImGui_DrawList_AddRectFilled(draw_list, x, y, x + fg_box, y + fg_box, bg)
+      end
+    end
+
+    local grid_h = 16 * (fg_box + fg_gap)
+    local grid_w_full = step_count * (fg_box + fg_gap) + 24
+    r.ImGui_Dummy(ctx, grid_w_full, grid_h)
+
+    -- Click detection for full grid
+    for p = 0, 15 do
+      for s = 0, step_count - 1 do
+        local abs_step = bar_start + s
+        local x = grid_offset_x + s * (fg_box + fg_gap)
+        local y = fgy + p * (fg_box + fg_gap)
+        r.ImGui_SetCursorScreenPos(ctx, x, y)
+        if r.ImGui_InvisibleButton(ctx, "##fg" .. p .. "_" .. s, fg_box, fg_box) then
+          db_edit_pad = p
+          r.gmem_write(405, p)
+          r.gmem_write(404, abs_step + 1)
+        end
+      end
+    end
+    r.ImGui_SetCursorScreenPos(ctx, fgx, fgy + grid_h)
+
+    r.ImGui_TreePop(ctx)
+  end
+
+  -- === CONSUMERS ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, "Consumers:")
+  r.ImGui_SameLine(ctx)
+  local has_consumer = false
+  for _, inst_c in ipairs(instances) do
+    if inst_c.lms_name == "lms_lil_stinker" or inst_c.lms_name == "lms_nuug420" then
+      local info = type(inst_c.type_id) == "number" and TYPE_REGISTRY[inst_c.type_id]
+      r.ImGui_SameLine(ctx)
+      r.ImGui_TextDisabled(ctx, string.format("%s (T%d)", info and info.name or inst_c.lms_name, inst_c.track_idx + 1))
+      has_consumer = true
     end
   end
-  if #consumers > 0 then
-    for _, c in ipairs(consumers) do
-      local info = type(c.type_id) == "number" and TYPE_REGISTRY[c.type_id]
-      r.ImGui_BulletText(ctx, string.format("%s on Track %d: %s",
-        info and info.name or c.lms_name, c.track_idx + 1, c.track_name))
-    end
-  else
-    r.ImGui_TextDisabled(ctx, "No synths (Lil Stinker / Nuug420) found on any track.")
+  if not has_consumer then
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "None")
   end
 end
 
@@ -1038,11 +1308,32 @@ local setup_selected = {}
 local setup_track_name = ""
 local setup_track_count = 1
 
+local TRACK_COLORS = {
+  {230, 80, 80},   {80, 180, 230},  {120, 200, 100}, {230, 180, 50},
+  {180, 100, 220}, {230, 130, 60},  {100, 210, 190}, {220, 100, 160},
+  {160, 200, 60},  {100, 130, 230}, {210, 160, 200}, {80, 160, 130},
+  {200, 200, 100}, {140, 100, 180}, {230, 160, 130}, {100, 200, 220},
+}
+local color_idx = 0
+
 local CAT_ORDER_SETUP = {"amp", "mix", "comp", "gate", "fx", "reverb", "pitch", "drum", "synth", "seq"}
 
 local function draw_track_setup(ctx)
   r.ImGui_Text(ctx, "Select plugins, then add to existing track or create new.")
   r.ImGui_Separator(ctx)
+
+  -- Colorize all tracks button
+  if r.ImGui_Button(ctx, "Colorize All Tracks") then
+    local num = r.CountTracks(0)
+    for ti = 0, num - 1 do
+      local track = r.GetTrack(0, ti)
+      local c = TRACK_COLORS[(ti % #TRACK_COLORS) + 1]
+      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
+    end
+    r.TrackList_AdjustWindows(false)
+    r.UpdateArrange()
+  end
+  r.ImGui_Spacing(ctx)
 
   -- Plugin checklist by category
   for _, cat in ipairs(CAT_ORDER_SETUP) do
@@ -1111,6 +1402,9 @@ local function draw_track_setup(ctx)
       if tname ~= "" then
         r.GetSetMediaTrackInfo_String(track, "P_NAME", tname, true)
       end
+      local c = TRACK_COLORS[(color_idx % #TRACK_COLORS) + 1]
+      color_idx = color_idx + 1
+      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
       for type_id, info in pairs(TYPE_REGISTRY) do
         if setup_selected[type_id] and info.jsfx then
           r.TrackFX_AddByName(track, JSFX_PREFIX .. info.jsfx, false, -1)
