@@ -929,14 +929,26 @@ local function db_get_param(slider_idx)
 end
 
 local function draw_drumbanger(ctx)
-  local alive = (db_state.heartbeat or 0) ~= 0
+  local db_inst = find_db_instance()
+  local alive = db_inst ~= nil and (db_state.heartbeat or 0) ~= 0
   draw_status_dot(ctx, alive)
   r.ImGui_SameLine(ctx)
   r.ImGui_Text(ctx, alive and "DrumBanger ONLINE" or "DrumBanger OFFLINE")
 
   if not alive then
     r.ImGui_Separator(ctx)
-    r.ImGui_TextWrapped(ctx, "No DrumBanger heartbeat detected. Add DrumBanger to a track to begin.")
+    r.ImGui_TextWrapped(ctx, "No DrumBanger heartbeat detected.")
+    r.ImGui_Spacing(ctx)
+    if r.ImGui_Button(ctx, "Create DRUMBANGER Track") then
+      local idx = r.CountTracks(0)
+      r.InsertTrackAtIndex(idx, true)
+      local track = r.GetTrack(0, idx)
+      r.GetSetMediaTrackInfo_String(track, "P_NAME", "DRUMBANGER", true)
+      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(204, 136, 68) | 0x1000000)
+      r.TrackFX_AddByName(track, "LMS Plugins/LMS/lms_drumbanger.jsfx", false, -1)
+      ensure_low_latency(track)
+      scan_tracks()
+    end
     return
   end
 
