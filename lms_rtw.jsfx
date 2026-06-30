@@ -38,6 +38,10 @@ slider28:20<0,100,1>-Reverb Mix (%)
 slider29:1<0,2,1{Dark,Neutral,Bright}>-Reverb Tone
 slider30:1<0,1,1{Pre Comp,Post Comp}>-Reverb Position
 slider31:0<-12,12,0.1>-Output Gain (dB)
+slider32:0<0,1,1{Off,On}>-Gate
+slider33:-60<-80,-20,0.5>-Gate Threshold (dB)
+slider34:50<1,500,1>-Gate Hold (ms)
+slider35:50<5,500,1>-Gate Release (ms)
 
 @init
   // Biquad filter instances (shared library)
@@ -85,6 +89,12 @@ slider31:0<-12,12,0.1>-Output Gain (dB)
   verb_tone.lms_bq_init();
 
 notice_show = 0;
+
+  // Gate state
+  gate_env = 0;
+  gate_state = 0;  // 0=closed, 1=open, 2=holding, 3=releasing
+  gate_hold_counter = 0;
+  gate_gain = 0;
 
 @slider
   preamp_gain = lms_db2lin(slider1);
@@ -137,6 +147,12 @@ notice_show = 0;
   // Comp makeup + mix
   comp_makeup = lms_db2lin(slider25);
   comp_mix = slider26 / 100;
+
+  // Gate
+  gate_on = slider32;
+  gate_thresh = lms_db2lin(slider33);
+  gate_hold_samples = (slider34 / 1000) * srate;
+  gate_rel_coeff = exp(-1.0 / ((slider35 / 1000) * srate));
 
   // Reverb
   verb_type = slider27;
@@ -211,9 +227,43 @@ verb_tone_sel == 0 ? verb_tone.lms_bq_set_lp(3000, 0.707);
 verb_tone_sel == 1 ? verb_tone.lms_bq_set_lp(8000, 0.707);
 verb_tone_sel == 2 ? verb_tone.lms_bq_set_hishelf(4000, 3, 0.707);
 
+gate_on = slider32;
+gate_thresh = lms_db2lin(slider33);
+gate_hold_samples = (slider34 / 1000) * srate;
+gate_rel_coeff = exp(-1.0 / ((slider35 / 1000) * srate));
+
 @sample
   l = spl0;
   r = spl1;
+
+  // === GATE ===
+  gate_on ? (
+    gate_peak = max(abs(l), abs(r));
+    gate_peak > gate_thresh ? (
+      gate_state = 1;
+      gate_hold_counter = gate_hold_samples;
+      gate_gain = 1;
+    ) : (
+      gate_state == 1 ? (
+        gate_state = 2;
+      );
+      gate_state == 2 ? (
+        gate_hold_counter -= 1;
+        gate_hold_counter <= 0 ? (
+          gate_state = 3;
+        );
+      );
+      gate_state == 3 ? (
+        gate_gain *= gate_rel_coeff;
+        gate_gain < 0.001 ? (
+          gate_gain = 0;
+          gate_state = 0;
+        );
+      );
+    );
+    l *= gate_gain;
+    r *= gate_gain;
+  );
 
   // === PREAMP + SATURATION ===
   l *= preamp_gain;
@@ -442,7 +492,7 @@ verb_tone_sel == 2 ? verb_tone.lms_bq_set_hishelf(4000, 3, 0.707);
   spl0 = l * output_gain;
   spl1 = r * output_gain;
 
-@gfx 560 520
+@gfx 560 640
 
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
@@ -721,6 +771,24 @@ _old = slider30; slider30 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, sl
 slider30 != _old ? slider_automate(2^29);
 
 // ============================================================================
+//  COLUMN 2 (continued): GATE
+// ============================================================================
+gate_panel_y = verb_panel_y + floor(116 * S);
+draw_panel(c2x, gate_panel_y, col_w, floor(110 * S), "GATE");
+cy = gate_panel_y + floor(26 * S);
+_old = slider32; slider32 = draw_toggle(c2x + pad2, cy + floor(2 * S), slider32, "Gate On");
+slider32 != _old ? slider_automate(2^31);
+cy += bar_sp;
+_old = slider33; slider33 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider33, -80, -20, "Thresh", 1);
+slider33 != _old ? slider_automate(2^32);
+cy += bar_sp;
+_old = slider34; slider34 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider34, 1, 500, "Hold ms", 1);
+slider34 != _old ? slider_automate(2^33);
+cy += bar_sp;
+_old = slider35; slider35 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider35, 5, 500, "Release", 1);
+slider35 != _old ? slider_automate(2^34);
+
+// ============================================================================
 //  COLUMN 3: COMPRESSOR
 // ============================================================================
 c3x = margin + (col_w + gap) * 2;
@@ -779,8 +847,10 @@ comp_on ? (
   );
 );
 
-// Output bar (below tallest panel)
-out_y = body_y + c3_panel_h + floor(6 * S);
+// Output bar (below tallest column)
+c2_bottom = gate_panel_y + floor(110 * S);
+c3_bottom = body_y + c3_panel_h;
+out_y = max(c2_bottom, c3_bottom) + floor(6 * S);
 draw_panel(margin, out_y, gfx_w - margin * 2, floor(46 * S), "OUTPUT");
 _old = slider31; slider31 = draw_bar(margin + 4, out_y + 26, gfx_w - margin * 2 - 8, bar_h, slider31, -12, 12, "Output dB", 1);
 slider31 != _old ? slider_automate(2^30);

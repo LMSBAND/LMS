@@ -29,7 +29,7 @@ local QUALITY_NAMES = {"maj","min","7","maj7","min7","dim","aug","sus4","sus2",
                        "add9","m9","9","6","m6","dim7","m7b5"}
 
 local TYPE_REGISTRY = {
-  [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 31},
+  [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 35},
   [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 10},
   [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 9},
   [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 8},
@@ -661,6 +661,10 @@ local ctx_menu_track = nil
 local ctx_menu_track_name = nil
 local ctx_menu_track_idx = nil
 
+-- Smart Gate constants
+local SG_MODE_NAMES = {"Single", "Drum"}
+local SG_DRUM_NAMES = {"Kick", "Snare", "Tom", "OH"}
+
 -- ---- Broadcast Tab ----
 
 local function draw_broadcast(ctx)
@@ -792,6 +796,7 @@ local function draw_broadcast(ctx)
 
             -- Steal button
             r.ImGui_SameLine(ctx)
+            r.ImGui_SetNextItemWidth(ctx, 100)
             if r.ImGui_BeginCombo(ctx, "##stl_" .. type_id .. "_" .. inst.track_idx, "Steal") then
               for _, peer in ipairs(group) do
                 if peer.track_idx ~= inst.track_idx then
@@ -802,6 +807,35 @@ local function draw_broadcast(ctx)
                 end
               end
               r.ImGui_EndCombo(ctx)
+            end
+          end
+
+          -- Smart Gate: inline mode + drum type controls
+          if type_id == 21 then
+            local sg_id = "##sg_" .. inst.track_idx .. "_"
+            local mode_raw = r.TrackFX_GetParam(inst.track, inst.fx_idx, 1)
+            local mode = mode_raw >= 0.5 and 1 or 0
+
+            r.ImGui_SameLine(ctx)
+            r.ImGui_TextDisabled(ctx, "|")
+            r.ImGui_SameLine(ctx)
+            if r.ImGui_SmallButton(ctx, SG_MODE_NAMES[mode + 1] .. sg_id .. "mode") then
+              r.TrackFX_SetParam(inst.track, inst.fx_idx, 1, mode == 0 and 1.0 or 0.0)
+            end
+
+            if mode == 1 then
+              local dt_val = r.TrackFX_GetParam(inst.track, inst.fx_idx, 10)
+              local dt = math.min(3, math.max(0, math.floor(dt_val + 0.5)))
+              r.ImGui_SameLine(ctx)
+              r.ImGui_SetNextItemWidth(ctx, 80)
+              if r.ImGui_BeginCombo(ctx, sg_id .. "drum", SG_DRUM_NAMES[dt + 1]) then
+                for di = 0, 3 do
+                  if r.ImGui_Selectable(ctx, SG_DRUM_NAMES[di + 1], di == dt) then
+                    r.TrackFX_SetParam(inst.track, inst.fx_idx, 10, di)
+                  end
+                end
+                r.ImGui_EndCombo(ctx)
+              end
             end
           end
         end
@@ -848,7 +882,7 @@ end
 -- ---- DrumBanger Tab ----
 
 local function draw_drumbanger(ctx)
-  local alive = db_state.heartbeat ~= 0
+  local alive = (db_state.heartbeat or 0) ~= 0
   draw_status_dot(ctx, alive)
   r.ImGui_Text(ctx, alive and "DrumBanger ONLINE" or "DrumBanger OFFLINE")
   r.ImGui_Separator(ctx)
