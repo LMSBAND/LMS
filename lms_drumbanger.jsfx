@@ -11,6 +11,43 @@ filename:0,shakebot_logo.png
 options:maxmem=16777216
 options:gmem=DrumBanger
 
+in_pin:left input
+in_pin:right input
+out_pin:Main L
+out_pin:Main R
+out_pin:Pad 01 L
+out_pin:Pad 01 R
+out_pin:Pad 02 L
+out_pin:Pad 02 R
+out_pin:Pad 03 L
+out_pin:Pad 03 R
+out_pin:Pad 04 L
+out_pin:Pad 04 R
+out_pin:Pad 05 L
+out_pin:Pad 05 R
+out_pin:Pad 06 L
+out_pin:Pad 06 R
+out_pin:Pad 07 L
+out_pin:Pad 07 R
+out_pin:Pad 08 L
+out_pin:Pad 08 R
+out_pin:Pad 09 L
+out_pin:Pad 09 R
+out_pin:Pad 10 L
+out_pin:Pad 10 R
+out_pin:Pad 11 L
+out_pin:Pad 11 R
+out_pin:Pad 12 L
+out_pin:Pad 12 R
+out_pin:Pad 13 L
+out_pin:Pad 13 R
+out_pin:Pad 14 L
+out_pin:Pad 14 R
+out_pin:Pad 15 L
+out_pin:Pad 15 R
+out_pin:Pad 16 L
+out_pin:Pad 16 R
+
 // ============================================================
 // SLIDER DEFINITIONS
 // ============================================================
@@ -1745,15 +1782,25 @@ loop(NUM_PADS,
 gmem[397] = PAT_DISPLAY_BAR[slider3];            // current display bar
 gmem[398] = steps_per_bar;                       // steps per single bar
 gmem[399] = total_pattern_steps;                 // total steps in pattern
+gmem[412] = num_ch;                              // actual channel count (for manager debug)
 
 // ============================================================
 // @SAMPLE — Audio generation (runs per sample)
 // ============================================================
 @sample
 
+num_ch = 34;
 out_l = 0;
 out_r = 0;
 master_vol = slider4;
+
+// Zero per-pad output channels
+p = 0;
+loop(NUM_PADS,
+  spl(2 + p * 2) = 0;
+  spl(2 + p * 2 + 1) = 0;
+  p += 1;
+);
 
 p = 0;
 loop(NUM_PADS,
@@ -1841,8 +1888,12 @@ loop(NUM_PADS,
           FLT_HP_STATE[p*4+2] = 0; FLT_HP_STATE[p*4+3] = 0;
         );
 
-        out_l += sample_l * pad_vol * pan_l;
-        out_r += sample_r * pad_vol * pan_r;
+        pad_out_l = sample_l * pad_vol * pan_l;
+        pad_out_r = sample_r * pad_vol * pan_r;
+        out_l += pad_out_l;
+        out_r += pad_out_r;
+        spl(2 + p * 2) += pad_out_l;
+        spl(2 + p * 2 + 1) += pad_out_r;
 
         PAD_POS[p] = pos + pitch_rate;
 
@@ -1852,8 +1903,12 @@ loop(NUM_PADS,
         ipos < 200 ? (
           pad_out = (rand(2) - 1) * PAD_VELOCITY[p] * PAD_DECAY[p];
           PAD_DECAY[p] *= 0.9997;
-          out_l += pad_out * pad_vol * pan_l;
-          out_r += pad_out * pad_vol * pan_r;
+          pad_out_l = pad_out * pad_vol * pan_l;
+          pad_out_r = pad_out * pad_vol * pan_r;
+          out_l += pad_out_l;
+          out_r += pad_out_r;
+          spl(2 + p * 2) += pad_out_l;
+          spl(2 + p * 2 + 1) += pad_out_r;
           PAD_POS[p] += 1;
         ) : (
           PAD_PLAYING[p] = 0;
@@ -1886,8 +1941,12 @@ loop(NUM_PADS,
         kl *= PAD_KILL_VEL[p] * kill_fade;
         kr *= PAD_KILL_VEL[p] * kill_fade;
 
-        out_l += kl * pad_vol * pan_l;
-        out_r += kr * pad_vol * pan_r;
+        pad_out_l = kl * pad_vol * pan_l;
+        pad_out_r = kr * pad_vol * pan_r;
+        out_l += pad_out_l;
+        out_r += pad_out_r;
+        spl(2 + p * 2) += pad_out_l;
+        spl(2 + p * 2 + 1) += pad_out_r;
 
         PAD_KILL_POS[p] = kill_pos + pitch_rate;
       );

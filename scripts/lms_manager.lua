@@ -139,6 +139,14 @@ local JSFX_TO_TYPE = {
   ["lms_the_space"]            = "the_space",
 }
 
+local TRACK_COLORS = {
+  {230, 80, 80},   {80, 180, 230},  {120, 200, 100}, {230, 180, 50},
+  {180, 100, 220}, {230, 130, 60},  {100, 210, 190}, {220, 100, 160},
+  {160, 200, 60},  {100, 130, 230}, {210, 160, 200}, {80, 160, 130},
+  {200, 200, 100}, {140, 100, 180}, {230, 160, 130}, {100, 200, 220},
+}
+local color_idx = 0
+
 local CAT_COLORS = {
   amp    = 0xFF6644FF,
   comp   = 0x44AA66FF,
@@ -1221,9 +1229,118 @@ local function draw_drumbanger(ctx)
     r.ImGui_TreePop(ctx)
   end
 
-  -- === CONSUMERS ===
+  -- === PAD ROUTING ===
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
+
+  local db_inst = find_db_instance()
+  if db_inst and db_inst.track_idx >= 0 then
+    local db_track = db_inst.track
+    local db_idx = r.CSurf_TrackToID(db_track, false) - 1
+    local pad_names = {"Kick","Snare","HH Closed","HH Open",
+                       "Tom Hi","Tom Mid","Tom Lo","Crash",
+                       "Ride","Perc 1","Perc 2","Perc 3",
+                       "FX 1","FX 2","FX 3","FX 4"}
+
+    -- Check which pads have data in any pattern
+    local pad_has_data = {}
+    for p = 0, 15 do
+      for pat = 0, 7 do
+        for s = 0, 63 do
+          if r.gmem_read(1000 + pat * 1024 + s * 16 + p) > 0 then
+            pad_has_data[p] = true
+            break
+          end
+        end
+        if pad_has_data[p] then break end
+      end
+    end
+
+    -- Find existing pad tracks (by name match, any position)
+    local existing_pad_tracks = {}
+    local num_tracks = r.CountTracks(0)
+    for ti = 0, num_tracks - 1 do
+      local track = r.GetTrack(0, ti)
+      local _, tname = r.GetTrackName(track)
+      for p = 0, 15 do
+        if tname == pad_names[p + 1] then
+          existing_pad_tracks[p] = true
+        end
+      end
+    end
+
+    -- Count how many new tracks would be created
+    local new_count = 0
+    for p = 0, 15 do
+      if pad_has_data[p] and not existing_pad_tracks[p] then
+        new_count = new_count + 1
+      end
+    end
+
+    local active_count = 0
+    for p = 0, 15 do
+      if pad_has_data[p] then active_count = active_count + 1 end
+    end
+
+    if new_count > 0 then
+      if r.ImGui_Button(ctx, string.format("Route %d Active Pads", new_count)) then
+        r.Undo_BeginBlock()
+
+        r.SetMediaTrackInfo_Value(db_track, "I_NCHAN", 34)
+
+        r.SetMediaTrackInfo_Value(db_track, "B_MAINSEND", 0)
+
+        local insert_at = db_idx + 1
+        -- Skip past any existing tracks immediately below
+        for ti = db_idx + 1, num_tracks - 1 do
+          local track = r.GetTrack(0, ti)
+          local _, tname = r.GetTrackName(track)
+          local is_pad = false
+          for p = 0, 15 do
+            if tname == pad_names[p + 1] then is_pad = true; break end
+          end
+          if is_pad then
+            insert_at = ti + 1
+          else
+            break
+          end
+        end
+
+        for p = 0, 15 do
+          if pad_has_data[p] and not existing_pad_tracks[p] then
+            r.InsertTrackAtIndex(insert_at, false)
+            local child = r.GetTrack(0, insert_at)
+            r.GetSetMediaTrackInfo_String(child, "P_NAME", pad_names[p + 1], true)
+            local c = TRACK_COLORS[(p % #TRACK_COLORS) + 1]
+            r.SetMediaTrackInfo_Value(child, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
+
+            local send_idx = r.CreateTrackSend(db_track, child)
+            r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_SRCCHAN", 2 + p * 2)
+            r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_DSTCHAN", 0)
+
+            r.TrackFX_AddByName(child, "LMS Plugins/LMS/lms_rtw.jsfx", false, -1)
+            insert_at = insert_at + 1
+          end
+        end
+
+        r.Undo_EndBlock("DrumBanger: route pads to tracks", -1)
+        r.TrackList_AdjustWindows(false)
+        r.UpdateArrange()
+        scan_tracks()
+      end
+      r.ImGui_SameLine(ctx)
+      r.ImGui_TextDisabled(ctx, string.format("%d active pads, %d already routed", active_count, active_count - new_count))
+    else
+      if active_count > 0 then
+        r.ImGui_TextDisabled(ctx, string.format("All %d active pads already routed", active_count))
+      else
+        r.ImGui_TextDisabled(ctx, "No pads with pattern data to route")
+      end
+    end
+  end
+
+  -- === CONSUMERS ===
+  r.ImGui_Spacing(ctx)
   r.ImGui_Text(ctx, "Consumers:")
   r.ImGui_SameLine(ctx)
   local has_consumer = false
@@ -1320,13 +1437,6 @@ local setup_selected = {}
 local setup_track_name = ""
 local setup_track_count = 1
 
-local TRACK_COLORS = {
-  {230, 80, 80},   {80, 180, 230},  {120, 200, 100}, {230, 180, 50},
-  {180, 100, 220}, {230, 130, 60},  {100, 210, 190}, {220, 100, 160},
-  {160, 200, 60},  {100, 130, 230}, {210, 160, 200}, {80, 160, 130},
-  {200, 200, 100}, {140, 100, 180}, {230, 160, 130}, {100, 200, 220},
-}
-local color_idx = 0
 
 local CAT_ORDER_SETUP = {"amp", "mix", "comp", "gate", "fx", "reverb", "pitch", "drum", "synth", "seq"}
 
