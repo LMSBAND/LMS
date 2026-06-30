@@ -29,35 +29,35 @@ local QUALITY_NAMES = {"maj","min","7","maj7","min7","dim","aug","sus4","sus2",
                        "add9","m9","9","6","m6","dim7","m7b5"}
 
 local TYPE_REGISTRY = {
-  [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 35},
-  [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 10},
-  [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 9},
-  [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 8},
-  [8]  = {name = "Henge",             cat = "reverb", sliders = 10},
-  [9]  = {name = "Henge on Crack",    cat = "reverb", sliders = 20},
-  [11] = {name = "Frenchie",          cat = "amp",    sliders = 20},
-  [12] = {name = "Punk Idol",         cat = "amp",    sliders = 24},
-  [13] = {name = "Fridge",            cat = "amp",    sliders = 32},
-  [14] = {name = "Ol' Reliable",      cat = "amp",    sliders = 26},
-  [15] = {name = "TRSOB",             cat = "amp",    sliders = 28},
-  [16] = {name = "Twins",             cat = "amp",    sliders = 25},
-  [17] = {name = "Area51",            cat = "amp",    sliders = 28},
-  [18] = {name = "Silver69",          cat = "comp",   sliders = 8},
-  [19] = {name = "Mega Increasinator",cat = "comp",   sliders = 9},
-  [20] = {name = "Drum Trigger",      cat = "drum",   sliders = 20},
-  [21] = {name = "Smart Gate",        cat = "gate",   sliders = 16},
-  [22] = {name = "Pitch Detector",    cat = "pitch",  sliders = 8},
-  [23] = {name = "Faker",             cat = "pitch",  sliders = 9},
-  [24] = {name = "Bottom Feeder",     cat = "amp",    sliders = 25},
-  [25] = {name = "Nightmare",         cat = "amp",    sliders = 24},
-  [26] = {name = "OJ95",              cat = "amp",    sliders = 26},
-  [27] = {name = "Reverb",            cat = "reverb", sliders = 11},
-  [28] = {name = "Tomas Teknik",      cat = "amp",    sliders = 37},
-  [29] = {name = "Lil Stinker",       cat = "synth",  sliders = 44},
-  [30] = {name = "Harmony Map",       cat = "seq",    sliders = 7},
-  [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 71},
-  [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4},
-  [33] = {name = "Nuug420",           cat = "synth",  sliders = 52},
+  [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 35, jsfx = "lms_rtw.jsfx"},
+  [5]  = {name = "Traumatizer",       cat = "mix",    sliders = 10, jsfx = "lms_traumatizer.jsfx"},
+  [6]  = {name = "Passive EQ",        cat = "mix",    sliders = 9,  jsfx = "lms_passive_eq.jsfx"},
+  [7]  = {name = "Tube Sat",          cat = "mix",    sliders = 8,  jsfx = "lms_tube_sat.jsfx"},
+  [8]  = {name = "Henge",             cat = "reverb", sliders = 10, jsfx = "lms_henge.jsfx"},
+  [9]  = {name = "Henge on Crack",    cat = "reverb", sliders = 20, jsfx = "lms_henge_on_crack.jsfx"},
+  [11] = {name = "Frenchie",          cat = "amp",    sliders = 20, jsfx = "lms_frenchie_v2.jsfx"},
+  [12] = {name = "Punk Idol",         cat = "amp",    sliders = 24, jsfx = "lms_punk_idol_v2.jsfx"},
+  [13] = {name = "Fridge",            cat = "amp",    sliders = 32, jsfx = "lms_fridge_v2.jsfx"},
+  [14] = {name = "Ol' Reliable",      cat = "amp",    sliders = 26, jsfx = "lms_ol_reliable_v2.jsfx"},
+  [15] = {name = "TRSOB",             cat = "amp",    sliders = 28, jsfx = "lms_trsob_v2.jsfx"},
+  [16] = {name = "Twins",             cat = "amp",    sliders = 25, jsfx = "lms_twins_v2.jsfx"},
+  [17] = {name = "Area51",            cat = "amp",    sliders = 28, jsfx = "lms_area51_v2.jsfx"},
+  [18] = {name = "Silver69",          cat = "comp",   sliders = 8,  jsfx = "lms_silver69.jsfx"},
+  [19] = {name = "Mega Increasinator",cat = "comp",   sliders = 9,  jsfx = "lms_mega_increasinator.jsfx"},
+  [20] = {name = "Drum Trigger",      cat = "drum",   sliders = 20, jsfx = "lms_drum_trigger.jsfx"},
+  [21] = {name = "Smart Gate",        cat = "gate",   sliders = 16, jsfx = "lms_smart_gate.jsfx"},
+  [22] = {name = "Pitch Detector",    cat = "pitch",  sliders = 8,  jsfx = "lms_pitch_detector.jsfx"},
+  [23] = {name = "Faker",             cat = "pitch",  sliders = 9,  jsfx = "lms_faker.jsfx"},
+  [24] = {name = "Bottom Feeder",     cat = "amp",    sliders = 25, jsfx = "lms_bottom_feeder_v2.jsfx"},
+  [25] = {name = "Nightmare",         cat = "amp",    sliders = 24, jsfx = "lms_nightmare_v2.jsfx"},
+  [26] = {name = "OJ95",              cat = "amp",    sliders = 26, jsfx = "lms_oj95_v2.jsfx"},
+  [27] = {name = "Reverb",            cat = "reverb", sliders = 11, jsfx = "lms_reverb.jsfx"},
+  [28] = {name = "Tomas Teknik",      cat = "amp",    sliders = 37, jsfx = "lms_tomasteknik_v2.jsfx"},
+  [29] = {name = "Lil Stinker",       cat = "synth",  sliders = 44, jsfx = "lms_lil_stinker.jsfx"},
+  [30] = {name = "Harmony Map",       cat = "seq",    sliders = 7,  jsfx = "lms_harmony_map.jsfx"},
+  [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 71, jsfx = "lms_satans_pedalboard.jsfx"},
+  [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4,  jsfx = "lms_piece_of_shit.jsfx"},
+  [33] = {name = "Nuug420",           cat = "synth",  sliders = 52, jsfx = "lms_nuug420.jsfx"},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -1031,6 +1031,118 @@ local function draw_metering(ctx)
   end
 end
 
+-- ---- Track Setup Tab ----
+
+local JSFX_PREFIX = "LMS Plugins/LMS/"
+local setup_selected = {}
+local setup_track_name = ""
+local setup_track_count = 1
+
+local CAT_ORDER_SETUP = {"amp", "mix", "comp", "gate", "fx", "reverb", "pitch", "drum", "synth", "seq"}
+
+local function draw_track_setup(ctx)
+  r.ImGui_Text(ctx, "Select plugins, then add to existing track or create new.")
+  r.ImGui_Separator(ctx)
+
+  -- Plugin checklist by category
+  for _, cat in ipairs(CAT_ORDER_SETUP) do
+    local cat_items = {}
+    for type_id, info in pairs(TYPE_REGISTRY) do
+      if info.cat == cat and info.jsfx then
+        cat_items[#cat_items + 1] = {type_id = type_id, info = info}
+      end
+    end
+    if #cat_items > 0 then
+      table.sort(cat_items, function(a, b) return a.info.name < b.info.name end)
+      local color = CAT_COLORS[cat] or 0xAAAAAAFF
+      r.ImGui_PushStyleColor(ctx, ColHeader, color)
+      if r.ImGui_CollapsingHeader(ctx, cat:upper() .. " (" .. #cat_items .. ")##setup_" .. cat, r.ImGui_TreeNodeFlags_DefaultOpen()) then
+        for _, item in ipairs(cat_items) do
+          local checked = setup_selected[item.type_id] or false
+          local changed, new_val = r.ImGui_Checkbox(ctx, item.info.name .. "##setup_" .. item.type_id, checked)
+          if changed then setup_selected[item.type_id] = new_val end
+        end
+      end
+      r.ImGui_PopStyleColor(ctx)
+    end
+  end
+
+  -- Count selected
+  local sel_count = 0
+  for _, v in pairs(setup_selected) do if v then sel_count = sel_count + 1 end end
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, string.format("%d plugin(s) selected", sel_count))
+  r.ImGui_Spacing(ctx)
+
+  -- Clear / Select All
+  if r.ImGui_SmallButton(ctx, "Clear All##setup") then
+    setup_selected = {}
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_SmallButton(ctx, "Select All##setup") then
+    for type_id, info in pairs(TYPE_REGISTRY) do
+      if info.jsfx then setup_selected[type_id] = true end
+    end
+  end
+
+  r.ImGui_Spacing(ctx)
+
+  -- === CREATE NEW TRACK(S) ===
+  r.ImGui_Text(ctx, "Create new track(s):")
+  r.ImGui_SetNextItemWidth(ctx, 200)
+  local _, new_name = r.ImGui_InputText(ctx, "Track name##setup_name", setup_track_name)
+  setup_track_name = new_name
+  r.ImGui_SameLine(ctx)
+  r.ImGui_SetNextItemWidth(ctx, 60)
+  local _, new_count = r.ImGui_InputInt(ctx, "##setup_count", setup_track_count)
+  setup_track_count = math.max(1, math.min(32, new_count))
+  r.ImGui_SameLine(ctx)
+  r.ImGui_TextDisabled(ctx, "track(s)")
+
+  if sel_count > 0 and r.ImGui_Button(ctx, "Create##setup_create") then
+    for ti = 1, setup_track_count do
+      local idx = r.CountTracks(0)
+      r.InsertTrackAtIndex(idx, true)
+      local track = r.GetTrack(0, idx)
+      local tname = setup_track_name
+      if setup_track_count > 1 then tname = tname .. " " .. ti end
+      if tname ~= "" then
+        r.GetSetMediaTrackInfo_String(track, "P_NAME", tname, true)
+      end
+      for type_id, info in pairs(TYPE_REGISTRY) do
+        if setup_selected[type_id] and info.jsfx then
+          r.TrackFX_AddByName(track, JSFX_PREFIX .. info.jsfx, false, -1)
+        end
+      end
+    end
+    scan_tracks()
+  end
+
+  r.ImGui_Spacing(ctx)
+
+  -- === ADD TO EXISTING TRACK ===
+  r.ImGui_Text(ctx, "Add to existing track:")
+  if sel_count > 0 then
+    local num_tracks = r.CountTracks(0)
+    for ti = 0, num_tracks - 1 do
+      local track = r.GetTrack(0, ti)
+      local _, tname = r.GetTrackName(track)
+      if r.ImGui_SmallButton(ctx, string.format("T%d: %s##setup_add_%d", ti + 1, tname, ti)) then
+        for type_id, info in pairs(TYPE_REGISTRY) do
+          if setup_selected[type_id] and info.jsfx then
+            r.TrackFX_AddByName(track, JSFX_PREFIX .. info.jsfx, false, -1)
+          end
+        end
+        scan_tracks()
+      end
+    end
+  else
+    r.ImGui_TextDisabled(ctx, "Select plugins above first.")
+  end
+end
+
 -- ---- Main Window ----
 
 local function draw_main(ctx)
@@ -1068,6 +1180,10 @@ local function draw_main(ctx)
       end
       if r.ImGui_BeginTabItem(ctx, "Metering") then
         draw_metering(ctx)
+        r.ImGui_EndTabItem(ctx)
+      end
+      if r.ImGui_BeginTabItem(ctx, "Track Setup") then
+        draw_track_setup(ctx)
         r.ImGui_EndTabItem(ctx)
       end
       r.ImGui_EndTabBar(ctx)
