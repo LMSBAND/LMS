@@ -373,6 +373,11 @@ local rename_track_idx = nil
 local rename_buf = ""
 local rename_focus = false
 
+-- Send FX context menu state
+local send_fx_src_track = nil
+local send_fx_src_tidx = nil
+local send_fx_src_name = ""
+
 local function draw_status_dot(ctx, alive)
   local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
   local draw_list = r.ImGui_GetWindowDrawList(ctx)
@@ -438,6 +443,14 @@ local function draw_overview(ctx)
       track_num, tinfo.track_name, #tinfo.plugins, flags, tidx)
 
     if r.ImGui_CollapsingHeader(ctx, header_label, r.ImGui_TreeNodeFlags_DefaultOpen()) then
+
+      -- Right-click track header → send FX menu
+      if r.ImGui_IsItemClicked(ctx, 1) and tidx >= 0 then
+        send_fx_src_track = tinfo.track
+        send_fx_src_tidx = tidx
+        send_fx_src_name = tinfo.track_name
+        r.ImGui_OpenPopup(ctx, "##send_fx_popup")
+      end
 
       -- Rename: double-click the header to start renaming
       if r.ImGui_IsItemHovered(ctx) and r.ImGui_IsMouseDoubleClicked(ctx, 0) and tidx >= 0 then
@@ -530,6 +543,26 @@ local function draw_overview(ctx)
         end
       end
     end
+  end
+
+  -- Send FX popup — lists all project tracks as destinations
+  if r.ImGui_BeginPopup(ctx, "##send_fx_popup") then
+    r.ImGui_Text(ctx, "Send FX from: " .. send_fx_src_name)
+    r.ImGui_Separator(ctx)
+    local num_tracks = r.CountTracks(0)
+    for ti = 0, num_tracks - 1 do
+      if ti ~= send_fx_src_tidx then
+        local dst_track = r.GetTrack(0, ti)
+        local _, dst_name = r.GetTrackName(dst_track)
+        local label = string.format("T%d: %s", ti + 1, dst_name)
+        if r.ImGui_MenuItem(ctx, label) then
+          copy_fx_chain(send_fx_src_track, dst_track)
+          send_fx_src_track = nil
+          send_fx_src_tidx = nil
+        end
+      end
+    end
+    r.ImGui_EndPopup(ctx)
   end
 end
 
