@@ -146,6 +146,7 @@ local TRACK_COLORS = {
   {200, 200, 100}, {140, 100, 180}, {230, 160, 130}, {100, 200, 220},
 }
 local color_idx = 0
+local JSFX_PREFIX = "LMS Plugins/LMS/"
 
 local CAT_COLORS = {
   amp    = 0xFF6644FF,
@@ -313,6 +314,13 @@ local function find_db_instance()
   return nil
 end
 
+local function find_hm_instance()
+  for _, inst in ipairs(instances) do
+    if inst.type_id == 30 then return inst end
+  end
+  return nil
+end
+
 local function read_drumbanger_state()
   db_state = {
     heartbeat = r.gmem_read(10),
@@ -345,20 +353,30 @@ end
 local function read_harmony_state()
   hm_state = {
     heartbeat = r.gmem_read(960000),
-    root = r.gmem_read(960001),
-    quality = r.gmem_read(960002),
+    chord_root = r.gmem_read(960001),
+    chord_qual = r.gmem_read(960002),
     step = r.gmem_read(960003),
-    key = r.gmem_read(960004),
-    scale = r.gmem_read(960005),
-    mode = r.gmem_read(960006),
-    divisions = r.gmem_read(960007),
+    num_steps = r.gmem_read(960004),
+    key_root = r.gmem_read(960005),
+    key_mode = r.gmem_read(960006),
+    midi_ch = r.gmem_read(960007),
     transport = r.gmem_read(960008),
+    pattern_steps = r.gmem_read(960010),
     song_mode = r.gmem_read(960080),
     part_index = r.gmem_read(960081),
     mod_key = r.gmem_read(960082),
     mod_mode = r.gmem_read(960083),
     drum_pat = r.gmem_read(960084),
+    current_pat = r.gmem_read(960085),
+    num_pats = r.gmem_read(960086),
   }
+  hm_state.chords = {}
+  for i = 0, 31 do
+    hm_state.chords[i] = {
+      root = math.floor(r.gmem_read(960011 + i)),
+      qual = math.floor(r.gmem_read(960043 + i)),
+    }
+  end
 end
 
 local function read_pitch_state()
@@ -1387,47 +1405,315 @@ end
 
 -- ---- Harmony Map Tab ----
 
-local function draw_harmony(ctx)
-  local alive = hm_state.heartbeat ~= 0
-  draw_status_dot(ctx, alive)
-  r.ImGui_Text(ctx, alive and "Harmony Map ONLINE" or "Harmony Map OFFLINE")
-  r.ImGui_Separator(ctx)
+local hm_edit_step = 0
+local hm_chord_popup_open = false
 
-  if not alive then
-    r.ImGui_TextWrapped(ctx, "No Harmony Map heartbeat detected.")
+local function hm_set_param(slider_num, value)
+  local inst = find_hm_instance()
+  if inst then
+    r.TrackFX_SetParam(inst.track, inst.fx_idx, slider_num - 1, value)
+  end
+end
+
+local function hm_get_param(slider_num)
+  local inst = find_hm_instance()
+  if inst then
+    return r.TrackFX_GetParam(inst.track, inst.fx_idx, slider_num - 1)
+  end
+  return 0
+end
+
+local function draw_harmony(ctx)
+  local hm_inst = find_hm_instance()
+  local alive = hm_inst ~= nil and (hm_state.heartbeat or 0) ~= 0
+  draw_status_dot(ctx, alive)
+  r.ImGui_SameLine(ctx)
+  r.ImGui_Text(ctx, alive and "Harmony Map ONLINE" or "Harmony Map OFFLINE")
+
+  if hm_inst == nil then
+    r.ImGui_Separator(ctx)
+    r.ImGui_TextWrapped(ctx, "No Harmony Map instance found.")
+    r.ImGui_Spacing(ctx)
+    if r.ImGui_Button(ctx, "Create HARMONY MAP Track") then
+      local idx = r.CountTracks(0)
+      r.InsertTrackAtIndex(idx, true)
+      local track = r.GetTrack(0, idx)
+      r.GetSetMediaTrackInfo_String(track, "P_NAME", "HARMONY MAP", true)
+      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(100, 180, 230) | 0x1000000)
+      r.TrackFX_AddByName(track, "LMS Plugins/LMS/lms_harmony_map.jsfx", false, -1)
+      scan_tracks()
+    end
     return
   end
 
-  local root = root_name(math.floor(hm_state.root))
-  local qual = quality_name(math.floor(hm_state.quality))
-  local key = root_name(math.floor(hm_state.key))
-  local step_val = math.floor(hm_state.step) + 1
-
-  r.ImGui_Text(ctx, string.format("Key: %s   Step: %d   Current Chord: %s%s",
-    key, step_val, root, qual))
-
-  if hm_state.song_mode ~= 0 then
-    r.ImGui_Text(ctx, string.format("Song Mode: ON   Part: %d   Drum Pattern: %d",
-      math.floor(hm_state.part_index) + 1,
-      math.floor(hm_state.drum_pat) + 1))
-  else
-    r.ImGui_Text(ctx, "Song Mode: OFF")
+  if not alive then
+    r.ImGui_Separator(ctx)
+    r.ImGui_TextWrapped(ctx, "Waiting for Harmony Map heartbeat...")
+    return
   end
 
+  r.ImGui_Separator(ctx)
+
+  -- === KEY / MODE / TRANSPORT ===
+  local key_root = math.floor(hm_state.key_root or 0)
+  local key_mode = math.floor(hm_state.key_mode or 0)
+  local cur_step = math.floor(hm_state.step or 0)
+  local num_steps = math.floor(hm_state.pattern_steps or 4)
+  if num_steps < 1 then num_steps = 4 end
+  local transport = math.floor(hm_state.transport or 0)
+  local current_pat = math.floor(hm_state.current_pat or 0)
+  local song_mode = math.floor(hm_state.song_mode or 0)
+
+  -- Transport
+  if transport == 1 then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF)
+  end
+  if r.ImGui_Button(ctx, transport == 1 and "STOP##hm" or "PLAY##hm") then
+    r.gmem_write(960098, 1)
+  end
+  if transport == 1 then r.ImGui_PopStyleColor(ctx) end
+  r.ImGui_SameLine(ctx)
+
+  -- Song mode toggle
+  if song_mode ~= 0 then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x8866CCFF)
+  end
+  if r.ImGui_Button(ctx, "Song##hm_song") then
+    r.gmem_write(960096, 1)
+  end
+  if song_mode ~= 0 then r.ImGui_PopStyleColor(ctx) end
+  r.ImGui_SameLine(ctx)
+
+  -- Key selector
+  r.ImGui_SetNextItemWidth(ctx, 50)
+  local k_chg, k_new = r.ImGui_Combo(ctx, "Key##hm",
+    key_root, "C\0C#\0D\0D#\0E\0F\0F#\0G\0G#\0A\0A#\0B\0")
+  if k_chg then r.gmem_write(960094, k_new + 1) end
+  r.ImGui_SameLine(ctx)
+
+  -- Mode selector
+  r.ImGui_SetNextItemWidth(ctx, 70)
+  local m_chg, m_new = r.ImGui_Combo(ctx, "Mode##hm", key_mode, "Major\0Minor\0")
+  if m_chg then r.gmem_write(960099, m_new + 1) end
+  r.ImGui_SameLine(ctx)
+
+  -- Steps
+  r.ImGui_SetNextItemWidth(ctx, 60)
+  local ns_chg, ns_new = r.ImGui_SliderInt(ctx, "Steps##hm", num_steps, 1, 32)
+  if ns_chg then r.gmem_write(960093, math.floor(ns_new)) end
+
+  -- === PATTERN SELECT ===
   r.ImGui_Spacing(ctx)
-  r.ImGui_Text(ctx, "Current pattern chords:")
-  local divs = math.floor(hm_state.divisions)
-  if divs <= 0 then divs = 8 end
-  local chord_line = {}
-  for i = 0, divs - 1 do
-    local cr = math.floor(r.gmem_read(960010 + i * 2))
-    local cq = math.floor(r.gmem_read(960010 + i * 2 + 1))
-    local highlight = (i == math.floor(hm_state.step))
-    local chord_str = root_name(cr) .. quality_name(cq)
-    if highlight then chord_str = "[" .. chord_str .. "]" end
-    chord_line[#chord_line + 1] = string.format("%-8s", chord_str)
+  r.ImGui_Text(ctx, "Pattern:")
+  r.ImGui_SameLine(ctx)
+  for pat = 0, 15 do
+    if pat > 0 then r.ImGui_SameLine(ctx) end
+    local is_cur = (pat == current_pat)
+    if is_cur then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
+    if r.ImGui_SmallButton(ctx, tostring(pat + 1) .. "##hmpat") then
+      r.gmem_write(960095, pat + 1)
+    end
+    if is_cur then r.ImGui_PopStyleColor(ctx) end
   end
-  r.ImGui_TextWrapped(ctx, table.concat(chord_line, " "))
+
+  -- === CHORD GRID ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, string.format("Chords — Pattern %d  (%d steps):", current_pat + 1, num_steps))
+
+  local cell_w = 52
+  local cell_h = 32
+  local gap = 2
+  local cols = math.min(num_steps, 8)
+
+  local gx, gy = r.ImGui_GetCursorScreenPos(ctx)
+  local draw_list = r.ImGui_GetWindowDrawList(ctx)
+
+  for i = 0, num_steps - 1 do
+    local col = i % cols
+    local row = math.floor(i / cols)
+    local x = gx + col * (cell_w + gap)
+    local y = gy + row * (cell_h + gap)
+
+    local chord = hm_state.chords[i]
+    local is_playing = (i == cur_step and transport == 1)
+    local is_filled = chord and chord.root >= 0 and chord.root < 12
+    local is_selected = (i == hm_edit_step)
+
+    -- Cell background
+    local bg
+    if is_playing then
+      bg = 0x44AA44CC
+    elseif is_selected then
+      bg = 0x6666AACC
+    elseif is_filled then
+      bg = 0x444466CC
+    else
+      bg = 0x333333CC
+    end
+    r.ImGui_DrawList_AddRectFilled(draw_list, x, y, x + cell_w, y + cell_h, bg, 3)
+    r.ImGui_DrawList_AddRect(draw_list, x, y, x + cell_w, y + cell_h,
+      is_selected and 0xFFFF44FF or 0x666666FF, 3)
+
+    -- Chord label
+    local label
+    if is_filled then
+      label = root_name(chord.root) .. quality_name(chord.qual)
+    else
+      label = "---"
+    end
+    r.ImGui_DrawList_AddText(draw_list, x + 4, y + 4, 0xFFFFFFFF, label)
+
+    -- Step number
+    r.ImGui_DrawList_AddText(draw_list, x + 4, y + cell_h - 13, 0x888888FF, tostring(i + 1))
+
+    -- Click detection
+    r.ImGui_SetCursorScreenPos(ctx, x, y)
+    if r.ImGui_InvisibleButton(ctx, "##hmcell_" .. i, cell_w, cell_h) then
+      hm_edit_step = i
+    end
+    if r.ImGui_IsItemClicked(ctx, 1) and is_filled then
+      r.gmem_write(960097, i + 1)
+    end
+  end
+
+  -- Reserve space
+  local total_rows = math.ceil(num_steps / cols)
+  r.ImGui_SetCursorScreenPos(ctx, gx, gy + total_rows * (cell_h + gap) + 4)
+
+  -- === CHORD EDITOR (for selected step) ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Text(ctx, string.format("Step %d:", hm_edit_step + 1))
+  r.ImGui_SameLine(ctx)
+
+  -- Root buttons
+  for n = 0, 11 do
+    if n > 0 then r.ImGui_SameLine(ctx) end
+    local cur_chord = hm_state.chords[hm_edit_step]
+    local is_active = cur_chord and cur_chord.root == n
+    if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
+    if r.ImGui_SmallButton(ctx, NOTE_NAMES[n + 1] .. "##hmroot") then
+      r.gmem_write(960091, hm_edit_step)
+      r.gmem_write(960090, n + 1)
+    end
+    if is_active then r.ImGui_PopStyleColor(ctx) end
+  end
+
+  -- Quality buttons
+  local qual_labels = {"maj", "min", "7", "maj7", "min7", "dim", "aug", "sus4", "sus2"}
+  r.ImGui_Text(ctx, "Quality:")
+  r.ImGui_SameLine(ctx)
+  for q = 0, #qual_labels - 1 do
+    if q > 0 then r.ImGui_SameLine(ctx) end
+    local cur_chord = hm_state.chords[hm_edit_step]
+    local is_active = cur_chord and cur_chord.qual == q
+    if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
+    if r.ImGui_SmallButton(ctx, qual_labels[q + 1] .. "##hmqual") then
+      r.gmem_write(960091, hm_edit_step)
+      r.gmem_write(960092, q + 1)
+    end
+    if is_active then r.ImGui_PopStyleColor(ctx) end
+  end
+
+  -- Clear step button
+  local cur_chord = hm_state.chords[hm_edit_step]
+  if cur_chord and cur_chord.root >= 0 and cur_chord.root < 12 then
+    if r.ImGui_SmallButton(ctx, "Clear Step##hmclr") then
+      r.gmem_write(960097, hm_edit_step + 1)
+    end
+  end
+
+  -- === CONSUMERS ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, "Listeners:")
+  r.ImGui_SameLine(ctx)
+
+  local has_listener = false
+  for _, inst in ipairs(instances) do
+    if inst.lms_name == "lms_faker" then
+      local follow = r.TrackFX_GetParam(inst.track, inst.fx_idx, 9)
+      local is_following = follow > 0.5
+      has_listener = has_listener or is_following
+      local label = string.format("%s [%s]##hml_%d_%d",
+        inst.track_name, is_following and "ON" or "off",
+        inst.track_idx, inst.fx_idx)
+      if is_following then
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0x44DD44FF)
+      end
+      if r.ImGui_SmallButton(ctx, label) then
+        r.TrackFX_SetParam(inst.track, inst.fx_idx, 9, is_following and 0 or 1)
+      end
+      if is_following then r.ImGui_PopStyleColor(ctx) end
+      r.ImGui_SameLine(ctx)
+    end
+  end
+  if not has_listener then
+    r.ImGui_TextDisabled(ctx, "No plugins following Harmony Map")
+  else
+    r.ImGui_NewLine(ctx)
+  end
+
+  -- Current chord display
+  r.ImGui_Spacing(ctx)
+  if transport == 1 then
+    local cr = math.floor(hm_state.chord_root or 0)
+    local cq = math.floor(hm_state.chord_qual or 0)
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0x44FF44FF)
+    r.ImGui_Text(ctx, string.format("NOW PLAYING: %s%s  (step %d)",
+      root_name(cr), quality_name(cq), cur_step + 1))
+    r.ImGui_PopStyleColor(ctx)
+  end
+
+  -- === SPAWN SYNTH TRACKS ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, "Spawn MIDI Synth:")
+
+  local synth_options = {
+    {name = "Lil Stinker", jsfx = "lms_lil_stinker.jsfx", color = {180, 100, 220}},
+    {name = "Nuug420",     jsfx = "lms_nuug420.jsfx",     color = {100, 200, 130}},
+  }
+
+  local midi_sources = {}
+  if hm_inst then
+    midi_sources[#midi_sources + 1] = {name = "HM", track = hm_inst.track}
+  end
+  local db_inst = find_db_instance()
+  if db_inst then
+    midi_sources[#midi_sources + 1] = {name = "DB", track = db_inst.track}
+  end
+
+  for _, synth in ipairs(synth_options) do
+    for _, src in ipairs(midi_sources) do
+      local btn_label = string.format("%s < %s", synth.name, src.name)
+      if r.ImGui_Button(ctx, btn_label .. "##spawn") then
+        r.Undo_BeginBlock()
+        local src_idx = r.CSurf_TrackToID(src.track, false) - 1
+        local insert_at = src_idx + 1
+        r.InsertTrackAtIndex(insert_at, false)
+        local new_track = r.GetTrack(0, insert_at)
+        r.GetSetMediaTrackInfo_String(new_track, "P_NAME",
+          synth.name .. " (" .. src.name .. ")", true)
+        r.SetMediaTrackInfo_Value(new_track, "I_CUSTOMCOLOR",
+          r.ColorToNative(synth.color[1], synth.color[2], synth.color[3]) | 0x1000000)
+
+        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. synth.jsfx, false, -1)
+        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. "lms_rtw.jsfx", false, -1)
+
+        local send_idx = r.CreateTrackSend(src.track, new_track)
+        r.SetTrackSendInfo_Value(src.track, 0, send_idx, "I_SRCCHAN", -1)
+        r.SetTrackSendInfo_Value(src.track, 0, send_idx, "I_MIDIFLAGS", 0)
+
+        r.Undo_EndBlock("Spawn " .. synth.name .. " from " .. src.name, -1)
+        r.TrackList_AdjustWindows(false)
+        r.UpdateArrange()
+        scan_tracks()
+      end
+      r.ImGui_SameLine(ctx)
+    end
+    r.ImGui_NewLine(ctx)
+  end
 end
 
 -- ---- Metering Tab ----
@@ -1459,7 +1745,6 @@ end
 
 -- ---- Track Setup Tab ----
 
-local JSFX_PREFIX = "LMS Plugins/LMS/"
 local setup_selected = {}
 local setup_track_name = ""
 local setup_track_count = 1

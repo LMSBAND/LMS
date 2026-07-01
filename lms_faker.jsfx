@@ -17,6 +17,7 @@ slider6:0.15<0.05,0.50,0.01>-Sensitivity
 slider7:0<0,11,1{C,C#,D,D#,E,F,F#,G,G#,A,A#,B}>-Key
 slider8:0<0,2,1{Chromatic,Major,Minor}>-Scale
 slider9:100<20,500,1>-Min Note (ms)
+slider10:0<0,1,1{Off,On}>-Follow Harmony Map
 
 @init
   // ============================================================
@@ -219,6 +220,16 @@ scale_root = slider7;
 slider8 == 0 ? scale_mask = LMS_SCALE_CHROMATIC;
 slider8 == 1 ? scale_mask = LMS_SCALE_MAJOR;
 slider8 == 2 ? scale_mask = LMS_SCALE_MINOR;
+
+slider10 ? (
+  _hm_hb = gmem[960000];
+  _hm_hb > 0 ? (
+    scale_root = gmem[960005] | 0;
+    _hm_mode = gmem[960006] | 0;
+    _hm_mode == 0 ? scale_mask = LMS_SCALE_MAJOR : scale_mask = LMS_SCALE_MINOR;
+  );
+);
+
 min_note_sec = slider9 / 1000;
 
 // ---- Auto-Ranging: Apply narrowed range BEFORE YIN runs ----

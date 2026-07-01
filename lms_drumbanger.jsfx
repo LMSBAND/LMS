@@ -253,6 +253,9 @@ PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
 // When routed, pad audio skips main stereo (out_l/out_r) but still writes to spl(2+p*2)
 PAD_ROUTED = 83180;  // 83180-83195: 0=main stereo, 1=routed to separate track
 
+// Per-pad MIDI note-on tracking (for generating note-off when pad stops)
+PAD_MIDI_ON = 83196;  // 83196-83211: 0=no active note, 1=note currently on
+
 // Per-pattern bar count and display bar
 PAT_BAR_COUNT  = 910;   // 910-917: bars per pattern (1-4), default 1
 PAT_DISPLAY_BAR = 920;  // 920-927: currently displayed bar (0-3), runtime only
@@ -1744,12 +1747,25 @@ gmem[15] = transport_playing;
 gmem[16] = seq_mode;
 gmem[17] = measure_num;
 
-// Per-pad trigger + playing state for Drones
+// Per-pad trigger + playing state for Drones + MIDI output
 drone_p = 0;
 loop(NUM_PADS,
   // Fresh trigger: pad just started playing this block (pos near 0)
   PAD_PLAYING[drone_p] && PAD_POS[drone_p] < samplesblock ? (
     gmem[100 + drone_p] = (PAD_VELOCITY[drone_p] * 127) | 0;
+    // Send note-off for previous note if still on, then note-on
+    PAD_MIDI_ON[drone_p] ? (
+      midisend(0, 0x80, slider8 + drone_p, 0);
+    );
+    _midi_vel = (PAD_VELOCITY[drone_p] * 127) | 0;
+    _midi_vel = max(1, min(127, _midi_vel));
+    midisend(0, 0x90, slider8 + drone_p, _midi_vel);
+    PAD_MIDI_ON[drone_p] = 1;
+  );
+  // Note-off when pad stops playing
+  !PAD_PLAYING[drone_p] && PAD_MIDI_ON[drone_p] ? (
+    midisend(0, 0x80, slider8 + drone_p, 0);
+    PAD_MIDI_ON[drone_p] = 0;
   );
   gmem[120 + drone_p] = PAD_PLAYING[drone_p];
   drone_p += 1;

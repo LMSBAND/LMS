@@ -1106,6 +1106,108 @@ conn_dirty ? (
   conn_dirty = 0;
 );
 
+// ---- Manager command bus (gmem[960090-960099], consumed-by-zeroing) ----
+// 960090: set chord root (0-11) at step in 960091
+// 960091: target step (0-31, set BEFORE 960090)
+// 960092: set chord quality (0-15) at step in 960091
+// 960093: set num steps (1-32)
+// 960094: set key root (0-11)
+// 960095: pattern select (0-15)
+// 960096: song mode toggle (1=toggle)
+// 960097: clear chord at step (0-31)
+// 960098: transport toggle (1=start/stop)
+// 960099: set key mode (0=major, 1=minor)
+
+gmem[960090] > 0 || gmem[960090] == 0 && gmem[960092] > 0 ? (
+  // Check for root set (960090 written last as trigger, but 0=C is valid)
+  // Use 960090 = root+1 (1-12) so 0 = "no command"
+  gmem[960090] > 0 ? (
+    _hm_step = gmem[960091] | 0;
+    _hm_root = (gmem[960090] | 0) - 1;
+    _hm_step >= 0 && _hm_step < 32 && _hm_root >= 0 && _hm_root < 12 ? (
+      CHORD_SLOTS[_hm_step * 2] = _hm_root;
+      CHORD_FILLED[_hm_step] = 1;
+      conn_dirty = 1;
+      pat_save(current_pat);
+    );
+    gmem[960090] = 0;
+    gmem[960091] = 0;
+  );
+  // Quality set (960092 = quality+1, 1-indexed)
+  gmem[960092] > 0 ? (
+    _hm_step = gmem[960091] | 0;
+    _hm_qual = (gmem[960092] | 0) - 1;
+    _hm_step >= 0 && _hm_step < 32 ? (
+      CHORD_SLOTS[_hm_step * 2 + 1] = _hm_qual;
+      CHORD_FILLED[_hm_step] = 1;
+      conn_dirty = 1;
+      pat_save(current_pat);
+    );
+    gmem[960092] = 0;
+  );
+);
+gmem[960093] > 0 ? (
+  _hm_ns = gmem[960093] | 0;
+  _hm_ns >= 1 && _hm_ns <= 32 ? (
+    slider3 = _hm_ns;
+    sliderchange(slider3);
+    pat_save(current_pat);
+  );
+  gmem[960093] = 0;
+);
+gmem[960094] > 0 ? (
+  _hm_kr = (gmem[960094] | 0) - 1;
+  _hm_kr >= 0 && _hm_kr < 12 ? (
+    slider1 = _hm_kr;
+    sliderchange(slider1);
+    conn_dirty = 1;
+  );
+  gmem[960094] = 0;
+);
+gmem[960095] > 0 ? (
+  _hm_pat = (gmem[960095] | 0) - 1;
+  _hm_pat >= 0 && _hm_pat < 16 ? (
+    pat_save(current_pat);
+    current_pat = _hm_pat;
+    pat_load(current_pat);
+    conn_dirty = 1;
+  );
+  gmem[960095] = 0;
+);
+gmem[960096] > 0 ? (
+  song_mode = !song_mode;
+  gmem[960096] = 0;
+);
+gmem[960097] > 0 ? (
+  _hm_clr = (gmem[960097] | 0) - 1;
+  _hm_clr >= 0 && _hm_clr < 32 ? (
+    CHORD_SLOTS[_hm_clr * 2] = 255;
+    CHORD_SLOTS[_hm_clr * 2 + 1] = 255;
+    CHORD_FILLED[_hm_clr] = 0;
+    conn_dirty = 1;
+    pat_save(current_pat);
+  );
+  gmem[960097] = 0;
+);
+gmem[960098] > 0 ? (
+  transport_playing = !transport_playing;
+  !transport_playing ? all_notes_off();
+  gmem[960098] = 0;
+);
+gmem[960099] > 0 ? (
+  _hm_mode = (gmem[960099] | 0) - 1;
+  _hm_mode >= 0 && _hm_mode <= 1 ? (
+    slider2 = _hm_mode;
+    sliderchange(slider2);
+    conn_dirty = 1;
+  );
+  gmem[960099] = 0;
+);
+
+// Broadcast additional state for manager
+gmem[HARMONY_BUS + 85] = current_pat;
+gmem[HARMONY_BUS + 86] = num_pats;
+
 // Harmony bus — single chord + full progression broadcast
 gmem[HARMONY_BUS] += 1;
 _eb = max(0, slider7 - 1);
