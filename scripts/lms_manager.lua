@@ -396,6 +396,29 @@ local function read_mega_state()
   }
 end
 
+local function sync_drumbanger_routing()
+  local db_inst = find_db_instance()
+  if not db_inst or db_inst.track_idx < 0 then
+    for p = 0, 15 do r.gmem_write(413 + p, 0) end
+    return
+  end
+  local db_track = db_inst.track
+  local routed = {}
+  local num_sends = r.GetTrackNumSends(db_track, 0)
+  for si = 0, num_sends - 1 do
+    local src_ch = r.GetTrackSendInfo_Value(db_track, 0, si, "I_SRCCHAN")
+    src_ch = math.floor(src_ch)
+    if src_ch >= 2 and src_ch <= 32 and (src_ch - 2) % 2 == 0 then
+      local pad_idx = (src_ch - 2) / 2
+      local dest_track = r.GetTrackSendInfo_Value(db_track, 0, si, "P_DESTTRACK")
+      if dest_track then routed[pad_idx] = true end
+    end
+  end
+  for p = 0, 15 do
+    r.gmem_write(413 + p, routed[p] and 1 or 0)
+  end
+end
+
 local function note_name(midi)
   if not midi or midi < 0 or midi > 127 then return "---" end
   local n = math.floor(midi) % 12
@@ -1293,25 +1316,13 @@ local function draw_drumbanger(ctx)
       end
     end
 
-    -- Find existing pad tracks (by name match, any position)
+    -- Detect existing routed pads via sends (source channel → pad index)
     local existing_pad_tracks = {}
-    local num_tracks = r.CountTracks(0)
-    for ti = 0, num_tracks - 1 do
-      local track = r.GetTrack(0, ti)
-      local _, tname = r.GetTrackName(track)
-      for p = 0, 15 do
-        if tname == pad_names[p + 1] then
-          existing_pad_tracks[p] = true
-        end
-      end
-    end
-
-    -- Sync routed flags to reality — clear flag if track was deleted
-    for p = 0, 15 do
-      if existing_pad_tracks[p] then
-        r.gmem_write(413 + p, 1)
-      else
-        r.gmem_write(413 + p, 0)
+    local num_sends = r.GetTrackNumSends(db_track, 0)
+    for si = 0, num_sends - 1 do
+      local src_ch = math.floor(r.GetTrackSendInfo_Value(db_track, 0, si, "I_SRCCHAN"))
+      if src_ch >= 2 and src_ch <= 32 and (src_ch - 2) % 2 == 0 then
+        existing_pad_tracks[(src_ch - 2) / 2] = true
       end
     end
 
@@ -1335,19 +1346,18 @@ local function draw_drumbanger(ctx)
         r.SetMediaTrackInfo_Value(db_track, "I_NCHAN", 34)
 
         local insert_at = db_idx + 1
-        -- Skip past any existing tracks immediately below
-        for ti = db_idx + 1, num_tracks - 1 do
-          local track = r.GetTrack(0, ti)
-          local _, tname = r.GetTrackName(track)
-          local is_pad = false
-          for p = 0, 15 do
-            if tname == pad_names[p + 1] then is_pad = true; break end
+        -- Skip past existing send destinations below DrumBanger
+        local dest_indices = {}
+        for si = 0, num_sends - 1 do
+          local dt = r.GetTrackSendInfo_Value(db_track, 0, si, "P_DESTTRACK")
+          if dt then
+            local di = r.CSurf_TrackToID(dt, false) - 1
+            dest_indices[di] = true
           end
-          if is_pad then
-            insert_at = ti + 1
-          else
-            break
-          end
+        end
+        local num_tracks_now = r.CountTracks(0)
+        for ti = db_idx + 1, num_tracks_now - 1 do
+          if dest_indices[ti] then insert_at = ti + 1 else break end
         end
 
         for p = 0, 15 do
@@ -1363,7 +1373,6 @@ local function draw_drumbanger(ctx)
             r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_DSTCHAN", 0)
 
             r.TrackFX_AddByName(child, "LMS Plugins/LMS/lms_rtw.jsfx", false, -1)
-            r.gmem_write(413 + p, 1)
             insert_at = insert_at + 1
           end
         end
@@ -1947,6 +1956,9 @@ local function loop()
   read_harmony_state()
   read_pitch_state()
   read_mega_state()
+
+  -- Sync DrumBanger per-pad routing flags every frame
+  sync_drumbanger_routing()
 
   local open = draw_main(ctx)
 
