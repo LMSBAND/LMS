@@ -249,6 +249,10 @@ PAD_CHOKE_GROUP = 983;  // 983-998: choke group 0=none, 1-8 (16 pads)
 // Per-pad chop offset (nudge all slice boundaries left/right)
 PAD_CHOP_OFFSET = 930;  // 930-945: offset in frames per pad (default 0)
 
+// Per-pad routed flag — set by manager via gmem[413+p], read in @sample
+// When routed, pad audio skips main stereo (out_l/out_r) but still writes to spl(2+p*2)
+PAD_ROUTED = 83180;  // 83180-83195: 0=main stereo, 1=routed to separate track
+
 // Per-pattern bar count and display bar
 PAT_BAR_COUNT  = 910;   // 910-917: bars per pattern (1-4), default 1
 PAT_DISPLAY_BAR = 920;  // 920-927: currently displayed bar (0-3), runtime only
@@ -1722,6 +1726,13 @@ gmem[409] > 0 ? (
   gmem[409] = 0;
 );
 
+// ---- Read per-pad routed flags from manager (gmem[413-428]) ----
+_rp = 0;
+loop(NUM_PADS,
+  PAD_ROUTED[_rp] = gmem[413 + _rp];
+  _rp += 1;
+);
+
 // ---- Broadcast state to gmem[] for DrumbangerDrone instances ----
 // gmem[0-9] reserved for sampling service, drone broadcast uses [10+]
 gmem[10] += 1;                                // heartbeat
@@ -1890,8 +1901,10 @@ loop(NUM_PADS,
 
         pad_out_l = sample_l * pad_vol * pan_l;
         pad_out_r = sample_r * pad_vol * pan_r;
-        out_l += pad_out_l;
-        out_r += pad_out_r;
+        !PAD_ROUTED[p] ? (
+          out_l += pad_out_l;
+          out_r += pad_out_r;
+        );
         spl(2 + p * 2) += pad_out_l;
         spl(2 + p * 2 + 1) += pad_out_r;
 
@@ -1905,8 +1918,10 @@ loop(NUM_PADS,
           PAD_DECAY[p] *= 0.9997;
           pad_out_l = pad_out * pad_vol * pan_l;
           pad_out_r = pad_out * pad_vol * pan_r;
-          out_l += pad_out_l;
-          out_r += pad_out_r;
+          !PAD_ROUTED[p] ? (
+            out_l += pad_out_l;
+            out_r += pad_out_r;
+          );
           spl(2 + p * 2) += pad_out_l;
           spl(2 + p * 2 + 1) += pad_out_r;
           PAD_POS[p] += 1;
@@ -1943,8 +1958,10 @@ loop(NUM_PADS,
 
         pad_out_l = kl * pad_vol * pan_l;
         pad_out_r = kr * pad_vol * pan_r;
-        out_l += pad_out_l;
-        out_r += pad_out_r;
+        !PAD_ROUTED[p] ? (
+          out_l += pad_out_l;
+          out_r += pad_out_r;
+        );
         spl(2 + p * 2) += pad_out_l;
         spl(2 + p * 2 + 1) += pad_out_r;
 

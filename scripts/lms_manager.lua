@@ -468,6 +468,12 @@ local function draw_overview(ctx)
   r.ImGui_Text(ctx, string.format("%d tracks  |  %d plugins", #track_order, #instances))
   r.ImGui_Separator(ctx)
 
+  local sel_tracks = {}
+  for si = 0, r.CountSelectedTracks(0) - 1 do
+    local st = r.GetSelectedTrack(0, si)
+    sel_tracks[r.CSurf_TrackToID(st, false) - 1] = true
+  end
+
   for _, tidx in ipairs(track_order) do
     local tinfo = by_track[tidx]
     local track_num = tidx == -1 and "M" or tostring(tidx + 1)
@@ -479,10 +485,12 @@ local function draw_overview(ctx)
     if muted then flags = flags .. " [MUTE]" end
     if soloed then flags = flags .. " [SOLO]" end
 
-    local header_label = string.format("T%s: %s  (%d fx)%s###track_%d",
-      track_num, tinfo.track_name, #tinfo.plugins, flags, tidx)
+    local is_selected = sel_tracks[tidx] or false
+    local header_label = string.format("%sT%s: %s  (%d fx)%s###track_%d",
+      is_selected and "> " or "  ", track_num, tinfo.track_name, #tinfo.plugins, flags, tidx)
 
-    if r.ImGui_CollapsingHeader(ctx, header_label, r.ImGui_TreeNodeFlags_DefaultOpen()) then
+    r.ImGui_SetNextItemOpen(ctx, is_selected)
+    if r.ImGui_CollapsingHeader(ctx, header_label) then
 
       -- Right-click track header → send FX menu
       if r.ImGui_IsItemClicked(ctx, 1) and tidx >= 0 then
@@ -921,17 +929,28 @@ end
 
 -- ---- DrumBanger Tab ----
 
-local function db_set_param(slider_idx, value)
+-- Map JSFX slider number to TrackFX param index (0-based declaration order)
+local function db_slider_to_param(s)
+  if s <= 25 then return s - 1 end       -- sliders 1-25: params 0-24
+  if s <= 45 then return s - 5 end       -- sliders 30-45: params 25-40
+  if s <= 65 then return s - 9 end       -- sliders 50-65: params 41-56
+  if s <= 75 then return s + 19 end      -- sliders 70-75: params 89-94
+  if s <= 95 then return s - 23 end      -- sliders 80-95: params 57-72
+  if s <= 115 then return s - 27 end     -- sliders 100-115: params 73-88
+  return s - 1
+end
+
+local function db_set_param(slider_num, value)
   local inst = find_db_instance()
   if inst then
-    r.TrackFX_SetParam(inst.track, inst.fx_idx, slider_idx, value)
+    r.TrackFX_SetParam(inst.track, inst.fx_idx, db_slider_to_param(slider_num), value)
   end
 end
 
-local function db_get_param(slider_idx)
+local function db_get_param(slider_num)
   local inst = find_db_instance()
   if inst then
-    return r.TrackFX_GetParam(inst.track, inst.fx_idx, slider_idx)
+    return r.TrackFX_GetParam(inst.track, inst.fx_idx, db_slider_to_param(slider_num))
   end
   return 0
 end
@@ -1084,9 +1103,9 @@ local function draw_drumbanger(ctx)
 
   local inst = find_db_instance()
   if inst then
-    local vol = r.TrackFX_GetParam(inst.track, inst.fx_idx, 10 + db_edit_pad)
-    local pan = r.TrackFX_GetParam(inst.track, inst.fx_idx, 30 + db_edit_pad)
-    local pitch = r.TrackFX_GetParam(inst.track, inst.fx_idx, 50 + db_edit_pad)
+    local vol = db_get_param(10 + db_edit_pad)
+    local pan = db_get_param(30 + db_edit_pad)
+    local pitch = db_get_param(50 + db_edit_pad)
 
     r.ImGui_SetNextItemWidth(ctx, 120)
     local v_chg, v_new = r.ImGui_SliderDouble(ctx, "Vol##padctl", vol, 0, 1, "%.2f")
@@ -1269,6 +1288,15 @@ local function draw_drumbanger(ctx)
       end
     end
 
+    -- Sync routed flags to reality — clear flag if track was deleted
+    for p = 0, 15 do
+      if existing_pad_tracks[p] then
+        r.gmem_write(413 + p, 1)
+      else
+        r.gmem_write(413 + p, 0)
+      end
+    end
+
     -- Count how many new tracks would be created
     local new_count = 0
     for p = 0, 15 do
@@ -1287,8 +1315,6 @@ local function draw_drumbanger(ctx)
         r.Undo_BeginBlock()
 
         r.SetMediaTrackInfo_Value(db_track, "I_NCHAN", 34)
-
-        r.SetMediaTrackInfo_Value(db_track, "B_MAINSEND", 0)
 
         local insert_at = db_idx + 1
         -- Skip past any existing tracks immediately below
@@ -1319,6 +1345,7 @@ local function draw_drumbanger(ctx)
             r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_DSTCHAN", 0)
 
             r.TrackFX_AddByName(child, "LMS Plugins/LMS/lms_rtw.jsfx", false, -1)
+            r.gmem_write(413 + p, 1)
             insert_at = insert_at + 1
           end
         end
