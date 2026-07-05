@@ -2645,21 +2645,22 @@ function lms_yin_init(buf_offset, min_freq)
   // Default min_freq if caller passes 0 (or omits the arg, EEL2 fills with 0)
   min_freq <= 0 ? min_freq = 80;
 
-  // Circular audio buffer
-  this.buf = buf_offset;
-  this.buf_len = 2048;
-  this.write_pos = 0;
-
   // Detection range (recompute if srate changes)
   this.tau_min = ceil(srate / 1000);   // ~1000 Hz max
   this.tau_max = ceil(srate / min_freq);
   this.W = 480;                        // integration window
 
+  // Circular audio buffer — must hold W + tau_max samples for linear copy
+  this.buf = buf_offset;
+  this.buf_len = 2048;
+  this.W + this.tau_max > this.buf_len ? this.buf_len = this.W + this.tau_max;
+  this.write_pos = 0;
+
   // YIN workspace — sized exactly to tau_max (one slot per lag)
-  this.yin = buf_offset + 2048;        // tau_max + 1 slots
+  this.yin = buf_offset + this.buf_len;
 
   // Linear workspace packed right after — W + tau_max slots
-  this.lin = buf_offset + 2048 + this.tau_max + 1;
+  this.lin = this.yin + this.tau_max + 1;
 
   // YIN threshold
   this.threshold = 0.15;
@@ -2675,7 +2676,10 @@ function lms_yin_init(buf_offset, min_freq)
   this.prev_freq = 0;
   this.smooth_alpha = 0.7;  // 0-1: higher = more responsive
 
-  // Zero all buffers (sizes derived from tau_max)
+  // Total footprint from buf_offset
+  this.mem_end = this.lin + this.W + this.tau_max;
+
+  // Zero all buffers
   memset(this.buf, 0, this.buf_len);
   memset(this.yin, 0, this.tau_max + 1);
   memset(this.lin, 0, this.W + this.tau_max);

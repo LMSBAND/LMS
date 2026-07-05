@@ -21,7 +21,7 @@ slider8:100<20,500,1>-Min Note (ms)
   // DSP INIT
   // ============================================================
   // YIN pitch detector — buffers start at memory address 5000
-  pd.lms_yin_init(5000);
+  pd.lms_yin_init(5000, 80);
 
   // Pitch bus gmem addresses
   PITCH_BUS_BASE = 950000;
@@ -82,8 +82,8 @@ slider8:100<20,500,1>-Min Note (ms)
   vi_onset_rel = exp(-1 / (srate * 0.020));  // 20ms release
 
   // ---- Vibrato Detection ----
-  // Ring buffer at local memory 9500 (32 slots)
-  VI_VIB_BUF = 9500;
+  // Ring buffer placed after YIN footprint
+  VI_VIB_BUF = pd.mem_end;
   VI_VIB_LEN = 32;
   vi_vib_pos = 0;
   vi_vib_rate = 0;
