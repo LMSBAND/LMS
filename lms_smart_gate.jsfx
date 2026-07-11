@@ -70,8 +70,14 @@ slider15:100<0,100,1>-Mix (%)
   // Monotonic sample counter (synced across all instances in same audio thread)
   sample_clock = 0;
 
-  // Transient edge detection (for timestamp broadcast)
-  was_above = 0;
+  // Transient detection (cooldown-based, same pattern as drum trigger)
+  ts_cooldown = 0;
+  TS_COOLDOWN_MS = 0.040;
+
+  // Spectral baseline for transient classification (slow follower)
+  // Delta = current envelope - baseline isolates transient energy from cymbal wash
+  tc_base_lo = 0; tc_base_mid = 0; tc_base_hi = 0; tc_base_air = 0;
+  tc_base_coeff = exp(-1 / (srate * 0.300));
 
   // Phase calibration state
   cal_state = 0;        // 0=IDLE, 1=ARMED, 2=DONE
@@ -86,6 +92,11 @@ slider15:100<0,100,1>-Mix (%)
   cal_armed_time = 0;
   cal_timeout = srate * 5;  // 5 second timeout
   cal_request_age = 0;
+
+  // Stale peer heartbeat tracking (local heap, not gmem)
+  STALE_BUF = 870000;
+  memset(STALE_BUF, 0, 32);
+  bc_stale_timer = 0;
 
   // Phase correction delay buffer (stereo, max 10ms)
   PC_MAX = ceil(srate * 0.010);
@@ -115,6 +126,14 @@ slider15:100<0,100,1>-Mix (%)
   peer_count = 0;
   peer_max_env = 0;
   peer_owner_type = -1;
+
+  // Mutual exclusion state
+  excl_active = 0;
+  excl_by_type = -1;
+  excl_ratio = 0;
+  gfx_excl_active = 0;
+  gfx_excl_type = -1;
+  gfx_excl_ratio = 0;
   peer_owner_dist = 0;
 
   // GFX display state
@@ -212,9 +231,40 @@ mix = slider15 / 100;
 // Claim a slot for multi-mic coordination
 bc.bc_my_slot < 0 ? (
   bc_scan = 0;
+  bc_claim_hb = 0;
   loop(bc.BC_MAX_INST,
-    bc.bc_my_slot < 0 && gmem[bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE + 1] == 0 ? (
-      bc.bc_my_slot = bc_scan;
+    bc.bc_my_slot < 0 ? (
+      psb = bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
+      bc_claim_hb = gmem[psb + 0];
+      gmem[psb + 1] == 0 || STALE_BUF[bc_scan] == bc_claim_hb ? (
+        bc.bc_my_slot = bc_scan;
+        gmem[psb + 0] = 1;
+        gmem[psb + 1] = bc.bc_my_slot + 1;
+        gmem[psb + 2] = bc.BC_MY_TYPE;
+        bc_ci = 0;
+        loop(256, gmem[psb + 200 + bc_ci] = 0; bc_ci += 1;);
+      );
+      STALE_BUF[bc_scan] = bc_claim_hb;
+    );
+    bc_scan += 1;
+  );
+);
+
+// Stale peer cleanup — if a peer's heartbeat hasn't moved, clear its slot
+bc_stale_timer += samplesblock;
+bc_stale_timer >= srate ? (
+  bc_stale_timer = 0;
+  bc_scan = 0;
+  loop(bc.BC_MAX_INST,
+    bc_scan != bc.bc_my_slot ? (
+      psb = bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
+      gmem[psb + 1] > 0 ? (
+        bc_stale_hb = gmem[psb + 0];
+        STALE_BUF[bc_scan] == bc_stale_hb ? (
+          gmem[psb + 1] = 0;
+        );
+        STALE_BUF[bc_scan] = bc_stale_hb;
+      );
     );
     bc_scan += 1;
   );
@@ -223,6 +273,9 @@ bc.bc_my_slot < 0 ? (
 // Write drum mode state so peers can coordinate
 bc.bc_my_slot >= 0 ? (
   sb = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE;
+  gmem[sb + 0] += 1;
+  gmem[sb + 1] = bc.bc_my_slot + 1;
+  gmem[sb + 2] = bc.BC_MY_TYPE;
   ebase = sb + 200;
   gmem[ebase + 0] = drum_type;
   gmem[ebase + 1] = tom_distance;
@@ -363,6 +416,12 @@ mode == 1 ? (
   sc_mono = sc_hpf.lms_bq_proc(sc_mono);
   hd.lms_opto_hd_proc(sc_mono);
 
+  // Spectral baseline follower — slow-tracks band envelopes so delta isolates transients
+  tc_base_lo = tc_base_coeff * tc_base_lo + (1 - tc_base_coeff) * hd.env_lo;
+  tc_base_mid = tc_base_coeff * tc_base_mid + (1 - tc_base_coeff) * hd.env_mid;
+  tc_base_hi = tc_base_coeff * tc_base_hi + (1 - tc_base_coeff) * hd.env_hi;
+  tc_base_air = tc_base_coeff * tc_base_air + (1 - tc_base_coeff) * hd.env_air;
+
   // Sidechain envelope (instant attack, smooth release)
   sc_abs = abs(sc_mono);
   sc_abs > gate_env ? (
@@ -389,7 +448,8 @@ mode == 1 ? (
 
     has_transient = gate_env > effective_thresh;
 
-    // Cross-mic comparison
+    // Cross-mic comparison + mutual exclusion
+    excl_active = 0;
     peer_count > 0 && has_transient ? (
       my_env = max(0.0001, hd.env_total);
       ratio = my_env / max(0.0001, peer_max_env);
@@ -409,6 +469,9 @@ mode == 1 ? (
         gate_should_open = 1;
       ) : (
         gate_should_open = 0;
+        excl_active = 1;
+        excl_by_type = peer_owner_type;
+        excl_ratio = ratio;
       );
     ) : (
       gate_should_open = has_transient;
@@ -420,56 +483,74 @@ mode == 1 ? (
   gfx_eff_thresh = effective_thresh;
 
   // ---- TRANSIENT TIMESTAMP BROADCAST ----
-  // Detect rising edge: envelope just crossed above threshold
+  // Cooldown-based detection (same proven pattern as lms_drum_trigger)
   mode == 1 && bc.bc_my_slot >= 0 ? (
-    above_now = gate_env > effective_thresh ? 1 : 0;
-    above_now && !was_above ? (
-      // New transient onset — broadcast timestamp
+    ts_cooldown > 0 ? ts_cooldown -= 1;
+    gate_env > effective_thresh && ts_cooldown <= 0 ? (
       ts_sb = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
-      gmem[ts_sb + 8] = sample_clock;   // transient timestamp
-      gmem[ts_sb + 9] += 1;             // increment sequence counter
+      gmem[ts_sb + 8] = sample_clock;
+      gmem[ts_sb + 9] += 1;
+      gmem[ts_sb + 13] = hd.density;
+      gmem[ts_sb + 14] = hd.mid_density;
+      gmem[ts_sb + 15] = hd.hi_density;
+      gmem[ts_sb + 16] = hd.air_density;
+      ts_cooldown = floor(srate * TS_COOLDOWN_MS);
     );
-    was_above = above_now;
 
-    // ---- PHASE CALIBRATION MEASUREMENT ----
+    // ---- PHASE CALIBRATION MEASUREMENT (spectral-aware) ----
     cal_state == 1 && cal_oh_slot >= 0 ? (
-      // Check for timeout
       (sample_clock - cal_armed_time) > cal_timeout ? (
-        cal_state = 0;  // timed out
+        cal_state = 0;
       ) : (
-        // Check if OH1 fired a new transient
         oh_ebase = bc.BC_MY_REGION + cal_oh_slot * bc.BC_SLOT_SIZE + 200;
         oh_seq_now = gmem[oh_ebase + 9];
         oh_seq_now > cal_oh_seq ? (
-          // OH1 fired! Did we also fire?
-          my_ebase = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
-          my_seq_now = gmem[my_ebase + 9];
-          my_seq_now > cal_my_seq ? (
-            // Both fired — compute offset from OH1
-            cal_oh_timestamp = gmem[oh_ebase + 8];
-            cal_my_timestamp = gmem[my_ebase + 8];
-            cal_off1 = cal_oh_timestamp - cal_my_timestamp;
+          // OH fired — check spectral match before accepting
+          // density = env_total/env_lo (low = lo-dominant), mid/hi/air = band/total ratios
+          oh_dens = gmem[oh_ebase + 13];
+          oh_mid_r = gmem[oh_ebase + 14];
+          oh_hi_r = gmem[oh_ebase + 15];
 
-            // Check OH2 if we have a stereo pair
-            cal_oh_count == 2 && cal_oh_slot2 >= 0 ? (
-              oh_ebase2 = bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200;
-              oh_seq_now2 = gmem[oh_ebase2 + 9];
-              oh_seq_now2 > cal_oh_seq2 ? (
-                // OH2 also fired — average both offsets
-                cal_off2 = gmem[oh_ebase2 + 8] - cal_my_timestamp;
-                cal_offset = ((cal_off1 + cal_off2) / 2 + 0.5) | 0;
+          spec_match = 1;
+
+          spec_match ? (
+            my_ebase = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
+            my_seq_now = gmem[my_ebase + 9];
+            my_seq_now > cal_my_seq ? (
+              cal_oh_timestamp = gmem[oh_ebase + 8];
+              cal_my_timestamp = gmem[my_ebase + 8];
+              cal_off1 = cal_oh_timestamp - cal_my_timestamp;
+
+              cal_oh_count == 2 && cal_oh_slot2 >= 0 ? (
+                oh_ebase2 = bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200;
+                oh_seq_now2 = gmem[oh_ebase2 + 9];
+                oh_seq_now2 > cal_oh_seq2 ? (
+                  cal_off2 = gmem[oh_ebase2 + 8] - cal_my_timestamp;
+                  cal_offset = ((cal_off1 + cal_off2) / 2 + 0.5) | 0;
+                ) : (
+                  cal_offset = cal_off1;
+                );
               ) : (
-                // OH2 hasn't fired yet — just use OH1
                 cal_offset = cal_off1;
               );
-            ) : (
-              // Only one OH — use it directly
-              cal_offset = cal_off1;
-            );
 
-            cal_offset = max(0, min(PC_MAX - 1, cal_offset));
-            pc_samples = drum_type < 3 ? cal_offset : 0;
-            cal_state = 2;  // DONE
+              cal_offset = max(0, min(PC_MAX - 1, cal_offset));
+              pc_samples = drum_type < 3 ? cal_offset : 0;
+              cal_state = 2;
+            ) : (
+              // Close mic didn't fire on this hit — skip, advance baselines
+              cal_oh_seq = oh_seq_now;
+              cal_oh_slot2 >= 0 ? (
+                cal_oh_seq2 = gmem[bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
+              );
+            );
+          ) : (
+            // Spectral mismatch — not our drum, skip and advance all baselines
+            cal_oh_seq = oh_seq_now;
+            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : cal_my_seq;
+            cal_oh_slot2 >= 0 ? (
+              cal_oh_seq2 = gmem[bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
+            );
           );
         );
       );
@@ -529,6 +610,16 @@ mode == 1 ? (
   gfx_gate_gain = gfx_gate_gain * gfx_smooth + gate_gain * (1 - gfx_smooth);
   gfx_density = gfx_density * gfx_smooth + hd.density * (1 - gfx_smooth);
   gfx_env = gfx_env * gfx_smooth + gate_env * (1 - gfx_smooth);
+
+  // Mutual exclusion display — fast attack, slow release so you can see the flash
+  excl_active ? (
+    gfx_excl_active = 1;
+    gfx_excl_type = excl_by_type;
+    gfx_excl_ratio = excl_ratio;
+  ) : (
+    gfx_excl_active = gfx_excl_active * 0.9992;
+    gfx_excl_active < 0.01 ? gfx_excl_active = 0;
+  );
 
 // ============================================================
 // @GFX
@@ -907,7 +998,7 @@ mode == 1 ? (
     ) : cal_state == 1 ? (
       gfx_r = 1; gfx_g = 0.9; gfx_b = 0.3;
       gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
-      gfx_drawstr("HIT A DRUM...");
+      gfx_drawstr("SCANNING...");
     ) : (
       gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
       gfx_x = c1x + pad + floor(5 * S); gfx_y = cy + floor((ph_btn_h - F_TINY) / 2);
@@ -952,6 +1043,7 @@ mode == 1 ? (
       pc_samples = 0;
       cal_state = 0;
     );
+
 
   ) : drum_type == 3 ? (
     // OH instances: CAL ALL button
@@ -1047,15 +1139,26 @@ bar_w_gate > 0 ? (
 gfx_a = 1;
 
 // Gate state text
-gfx_r = 1; gfx_g = 1; gfx_b = 1;
 gfx_setfont(1, "Arial", F_LABEL);
 gfx_x = meter_x + floor(5 * S);
 gfx_y = meter_y + floor(8 * S);
-gate_state == 0 ? gfx_drawstr("CLOSED");
-gate_state == 1 ? gfx_drawstr("OPENING");
-gate_state == 2 ? gfx_drawstr("OPEN");
-gate_state == 3 ? gfx_drawstr("HOLD");
-gate_state == 4 ? gfx_drawstr("RELEASE");
+gate_state == 0 && gfx_excl_active > 0.5 && mode == 1 ? (
+  gfx_r = 1; gfx_g = 0.5; gfx_b = 0.1;
+  gfx_drawstr("MUTED");
+  gfx_setfont(1, "Arial", F_TINY);
+  gfx_drawstr("  by ");
+  gfx_excl_type == 0 ? gfx_drawstr("KICK");
+  gfx_excl_type == 1 ? gfx_drawstr("SNARE");
+  gfx_excl_type == 2 ? gfx_drawstr("TOM");
+  gfx_excl_type == 3 ? gfx_drawstr("OH");
+) : (
+  gfx_r = 1; gfx_g = 1; gfx_b = 1;
+  gate_state == 0 ? gfx_drawstr("CLOSED");
+  gate_state == 1 ? gfx_drawstr("OPENING");
+  gate_state == 2 ? gfx_drawstr("OPEN");
+  gate_state == 3 ? gfx_drawstr("HOLD");
+  gate_state == 4 ? gfx_drawstr("RELEASE");
+);
 
 // GR readout
 gfx_setfont(1, "Arial", F_SMALL);
