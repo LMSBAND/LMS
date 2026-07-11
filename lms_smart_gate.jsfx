@@ -28,7 +28,7 @@ slider9:50<0,100,1>-Hysteresis (%)
 slider10:80<20,500,1>-Sidechain HPF (Hz)
 
 // Drum mode
-slider11:0<0,3,1{Kick,Snare,Tom,OH}>-Drum Type
+slider11:0<0,4,1{Kick,Snare,Tom,OH,Room}>-Drum Type
 slider12:1<1,8,1>-Tom Distance (1=near snare)
 slider13:60<0,100,1>-Bleed Reject (%)
 
@@ -187,7 +187,7 @@ slider15:100<0,100,1>-Mix (%)
   // Pre-open: how far ahead the gate opens (in samples, clamped to buffer size)
   la_samples = min(LA_MAX - 1, floor(srate * slider4 / 1000));
   // Tell REAPER about total latency (look-ahead + phase correction)
-  pc_samples = mode == 1 && drum_type < 3 ? cal_offset : 0;
+  pc_samples = mode == 1 && drum_type != 3 ? cal_offset : 0;
   pdc_delay = la_samples + pc_samples;
   pdc_top_ch = 2;
   // Fade-in: how fast the gate transitions from closed to open
@@ -212,7 +212,7 @@ in_gain = lms_db2lin(slider1);
 mode = slider2;
 gate_thresh = (slider3 / 100) * (slider3 / 100);
 la_samples = min(LA_MAX - 1, floor(srate * slider4 / 1000));
-pc_samples = mode == 1 && drum_type < 3 ? cal_offset : 0;
+pc_samples = mode == 1 && drum_type != 3 ? cal_offset : 0;
 pdc_delay = la_samples + pc_samples;
 pdc_top_ch = 2;
 fadein_coeff = exp(-1 / (srate * max(0.1, slider16) / 1000));
@@ -335,7 +335,7 @@ mode == 1 ? (
 
         // OH auto-arm: if an OH sent a calibration request, arm ourselves
         p_type == 3 && gmem[pbase + 10] > 0 ? (
-          drum_type < 3 && cal_state == 0 ? (
+          drum_type != 3 && cal_state == 0 ? (
             cal_state = 1;
             cal_oh_slot = bc_scan;
             cal_oh_seq = gmem[pbase + 9];
@@ -432,7 +432,7 @@ mode == 1 ? (
 
   // ---- GATE DECISION ----
   // OH (drum_type==3) stays in drum mode for broadcasting but gates independently
-  mode == 0 || (mode == 1 && drum_type == 3) ? (
+  mode == 0 || (mode == 1 && drum_type >= 3) ? (
     // SINGLE MODE or OH: density-weighted threshold, no peer cross-mic comparison
     density_factor = (hd.density - 1.0) / 1.5;
     density_factor = max(0, min(1, density_factor));
@@ -535,7 +535,7 @@ mode == 1 ? (
               );
 
               cal_offset = max(0, min(PC_MAX - 1, cal_offset));
-              pc_samples = drum_type < 3 ? cal_offset : 0;
+              pc_samples = drum_type != 3 ? cal_offset : 0;
               cal_state = 2;
             ) : (
               // Close mic didn't fire on this hit — skip, advance baselines
@@ -898,6 +898,7 @@ mode == 1 ? (
   slider11 == 1 ? gfx_drawstr("SNARE");
   slider11 == 2 ? gfx_drawstr("TOM");
   slider11 == 3 ? gfx_drawstr("OH");
+  slider11 == 4 ? gfx_drawstr("ROOM");
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= c1x + pad && mouse_x <= c1x + pad + dt_sel_w &&
     mouse_y >= cy && mouse_y <= cy + dt_sel_h ? (
@@ -928,7 +929,7 @@ mode == 1 ? (
 
   // ---- PHASE CORRECTION SECTION ----
   // Phase offset readout (close mics only: Kick/Snare/Tom)
-  drum_type < 3 ? (
+  drum_type != 3 ? (
     // Phase status bar background
     ph_bar_w = col_w - pad2;
     ph_bar_h = bar_h;
@@ -1151,6 +1152,7 @@ gate_state == 0 && gfx_excl_active > 0.5 && mode == 1 ? (
   gfx_excl_type == 1 ? gfx_drawstr("SNARE");
   gfx_excl_type == 2 ? gfx_drawstr("TOM");
   gfx_excl_type == 3 ? gfx_drawstr("OH");
+  gfx_excl_type == 4 ? gfx_drawstr("ROOM");
 ) : (
   gfx_r = 1; gfx_g = 1; gfx_b = 1;
   gate_state == 0 ? gfx_drawstr("CLOSED");
@@ -1312,6 +1314,7 @@ mode == 1 ? (
       gfx_drawnumber(pd, 0);
     );
     pt == 3 ? gfx_drawstr("OH");
+    pt == 4 ? gfx_drawstr("ROOM");
 
     // Threshold readout
     gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
@@ -1389,6 +1392,7 @@ tp_open ? (
   tp_pt == 1 ? gfx_drawstr("SNR");
   tp_pt == 2 ? gfx_drawstr("TOM");
   tp_pt == 3 ? gfx_drawstr("OH");
+  tp_pt == 4 ? gfx_drawstr("ROOM");
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
   gfx_x = tp_x + floor(4 * S); gfx_y = tp_y + floor(14 * S);
   gfx_drawstr("T:");
@@ -1649,6 +1653,10 @@ pv_open && mode == 1 && drum_type == 3 ? (
       pv_pt == 2 ? (
         gfx_x = pv_cx - floor(12 * S); gfx_y = pv_center_y - floor(F_LABEL / 2);
         gfx_drawstr("TOM");
+      );
+      pv_pt == 4 ? (
+        gfx_x = pv_cx - floor(16 * S); gfx_y = pv_center_y - floor(F_LABEL / 2);
+        gfx_drawstr("ROOM");
       );
 
       // Offset text below circle
