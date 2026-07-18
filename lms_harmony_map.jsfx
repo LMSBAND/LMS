@@ -1234,9 +1234,8 @@ gmem[HARMONY_BUS + 86] = num_pats;
 
 // Harmony bus — single chord + full progression broadcast
 gmem[HARMONY_BUS] += 1;
-_eb = max(0, slider7 - 1);
-gmem[HARMONY_BUS + 1] = CHORD_SLOTS[_eb * 2];
-gmem[HARMONY_BUS + 2] = CHORD_SLOTS[_eb * 2 + 1];
+gmem[HARMONY_BUS + 1] = P_SLOTS[cur_step * 2];
+gmem[HARMONY_BUS + 2] = P_SLOTS[cur_step * 2 + 1];
 gmem[HARMONY_BUS + 3] = cur_step;
 gmem[HARMONY_BUS + 4] = slider3;
 gmem[HARMONY_BUS + 5] = slider1;

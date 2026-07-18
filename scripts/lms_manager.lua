@@ -2441,6 +2441,7 @@ local function draw_harmony(ctx)
       end
 
       -- Assign slot to JSFX (slider1 = param 0)
+      if not r.ValidatePtr(inst.track, "MediaTrack*") then r.ImGui_PopID(ctx); goto drone_next end
       r.TrackFX_SetParam(inst.track, inst.fx_idx, 0, slot)
 
       -- === Write chord + settings to gmem for JSFX ===
@@ -2500,6 +2501,7 @@ local function draw_harmony(ctx)
         transport_on and "PLAY" or "STOP"))
 
       r.ImGui_PopID(ctx)
+      ::drone_next::
     end
   end
 
