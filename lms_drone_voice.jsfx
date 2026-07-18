@@ -1,0 +1,148 @@
+desc:LMS Drone Voice
+author: LMS
+version: 1.0
+tags: MIDI generator drone
+options:gmem=DrumBanger
+
+slider1:0<0,15,1>Slot
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+@init
+// Memory layout
+ON_NOTES = 0;     // 0-7: currently sounding notes
+CHORD = 10;       // 10-17: chord notes from manager
+TARGET = 20;      // 20-27: computed target notes this block
+SPB_TBL = 30;     // 30-37: steps-per-beat lookup
+
+MAX_CHORD = 8;
+on_count = 0;
+last_note_hash = -1;
+
+i = 0; loop(8, ON_NOTES[i] = -1; i += 1);
+
+// Steps per beat: 1/1=0.25, 1/2=0.5, 1/4=1, 1/8=2, 1/16=4, 1/4T=1.5, 1/8T=3, 1/16T=6
+SPB_TBL[0] = 0.25;
+SPB_TBL[1] = 0.5;
+SPB_TBL[2] = 1;
+SPB_TBL[3] = 2;
+SPB_TBL[4] = 4;
+SPB_TBL[5] = 1.5;
+SPB_TBL[6] = 3;
+SPB_TBL[7] = 6;
+
+@block
+slot = slider1 | 0;
+base = 961100 + slot * 20;
+
+// Read settings from manager
+role = gmem[base] | 0;
+vel = gmem[base + 5] | 0;
+vel < 1 ? vel = 100;
+vel > 127 ? vel = 127;
+chord_count = gmem[base + 6] | 0;
+chord_count < 0 ? chord_count = 0;
+chord_count > MAX_CHORD ? chord_count = MAX_CHORD;
+transport = gmem[base + 15] | 0;
+
+// Read chord notes
+i = 0;
+loop(chord_count, CHORD[i] = gmem[base + 7 + i] | 0; i += 1);
+
+// Compute target notes based on role
+target_count = 0;
+
+transport && chord_count > 0 ? (
+
+  role == 0 ? (
+    // Bass: root minus octave
+    TARGET[0] = max(0, CHORD[0] - 12);
+    target_count = 1;
+  ) :
+
+  role == 1 ? (
+    // Chords: all notes
+    i = 0;
+    loop(chord_count, TARGET[i] = max(0, min(127, CHORD[i])); i += 1);
+    target_count = chord_count;
+  ) :
+
+  (role == 2 || role == 3) ? (
+    // Arp from beat position
+    arp_rate = gmem[base + 2] | 0;
+    arp_rate < 0 ? arp_rate = 0;
+    arp_rate > 7 ? arp_rate = 7;
+    arp_dir = gmem[base + 3] | 0;
+    harm_int = gmem[base + 4] | 0;
+    spb = SPB_TBL[arp_rate];
+    step = floor(beat_position * spb);
+    step < 0 ? step = 0;
+
+    arp_dir == 1 ? (
+      idx = (chord_count - 1) - (step % chord_count);
+    ) : arp_dir == 2 ? (
+      cycle = chord_count * 2 - 2;
+      cycle < 1 ? cycle = 1;
+      pos_in = step % cycle;
+      pos_in < chord_count ? idx = pos_in : idx = cycle - pos_in;
+    ) : (
+      idx = step % chord_count;
+    );
+    idx < 0 ? idx = 0;
+    idx >= chord_count ? idx = chord_count - 1;
+
+    TARGET[0] = max(0, min(127, CHORD[idx]));
+    target_count = 1;
+
+    role == 3 ? (
+      TARGET[1] = max(0, min(127, TARGET[0] + harm_int));
+      target_count = 2;
+    );
+  ) :
+
+  role == 4 ? (
+    // Power: root + 5th
+    TARGET[0] = max(0, min(127, CHORD[0]));
+    TARGET[1] = max(0, min(127, CHORD[0] + 7));
+    target_count = 2;
+  );
+);
+
+// Hash for change detection
+note_hash = target_count * 1000;
+i = 0;
+loop(target_count, note_hash += TARGET[i] * (i + 1); i += 1);
+
+// Only send MIDI when notes actually change
+note_hash != last_note_hash ? (
+  // Note offs (velocity 0 on note-on = universal note-off)
+  i = 0;
+  loop(on_count,
+    ON_NOTES[i] >= 0 ? midisend(0, $x90, ON_NOTES[i], 0);
+    ON_NOTES[i] = -1;
+    i += 1;
+  );
+  on_count = 0;
+
+  // Note ons
+  i = 0;
+  loop(target_count,
+    TARGET[i] >= 0 && TARGET[i] <= 127 ? (
+      ON_NOTES[on_count] = TARGET[i];
+      midisend(0, $x90, TARGET[i], vel);
+      on_count += 1;
+    );
+    i += 1;
+  );
+  last_note_hash = note_hash;
+);
+
+// Heartbeat
+gmem[base + 19] = gmem[base + 19] + 1;
+
+@sample
+spl0 = spl0;
+spl1 = spl1;

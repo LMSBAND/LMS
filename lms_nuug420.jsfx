@@ -76,7 +76,7 @@ slider45:40<0,90,1>-Delay Feedback (%)
 slider46:50<0,100,1>-Delay Mix (%)
 
 // ---------- MASTER ----------
-slider47:0<-24,24,0.1>-Master Volume (dB)
+slider47:-12<-24,24,0.1>-Master Volume (dB)
 slider48:0<0,8,1{MIDI Only,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8}>-DrumBanger Pad
 slider49:0<0,12,1{INIT,Fat Bass,Acid Lead,Warm Pad,Sub Growl,Pluck,Brass,Hoover,Wobble,FX Sweep,Noise Hit,Random Bass,Random Lead}>-Preset
 slider50:0<0,4,1{All,Bass,Lead,Pad,FX}>-Random Category

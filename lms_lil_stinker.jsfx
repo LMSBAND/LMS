@@ -72,7 +72,7 @@ slider37:100<0,100,1>-Velocity > Amp
 slider38:0<0,100,1>-Velocity > Filter
 
 // ---------- MASTER ----------
-slider39:0<-24,24,0.1>-Master Volume (dB)
+slider39:-12<-24,24,0.1>-Master Volume (dB)
 slider40:0<0,8,1{MIDI Only,Pad 1,Pad 2,Pad 3,Pad 4,Pad 5,Pad 6,Pad 7,Pad 8}>-DrumBanger Pad
 slider41:0<0,73,1{INIT,Fat Bass,Acid Squelch,Thick Lead,Sub Bass,Pluck,Bark,Brass Stab,Wobble,Deep Dub,Funky Clav,Reese Bass,PWM Sweep,Vintage Keys,Warm Pad,Squelch Bass,Growl Lead,Bright Lead,Synth Brass,Tremble,808 Bass,Slap Bass,Moog Bass,Rubber Bass,Dirty Bass,Funk Bass,Acid House,Organ Bass,Buzz Bass,Tape Bass,Screamer,Smooth Lead,Sync Lead,Portamento,Nasty Lead,Octave Lead,Vox Lead,Chip Lead,Whistle,Power Lead,Lush Pad,Glass Pad,Dark Pad,Shimmer,Choir,Ethereal,Analog Strings,Horror Pad,EP Clean,Harpsichord,Marimba,Steel Drum,Music Box,Vibes,Celeste,Laser Zap,Siren,Bubbles,Wind,Sci-Fi,Alarm,Thunder,Glitch,Poly Saw,Poly Keys,Juno Strings,Prophet,OB Strings,DX Roads,Poly Brass,Rnd Bass,Rnd Lead,Rnd All,Rnd FX}>-Preset
 slider42:0<0,6,1{All,Bass,Lead,Pad,Keys,FX,Poly}>-Preset Category

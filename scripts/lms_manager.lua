@@ -90,6 +90,7 @@ local DISPLAY_TO_TYPE = {
   ["nuug420"]              = 33,
   ["nuug 420"]             = 33,
   ["harmony map"]          = 30,
+  ["drone voice"]          = 34,
   ["pitch detector"]       = 22,
   ["piece of shit"]        = 32,
   ["traumatizer"]          = 5,
@@ -131,6 +132,8 @@ local JSFX_TO_TYPE = {
   ["lms_satans_pedalboard"]    = 31,
   ["lms_piece_of_shit"]        = 32,
   ["lms_nuug420"]              = 33,
+  ["lms_drone_voice"]          = 34,
+  ["lms drone voice"]          = 34,
   ["lms_drumbanger"]           = "drumbanger",
   ["lms_spring_reverb"]        = "spring",
   ["lms_tape"]                 = "tape",
@@ -174,6 +177,8 @@ local scan_timer = 0
 local SCAN_INTERVAL = 1.0
 local db_edit_pad = 0
 local db_step_queue = {}
+local drone_states = {}
+local drone_arp_timer = 0
 
 -- Follow: follows[type_id][follower_track_idx] = leader_track_idx
 local follows = {}
@@ -1580,6 +1585,8 @@ local function flush_db_step_queue()
   for i = 1, count do table.remove(db_step_queue, 1) end
 end
 
+-- tick_drone_arps removed: arp stepping now runs in JSFX from beat_position
+
 local PART_NAMES = {"Verse", "Chorus", "Bridge", "Intro", "Outro"}
 local PART_COLORS = {0x3358AAFF, 0xAA4433FF, 0x7744AAFF, 0x33AA44FF, 0xAA8822FF}
 local PART_COLORS_DIM = {0x223366FF, 0x662222FF, 0x442266FF, 0x226633FF, 0x664411FF}
@@ -2331,6 +2338,175 @@ local function draw_harmony(ctx)
     r.ImGui_PopStyleColor(ctx)
   end
 
+  -- === DRONES ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Text(ctx, "Drones:")
+
+  local DRONE_ROLES = {"Bass", "Chords", "Arp", "Harm Arp", "Power"}
+  local DRONE_ARP_RATES = {"1/1", "1/2", "1/4", "1/8", "1/16", "1/4T", "1/8T", "1/16T"}
+  local DRONE_ARP_DIRS = {"Up", "Down", "UpDown", "Rand", "Voiced"}
+  local DRONE_INTERVALS = {"Uni", "m2", "M2", "m3", "M3", "4th", "Tri", "5th", "m6", "M6", "m7", "M7"}
+  local drone_count = 0
+
+  -- Read current chord from HM broadcast
+  local hm_root = math.floor(r.gmem_read(960001))
+  local hm_qual = math.floor(r.gmem_read(960002))
+
+  for _, inst in ipairs(instances) do
+    if inst.type_id == 34 then
+      local slot = drone_count
+      drone_count = drone_count + 1
+
+      -- Drone state lives in drone_states table (persistent across frames)
+      if not drone_states[slot] then
+        drone_states[slot] = {role = 1, oct = 0, vel = 100, arp_rate = 3, arp_dir = 0, harm_int = 4, arp_idx = 0, arp_dir_state = 1}
+      end
+      local ds = drone_states[slot]
+
+      r.ImGui_PushID(ctx, "drone_" .. inst.track_idx)
+
+      -- Track name
+      r.ImGui_Text(ctx, inst.track_name .. ":")
+      r.ImGui_SameLine(ctx)
+
+      -- Role combo
+      r.ImGui_SetNextItemWidth(ctx, 80)
+      if r.ImGui_BeginCombo(ctx, "##role", DRONE_ROLES[ds.role + 1] or "?") then
+        for ri = 0, #DRONE_ROLES - 1 do
+          if r.ImGui_Selectable(ctx, DRONE_ROLES[ri + 1], ri == ds.role) then
+            ds.role = ri
+          end
+        end
+        r.ImGui_EndCombo(ctx)
+      end
+      r.ImGui_SameLine(ctx)
+
+      -- Octave
+      r.ImGui_SetNextItemWidth(ctx, 50)
+      local oct_changed, oct_new = r.ImGui_SliderInt(ctx, "##oct", ds.oct, -2, 3, "Oct:%d")
+      if oct_changed then ds.oct = oct_new end
+      r.ImGui_SameLine(ctx)
+
+      -- Velocity
+      r.ImGui_SetNextItemWidth(ctx, 50)
+      local vel_changed, vel_new = r.ImGui_SliderInt(ctx, "##vel", ds.vel, 1, 127, "V:%d")
+      if vel_changed then ds.vel = vel_new end
+
+      -- Arp controls
+      if ds.role == 2 or ds.role == 3 then
+        r.ImGui_SameLine(ctx)
+        r.ImGui_SetNextItemWidth(ctx, 55)
+        if r.ImGui_BeginCombo(ctx, "##rate", DRONE_ARP_RATES[ds.arp_rate + 1] or "?") then
+          for ri = 0, #DRONE_ARP_RATES - 1 do
+            if r.ImGui_Selectable(ctx, DRONE_ARP_RATES[ri + 1], ri == ds.arp_rate) then
+              ds.arp_rate = ri
+            end
+          end
+          r.ImGui_EndCombo(ctx)
+        end
+        r.ImGui_SameLine(ctx)
+        r.ImGui_SetNextItemWidth(ctx, 60)
+        if r.ImGui_BeginCombo(ctx, "##dir", DRONE_ARP_DIRS[ds.arp_dir + 1] or "?") then
+          for di = 0, #DRONE_ARP_DIRS - 1 do
+            if r.ImGui_Selectable(ctx, DRONE_ARP_DIRS[di + 1], di == ds.arp_dir) then
+              ds.arp_dir = di
+            end
+          end
+          r.ImGui_EndCombo(ctx)
+        end
+      end
+
+      -- Harmonized interval
+      if ds.role == 3 then
+        r.ImGui_SameLine(ctx)
+        r.ImGui_SetNextItemWidth(ctx, 50)
+        if r.ImGui_BeginCombo(ctx, "##harm", DRONE_INTERVALS[ds.harm_int + 1] or "?") then
+          for hi = 0, #DRONE_INTERVALS - 1 do
+            if r.ImGui_Selectable(ctx, DRONE_INTERVALS[hi + 1], hi == ds.harm_int) then
+              ds.harm_int = hi
+            end
+          end
+          r.ImGui_EndCombo(ctx)
+        end
+      end
+
+      -- Open synth button (next FX in chain after drone voice)
+      r.ImGui_SameLine(ctx)
+      if r.ImGui_SmallButton(ctx, "Open##dv") then
+        local synth_idx = inst.fx_idx + 1
+        if synth_idx < r.TrackFX_GetCount(inst.track) then
+          r.TrackFX_SetOpen(inst.track, synth_idx, true)
+        end
+      end
+
+      -- Assign slot to JSFX (slider1 = param 0)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 0, slot)
+
+      -- === Write chord + settings to gmem for JSFX ===
+      local gbase = 961100 + slot * 20
+      local play_state = r.GetPlayState()
+      local transport_on = (play_state & 1) ~= 0
+
+      -- Build chord notes
+      local chord = {}
+      if hm_root >= 0 and hm_root < 12 and hm_qual >= 0 then
+        local base_note = 48 + ds.oct * 12 + hm_root
+        local third, fifth, seventh
+        local q = hm_qual
+        if q == 0 or q == 2 or q == 4 or q == 9 or q == 11 or q == 13 or q == 14 then
+          third = 4; fifth = 7
+        elseif q == 1 or q == 3 or q == 8 or q == 12 or q == 15 then
+          third = 3; fifth = 7
+        elseif q == 5 or q == 7 then
+          third = 3; fifth = 6
+        elseif q == 6 then
+          third = 4; fifth = 8
+        elseif q == 10 then
+          third = 5; fifth = 7
+        else
+          third = 2; fifth = 7
+        end
+        seventh = nil
+        if q == 2 or q == 14 then seventh = 11
+        elseif q == 3 or q == 8 or q == 12 then seventh = 10
+        elseif q == 4 or q == 13 or q == 15 then seventh = 10
+        elseif q == 7 then seventh = 9
+        end
+        chord = {base_note, base_note + third, base_note + fifth}
+        if seventh then chord[#chord + 1] = base_note + seventh end
+      end
+
+      -- Write settings: role, oct, arp_rate, arp_dir, harm_int, vel
+      r.gmem_write(gbase, ds.role)
+      r.gmem_write(gbase + 1, ds.oct)
+      r.gmem_write(gbase + 2, ds.arp_rate)
+      r.gmem_write(gbase + 3, ds.arp_dir)
+      r.gmem_write(gbase + 4, ds.harm_int)
+      r.gmem_write(gbase + 5, ds.vel)
+      -- Write chord notes
+      r.gmem_write(gbase + 6, #chord)
+      for ci = 1, 8 do
+        r.gmem_write(gbase + 6 + ci, chord[ci] or -1)
+      end
+      -- Transport flag
+      r.gmem_write(gbase + 15, transport_on and 1 or 0)
+
+      -- Debug
+      local hb = r.gmem_read(gbase + 19)
+      r.ImGui_TextDisabled(ctx, string.format(
+        "  [hb:%d] role=%d chord=%d root=%d qual=%d %s",
+        math.floor(hb), ds.role, #chord, hm_root, hm_qual,
+        transport_on and "PLAY" or "STOP"))
+
+      r.ImGui_PopID(ctx)
+    end
+  end
+
+  if drone_count == 0 then
+    r.ImGui_TextDisabled(ctx, "No drones active — spawn a synth below")
+  end
+
   -- === SPAWN SYNTH TRACKS ===
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
@@ -2364,12 +2540,12 @@ local function draw_harmony(ctx)
         r.SetMediaTrackInfo_Value(new_track, "I_CUSTOMCOLOR",
           r.ColorToNative(synth.color[1], synth.color[2], synth.color[3]) | 0x1000000)
 
+        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. "lms_drone_voice.jsfx", false, -1)
         r.TrackFX_AddByName(new_track, JSFX_PREFIX .. synth.jsfx, false, -1)
         r.TrackFX_AddByName(new_track, JSFX_PREFIX .. "lms_rtw.jsfx", false, -1)
 
-        local send_idx = r.CreateTrackSend(src.track, new_track)
-        r.SetTrackSendInfo_Value(src.track, 0, send_idx, "I_SRCCHAN", -1)
-        r.SetTrackSendInfo_Value(src.track, 0, send_idx, "I_MIDIFLAGS", 0)
+        -- Keep FX chain awake: monitoring without arm
+        r.SetMediaTrackInfo_Value(new_track, "I_RECMON", 1)
 
         r.Undo_EndBlock("Spawn " .. synth.name .. " from " .. src.name, -1)
         r.TrackList_AdjustWindows(false)
