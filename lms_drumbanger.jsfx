@@ -555,7 +555,6 @@ function resolve_pad_pool_names() local(i, j, resolved) (
   i = 0;
   loop(8192, TIE_BASE[i] = 0; i += 1);
   _trigger_depth = 0;  // recursion guard for Daddy/Bootlicker linking
-  load_kit_samples(slider7);
   init_done = 1;
 );
 
@@ -567,6 +566,9 @@ scan_pool();
 // ---- Kit list (derived from pool subfolders) ----
 // Drop any folder of .wav files into pool/, run rescan. Names appear in GUI.
 scan_kits();
+
+// Load kit AFTER pool scan so samples are available
+loaded_kit_num != slider7 ? load_kit_samples(slider7);
 
 // ---- Pool load request (GFX → block communication) ----
 pool_load_pad = -1;   // -1 = no request, 0-15 = pad to load into
@@ -1727,6 +1729,26 @@ gmem[409] > 0 ? (
     );
   );
   gmem[409] = 0;
+);
+
+// ---- Batch step write from manager (gmem[430-434]) ----
+// 430: count of steps to write (1-128), consumed by zeroing
+// 431+i*4: pattern, 432+i*4: step, 433+i*4: pad, 434+i*4: vel
+gmem[430] > 0 ? (
+  _bw_count = min(128, gmem[430] | 0);
+  _bw_i = 0;
+  loop(_bw_count,
+    _bw_base = 431 + _bw_i * 4;
+    _bw_pat = gmem[_bw_base] | 0;
+    _bw_step = gmem[_bw_base + 1] | 0;
+    _bw_pad = gmem[_bw_base + 2] | 0;
+    _bw_vel = gmem[_bw_base + 3] | 0;
+    _bw_pat >= 0 && _bw_pat < NUM_PATTERNS && _bw_step >= 0 && _bw_step < MAX_STEPS && _bw_pad >= 0 && _bw_pad < NUM_PADS ? (
+      set_seq_step(_bw_pat, _bw_step, _bw_pad, _bw_vel);
+    );
+    _bw_i += 1;
+  );
+  gmem[430] = 0;
 );
 
 // ---- Read per-pad routed flags from manager (gmem[413-428]) ----

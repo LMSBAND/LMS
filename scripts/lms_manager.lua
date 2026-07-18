@@ -173,6 +173,7 @@ local mega_state = {}
 local scan_timer = 0
 local SCAN_INTERVAL = 1.0
 local db_edit_pad = 0
+local db_step_queue = {}
 
 -- Follow: follows[type_id][follower_track_idx] = leader_track_idx
 local follows = {}
@@ -369,6 +370,11 @@ local function read_harmony_state()
     drum_pat = r.gmem_read(960084),
     current_pat = r.gmem_read(960085),
     num_pats = r.gmem_read(960086),
+    -- Song structure from COND_BUS
+    song_num_parts = math.floor(r.gmem_read(960103)),
+    song_seq_len = math.floor(r.gmem_read(960104)),
+    song_sel_part = math.floor(r.gmem_read(960106)),
+    song_cur_src = math.floor(r.gmem_read(960107)),
   }
   hm_state.chords = {}
   for i = 0, 31 do
@@ -376,6 +382,33 @@ local function read_harmony_state()
       root = math.floor(r.gmem_read(960011 + i)),
       qual = math.floor(r.gmem_read(960043 + i)),
     }
+  end
+  -- Song parts (16 × 8 fields)
+  hm_state.parts = {}
+  for i = 0, 15 do
+    local base = 960110 + i * 8
+    hm_state.parts[i] = {
+      cat = math.floor(r.gmem_read(base)),
+      num = math.floor(r.gmem_read(base + 1)),
+      pat = math.floor(r.gmem_read(base + 2)),
+      rep = math.floor(r.gmem_read(base + 3)),
+      mod_key = math.floor(r.gmem_read(base + 4)),
+      mod_mode = math.floor(r.gmem_read(base + 5)),
+      mod_vel = math.floor(r.gmem_read(base + 6)),
+      arp = math.floor(r.gmem_read(base + 7)),
+    }
+  end
+  -- Song sequence (64 entries) + drum patterns
+  hm_state.seq = {}
+  hm_state.seq_drum = {}
+  for i = 0, 63 do
+    hm_state.seq[i] = math.floor(r.gmem_read(960240 + i))
+    hm_state.seq_drum[i] = math.floor(r.gmem_read(960240 + 64 + i))
+  end
+  -- Part octaves
+  hm_state.oct = {}
+  for i = 0, 15 do
+    hm_state.oct[i] = math.floor(r.gmem_read(960310 + i))
   end
 end
 
@@ -1002,6 +1035,12 @@ local function draw_drumbanger(ctx)
   draw_status_dot(ctx, alive)
   r.ImGui_SameLine(ctx)
   r.ImGui_Text(ctx, alive and "DrumBanger ONLINE" or "DrumBanger OFFLINE")
+  if alive then
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Open##db_open") then
+      r.TrackFX_SetOpen(db_inst.track, db_inst.fx_idx, true)
+    end
+  end
 
   if not alive then
     r.ImGui_Separator(ctx)
@@ -1018,6 +1057,15 @@ local function draw_drumbanger(ctx)
       scan_tracks()
     end
     return
+  end
+
+  -- Auto-enable Follow Harmony Map (slider9 / param 8) when HM is alive
+  local hm_alive = find_hm_instance() ~= nil and (hm_state.heartbeat or 0) ~= 0
+  if hm_alive then
+    local follow = r.TrackFX_GetParam(db_inst.track, db_inst.fx_idx, 8)
+    if follow < 0.5 then
+      r.TrackFX_SetParam(db_inst.track, db_inst.fx_idx, 8, 1.0)
+    end
   end
 
   local playing = db_state.playing ~= 0
@@ -1161,6 +1209,83 @@ local function draw_drumbanger(ctx)
     r.ImGui_SetNextItemWidth(ctx, 120)
     local pt_chg, pt_new = r.ImGui_SliderDouble(ctx, "Pitch##padctl", pitch, -24, 24, "%.1f st")
     if pt_chg then db_set_param(50 + db_edit_pad, pt_new) end
+  end
+
+  -- === BEAT PRESETS ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Text(ctx, "Beat Presets:")
+  r.ImGui_SameLine(ctx)
+
+  -- Beat presets use command bus gmem[430-434] to set steps in DrumBanger's internal buffer
+  -- One step per @block — queue all steps and flush via db_step_queue
+  local function apply_beat_preset(preset_data)
+    -- preset_data: table of {pad=0-15, steps={list of 0-indexed step positions}, vel=1-127}
+    -- First queue clears for all pads used, then queue the active steps
+    local pads_used = {}
+    for _, entry in ipairs(preset_data) do
+      pads_used[entry.pad] = true
+    end
+    for pad in pairs(pads_used) do
+      for s = 0, total_steps - 1 do
+        table.insert(db_step_queue, {pattern, s, pad, 0})
+      end
+    end
+    for _, entry in ipairs(preset_data) do
+      for _, s in ipairs(entry.steps) do
+        if s < total_steps then
+          table.insert(db_step_queue, {pattern, s, entry.pad, entry.vel or 100})
+        end
+      end
+    end
+  end
+
+  -- Generate step lists based on total_steps
+  local quarter = math.max(1, math.floor(total_steps / 4))
+  local eighth = math.max(1, math.floor(total_steps / 8))
+  local all_quarters = {}
+  local all_eighths = {}
+  local beats_13 = {}
+  local beats_24 = {}
+  for i = 0, 3 do all_quarters[#all_quarters + 1] = i * quarter end
+  for i = 0, 7 do all_eighths[#all_eighths + 1] = i * eighth end
+  beats_13 = {0, 2 * quarter}
+  beats_24 = {1 * quarter, 3 * quarter}
+  local upbeats = {}  -- the "and" of each beat (between quarters)
+  for i = 0, 3 do
+    local s = i * quarter + math.floor(quarter / 2)
+    if s < total_steps then upbeats[#upbeats + 1] = s end
+  end
+
+  if r.ImGui_SmallButton(ctx, "4 Floor##bp") then
+    apply_beat_preset({
+      {pad = 0, steps = all_quarters, vel = 110},
+      {pad = 1, steps = beats_24, vel = 100},
+      {pad = 4, steps = all_eighths, vel = 80},
+    })
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_SmallButton(ctx, "Boots & Cats##bp") then
+    apply_beat_preset({
+      {pad = 0, steps = beats_13, vel = 110},
+      {pad = 1, steps = beats_24, vel = 100},
+      {pad = 4, steps = upbeats, vel = 80},
+    })
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_SmallButton(ctx, "Rock##bp") then
+    apply_beat_preset({
+      {pad = 0, steps = {0, 2 * quarter + math.floor(quarter/2)}, vel = 110},
+      {pad = 1, steps = beats_24, vel = 100},
+      {pad = 4, steps = all_eighths, vel = 70},
+    })
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_SmallButton(ctx, "Halftime##bp") then
+    apply_beat_preset({
+      {pad = 0, steps = {0}, vel = 110},
+      {pad = 1, steps = {2 * quarter}, vel = 100},
+      {pad = 4, steps = all_quarters, vel = 70},
+    })
   end
 
   r.ImGui_Spacing(ctx)
@@ -1416,6 +1541,243 @@ end
 
 local hm_edit_step = 0
 local hm_chord_popup_open = false
+local hm_song_view = false  -- song structure panel open
+local hm_seq_drag_src = -1
+local hm_builder_open = false
+local hm_markers_dirty = false
+
+-- Song command FIFO: one command processed per @block (~1ms)
+-- Queue ensures rapid-fire commands from Lua don't clobber each other
+local hm_cmd_queue = {}
+
+local function hm_song_cmd(opcode, a1, a2, a3)
+  table.insert(hm_cmd_queue, {opcode, a1 or 0, a2 or 0, a3 or 0})
+end
+
+local function flush_hm_cmd_queue()
+  if #hm_cmd_queue == 0 then return end
+  if r.gmem_read(960330) ~= 0 then return end  -- previous cmd not yet consumed
+  local cmd = table.remove(hm_cmd_queue, 1)
+  r.gmem_write(960331, cmd[2])
+  r.gmem_write(960332, cmd[3])
+  r.gmem_write(960333, cmd[4])
+  r.gmem_write(960330, cmd[1])
+end
+
+local function flush_db_step_queue()
+  if #db_step_queue == 0 then return end
+  if r.gmem_read(430) ~= 0 then return end
+  local count = math.min(#db_step_queue, 128)
+  for i = 1, count do
+    local cmd = db_step_queue[i]
+    local base = 431 + (i - 1) * 4
+    r.gmem_write(base, cmd[1])
+    r.gmem_write(base + 1, cmd[2])
+    r.gmem_write(base + 2, cmd[3])
+    r.gmem_write(base + 3, cmd[4])
+  end
+  r.gmem_write(430, count)
+  for i = 1, count do table.remove(db_step_queue, 1) end
+end
+
+local PART_NAMES = {"Verse", "Chorus", "Bridge", "Intro", "Outro"}
+local PART_COLORS = {0x3358AAFF, 0xAA4433FF, 0x7744AAFF, 0x33AA44FF, 0xAA8822FF}
+local PART_COLORS_DIM = {0x223366FF, 0x662222FF, 0x442266FF, 0x226633FF, 0x664411FF}
+
+-- Song builder presets: well-known structures with chord progressions
+-- Chord intervals are semitones from root (transposed by current key at apply time)
+-- patterns table: per-pattern chord progressions {[pat_idx] = {chords, steps}}
+local SONG_PRESETS = {
+  {name = "Pop (I-V-vi-IV)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=0, num=2, pat=0, rep=2},
+    {cat=1, num=2, pat=1, rep=2},
+    {cat=2, num=1, pat=2, rep=1},
+    {cat=1, num=3, pat=1, rep=2},
+    {cat=4, num=1, pat=1, rep=1},
+  }, seq = {0,1,2,3,4,5,6,7},
+  patterns = {
+    [0] = {steps=4, chords={{0,0},{7,0},{9,1},{5,0}}},       -- verse: I V vi IV
+    [1] = {steps=4, chords={{5,0},{7,0},{0,0},{0,0}}},       -- chorus: IV V I I
+    [2] = {steps=4, chords={{9,1},{5,0},{2,1},{7,0}}},       -- bridge: vi IV ii V
+  }},
+
+  {name = "Blues (12-bar)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=3},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2},
+  patterns = {
+    [0] = {steps=12, chords={{0,2},{0,2},{0,2},{0,2},{5,2},{5,2},{0,2},{0,2},{7,2},{5,2},{0,2},{7,2}}},
+  }},
+
+  {name = "Rock (I-IV-V)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=0, num=2, pat=0, rep=2},
+    {cat=1, num=2, pat=1, rep=2},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2,3,4,5},
+  patterns = {
+    [0] = {steps=4, chords={{0,0},{5,0},{7,0},{0,0}}},       -- verse: I IV V I
+    [1] = {steps=4, chords={{5,0},{0,0},{7,0},{7,0}}},       -- chorus: IV I V V
+  }},
+
+  {name = "Minor Ballad (i-VI-III-VII)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=2, num=1, pat=2, rep=1},
+    {cat=1, num=2, pat=1, rep=2},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2,3,4,5},
+  patterns = {
+    [0] = {steps=4, chords={{0,1},{8,0},{3,0},{10,0}}},      -- verse: i bVI bIII bVII
+    [1] = {steps=4, chords={{3,0},{8,0},{0,1},{10,0}}},      -- chorus: bIII bVI i bVII
+    [2] = {steps=4, chords={{5,1},{7,0},{8,0},{10,0}}},      -- bridge: iv V bVI bVII
+  }},
+
+  {name = "Punk (I-V-vi-IV fast)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=4},
+    {cat=4, num=1, pat=1, rep=1},
+  }, seq = {0,1,2,1,2,3},
+  patterns = {
+    [0] = {steps=4, chords={{0,0},{7,0},{9,1},{5,0}}},       -- verse: I V vi IV
+    [1] = {steps=4, chords={{0,0},{5,0},{7,0},{5,0}}},       -- chorus: I IV V IV
+  }},
+
+  {name = "Jazz (ii-V-I-vi)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=2, num=1, pat=2, rep=1},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2,1,2,3,4},
+  patterns = {
+    [0] = {steps=4, chords={{2,4},{7,2},{0,3},{9,4}}},       -- verse: ii7 V7 Imaj7 vi7
+    [1] = {steps=4, chords={{5,3},{9,4},{2,4},{7,2}}},       -- chorus: IVmaj7 vi7 ii7 V7
+    [2] = {steps=4, chords={{4,4},{9,2},{2,4},{7,2}}},       -- bridge: iii7 VI7 ii7 V7
+  }},
+
+  {name = "Metal (i-bVI-bVII-i)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=0, num=2, pat=0, rep=2},
+    {cat=1, num=2, pat=1, rep=2},
+    {cat=2, num=1, pat=2, rep=1},
+    {cat=1, num=3, pat=1, rep=2},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2,3,4,5,6,7},
+  patterns = {
+    [0] = {steps=4, chords={{0,1},{8,0},{10,0},{0,1}}},      -- verse: i bVI bVII i
+    [1] = {steps=4, chords={{0,1},{3,0},{8,0},{10,0}}},      -- chorus: i bIII bVI bVII
+    [2] = {steps=4, chords={{5,1},{8,0},{10,0},{7,0}}},      -- bridge: iv bVI bVII V
+  }},
+
+  {name = "Country (I-IV-V-I)", parts = {
+    {cat=3, num=1, pat=0, rep=1},
+    {cat=0, num=1, pat=0, rep=2},
+    {cat=1, num=1, pat=1, rep=2},
+    {cat=0, num=2, pat=0, rep=2},
+    {cat=1, num=2, pat=1, rep=2},
+    {cat=4, num=1, pat=0, rep=1},
+  }, seq = {0,1,2,3,4,5},
+  patterns = {
+    [0] = {steps=4, chords={{0,0},{5,0},{7,0},{0,0}}},       -- verse: I IV V I
+    [1] = {steps=4, chords={{5,0},{0,0},{7,0},{0,0}}},       -- chorus: IV I V I
+  }},
+}
+
+local hm_builder_queue = nil
+
+local function apply_song_preset(preset)
+  -- All commands go into the FIFO — they'll be sent one per frame
+  hm_song_cmd(8)  -- clear all song
+  -- Add parts (clear leaves 1, add the rest)
+  for i = 2, #preset.parts do
+    hm_song_cmd(2)
+  end
+  -- Configure each part
+  for i, p in ipairs(preset.parts) do
+    local idx = i - 1
+    hm_song_cmd(1, idx, 0, p.cat)
+    hm_song_cmd(1, idx, 1, p.num)
+    hm_song_cmd(1, idx, 2, p.pat)
+    hm_song_cmd(1, idx, 3, p.rep)
+  end
+  -- Build sequence
+  for _, s in ipairs(preset.seq) do
+    hm_song_cmd(4, s)
+  end
+  -- Defer chord writing until structure commands drain
+  local key_root = math.floor(hm_state.key_root or 0)
+  hm_builder_queue = {preset = preset, key = key_root}
+end
+
+local function process_builder_queue()
+  if not hm_builder_queue then return end
+  if #hm_cmd_queue > 0 then return end  -- wait for song FIFO to drain
+
+  local q = hm_builder_queue
+  local preset = q.preset
+
+  -- Initialize chord writing state
+  if not q.chord_cmds then
+    q.chord_cmds = {}
+    if preset.patterns then
+      -- Build flat list of gmem commands: {addr, val} pairs
+      -- Collect pattern indices in sorted order for determinism
+      local pat_indices = {}
+      for pi in pairs(preset.patterns) do pat_indices[#pat_indices + 1] = pi end
+      table.sort(pat_indices)
+
+      for _, pat_idx in ipairs(pat_indices) do
+        local pat_data = preset.patterns[pat_idx]
+        -- Switch pattern
+        table.insert(q.chord_cmds, {960095, pat_idx + 1})
+        -- Set steps
+        table.insert(q.chord_cmds, {960093, pat_data.steps})
+        -- Set each chord (root then quality, need target step set before each)
+        for i, ch in ipairs(pat_data.chords) do
+          local root = (ch[1] + q.key) % 12
+          -- Root: write step target, then root+1
+          table.insert(q.chord_cmds, {960091, i - 1, 960090, root + 1})
+          -- Quality: write step target, then quality+1
+          table.insert(q.chord_cmds, {960091, i - 1, 960092, ch[2] + 1})
+        end
+      end
+      -- Switch back to pattern 0
+      table.insert(q.chord_cmds, {960095, 1})
+    end
+    q.cmd_idx = 1
+    q.settle = 0
+    return
+  end
+
+  -- Send one command per frame (gmem commands are consumed in one @block)
+  if q.settle > 0 then
+    q.settle = q.settle - 1
+    return
+  end
+
+  if q.cmd_idx <= #q.chord_cmds then
+    local cmd = q.chord_cmds[q.cmd_idx]
+    r.gmem_write(cmd[1], cmd[2])
+    if cmd[3] then r.gmem_write(cmd[3], cmd[4]) end
+    q.cmd_idx = q.cmd_idx + 1
+    -- Pattern switch needs a frame to settle
+    if cmd[1] == 960095 then q.settle = 2 end
+  else
+    hm_markers_dirty = true
+    hm_builder_queue = nil
+  end
+end
 
 local function hm_set_param(slider_num, value)
   local inst = find_hm_instance()
@@ -1432,12 +1794,82 @@ local function hm_get_param(slider_num)
   return 0
 end
 
+local function sync_song_markers()
+  if not hm_markers_dirty then return end
+  hm_markers_dirty = false
+
+  local song_num_parts = math.max(1, hm_state.song_num_parts or 1)
+  local song_seq_len = math.max(0, hm_state.song_seq_len or 0)
+  if song_seq_len == 0 then return end
+
+  -- Get tempo info for bar calculation
+  local bpm, bpi = r.GetProjectTimeSignature2(0)
+  local beats_per_bar = bpi > 0 and bpi or 4
+
+  -- Delete existing LMS markers (identified by name prefix)
+  local num_markers = r.CountProjectMarkers(0)
+  local to_delete = {}
+  for i = 0, num_markers - 1 do
+    local _, isrgn, _, _, name, idx = r.EnumProjectMarkers(i)
+    if isrgn and name and name:sub(1, 4) == "LMS:" then
+      to_delete[#to_delete + 1] = idx
+    end
+  end
+  for i = #to_delete, 1, -1 do
+    r.DeleteProjectMarker(0, to_delete[i], true)
+  end
+
+  -- Build markers from sequence
+  local beat_pos = 0
+  for si = 0, song_seq_len - 1 do
+    local part_idx = hm_state.seq[si] or 0
+    local p = hm_state.parts[part_idx]
+    if not p then break end
+
+    local cat = math.max(0, math.min(4, p.cat))
+    local num = math.max(1, p.num)
+    local pat = p.pat
+    local rep = math.max(1, p.rep)
+
+    -- Get pattern steps from broadcast
+    local pat_steps = math.floor(r.gmem_read(960400 + pat * 80))
+    if pat_steps < 1 then pat_steps = 4 end
+
+    -- Duration in beats: steps × bars_per_step × beats_per_bar × repeats
+    -- Each step = 1 bar by default (bar duration from pattern)
+    local total_beats = pat_steps * beats_per_bar * rep
+
+    local start_time = r.TimeMap2_beatsToTime(0, beat_pos)
+    local end_time = r.TimeMap2_beatsToTime(0, beat_pos + total_beats)
+
+    local marker_name = string.format("LMS: %s %d", PART_NAMES[cat + 1], num)
+    local color = ({
+      r.ColorToNative(51, 88, 170) | 0x1000000,   -- Verse: blue
+      r.ColorToNative(170, 68, 51) | 0x1000000,   -- Chorus: red
+      r.ColorToNative(119, 68, 170) | 0x1000000,  -- Bridge: purple
+      r.ColorToNative(51, 170, 68) | 0x1000000,   -- Intro: green
+      r.ColorToNative(170, 136, 34) | 0x1000000,  -- Outro: gold
+    })[cat + 1]
+
+    r.AddProjectMarker2(0, true, start_time, end_time, marker_name, -1, color)
+    beat_pos = beat_pos + total_beats
+  end
+
+  r.UpdateArrange()
+end
+
 local function draw_harmony(ctx)
   local hm_inst = find_hm_instance()
   local alive = hm_inst ~= nil and (hm_state.heartbeat or 0) ~= 0
   draw_status_dot(ctx, alive)
   r.ImGui_SameLine(ctx)
   r.ImGui_Text(ctx, alive and "Harmony Map ONLINE" or "Harmony Map OFFLINE")
+  if alive then
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Open##hm_open") then
+      r.TrackFX_SetOpen(hm_inst.track, hm_inst.fx_idx, true)
+    end
+  end
 
   if hm_inst == nil then
     r.ImGui_Separator(ctx)
@@ -1595,15 +2027,27 @@ local function draw_harmony(ctx)
   r.ImGui_Text(ctx, string.format("Step %d:", hm_edit_step + 1))
   r.ImGui_SameLine(ctx)
 
-  -- Root buttons
+  -- Root + Quality combined editor
+  -- Clicking a root sets the chord immediately (defaults to maj if step was empty)
+  -- Clicking a quality changes quality of the existing chord
+  local cur_chord = hm_state.chords[hm_edit_step]
+  local cur_root = cur_chord and cur_chord.root or -1
+  local cur_qual = cur_chord and cur_chord.qual or 0
+  local is_filled_step = cur_root >= 0 and cur_root < 12
+
   for n = 0, 11 do
     if n > 0 then r.ImGui_SameLine(ctx) end
-    local cur_chord = hm_state.chords[hm_edit_step]
-    local is_active = cur_chord and cur_chord.root == n
+    local is_active = (cur_root == n)
     if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
-    if r.ImGui_SmallButton(ctx, NOTE_NAMES[n + 1] .. "##hmroot") then
+    if r.ImGui_SmallButton(ctx, NOTE_NAMES[n + 1] .. "##hmroot" .. n) then
+      -- Set root
       r.gmem_write(960091, hm_edit_step)
       r.gmem_write(960090, n + 1)
+      -- If step was empty, also set quality to maj
+      if not is_filled_step then
+        r.gmem_write(960091, hm_edit_step)
+        r.gmem_write(960092, 1)  -- maj = 0+1
+      end
     end
     if is_active then r.ImGui_PopStyleColor(ctx) end
   end
@@ -1614,12 +2058,17 @@ local function draw_harmony(ctx)
   r.ImGui_SameLine(ctx)
   for q = 0, #qual_labels - 1 do
     if q > 0 then r.ImGui_SameLine(ctx) end
-    local cur_chord = hm_state.chords[hm_edit_step]
-    local is_active = cur_chord and cur_chord.qual == q
+    local is_active = is_filled_step and cur_qual == q
     if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
-    if r.ImGui_SmallButton(ctx, qual_labels[q + 1] .. "##hmqual") then
+    if r.ImGui_SmallButton(ctx, qual_labels[q + 1] .. "##hmqual" .. q) then
       r.gmem_write(960091, hm_edit_step)
       r.gmem_write(960092, q + 1)
+      -- If step had no root yet, default to the current key root
+      if not is_filled_step then
+        local kr = math.floor(hm_state.key_root or 0)
+        r.gmem_write(960091, hm_edit_step)
+        r.gmem_write(960090, kr + 1)
+      end
     end
     if is_active then r.ImGui_PopStyleColor(ctx) end
   end
@@ -1630,6 +2079,214 @@ local function draw_harmony(ctx)
     if r.ImGui_SmallButton(ctx, "Clear Step##hmclr") then
       r.gmem_write(960097, hm_edit_step + 1)
     end
+  end
+
+  -- === SONG STRUCTURE ===
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+
+  local song_num_parts = math.max(1, hm_state.song_num_parts or 1)
+  local song_seq_len = math.max(0, hm_state.song_seq_len or 0)
+  local song_sel_part = hm_state.song_sel_part or 0
+  local song_playing_src = hm_state.song_cur_src or -1
+
+  -- Song mode toggle + builder
+  local sm_active = (song_seq_len > 0 and song_num_parts > 0)
+  if sm_active then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x8866CCFF)
+  end
+  if r.ImGui_Button(ctx, sm_active and "SONG ON##hm_song" or "Song##hm_song") then
+    r.gmem_write(960096, 1)
+  end
+  if sm_active then r.ImGui_PopStyleColor(ctx) end
+  r.ImGui_SameLine(ctx)
+
+  if r.ImGui_Button(ctx, "Song Builder##hm_builder") then
+    r.ImGui_OpenPopup(ctx, "song_builder_popup")
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Sync Markers##hm_markers") then
+    hm_markers_dirty = true
+  end
+
+  -- Song builder popup
+  if r.ImGui_BeginPopup(ctx, "song_builder_popup") then
+    r.ImGui_Text(ctx, "Build a song structure:")
+    r.ImGui_Separator(ctx)
+    for i, preset in ipairs(SONG_PRESETS) do
+      if r.ImGui_Selectable(ctx, preset.name .. "##sbp" .. i) then
+        apply_song_preset(preset)
+      end
+    end
+    r.ImGui_EndPopup(ctx)
+  end
+
+  -- Parts table
+  if r.ImGui_BeginTable(ctx, "hm_parts", 8, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
+    r.ImGui_TableSetupColumn(ctx, "#", 0, 20)
+    r.ImGui_TableSetupColumn(ctx, "Type", 0, 65)
+    r.ImGui_TableSetupColumn(ctx, "N", 0, 25)
+    r.ImGui_TableSetupColumn(ctx, "Pat", 0, 35)
+    r.ImGui_TableSetupColumn(ctx, "Rep", 0, 35)
+    r.ImGui_TableSetupColumn(ctx, "Drum", 0, 35)
+    r.ImGui_TableSetupColumn(ctx, "Oct", 0, 35)
+    r.ImGui_TableSetupColumn(ctx, "", 0, 25)
+    r.ImGui_TableHeadersRow(ctx)
+
+    for i = 0, song_num_parts - 1 do
+      local p = hm_state.parts[i]
+      if not p then break end
+      r.ImGui_TableNextRow(ctx)
+
+      -- Row highlight for selected part
+      if i == song_sel_part then
+        r.ImGui_TableSetBgColor(ctx, r.ImGui_TableBgTarget_RowBg1(), 0x4444AA44)
+      end
+
+      -- #
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_Selectable(ctx, tostring(i + 1) .. "##sp" .. i, i == song_sel_part, r.ImGui_SelectableFlags_SpanAllColumns()) then
+        hm_song_cmd(11, i)
+      end
+
+      -- Type (category)
+      r.ImGui_TableNextColumn(ctx)
+      local cat = math.max(0, math.min(4, p.cat))
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), PART_COLORS[cat + 1])
+      if r.ImGui_SmallButton(ctx, PART_NAMES[cat + 1] .. "##spcat" .. i) then
+        hm_song_cmd(1, i, 0, (cat + 1) % 5)
+      end
+      r.ImGui_PopStyleColor(ctx)
+
+      -- Number
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_SmallButton(ctx, tostring(math.max(1, p.num)) .. "##spnum" .. i) then
+        hm_song_cmd(1, i, 1, (p.num % 8) + 1)
+      end
+
+      -- Pattern
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_SmallButton(ctx, "P" .. (p.pat + 1) .. "##sppat" .. i) then
+        local np = hm_state.num_pats or 4
+        hm_song_cmd(1, i, 2, (p.pat + 1) % math.max(1, math.floor(np)))
+      end
+
+      -- Repeats
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_SmallButton(ctx, "x" .. math.max(1, p.rep) .. "##sprep" .. i) then
+        local nr = p.rep >= 8 and 1 or p.rep + 1
+        hm_song_cmd(1, i, 3, nr)
+      end
+
+      -- Drum (find first seq entry using this part, show its drum pattern)
+      r.ImGui_TableNextColumn(ctx)
+      local part_drum = 0
+      for si = 0, song_seq_len - 1 do
+        if (hm_state.seq[si] or -1) == i then
+          part_drum = hm_state.seq_drum[si] or 0
+          break
+        end
+      end
+      local drum_str = part_drum > 0 and ("D" .. part_drum) or "--"
+      if r.ImGui_SmallButton(ctx, drum_str .. "##spdrum" .. i) then
+        local new_dp = (part_drum + 1) % 9
+        -- Set drum for ALL sequence entries pointing to this part
+        for si = 0, song_seq_len - 1 do
+          if (hm_state.seq[si] or -1) == i then
+            hm_song_cmd(7, si, new_dp)
+          end
+        end
+      end
+
+      -- Octave
+      r.ImGui_TableNextColumn(ctx)
+      local oct = (hm_state.oct[i] or 3) - 3
+      local oct_str = oct == 0 and "--" or (oct > 0 and "+" .. oct or tostring(oct))
+      if r.ImGui_SmallButton(ctx, oct_str .. "##spoct" .. i) then
+        hm_song_cmd(10, i, ((hm_state.oct[i] or 3) + 1) % 7)
+      end
+
+      -- Add to seq
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_SmallButton(ctx, "+##spadd" .. i) then
+        hm_song_cmd(4, i)
+      end
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_SetTooltip(ctx, "Add to sequence")
+      end
+    end
+    r.ImGui_EndTable(ctx)
+  end
+
+  -- [+ Part] [- Part] buttons
+  if r.ImGui_SmallButton(ctx, "+ Part##sp_add") then
+    hm_song_cmd(2)
+  end
+  r.ImGui_SameLine(ctx)
+  if song_num_parts > 1 then
+    if r.ImGui_SmallButton(ctx, "- Part##sp_del") then
+      hm_song_cmd(3, song_num_parts - 1)
+    end
+  end
+
+  -- Song sequence strip
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Text(ctx, "Sequence:")
+  if song_seq_len == 0 then
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "(empty — click + on a part to add)")
+  else
+    local seq_w = 70
+    local seq_h = 28
+    local gx2, gy2 = r.ImGui_GetCursorScreenPos(ctx)
+    local dl = r.ImGui_GetWindowDrawList(ctx)
+    local avail_w = r.ImGui_GetContentRegionAvail(ctx)
+    local cols2 = math.max(1, math.floor(avail_w / (seq_w + 4)))
+
+    for si = 0, song_seq_len - 1 do
+      local part_idx = hm_state.seq[si] or 0
+      local p = hm_state.parts[part_idx]
+      if not p then break end
+      local col2 = si % cols2
+      local row2 = math.floor(si / cols2)
+      local sx = gx2 + col2 * (seq_w + 4)
+      local sy = gy2 + row2 * (seq_h + 3)
+
+      local cat2 = math.max(0, math.min(4, p.cat))
+      local is_playing_seq = (si == song_playing_src and transport == 1)
+
+      local bg2 = is_playing_seq and 0x33BB55FF or PART_COLORS_DIM[cat2 + 1]
+      r.ImGui_DrawList_AddRectFilled(dl, sx, sy, sx + seq_w, sy + seq_h, bg2, 3)
+      if is_playing_seq then
+        r.ImGui_DrawList_AddRect(dl, sx, sy, sx + seq_w, sy + seq_h, 0x44FF66FF, 3, 0, 2)
+      end
+
+      local slabel = string.format("%s %d", PART_NAMES[cat2 + 1]:sub(1, 3), math.max(1, p.num))
+      r.ImGui_DrawList_AddText(dl, sx + 4, sy + 4, 0xFFFFFFFF, slabel)
+
+      -- Drum pattern indicator
+      local dp = hm_state.seq_drum[si] or 0
+      if dp > 0 then
+        r.ImGui_DrawList_AddText(dl, sx + seq_w - 16, sy + seq_h - 13, 0xAAAA44FF, "D" .. dp)
+      end
+
+      -- Click to cycle drum pattern, right-click to remove
+      r.ImGui_SetCursorScreenPos(ctx, sx, sy)
+      if r.ImGui_InvisibleButton(ctx, "##sqblk" .. si, seq_w, seq_h) then
+        hm_song_cmd(7, si, (dp + 1) % 9)
+      end
+      if r.ImGui_IsItemClicked(ctx, 1) then
+        hm_song_cmd(5, si)
+      end
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_SetTooltip(ctx, string.format("%s %d  |  Drum: %s\nL-click: cycle drum  R-click: remove",
+          PART_NAMES[cat2 + 1], math.max(1, p.num), dp > 0 and tostring(dp) or "none"))
+      end
+    end
+
+    -- Reserve space
+    local total_rows2 = math.ceil(song_seq_len / cols2)
+    r.ImGui_SetCursorScreenPos(ctx, gx2, gy2 + total_rows2 * (seq_h + 3) + 4)
   end
 
   -- === CONSUMERS ===
@@ -1959,6 +2616,12 @@ local function loop()
 
   -- Sync DrumBanger per-pad routing flags every frame
   sync_drumbanger_routing()
+
+  -- Process queued commands (one per frame each)
+  flush_hm_cmd_queue()
+  flush_db_step_queue()
+  process_builder_queue()
+  sync_song_markers()
 
   local open = draw_main(ctx)
 

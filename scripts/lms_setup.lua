@@ -72,6 +72,15 @@ local lms_block = LMS_START .. "\n" ..
   "    reaper.ShowConsoleMsg(\"LMS: Hardware FX controller started\\n\")\n" ..
   "    dofile(bridge)\n" ..
   "  end\n" ..
+  "\n" ..
+  "  -- LMS Plugin Manager\n" ..
+  "  local mgr = base .. \"/LMS/lms_manager.lua\"\n" ..
+  "  f = io.open(mgr, \"r\")\n" ..
+  "  if f then\n" ..
+  "    f:close()\n" ..
+  "    reaper.ShowConsoleMsg(\"LMS: Plugin Manager started\\n\")\n" ..
+  "    dofile(mgr)\n" ..
+  "  end\n" ..
   "end)\n" ..
   LMS_END .. "\n"
 
