@@ -5,6 +5,12 @@ tags: MIDI generator drone
 options:gmem=DrumBanger
 
 slider1:0<0,15,1>Slot
+slider2:1<0,4,1>Role
+slider3:0<-2,3,1>Octave
+slider4:100<1,127,1>Velocity
+slider5:3<0,7,1>Arp Rate
+slider6:0<0,4,1>Arp Dir
+slider7:4<0,11,1>Harm Interval
 
 in_pin:left input
 in_pin:right input
@@ -38,15 +44,17 @@ SPB_TBL[7] = 6;
 slot = slider1 | 0;
 base = 961100 + slot * 20;
 
-// Read settings from manager
-role = gmem[base] | 0;
-vel = gmem[base + 5] | 0;
+// Transport: follow REAPER directly, not gmem relay
+transport = (play_state & 1) | ((play_state & 4) >> 2);
+
+// Read settings from sliders (persisted by REAPER with project)
+role = slider2 | 0;
+vel = slider4 | 0;
 vel < 1 ? vel = 100;
 vel > 127 ? vel = 127;
 chord_count = gmem[base + 6] | 0;
 chord_count < 0 ? chord_count = 0;
 chord_count > MAX_CHORD ? chord_count = MAX_CHORD;
-transport = gmem[base + 15] | 0;
 
 // Read chord notes
 i = 0;
@@ -72,11 +80,9 @@ transport && chord_count > 0 ? (
 
   (role == 2 || role == 3) ? (
     // Arp from beat position
-    arp_rate = gmem[base + 2] | 0;
-    arp_rate < 0 ? arp_rate = 0;
-    arp_rate > 7 ? arp_rate = 7;
-    arp_dir = gmem[base + 3] | 0;
-    harm_int = gmem[base + 4] | 0;
+    arp_rate = slider5 | 0;
+    arp_dir = slider6 | 0;
+    harm_int = slider7 | 0;
     spb = SPB_TBL[arp_rate];
     step = floor(beat_position * spb);
     step < 0 ? step = 0;
@@ -116,9 +122,20 @@ note_hash = target_count * 1000;
 i = 0;
 loop(target_count, note_hash += TARGET[i] * (i + 1); i += 1);
 
+// Transport stopped: kill all notes immediately, reset state
+!transport && on_count > 0 ? (
+  i = 0;
+  loop(on_count,
+    ON_NOTES[i] >= 0 ? midisend(0, $x90, ON_NOTES[i], 0);
+    ON_NOTES[i] = -1;
+    i += 1;
+  );
+  on_count = 0;
+  last_note_hash = -1;
+) :
 // Only send MIDI when notes actually change
 note_hash != last_note_hash ? (
-  // Note offs (velocity 0 on note-on = universal note-off)
+  // Note offs
   i = 0;
   loop(on_count,
     ON_NOTES[i] >= 0 ? midisend(0, $x90, ON_NOTES[i], 0);

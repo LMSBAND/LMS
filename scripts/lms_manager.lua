@@ -417,6 +417,84 @@ local function read_harmony_state()
   end
 end
 
+local function update_drones()
+  local drone_count = 0
+  local hm_root = math.floor(r.gmem_read(960001))
+  local hm_qual = math.floor(r.gmem_read(960002))
+
+  for _, inst in ipairs(instances) do
+    if inst.type_id == 34 then
+      local slot = drone_count
+      drone_count = drone_count + 1
+
+      local ds_key = inst.track_idx
+      if not drone_states[ds_key] then
+        local r_role = r.TrackFX_GetParam(inst.track, inst.fx_idx, 1)
+        local r_oct = r.TrackFX_GetParam(inst.track, inst.fx_idx, 2)
+        local r_vel = r.TrackFX_GetParam(inst.track, inst.fx_idx, 3)
+        local r_arp = r.TrackFX_GetParam(inst.track, inst.fx_idx, 4)
+        local r_dir = r.TrackFX_GetParam(inst.track, inst.fx_idx, 5)
+        local r_hint = r.TrackFX_GetParam(inst.track, inst.fx_idx, 6)
+        drone_states[ds_key] = {
+          role = math.floor(r_role),
+          oct = math.floor(r_oct),
+          vel = math.floor(r_vel),
+          arp_rate = math.floor(r_arp),
+          arp_dir = math.floor(r_dir),
+          harm_int = math.floor(r_hint)
+        }
+      end
+      local ds = drone_states[ds_key]
+
+      if not r.ValidatePtr(inst.track, "MediaTrack*") then goto drone_update_next end
+
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 0, slot)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 1, ds.role)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 2, ds.oct)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 3, ds.vel)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 4, ds.arp_rate)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 5, ds.arp_dir)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 6, ds.harm_int)
+
+      local gbase = 961100 + slot * 20
+      local chord = {}
+      if hm_root >= 0 and hm_root < 12 and hm_qual >= 0 then
+        local base_note = 48 + ds.oct * 12 + hm_root
+        local third, fifth, seventh
+        local q = hm_qual
+        if q == 0 or q == 2 or q == 4 or q == 9 or q == 11 or q == 13 or q == 14 then
+          third = 4; fifth = 7
+        elseif q == 1 or q == 3 or q == 8 or q == 12 or q == 15 then
+          third = 3; fifth = 7
+        elseif q == 5 or q == 7 then
+          third = 3; fifth = 6
+        elseif q == 6 then
+          third = 4; fifth = 8
+        elseif q == 10 then
+          third = 5; fifth = 7
+        else
+          third = 2; fifth = 7
+        end
+        seventh = nil
+        if q == 2 or q == 14 then seventh = 11
+        elseif q == 3 or q == 8 or q == 12 then seventh = 10
+        elseif q == 4 or q == 13 or q == 15 then seventh = 10
+        elseif q == 7 then seventh = 9
+        end
+        chord = {base_note, base_note + third, base_note + fifth}
+        if seventh then chord[#chord + 1] = base_note + seventh end
+      end
+
+      r.gmem_write(gbase + 6, #chord)
+      for ci = 1, 8 do
+        r.gmem_write(gbase + 6 + ci, chord[ci] or -1)
+      end
+
+      ::drone_update_next::
+    end
+  end
+end
+
 local function read_pitch_state()
   pitch_state = {
     freq = r.gmem_read(950000),
@@ -1876,6 +1954,10 @@ local function draw_harmony(ctx)
     if r.ImGui_SmallButton(ctx, "Open##hm_open") then
       r.TrackFX_SetOpen(hm_inst.track, hm_inst.fx_idx, true)
     end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Reset##hm_reset") then
+      r.gmem_write(960330, 9)
+    end
   end
 
   if hm_inst == nil then
@@ -2349,20 +2431,13 @@ local function draw_harmony(ctx)
   local DRONE_INTERVALS = {"Uni", "m2", "M2", "m3", "M3", "4th", "Tri", "5th", "m6", "M6", "m7", "M7"}
   local drone_count = 0
 
-  -- Read current chord from HM broadcast
-  local hm_root = math.floor(r.gmem_read(960001))
-  local hm_qual = math.floor(r.gmem_read(960002))
-
   for _, inst in ipairs(instances) do
     if inst.type_id == 34 then
-      local slot = drone_count
       drone_count = drone_count + 1
 
-      -- Drone state lives in drone_states table (persistent across frames)
-      if not drone_states[slot] then
-        drone_states[slot] = {role = 1, oct = 0, vel = 100, arp_rate = 3, arp_dir = 0, harm_int = 4, arp_idx = 0, arp_dir_state = 1}
-      end
-      local ds = drone_states[slot]
+      local ds_key = inst.track_idx
+      local ds = drone_states[ds_key]
+      if not ds then goto drone_next end
 
       r.ImGui_PushID(ctx, "drone_" .. inst.track_idx)
 
@@ -2440,65 +2515,6 @@ local function draw_harmony(ctx)
         end
       end
 
-      -- Assign slot to JSFX (slider1 = param 0)
-      if not r.ValidatePtr(inst.track, "MediaTrack*") then r.ImGui_PopID(ctx); goto drone_next end
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 0, slot)
-
-      -- === Write chord + settings to gmem for JSFX ===
-      local gbase = 961100 + slot * 20
-      local play_state = r.GetPlayState()
-      local transport_on = (play_state & 1) ~= 0
-
-      -- Build chord notes
-      local chord = {}
-      if hm_root >= 0 and hm_root < 12 and hm_qual >= 0 then
-        local base_note = 48 + ds.oct * 12 + hm_root
-        local third, fifth, seventh
-        local q = hm_qual
-        if q == 0 or q == 2 or q == 4 or q == 9 or q == 11 or q == 13 or q == 14 then
-          third = 4; fifth = 7
-        elseif q == 1 or q == 3 or q == 8 or q == 12 or q == 15 then
-          third = 3; fifth = 7
-        elseif q == 5 or q == 7 then
-          third = 3; fifth = 6
-        elseif q == 6 then
-          third = 4; fifth = 8
-        elseif q == 10 then
-          third = 5; fifth = 7
-        else
-          third = 2; fifth = 7
-        end
-        seventh = nil
-        if q == 2 or q == 14 then seventh = 11
-        elseif q == 3 or q == 8 or q == 12 then seventh = 10
-        elseif q == 4 or q == 13 or q == 15 then seventh = 10
-        elseif q == 7 then seventh = 9
-        end
-        chord = {base_note, base_note + third, base_note + fifth}
-        if seventh then chord[#chord + 1] = base_note + seventh end
-      end
-
-      -- Write settings: role, oct, arp_rate, arp_dir, harm_int, vel
-      r.gmem_write(gbase, ds.role)
-      r.gmem_write(gbase + 1, ds.oct)
-      r.gmem_write(gbase + 2, ds.arp_rate)
-      r.gmem_write(gbase + 3, ds.arp_dir)
-      r.gmem_write(gbase + 4, ds.harm_int)
-      r.gmem_write(gbase + 5, ds.vel)
-      -- Write chord notes
-      r.gmem_write(gbase + 6, #chord)
-      for ci = 1, 8 do
-        r.gmem_write(gbase + 6 + ci, chord[ci] or -1)
-      end
-      -- Transport flag
-      r.gmem_write(gbase + 15, transport_on and 1 or 0)
-
-      -- Debug
-      local hb = r.gmem_read(gbase + 19)
-      r.ImGui_TextDisabled(ctx, string.format(
-        "  [hb:%d] role=%d chord=%d root=%d qual=%d %s",
-        math.floor(hb), ds.role, #chord, hm_root, hm_qual,
-        transport_on and "PLAY" or "STOP"))
 
       r.ImGui_PopID(ctx)
       ::drone_next::
@@ -2721,15 +2737,23 @@ local function draw_main(ctx)
   r.ImGui_PushFont(ctx, nil, math.floor(13 * ui_scale))
   local visible, open = r.ImGui_Begin(ctx, "LMS Plugin Manager", true, FlagsNone)
   if visible then
+    local win_w = r.ImGui_GetWindowWidth(ctx)
+    ui_scale = math.max(0.6, math.min(2.0, win_w / 600))
     if r.ImGui_Button(ctx, "Rescan Tracks") then
       scan_tracks()
     end
     r.ImGui_SameLine(ctx)
+    if r.ImGui_Button(ctx, "Close All Plugin Windows") then
+      for _, inst in ipairs(instances) do
+        if r.ValidatePtr(inst.track, "MediaTrack*") then
+          r.TrackFX_SetOpen(inst.track, inst.fx_idx, false)
+        end
+      end
+    end
+    r.ImGui_SameLine(ctx)
     r.ImGui_TextDisabled(ctx, string.format("(%d instances)", #instances))
-    r.ImGui_SameLine(ctx, r.ImGui_GetWindowWidth(ctx) - 160)
-    r.ImGui_SetNextItemWidth(ctx, 120)
-    local changed_s, new_s = r.ImGui_SliderDouble(ctx, "##scale", ui_scale, 0.6, 2.0, "%.1fx")
-    if changed_s then ui_scale = new_s end
+    r.ImGui_SameLine(ctx, r.ImGui_GetWindowWidth(ctx) - 80)
+    r.ImGui_TextDisabled(ctx, string.format("%.0f%%", ui_scale * 100))
 
     r.ImGui_Spacing(ctx)
 
@@ -2789,6 +2813,7 @@ local function loop()
   -- Read gmem for non-broadcast plugins
   read_drumbanger_state()
   read_harmony_state()
+  update_drones()
   read_pitch_state()
   read_mega_state()
 
