@@ -74,7 +74,7 @@ local lms_block = LMS_START .. "\n" ..
   "  end\n" ..
   "\n" ..
   "  -- LMS Plugin Manager\n" ..
-  "  local mgr = base .. \"/LMS/lms_manager.lua\"\n" ..
+  "  local mgr = home .. \"/LMS/scripts/lms_manager.lua\"\n" ..
   "  f = io.open(mgr, \"r\")\n" ..
   "  if f then\n" ..
   "    f:close()\n" ..

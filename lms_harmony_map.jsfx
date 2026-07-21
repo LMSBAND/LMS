@@ -1129,7 +1129,7 @@ gmem[960099] > 0 ? (
 //   6 = reorder seq      (960331=src_idx, 960332=dst_idx)
 //   7 = set seq drum     (960331=seq_idx, 960332=drum_pat 0-8)
 //   8 = clear all song   (reset parts + sequence)
-//   9 = song builder     (960331=preset_idx — fills parts+seq+chords from template)
+//   9 = factory reset    (clear ALL patterns, chords, song — blank slate)
 //  10 = set part octave  (960331=part_idx, 960332=octave 0-6 maps to -2..+3, 3=center)
 //  11 = set song_sel_part(960331=part_idx)
 gmem[960330] > 0 ? (
@@ -1213,8 +1213,33 @@ gmem[960330] > 0 ? (
     SONG_PARTS[1] = 1; SONG_PARTS[3] = 1;
     _k = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_k] = 3; _k += 1);
   ) :
-  _scmd == 9 ? ( // reserved for future use
-    0;
+  _scmd == 9 ? ( // factory reset: clear ALL chord data + song + patterns
+    // Zero all pattern bank
+    _k = 0; loop(16 * PAT_SIZE, PAT_BASE[_k] = 0; _k += 1);
+    // Zero working copy
+    _k = 0; loop(64, CHORD_SLOTS[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_FILLED[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_BARS[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_SUBDIV[_k] = 0; _k += 1);
+    _k = 0; loop(512, CHORD_PATTERN[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_VEL[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_STEP[_k] = 0; _k += 1);
+    _k = 0; loop(512, CHORD_MOD_TICK[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_SUS[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_ADD9[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_ADD7[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_DOM7[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_ADD6[_k] = 0; _k += 1);
+    _k = 0; loop(32, CHORD_MOD_INV[_k] = 0; _k += 1);
+    // Reset song
+    song_mode = 0; song_num_parts = 1; song_seq_len = 0; song_sel_part = 0;
+    _k = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, SONG_PARTS[_k] = 0; _k += 1);
+    SONG_PARTS[1] = 1; SONG_PARTS[3] = 1;
+    _k = 0; loop(MAX_SONG_SEQ, SONG_SEQ[_k] = 0; _k += 1);
+    _k = 0; loop(MAX_SONG_PARTS, SONG_PART_OCT[_k] = 3; _k += 1);
+    _k = 0; loop(MAX_SONG_SEQ, SONG_SEQ_DRUM[_k] = 0; _k += 1);
+    // Reset state
+    current_pat = 0; num_pats = 1; edit_override = 0;
   ) :
   _scmd == 10 ? ( // set part octave
     _sa1 >= 0 && _sa1 < song_num_parts ? (

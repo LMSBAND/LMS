@@ -102,6 +102,11 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+          <version name="6.9" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v6.9 — Fix YIN buffer overflow at high sample rates (96kHz+). Buffer now scales with sample rate to prevent writes past allocation.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -114,6 +119,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v1.2 — Modal resonance EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
+      </version>
+          <version name="1.3" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_reverb.jsfx</source>
       </version>
     </reapack>
@@ -166,6 +175,10 @@
         <changelog><![CDATA[v7.1 — Peaking EQ correction (core 6.7). Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
       </version>
+          <version name="7.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v7.2 — Broadcast code removed (pure audio processor). Gate threshold + Smart Gate density threshold controls exposed for LMS Plugin Manager.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_rtw.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_traumatizer.jsfx" type="effect" desc="KITTY KATS BIG KRUSH — Compressor/Distortion">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -208,6 +221,10 @@
         <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
       </version>
+          <version name="5.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_traumatizer.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tube_sat.jsfx" type="effect" desc="LMS Tube Saturator">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -244,6 +261,10 @@
       </version>
       <version name="6.3" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v6.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
+      </version>
+          <version name="6.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tube_sat.jsfx</source>
       </version>
     </reapack>
@@ -284,6 +305,10 @@
         <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
       </version>
+          <version name="5.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge_on_crack.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_henge.jsfx" type="effect" desc="HENGE DELAY — Space Tape Echo">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -322,6 +347,10 @@
         <changelog><![CDATA[v5.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
+          <version name="5.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_the_space.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -332,6 +361,10 @@
         <changelog><![CDATA[v1.1 — Fix gmem namespace typo (DrumBagger → DrumBanger).]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
       </version>
+          <version name="1.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_room_send.jsfx" type="effect" desc="LMS - Space Send — Satellite for The Space">
       <version name="5.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -340,6 +373,10 @@
       </version>
       <version name="5.1" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog><![CDATA[v5.1 — Fix gmem namespace typo (DrumBagger → DrumBanger).]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
+      </version>
+          <version name="5.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
       </version>
     </reapack>
@@ -408,6 +445,10 @@
         <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords, 0.15 width for small 5W Champ OT). Miller LP opens to 15-18kHz at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
+          <version name="3.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_punk_idol_v2.jsfx" type="effect" desc="LMS - Punk Idol v2 — Density-Aware British Crunch Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -470,6 +511,10 @@
         <changelog><![CDATA[v2.9 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
       </version>
+          <version name="3.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_punk_idol_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_fridge_v2.jsfx" type="effect" desc="LMS - The Fridge v2 — Density-Aware All-Tube Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -528,6 +573,10 @@
         <changelog><![CDATA[v1.9 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+          <version name="2.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -560,6 +609,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-06-27T00:00:00Z">
         <changelog><![CDATA[v2.1 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+          <version name="2.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -624,6 +677,10 @@
         <changelog><![CDATA[v2.9 — Bright switch (+4dB shelf at 2kHz). Tone stack now active on all channels (bass/treble no longer dead on Normal). Output transformer hysteresis. Miller LP opens at clean for sparkle with frequency meter, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
       </version>
+          <version name="3.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_ol_reliable_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_twins_v2.jsfx" type="effect" desc="LMS - The Twins v2 — Density-Aware Dual American Clean Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T22:00:00Z">
@@ -686,6 +743,10 @@
         <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
       </version>
+          <version name="3.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_twins_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_trsob_v2.jsfx" type="effect" desc="LMS - The TRSOB v2 — Density-Aware High-Gain Rectifier Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-19T12:00:00Z">
@@ -744,6 +805,10 @@
         <changelog><![CDATA[v3.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
       </version>
+          <version name="3.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_trsob_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_mega_increasinator.jsfx" type="effect" desc="LMS - MEGA INCREASINATOR — Auto-Makeup Brick-Wall Limiter">
       <version name="0.1" author="LMS" time="2026-02-19T00:00:00Z">
@@ -778,6 +843,10 @@
         <changelog><![CDATA[v1.5 — LR4 lo crossover: Linkwitz-Riley 4th-order split on sidechain input for frequency-targeted limiting. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+          <version name="1.6" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -798,6 +867,10 @@
       </version>
       <version name="1.4" author="LMS" time="2026-06-27T00:00:00Z">
         <changelog><![CDATA[v1.4 — LR4 lo crossover: Linkwitz-Riley 4th-order split on sidechain input for frequency-targeted opto compression. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
+      </version>
+          <version name="1.5" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_silver69.jsfx</source>
       </version>
     </reapack>
@@ -822,6 +895,10 @@
         <changelog><![CDATA[v2.3 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+          <version name="2.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v2.4 — Broadcast code removed (pure audio processor). Fix phase calibration for multi-mic setups. Add mutual exclusion display. New Room drum type for ambient/room mics.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
@@ -838,6 +915,10 @@
       </version>
       <version name="2.2" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v2.2 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+          <version name="2.3" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v2.3 — Broadcast code removed (pure audio processor). Fix YIN buffer overflow at high sample rates.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
@@ -862,6 +943,10 @@
         <changelog><![CDATA[v2.3 — Mouse capture on sliders prevents accidental edits while dragging.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
+          <version name="2.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v2.4 — Broadcast code removed (pure audio processor). Fix YIN buffer overflow at high sample rates. Harmony Map follow mode — reads chord from gmem for harmony-aware pitch correction.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_drum_trigger.jsfx" type="effect" desc="LMS - Drum Trigger — Audio-to-DrumBanger Transient Detector">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -878,6 +963,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v1.3 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
+      </version>
+          <version name="1.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drum_trigger.jsfx</source>
       </version>
     </reapack>
@@ -922,6 +1011,10 @@
         <changelog><![CDATA[v2.1 — Mouse capture on sliders.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
       </version>
+          <version name="2.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v2.2 — Broadcast code removed (pure audio processor). Drone Voice compatible — responds to gmem-driven MIDI from Drone Voice satellites.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nuug420.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_lil_stinker.jsfx" type="effect" desc="LMS Lil Stinker — Mono/Poly Analog Synth">
       <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -942,6 +1035,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v2.1 — Mouse capture on sliders.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
+      </version>
+          <version name="2.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v2.2 — Broadcast code removed (pure audio processor). Drone Voice compatible — responds to gmem-driven MIDI from Drone Voice satellites.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_lil_stinker.jsfx</source>
       </version>
     </reapack>
@@ -990,6 +1087,10 @@
         <changelog><![CDATA[v2.1 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
       </version>
+          <version name="2.2" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_area51_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_bottom_feeder_v2.jsfx" type="effect" desc="LMS - Bottom Feeder v2 — Density-Aware Tweed Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1032,6 +1133,10 @@
         <changelog><![CDATA[v2.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
+          <version name="2.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Hybrid Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1070,6 +1175,10 @@
         <changelog><![CDATA[v2.0 — Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8. (No transformer hysteresis — Class D solid-state power section has no output transformer.)]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
+          <version name="2.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_oj95_v2.jsfx" type="effect" desc="LMS - OJ 95 v2 — this is one killer amp">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1106,6 +1215,10 @@
       </version>
       <version name="2.0" author="LMS" time="2026-06-27T00:00:00Z">
         <changelog><![CDATA[v2.0 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Fix: Mark II mode switch no longer resets PA state every block (was causing ring-mod artifacts by reinitializing DC block, transformer, cathode bias, NFB, and hysteresis). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
+      </version>
+          <version name="2.1" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_oj95_v2.jsfx</source>
       </version>
     </reapack>
@@ -1556,6 +1669,10 @@
         <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
       </version>
+          <version name="3.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v3.0 — Broadcast code removed (pure audio processor). Manager integration: command bus for interactive pad control, zero-latency sync. Per-pad routing: 34-channel output, folder routing, route-aware stereo muting. MIDI note output for external instruments. Harmony Map integration for chord-aware drum patterns. Song structure: beat presets, batch step bus, auto-start. Room drum type for ambient/room mics.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+      </version>
     </reapack>
   </category>
   <category name="DRUMBANGER/Scripts">
@@ -1662,6 +1779,10 @@
         <changelog><![CDATA[v1.2 — Auto-start hardware bridge: spawns Python serial daemon (lms_bridge.py) and Lua FX controller (lms_gmem_bridge.lua) alongside DrumBanger service on REAPER launch.]]></changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
+          <version name="1.3" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v1.3 — Updated for LMS Plugin Manager integration. Song structure support.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Scripts">
@@ -1711,6 +1832,12 @@
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_steal.lua</source>
       </version>
     </reapack>
+    <reapack name="lms_manager.lua" type="script" desc="LMS Plugin Manager — Central Control Plane">
+      <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v1.0 — ReaImGui-based central control plane for the entire LMS suite. Overview tab: track-centric layout with inline rename, mute/solo, FX bypass. Broadcast tab: follow/steal management for all plugin types via TrackFX_GetParam/SetParam — plugins are pure audio processors. DrumBanger tab: interactive pad control, auto-create track, MIDI output. Harmony Map tab: read-only song structure display, Song Builder presets, Sync Markers. Drone Voice tab: per-slot role/octave/velocity/arp config with project-persistent settings. Track Setup tab: build tracks from plugin checklist. 2762 lines.]]></changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+    </reapack>
     <reapack name="lms_satans_pedalboard.jsfx" type="effect" desc="Satan's Little Helper — all the satanic minions required to achieve your darkest most twisted musical fantasy">
       <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">
         <changelog><![CDATA[Initial release — 10-pedal container plugin. DOA666 (ODB-3 bass distortion), HARDWARE INCOMPATIBLE (BD-2 Blues Driver), BLACK MASS (CE-2 chorus), THE ELEPHANT (Memory Boy BBD delay), PIPEWORKS (BF-2 flanger), UNHOLY BOWL (Holy Grail — Spring/Hall/Flerb), MARMOT (ProCo RAT), 12 STEPPER (OC-2 / Octavia octave pedal), GREEN SIN (TS-808/TS-9 Tube Screamer), JUDGEMENT DAY (4-band parametric EQ with Punk/Jazz/Metal/Flat voicings — mode auto-snaps knobs to preset defaults). Section-based chain ordering: 6 presets reorder DIST / MOD / DELAY / REVERB / EQ as sections, with 12 STEPPER always at the head of the chain. Dual FET compressors (input + output). Broadcast type_id 31. Every pedal's DSP lives in lms_core as lms_* primitives — no DSP duplication.]]></changelog>
@@ -1730,6 +1857,31 @@
       <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog><![CDATA[v1.3 — Fix spring reverb + BBD delay buffer collision (Unholy Bowl spring buffer overlapped Elephant delay). Mouse capture on sliders prevents accidental edits while dragging.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+          <version name="1.4" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+    </reapack>
+    <reapack name="lms_harmony_map.jsfx" type="effect" desc="LMS - Harmony Map — Timeline Chord Sequencer with Song Mode">
+      <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v1.0 — Timeline-locked chord sequencer with Song Mode. 16 patterns with labeled parts (Verse/Chorus/Bridge/Intro/Outro). Song sequence with drag-and-drop reorder. Per-section modifiers (modulate key, force major/minor, get quiet/loud). Full chord broadcast to gmem (root, quality, notes). Music theory navigation: key selector, scale-aware chord suggestions, Nashville number display. Conductor mode for transport-driven playback. 3440 lines.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
+      </version>
+    </reapack>
+    <reapack name="lms_drone_voice.jsfx" type="effect" desc="LMS - Drone Voice — gmem-Driven MIDI Generator for Synth Roles">
+      <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v1.0 — MIDI generator satellite for LMS synths (Nuug420, Lil Stinker). 5 roles: Bass (root-12), Chords (full voicing), Arp Up/Down/Bounce, Arp+Harmony (parallel interval), Power (root+5th). Settings persist with project via JSFX sliders (role, octave, velocity, arp rate, arp direction, harmony interval). Glide/portamento support via note-on-before-note-off overlap. Reads chord data from Harmony Map via gmem. Transport follows REAPER play_state directly.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drone_voice.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="lms_piece_of_shit.jsfx" type="effect" desc="LMS - The Piece of Shit — 5-inch Solid State Practice Amp">
+      <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
+        <changelog><![CDATA[v1.0 — Solid-state practice amp sim. The shittiest amp you've ever heard — intentionally. Transistor clipping (hard asymmetric), tiny speaker sim (bandpass 200Hz-4kHz, resonance peak at 800Hz), cabinet rattle at high gain, cheap spring reverb approximation. 4 controls: Input Level, Gain, Tone, Volume. Density-aware saturation via lms_core. 478 lines.]]></changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_piece_of_shit.jsfx</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
@@ -1775,7 +1927,7 @@
     </reapack>
   </category>
   <metadata>
-    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 11 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), The Basswoman v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Top Boost v2 (AC15), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 99 v2 (Orange OR100), TOMASTEKNIK v2 (SVT + ODB-3). 12 shared cabinet models. Black In Bluhm Special (physical room modeler — geometry-based acoustics). Density Reverb (harmonic room physics — the room reacts to what you play). Density Limiter (predictive mastering). Density Sequencer (your playing IS the sequence). LA-2A opto compressor, Smart Gate, Autotune, Pitch Detector, channel strip, distressor, tube saturator, tape machine, tape echo, Moog-style mono synth, Harmony Map (timeline chord sequencer with music theory navigation and arrangement mode), and the DRUMBANGER 16-pad drum machine with MIDI drone and FX drone satellites (MIDI print, auto-start service). Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
+    <description><![CDATA[LMS Plugins — Open source analog-style JSFX effects and instruments for REAPER. 12 density-aware amp sims: The Twins v2 (Fender Twin/Deluxe), The Frenchie v2 (Champ), Bottom Feeder v2 (Bassman), Punk Idol v2 (JCM800), Area 50/51 v2 (5150/6505), The Fridge v2 (SVT with Crushinator), Ol' Reliable v2 (AC15/EF86), The TRSOB v2 (Mesa Triple Rectifier), The Fucking Nightmare v2 (Orange Terror Bass), OJ 95 v2 (Orange OR100), TOMASTEKNIK v2 (SVT + ODB-3), The Piece of Shit (5" solid-state practice amp). 12 shared cabinet models. Black In Bluhm Special (physical room modeler — geometry-based acoustics). Density Reverb (harmonic room physics — the room reacts to what you play). MEGA INCREASINATOR (predictive mastering limiter). Silver Sixty Nine (LA-2A opto compressor). Smart Gate (density-aware multi-mic drum gate). The Faker (intelligent pitch correction with vibrato preserve). Pitch Detector (YIN vocal tracker + MIDI output). PEQ4U (Pultec-style passive EQ). LMS RTW channel strip (SSL-grade: 4-band EQ, VCA comp, spring + room reverb). KITTY KATS BIG KRUSH (compressor/distortion). LMS Tube Saturator. HENGE ON CRACK (tape machine). HENGE DELAY (space tape echo). The Space (material reverb with satellite sends). Satan's Little Pedal Board (10-pedal container with Klon, TS, RAT, chorus, delay, flanger, reverb, octave, parametric EQ). NUUG 420 (Moog-style mono synth with Huovilainen ladder filter). Lil Stinker (mono/poly analog synth). Harmony Map (timeline chord sequencer with Song Mode — 16 patterns, labeled parts, song sequence, chord broadcast). Drone Voice (gmem-driven MIDI generator — bass/chords/arp/power roles for synth satellites). DRUMBANGER 16-pad drum machine (MIDI output, per-pad routing, room drum, auto-start). Drum Trigger (audio-to-DrumBanger transient detector). LMS Plugin Manager (ReaImGui central control plane — overview, follow/steal, DrumBanger control, Harmony Map display, Drone Voice config, track setup). Session templates: save/load/steal your full mixer state across projects. No subscriptions. No iLok. GPL-3.0.]]></description>
     <link rel="website" href="https://github.com/LMSBAND/LMS">LMS on GitHub</link>
   </metadata>
 </index>

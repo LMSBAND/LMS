@@ -3594,12 +3594,12 @@
 </section>
 
 
-<!-- 10 AMP SIMS PERFORMANCE CARD -->
+<!-- 12 AMP SIMS PERFORMANCE CARD -->
 <div class="amp-perf-card">
-  <div class="amp-perf-number">10</div>
-  <div class="amp-perf-label">DENSITY-AWARE AMP SIMS RUNNING SIMULTANEOUSLY</div>
+  <div class="amp-perf-number">12</div>
+  <div class="amp-perf-label">AMP SIMS RUNNING SIMULTANEOUSLY</div>
   <div class="amp-perf-detail">
-    10 full amp sim instances — each with grid physics, density tracking, dynamic Miller capacitance, 
+    12 full amp sim instances — each with grid physics, density tracking, dynamic Miller capacitance,
     shared power supply modeling — all running latency-free at under 10% total CPU.
   </div>
   <div class="amp-perf-stat-row">
@@ -3778,7 +3778,7 @@
   <div class="da-suite-grid">
     <!-- DENSITY-AWARE AMP SIMS -->
     <div class="da-suite-card" style="border-color:var(--amber-dim);">
-      <div class="da-suite-card-header da-amber">DENSITY-AWARE AMP SIMS (11)</div>
+      <div class="da-suite-card-header da-amber">AMP SIMS (12)</div>
       <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Dual American Clean (AB763 preamp, cathode follower, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
       <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— British Crunch (bright cap, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
       <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— 5W Class A (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
@@ -3790,7 +3790,8 @@
       <div class="da-suite-item"><strong>Area 50/51 v2</strong> <span class="da-suite-item-desc">— the tone is out there... (cold-biased 6L6, Clean/Lead channels, resonance/presence controls, noise gate)</span></div>
       <div class="da-suite-item"><strong>The Fucking Nightmare v2</strong> <span class="da-suite-item-desc">— Hybrid Bass (Warm/Aggressive channels)</span></div>
       <div class="da-suite-item"><strong>TOMASTEKNIK v2</strong> <span class="da-suite-item-desc">— All-Tube Bass + OD (Swedish hardcore bass rig, Blindside tribute)</span></div>
-      <div class="da-suite-footer">All shared DSP in lms_core: triode / power amp / density tracker / spring + tremolo + tape echo / cab sim / GUI — each amp is just preamp voicing + tonestack</div>
+      <div class="da-suite-item"><strong>The Piece of Shit</strong> <span class="da-suite-item-desc">— 5" Solid State Practice Amp (the one that sounds like a bee in a tin can — but density-aware)</span></div>
+      <div class="da-suite-footer">11 density-aware tube amps + 1 solid-state practice amp. All shared DSP in lms_core: triode / power amp / density tracker / spring + tremolo + tape echo / cab sim / GUI</div>
     </div>
 
     <!-- INSTRUMENTS -->
@@ -3798,12 +3799,12 @@
       <div class="da-suite-card-header da-green">INSTRUMENTS (7)</div>
       <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Analog mono synth (24dB ladder filter, 3 oscillators, unison, chorus, delay)</span></div>
       <div class="da-suite-item"><strong>Lil Stinker</strong> <span class="da-suite-item-desc">— Analog mono/poly synth (ladder filter, Multidrive, 74 presets, 8-voice poly)</span></div>
-      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (gmem-connected)</span></div>
+      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (MIDI output, manager-integrated, per-pad routing)</span></div>
       <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
-      <div class="da-suite-item"><strong>Drone MIDI</strong> <span class="da-suite-item-desc">— Sequencer satellite (reads Drumbanger triggers, outputs MIDI)</span></div>
-      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, conductor/player), controls DrumBanger patterns per song section</span></div>
+      <div class="da-suite-item"><strong>Drone Voice</strong> <span class="da-suite-item-desc">— MIDI generator for synth roles (Bass/Chords/Arp/Harmony/Power, follows Harmony Map chords, glide/portamento)</span></div>
+      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, labeled parts, song sequence, per-section modifiers, chord broadcast)</span></div>
       <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
-      <div class="da-suite-footer">All interconnected via gmem bus</div>
+      <div class="da-suite-footer">All interconnected via gmem bus — Drone Voice reads Harmony Map chords in real time</div>
     </div>
 
     <!-- CHANNEL TOOLS -->
@@ -3833,16 +3834,25 @@
 
     <!-- SESSION SCRIPTS -->
     <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
-      <div class="da-suite-card-header da-orange">SESSION SCRIPTS — LUA (3)</div>
+      <div class="da-suite-card-header da-orange">CONTROL PLANE &amp; SCRIPTS — LUA (5)</div>
+      <div class="da-suite-item"><strong>LMS Plugin Manager</strong> <span class="da-suite-item-desc">— Central ReaImGui control plane. Follow/steal, overview, DrumBanger controls, Harmony Map display, drone voice setup, track builder. The brain of the suite.</span></div>
+      <div class="da-suite-item"><strong>lms_setup.lua</strong> <span class="da-suite-item-desc">— One-time suite setup (gmem namespace, pool directory)</span></div>
       <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
       <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
-      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one instance to another</span></div>
-      <div class="da-suite-footer">Session management via Reaper Actions</div>
+      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one project to another (smart track mapping)</span></div>
+      <div class="da-suite-footer">All plugins are pure audio processors — follow/steal managed by the Plugin Manager</div>
     </div>
   </div>
 </div>
 
 <!-- UPDATE NOTICE -->
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 20, 2026</div>
+  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
+    <strong>LMS Plugin Manager</strong> &mdash; new central ReaImGui control plane. Follow/steal handled entirely by the manager &mdash; all 28 plugins stripped of broadcast code, now pure audio processors (-2,258 lines). Overview tab, DrumBanger controls, Harmony Map display, track builder, drone voice setup. <strong>Drone Voice v1.0</strong> &mdash; new gmem-driven MIDI generator. 5 roles (Bass/Chords/Arp/Harmony/Power), follows Harmony Map chords in real time, glide/portamento via note overlap, settings persist with project via JSFX sliders. <strong>DrumBanger</strong> &mdash; manager integration, per-pad routing (34-ch output), MIDI output, route-aware stereo muting, room drum type. <strong>Smart Gate</strong> &mdash; phase calibration fix, mutual exclusion display, room mic type. <strong>The Faker</strong> &mdash; YIN buffer overflow fix at high sample rates, harmony map follow mode. <strong>The Piece of Shit</strong> &mdash; 5" solid-state practice amp, now in the suite. All free. All open source.
+  </div>
+</div>
+
 <div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
   <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JUNE 27, 2026</div>
   <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
