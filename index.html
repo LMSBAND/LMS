@@ -2596,13 +2596,13 @@
     <div class="tldr-step">
       <div class="tldr-step-head">
         <div class="tldr-step-num">6</div>
-        <div class="tldr-step-title">SET UP THE LUA SCRIPTS</div>
+        <div class="tldr-step-title">RUN LMS SETUP</div>
       </div>
       <div class="tldr-step-body">
-        LMS includes Lua scripts for saving/loading plugin states and Drumbanger integration. You need to register them as Reaper Actions so you can use them.
+        This one-time script registers all LMS services and starts the Plugin Manager automatically on every REAPER launch.
         <div class="substep">
           <div class="substep-arrow">a.</div>
-          <div>In Reaper: <code>Actions &rarr; Show action list...</code></div>
+          <div>In REAPER: <code>Actions &rarr; Show action list...</code></div>
         </div>
         <div class="substep">
           <div class="substep-arrow">b.</div>
@@ -2610,20 +2610,24 @@
         </div>
         <div class="substep">
           <div class="substep-arrow">c.</div>
-          <div>Navigate to your Reaper resource path &rarr; <code>Scripts</code> folder. The LMS scripts should already be there from the ReaPack install. Load each one:</div>
+          <div>Navigate to your REAPER resource path &rarr; <code>Scripts/LMS</code> folder and load <code>lms_setup.lua</code></div>
+        </div>
+        <div class="substep">
+          <div class="substep-arrow">d.</div>
+          <div>Run it once. It will:</div>
         </div>
         <div style="padding-left:1.5rem;margin-top:0.3rem">
-          <div style="margin-bottom:0.2rem"><code>lms_save.lua</code> &mdash; saves all LMS plugin states in your project</div>
-          <div style="margin-bottom:0.2rem"><code>lms_load.lua</code> &mdash; restores saved LMS plugin states</div>
-          <div style="margin-bottom:0.2rem"><code>lms_steal.lua</code> &mdash; copy settings between plugin instances</div>
+          <div style="margin-bottom:0.2rem">&bull; Start the <strong>LMS Plugin Manager</strong> &mdash; the central control plane for the entire suite</div>
+          <div style="margin-bottom:0.2rem">&bull; Start the <strong>DrumBanger service</strong> (sampling + MIDI print)</div>
+          <div style="margin-bottom:0.2rem">&bull; Install auto-start so both launch every time you open REAPER</div>
         </div>
         <div class="substep" style="margin-top:0.5rem">
-          <div class="substep-arrow">d.</div>
-          <div>You can now run these from <code>Actions &rarr; Show action list</code> by searching "lms". Optionally, assign keyboard shortcuts to them for fast access.</div>
+          <div class="substep-arrow">e.</div>
+          <div>The other Lua scripts (<code>lms_save.lua</code>, <code>lms_load.lua</code>, <code>lms_steal.lua</code>) are also in <code>Scripts/LMS</code>. Load them the same way if you want session save/load/steal as REAPER actions. Optionally assign keyboard shortcuts.</div>
         </div>
         <div class="tldr-warn">
           <div class="tldr-warn-icon">!</div>
-          <div><strong>Drumbanger users:</strong> The Drumbanger-related scripts handle pattern save/load and MIDI routing. Load them the same way. They'll appear in your Actions list ready to assign to toolbar buttons or hotkeys.</div>
+          <div><strong>You only run setup once.</strong> After that, the Plugin Manager and DrumBanger service start automatically with REAPER. If you ever need to re-run it (e.g. after moving your REAPER install), just run the LMS Setup action again.</div>
         </div>
       </div>
     </div>

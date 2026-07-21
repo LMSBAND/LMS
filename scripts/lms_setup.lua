@@ -47,7 +47,6 @@ local LMS_END   = "-- [LMS AUTO-START END]"
 local lms_block = LMS_START .. "\n" ..
   "reaper.defer(function()\n" ..
   "  local base = reaper.GetResourcePath() .. \"/Scripts\"\n" ..
-  "  local home = os.getenv(\"HOME\")\n" ..
   "\n" ..
   "  -- DrumBanger service (sampling + MIDI print)\n" ..
   "  local svc = base .. \"/LMS/drumbanger_service.lua\"\n" ..
@@ -60,21 +59,8 @@ local lms_block = LMS_START .. "\n" ..
   "    reaper.ShowConsoleMsg(\"LMS: Service script not found — run LMS Setup again.\\n\")\n" ..
   "  end\n" ..
   "\n" ..
-  "  -- Hardware bridge: spawn Python daemon in background\n" ..
-  "  os.execute(\"python3 \" .. home .. \"/LMS/serialtest/lms_bridge.py &\")\n" ..
-  "  reaper.ShowConsoleMsg(\"LMS: Hardware bridge started\\n\")\n" ..
-  "\n" ..
-  "  -- Hardware bridge: start Lua FX controller\n" ..
-  "  local bridge = home .. \"/LMS/serialtest/lms_gmem_bridge.lua\"\n" ..
-  "  f = io.open(bridge, \"r\")\n" ..
-  "  if f then\n" ..
-  "    f:close()\n" ..
-  "    reaper.ShowConsoleMsg(\"LMS: Hardware FX controller started\\n\")\n" ..
-  "    dofile(bridge)\n" ..
-  "  end\n" ..
-  "\n" ..
   "  -- LMS Plugin Manager\n" ..
-  "  local mgr = home .. \"/LMS/scripts/lms_manager.lua\"\n" ..
+  "  local mgr = base .. \"/LMS/lms_manager.lua\"\n" ..
   "  f = io.open(mgr, \"r\")\n" ..
   "  if f then\n" ..
   "    f:close()\n" ..
@@ -110,8 +96,7 @@ end
 
 reaper.ShowMessageBox(
   "LMS Suite setup complete!\n\n" ..
-  "DrumBanger service is now running.\n" ..
-  "Handles: SAMPLE button + MIDI PRINT button.\n\n" ..
-  "Auto-start installed. The service will run\n" ..
+  "Plugin Manager + DrumBanger service are now running.\n\n" ..
+  "Auto-start installed — both will launch\n" ..
   "automatically every time you open REAPER.",
   "LMS Setup", 0)
