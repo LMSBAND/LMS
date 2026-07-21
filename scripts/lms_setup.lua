@@ -3,6 +3,21 @@
 -- starts it, and installs __startup.lua so it auto-runs
 -- every time you open REAPER.
 
+-- Check for ReaImGui (required by Plugin Manager)
+if not reaper.ImGui_CreateContext then
+  reaper.ShowMessageBox(
+    "ReaImGui is not installed!\n\n" ..
+    "The LMS Plugin Manager requires ReaImGui.\n\n" ..
+    "To install it:\n" ..
+    "1. Extensions > ReaPack > Browse packages\n" ..
+    "2. Search for exactly: ReaImGui\n" ..
+    "   (capital R, capital I, capital G)\n" ..
+    "3. Install the one by cfillion\n" ..
+    "4. Click Apply, then run this setup again.",
+    "LMS Setup — Missing Dependency", 0)
+  return
+end
+
 -- Find the service script (same directory as this setup script)
 local info = debug.getinfo(1, "S")
 local script_dir = info.source:match("@?(.+)[/\\]")
