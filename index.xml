@@ -573,7 +573,7 @@
         <changelog><![CDATA[v1.9 — Output transformer hysteresis (B-H loop model — even harmonics on signal reversals, bloom on power chords). Miller LP opens at clean for sparkle, 150ms smoother. Tone stack recovery scales with gain. Core 6.8.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
-          <version name="2.0" author="LMS" time="2026-07-18T00:00:00Z">
+      <version name="2.4" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog><![CDATA[Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.]]></changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
