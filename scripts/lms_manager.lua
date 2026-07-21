@@ -2210,8 +2210,8 @@ local function draw_harmony(ctx)
     r.ImGui_EndPopup(ctx)
   end
 
-  -- Parts table
-  if r.ImGui_BeginTable(ctx, "hm_parts", 8, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
+  -- Parts table (read-only — edit in Harmony Map plugin)
+  if r.ImGui_BeginTable(ctx, "hm_parts", 7, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
     r.ImGui_TableSetupColumn(ctx, "#", 0, 20)
     r.ImGui_TableSetupColumn(ctx, "Type", 0, 65)
     r.ImGui_TableSetupColumn(ctx, "N", 0, 25)
@@ -2219,7 +2219,6 @@ local function draw_harmony(ctx)
     r.ImGui_TableSetupColumn(ctx, "Rep", 0, 35)
     r.ImGui_TableSetupColumn(ctx, "Drum", 0, 35)
     r.ImGui_TableSetupColumn(ctx, "Oct", 0, 35)
-    r.ImGui_TableSetupColumn(ctx, "", 0, 25)
     r.ImGui_TableHeadersRow(ctx)
 
     for i = 0, song_num_parts - 1 do
@@ -2227,47 +2226,26 @@ local function draw_harmony(ctx)
       if not p then break end
       r.ImGui_TableNextRow(ctx)
 
-      -- Row highlight for selected part
       if i == song_sel_part then
         r.ImGui_TableSetBgColor(ctx, r.ImGui_TableBgTarget_RowBg1(), 0x4444AA44)
       end
 
-      -- #
       r.ImGui_TableNextColumn(ctx)
-      if r.ImGui_Selectable(ctx, tostring(i + 1) .. "##sp" .. i, i == song_sel_part, r.ImGui_SelectableFlags_SpanAllColumns()) then
-        hm_song_cmd(11, i)
-      end
+      r.ImGui_Text(ctx, tostring(i + 1))
 
-      -- Type (category)
       r.ImGui_TableNextColumn(ctx)
       local cat = math.max(0, math.min(4, p.cat))
-      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), PART_COLORS[cat + 1])
-      if r.ImGui_SmallButton(ctx, PART_NAMES[cat + 1] .. "##spcat" .. i) then
-        hm_song_cmd(1, i, 0, (cat + 1) % 5)
-      end
-      r.ImGui_PopStyleColor(ctx)
+      r.ImGui_TextColored(ctx, PART_COLORS[cat + 1], PART_NAMES[cat + 1])
 
-      -- Number
       r.ImGui_TableNextColumn(ctx)
-      if r.ImGui_SmallButton(ctx, tostring(math.max(1, p.num)) .. "##spnum" .. i) then
-        hm_song_cmd(1, i, 1, (p.num % 8) + 1)
-      end
+      r.ImGui_Text(ctx, tostring(math.max(1, p.num)))
 
-      -- Pattern
       r.ImGui_TableNextColumn(ctx)
-      if r.ImGui_SmallButton(ctx, "P" .. (p.pat + 1) .. "##sppat" .. i) then
-        local np = hm_state.num_pats or 4
-        hm_song_cmd(1, i, 2, (p.pat + 1) % math.max(1, math.floor(np)))
-      end
+      r.ImGui_Text(ctx, "P" .. (p.pat + 1))
 
-      -- Repeats
       r.ImGui_TableNextColumn(ctx)
-      if r.ImGui_SmallButton(ctx, "x" .. math.max(1, p.rep) .. "##sprep" .. i) then
-        local nr = p.rep >= 8 and 1 or p.rep + 1
-        hm_song_cmd(1, i, 3, nr)
-      end
+      r.ImGui_Text(ctx, "x" .. math.max(1, p.rep))
 
-      -- Drum (find first seq entry using this part, show its drum pattern)
       r.ImGui_TableNextColumn(ctx)
       local part_drum = 0
       for si = 0, song_seq_len - 1 do
@@ -2276,57 +2254,25 @@ local function draw_harmony(ctx)
           break
         end
       end
-      local drum_str = part_drum > 0 and ("D" .. part_drum) or "--"
-      if r.ImGui_SmallButton(ctx, drum_str .. "##spdrum" .. i) then
-        local new_dp = (part_drum + 1) % 9
-        -- Set drum for ALL sequence entries pointing to this part
-        for si = 0, song_seq_len - 1 do
-          if (hm_state.seq[si] or -1) == i then
-            hm_song_cmd(7, si, new_dp)
-          end
-        end
-      end
+      r.ImGui_Text(ctx, part_drum > 0 and ("D" .. part_drum) or "--")
 
-      -- Octave
       r.ImGui_TableNextColumn(ctx)
       local oct = (hm_state.oct[i] or 3) - 3
-      local oct_str = oct == 0 and "--" or (oct > 0 and "+" .. oct or tostring(oct))
-      if r.ImGui_SmallButton(ctx, oct_str .. "##spoct" .. i) then
-        hm_song_cmd(10, i, ((hm_state.oct[i] or 3) + 1) % 7)
-      end
-
-      -- Add to seq
-      r.ImGui_TableNextColumn(ctx)
-      if r.ImGui_SmallButton(ctx, "+##spadd" .. i) then
-        hm_song_cmd(4, i)
-      end
-      if r.ImGui_IsItemHovered(ctx) then
-        r.ImGui_SetTooltip(ctx, "Add to sequence")
-      end
+      r.ImGui_Text(ctx, oct == 0 and "--" or (oct > 0 and "+" .. oct or tostring(oct)))
     end
     r.ImGui_EndTable(ctx)
   end
+  r.ImGui_TextDisabled(ctx, "Open Harmony Map plugin to edit parts & sequence")
 
-  -- [+ Part] [- Part] buttons
-  if r.ImGui_SmallButton(ctx, "+ Part##sp_add") then
-    hm_song_cmd(2)
-  end
-  r.ImGui_SameLine(ctx)
-  if song_num_parts > 1 then
-    if r.ImGui_SmallButton(ctx, "- Part##sp_del") then
-      hm_song_cmd(3, song_num_parts - 1)
-    end
-  end
-
-  -- Song sequence strip
+  -- Song sequence strip (read-only)
   r.ImGui_Spacing(ctx)
   r.ImGui_Text(ctx, "Sequence:")
   if song_seq_len == 0 then
     r.ImGui_SameLine(ctx)
-    r.ImGui_TextDisabled(ctx, "(empty — click + on a part to add)")
+    r.ImGui_TextDisabled(ctx, "(empty)")
   else
-    local seq_w = 70
-    local seq_h = 28
+    local seq_w = 52
+    local seq_h = 24
     local gx2, gy2 = r.ImGui_GetCursorScreenPos(ctx)
     local dl = r.ImGui_GetWindowDrawList(ctx)
     local avail_w = r.ImGui_GetContentRegionAvail(ctx)
@@ -2352,28 +2298,8 @@ local function draw_harmony(ctx)
 
       local slabel = string.format("%s %d", PART_NAMES[cat2 + 1]:sub(1, 3), math.max(1, p.num))
       r.ImGui_DrawList_AddText(dl, sx + 4, sy + 4, 0xFFFFFFFF, slabel)
-
-      -- Drum pattern indicator
-      local dp = hm_state.seq_drum[si] or 0
-      if dp > 0 then
-        r.ImGui_DrawList_AddText(dl, sx + seq_w - 16, sy + seq_h - 13, 0xAAAA44FF, "D" .. dp)
-      end
-
-      -- Click to cycle drum pattern, right-click to remove
-      r.ImGui_SetCursorScreenPos(ctx, sx, sy)
-      if r.ImGui_InvisibleButton(ctx, "##sqblk" .. si, seq_w, seq_h) then
-        hm_song_cmd(7, si, (dp + 1) % 9)
-      end
-      if r.ImGui_IsItemClicked(ctx, 1) then
-        hm_song_cmd(5, si)
-      end
-      if r.ImGui_IsItemHovered(ctx) then
-        r.ImGui_SetTooltip(ctx, string.format("%s %d  |  Drum: %s\nL-click: cycle drum  R-click: remove",
-          PART_NAMES[cat2 + 1], math.max(1, p.num), dp > 0 and tostring(dp) or "none"))
-      end
     end
 
-    -- Reserve space
     local total_rows2 = math.ceil(song_seq_len / cols2)
     r.ImGui_SetCursorScreenPos(ctx, gx2, gy2 + total_rows2 * (seq_h + 3) + 4)
   end
