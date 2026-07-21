@@ -47,19 +47,19 @@ f:close()
 reaper.SetExtState("LMS", "service_path", service_path, true)
 reaper.SetExtState("LMS", "manager_path", manager_path, true)
 
--- Register the service as a REAPER action
-local cmd_id = reaper.AddRemoveReaScript(true, 0, service_path, true)
-if cmd_id == 0 then
-  reaper.ShowMessageBox(
-    "Failed to register service script.\nPath: " .. service_path,
-    "LMS Setup", 0)
-  return
+-- Clean up stale AddRemoveReaScript registration from older setup versions
+-- (REAPER saves the absolute path and shows an error dialog on restart if it moves)
+local old_svc = reaper.GetExtState("LMS", "registered_cmd")
+if old_svc ~= "" then
+  local old_id = reaper.NamedCommandLookup(old_svc)
+  if old_id ~= 0 then
+    reaper.AddRemoveReaScript(false, 0, service_path, true)
+  end
+  reaper.DeleteExtState("LMS", "registered_cmd", true)
 end
 
--- Start the service right now
-reaper.Main_OnCommand(cmd_id, 0)
-
--- Start the manager right now
+-- Start both right now (ReaPack already registers them as actions via main="main")
+dofile(service_path)
 dofile(manager_path)
 
 -- Install __startup.lua for auto-start on REAPER launch
