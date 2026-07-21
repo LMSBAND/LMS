@@ -1,7 +1,6 @@
 -- LMS Suite Setup
--- Run this ONCE. It registers the DrumBanger service as an action,
--- starts it, and installs __startup.lua so it auto-runs
--- every time you open REAPER.
+-- Run this ONCE. It registers services, starts the Plugin Manager,
+-- and installs __startup.lua so everything auto-runs on REAPER launch.
 
 -- Check for ReaImGui (required by Plugin Manager)
 if not reaper.ImGui_CreateContext then
@@ -18,12 +17,14 @@ if not reaper.ImGui_CreateContext then
   return
 end
 
--- Find the service script (same directory as this setup script)
+-- Find scripts (same directory as this setup script)
 local info = debug.getinfo(1, "S")
 local script_dir = info.source:match("@?(.+)[/\\]")
-local service_path = script_dir .. "/drumbanger_service.lua"
 
--- Verify the service script exists
+local service_path = script_dir .. "/drumbanger_service.lua"
+local manager_path = script_dir .. "/lms_manager.lua"
+
+-- Verify both scripts exist
 local f = io.open(service_path, "r")
 if not f then
   reaper.ShowMessageBox(
@@ -32,6 +33,19 @@ if not f then
   return
 end
 f:close()
+
+f = io.open(manager_path, "r")
+if not f then
+  reaper.ShowMessageBox(
+    "Could not find lms_manager.lua\nExpected at: " .. manager_path,
+    "LMS Setup", 0)
+  return
+end
+f:close()
+
+-- Save verified paths so __startup.lua can find them on restart
+reaper.SetExtState("LMS", "service_path", service_path, true)
+reaper.SetExtState("LMS", "manager_path", manager_path, true)
 
 -- Register the service as a REAPER action
 local cmd_id = reaper.AddRemoveReaScript(true, 0, service_path, true)
@@ -42,14 +56,11 @@ if cmd_id == 0 then
   return
 end
 
--- Get the named command string (e.g. "_RSabcdef1234...")
-local cmd_string = reaper.ReverseNamedCommandLookup(cmd_id)
-
 -- Start the service right now
 reaper.Main_OnCommand(cmd_id, 0)
 
--- Save the service path so __startup.lua can dofile() it directly
-reaper.SetExtState("LMS", "service_path", service_path, true)
+-- Start the manager right now
+dofile(manager_path)
 
 -- Install __startup.lua for auto-start on REAPER launch
 -- REAPER natively runs Scripts/__startup.lua on every launch (no SWS needed)
@@ -61,26 +72,34 @@ local LMS_END   = "-- [LMS AUTO-START END]"
 
 local lms_block = LMS_START .. "\n" ..
   "reaper.defer(function()\n" ..
-  "  local base = reaper.GetResourcePath() .. \"/Scripts\"\n" ..
+  "  -- Read verified paths saved by LMS Setup\n" ..
+  "  local svc = reaper.GetExtState(\"LMS\", \"service_path\")\n" ..
+  "  local mgr = reaper.GetExtState(\"LMS\", \"manager_path\")\n" ..
   "\n" ..
-  "  -- DrumBanger service (sampling + MIDI print)\n" ..
-  "  local svc = base .. \"/LMS/drumbanger_service.lua\"\n" ..
-  "  local f = io.open(svc, \"r\")\n" ..
-  "  if f then\n" ..
-  "    f:close()\n" ..
-  "    reaper.ShowConsoleMsg(\"LMS: Auto-starting DrumBanger service...\\n\")\n" ..
-  "    dofile(svc)\n" ..
-  "  else\n" ..
-  "    reaper.ShowConsoleMsg(\"LMS: Service script not found — run LMS Setup again.\\n\")\n" ..
+  "  -- DrumBanger service\n" ..
+  "  if svc ~= \"\" then\n" ..
+  "    local f = io.open(svc, \"r\")\n" ..
+  "    if f then\n" ..
+  "      f:close()\n" ..
+  "      reaper.ShowConsoleMsg(\"LMS: Auto-starting DrumBanger service...\\n\")\n" ..
+  "      dofile(svc)\n" ..
+  "    else\n" ..
+  "      reaper.ShowConsoleMsg(\"LMS: Service script not found at: \" .. svc .. \" — run LMS Setup again.\\n\")\n" ..
+  "    end\n" ..
   "  end\n" ..
   "\n" ..
   "  -- LMS Plugin Manager\n" ..
-  "  local mgr = base .. \"/LMS/lms_manager.lua\"\n" ..
-  "  f = io.open(mgr, \"r\")\n" ..
-  "  if f then\n" ..
-  "    f:close()\n" ..
-  "    reaper.ShowConsoleMsg(\"LMS: Plugin Manager started\\n\")\n" ..
-  "    dofile(mgr)\n" ..
+  "  if mgr ~= \"\" then\n" ..
+  "    local f = io.open(mgr, \"r\")\n" ..
+  "    if f then\n" ..
+  "      f:close()\n" ..
+  "      reaper.ShowConsoleMsg(\"LMS: Plugin Manager started\\n\")\n" ..
+  "      dofile(mgr)\n" ..
+  "    else\n" ..
+  "      reaper.ShowConsoleMsg(\"LMS: Manager not found at: \" .. mgr .. \" — run LMS Setup again.\\n\")\n" ..
+  "    end\n" ..
+  "  else\n" ..
+  "    reaper.ShowConsoleMsg(\"LMS: No manager path saved — run LMS Setup again.\\n\")\n" ..
   "  end\n" ..
   "end)\n" ..
   LMS_END .. "\n"
@@ -102,12 +121,18 @@ if bs and be then
   existing = existing:sub(1, bs - 1) .. existing:sub(tail)
 end
 
--- Append our block
+-- Write __startup.lua
 sf = io.open(startup_path, "w")
-if sf then
-  sf:write(existing .. lms_block)
-  sf:close()
+if not sf then
+  reaper.ShowMessageBox(
+    "Could not write __startup.lua!\n\n" ..
+    "Expected at: " .. startup_path .. "\n\n" ..
+    "Check folder permissions for your REAPER Scripts directory.",
+    "LMS Setup — Write Failed", 0)
+  return
 end
+sf:write(existing .. lms_block)
+sf:close()
 
 reaper.ShowMessageBox(
   "LMS Suite setup complete!\n\n" ..
