@@ -31,6 +31,7 @@
 //   11. Brick-Wall Limiter       (true-peak aware, stereo, this.* state)
 //   12. Pitch Detection & Correction (YIN detector, dual-tap shifter, scale snap)
 //   13. Tuner Module               (YIN + smoothing + toggle UI, this.* state)
+//   14. Bleed Engine               (N×N mic bleed via gmem ring buffers, this.* state)
 // ============================================================================
 
 @init
@@ -4913,4 +4914,380 @@ function lms_paraeq_proc(x) local(y) (
   y = this.pr.lms_bq_proc(y);
   y = this.hi.lms_bq_proc(y);
   this.dc_out.lms_dc_proc_l(y);
+);
+
+
+// ============================================================================
+//  SECTION 14: Bleed Engine — N×N Mic Bleed via gmem Ring Buffers
+//
+//  Two roles: Publisher (writes dry input to gmem ring) and Consumer (reads
+//  all other slots, applies path transform, sums bleed into signal).
+//
+//  Each publisher writes sequentially into its own ring buffer and publishes
+//  its write position to gmem. Consumers snapshot the source write position
+//  at block start and read from delay_samples behind it. Minimum delay is
+//  clamped to samplesblock so consumers never read data the publisher hasn't
+//  finished writing yet. Report pdc_delay = samplesblock so PDC compensates.
+//
+//  gmem layout (base 1000000):
+//    1000000 + slot*4         : geometry block (x, y, z, flags)
+//    1000200 + slot*4         : mic data (facing_x, facing_y, pattern_id, heartbeat)
+//    1000400 + slot           : write position per slot
+//    1000600                  : dirty flag (geometry changed)
+//    1001000 + slot*RING_SIZE : ring buffer per slot (8192 samples)
+//    Ceiling: 1001000 + 16*8192 = 1132072 (well under JSFX 8M limit)
+//
+//  Usage:
+//    @init:   bleed.lms_bleed_init(slot_id, buf_base);
+//    @block:  bleed.lms_bleed_pub_block();      // publisher: advance write head
+//    @sample: bleed.lms_bleed_pub_write(spl);   // publisher: write one sample
+//    @block:  bleed.lms_bleed_con_block();       // consumer: recompute coeffs
+//    @sample: out = bleed.lms_bleed_con_read();  // consumer: sum bleed
+// ============================================================================
+
+BLEED_GMEM_BASE    = 1000000;
+BLEED_GEO_BASE     = 1000000;
+BLEED_MIC_BASE     = 1000200;
+BLEED_WPOS_BASE    = 1000400;
+BLEED_DIRTY        = 1000600;
+BLEED_ROOM_BASE    = 1000700;
+BLEED_SOLO         = 1000710;
+BLEED_RMS_BASE     = 1000720;
+BLEED_MATRIX_BASE  = 1000740;
+BLEED_RING_BASE    = 1001000;
+BLEED_MAX_SLOTS    = 16;
+BLEED_RING_SIZE    = 8192;
+BLEED_SPEED_OF_SOUND = 1.13;
+
+// Material absorption [lo_refl, hi_refl] — reflection coefficients (1 - absorption)
+// Matches lms_room.jsfx material table
+BLEED_MAT_CONCRETE = 0;
+BLEED_MAT_WOOD     = 1;
+BLEED_MAT_DRYWALL  = 2;
+BLEED_MAT_GLASS    = 3;
+BLEED_MAT_BRICK    = 4;
+BLEED_MAT_CARPET   = 5;
+BLEED_MAT_CURTAIN  = 6;
+BLEED_MAT_FOAM     = 7;
+
+BLEED_PAT_OMNI     = 0;
+BLEED_PAT_CARDIOID  = 1;
+BLEED_PAT_HYPER     = 2;
+BLEED_PAT_FIGURE8   = 3;
+
+function lms_bleed_init(slot_id, local_buf_base)
+(
+  this.slot = slot_id;
+  this.ring_gmem = BLEED_RING_BASE + slot_id * BLEED_RING_SIZE;
+  this.write_pos = 0;
+  this.wpos_addr = BLEED_WPOS_BASE + slot_id;
+
+  this.geo_addr = BLEED_GEO_BASE + slot_id * 4;
+  this.mic_addr = BLEED_MIC_BASE + slot_id * 4;
+
+  // Buffer layout: local_buf[16] + coeff_buf[16*5] + floor_buf[16*3] + floor_lp[16] + mat_table[16]
+  this.local_buf = local_buf_base;
+  this.coeff_buf = local_buf_base + BLEED_MAX_SLOTS;
+  this.floor_buf = local_buf_base + BLEED_MAX_SLOTS * 6;
+  this.floor_lp  = local_buf_base + BLEED_MAX_SLOTS * 9;
+
+  this.bleed_sum = 0;
+  this.heartbeat = 0;
+
+  this.pos_x = 0;
+  this.pos_y = 0;
+  this.pos_z = 0;
+  this.facing_x = 0;
+  this.facing_y = 1;
+  this.pattern = BLEED_PAT_CARDIOID;
+  this.is_mic = 1;
+  this.is_source = 1;
+
+  this.cull_threshold = 0.001;
+  this.room_dirty_last = -1;
+
+  // Material absorption table: [lo_refl, hi_refl] per material
+  this.mat_table = local_buf_base + BLEED_MAX_SLOTS * 10;
+  this.mat_table[0]  = 0.985; this.mat_table[1]  = 0.975; // Concrete
+  this.mat_table[2]  = 0.870; this.mat_table[3]  = 0.915; // Wood
+  this.mat_table[4]  = 0.805; this.mat_table[5]  = 0.945; // Drywall
+  this.mat_table[6]  = 0.735; this.mat_table[7]  = 0.970; // Glass
+  this.mat_table[8]  = 0.965; this.mat_table[9]  = 0.940; // Brick
+  this.mat_table[10] = 0.840; this.mat_table[11] = 0.370; // Carpet
+  this.mat_table[12] = 0.755; this.mat_table[13] = 0.365; // Curtain
+  this.mat_table[14] = 0.590; this.mat_table[15] = 0.055; // Foam
+);
+
+function lms_bleed_set_position(x, y, z)
+(
+  (x != this.pos_x || y != this.pos_y || z != this.pos_z) ? (
+    this.pos_x = x;
+    this.pos_y = y;
+    this.pos_z = z;
+    gmem[this.geo_addr]     = x;
+    gmem[this.geo_addr + 1] = y;
+    gmem[this.geo_addr + 2] = z;
+    gmem[this.geo_addr + 3] = this.is_source + this.is_mic * 2;
+    gmem[BLEED_DIRTY] += 1;
+  );
+);
+
+function lms_bleed_set_mic(facing_x, facing_y, pattern)
+(
+  this.facing_x = facing_x;
+  this.facing_y = facing_y;
+  this.pattern = pattern;
+  gmem[this.mic_addr]     = facing_x;
+  gmem[this.mic_addr + 1] = facing_y;
+  gmem[this.mic_addr + 2] = pattern;
+  gmem[BLEED_DIRTY] += 1;
+);
+
+function lms_bleed_polar_gain(pat, cos_angle)
+  local(g)
+(
+  pat == BLEED_PAT_OMNI ? (
+    g = 1.0;
+  ) : pat == BLEED_PAT_CARDIOID ? (
+    g = 0.5 * (1.0 + cos_angle);
+  ) : pat == BLEED_PAT_HYPER ? (
+    g = 0.25 + 0.75 * cos_angle;
+  ) : pat == BLEED_PAT_FIGURE8 ? (
+    g = abs(cos_angle);
+  ) : (
+    g = 1.0;
+  );
+  g;
+);
+
+// Publisher: call once per @block
+function lms_bleed_pub_block()
+(
+  this.heartbeat += 1;
+  gmem[this.mic_addr + 3] = this.heartbeat;
+);
+
+// Publisher: call once per @sample with mono input
+function lms_bleed_pub_write(spl)
+(
+  gmem[this.ring_gmem + this.write_pos] = spl;
+  this.write_pos += 1;
+  this.write_pos >= BLEED_RING_SIZE ? this.write_pos = 0;
+  gmem[this.wpos_addr] = this.write_pos;
+);
+
+// Consumer: call once per @block, recompute path coefficients
+function lms_bleed_con_block()
+  local(k, src_geo, src_mic, dx, dy, dz, dist, src_flags, src_hb,
+        fx, fy, pat, cos_a, mag, polar_g, inv_sq, gain,
+        delay_samps, cutoff, lp_coeff, cb, fb, src_wpos,
+        room_w, room_d, room_h, wall_mat, floor_mat, ceil_mat, liveness,
+        wall_lo, wall_hi, floor_lo, floor_hi,
+        horiz_dist, src_z, floor_path, floor_gain, floor_delay,
+        floor_cutoff, floor_polar, floor_cos_a)
+(
+  this.active_count = 0;
+  this.con_sample_idx = 0;
+  this.dbg_hb_count = 0;
+  this.dbg_first_hb = -1;
+  this.dbg_first_flags = -1;
+
+  // Read room parameters from gmem (written by manager)
+  room_w    = gmem[BLEED_ROOM_BASE];
+  room_d    = gmem[BLEED_ROOM_BASE + 1];
+  room_h    = gmem[BLEED_ROOM_BASE + 2];
+  wall_mat  = floor(gmem[BLEED_ROOM_BASE + 3] + 0.5);
+  floor_mat = floor(gmem[BLEED_ROOM_BASE + 4] + 0.5);
+  ceil_mat  = floor(gmem[BLEED_ROOM_BASE + 5] + 0.5);
+  liveness  = gmem[BLEED_ROOM_BASE + 6];
+
+  // Clamp material indices
+  wall_mat  = max(0, min(7, wall_mat));
+  floor_mat = max(0, min(7, floor_mat));
+
+  // Material reflection coefficients for walls and floor
+  wall_lo  = this.mat_table[wall_mat * 2];
+  wall_hi  = this.mat_table[wall_mat * 2 + 1];
+  floor_lo = this.mat_table[floor_mat * 2];
+  floor_hi = this.mat_table[floor_mat * 2 + 1];
+
+  // Default room height if not set
+  room_h = max(room_h, 2.5);
+
+  k = 0;
+  loop(BLEED_MAX_SLOTS,
+    cb = this.coeff_buf + k * 5;
+    fb = this.floor_buf + k * 3;
+    cb[0] = 0;
+    fb[0] = 0;
+    gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = 0;
+
+    k != this.slot ? (
+      src_geo = BLEED_GEO_BASE + k * 4;
+      src_mic = BLEED_MIC_BASE + k * 4;
+      src_hb = gmem[src_mic + 3];
+
+      // Debug: track what we see — record first non-self slot's raw data
+      this.dbg_first_hb < 0 ? (
+        this.dbg_first_hb = src_hb;
+        this.dbg_first_flags = src_mic + 3;  // the gmem ADDRESS we read hb from
+      );
+      src_hb > 0 ? (
+        this.dbg_hb_count += 1;
+      );
+
+      src_hb > 0 ? (
+        src_flags = gmem[src_geo + 3];
+
+        (src_flags >= 1) ? (
+          dx = gmem[src_geo] - this.pos_x;
+          dy = gmem[src_geo + 1] - this.pos_y;
+          dz = gmem[src_geo + 2] - this.pos_z;
+          dist = sqrt(dx*dx + dy*dy + dz*dz);
+          dist = max(dist, 0.5);
+          src_z = gmem[src_geo + 2];
+
+          inv_sq = 1.0 / (dist * dist);
+
+          this.is_mic ? (
+            mag = sqrt(dx*dx + dy*dy);
+            mag > 0.001 ? (
+              cos_a = (dx * this.facing_x + dy * this.facing_y) / (mag * sqrt(this.facing_x*this.facing_x + this.facing_y*this.facing_y));
+            ) : (
+              cos_a = 1.0;
+            );
+            polar_g = lms_bleed_polar_gain(this.pattern, cos_a);
+          ) : (
+            polar_g = 1.0;
+          );
+
+          gain = inv_sq * polar_g * liveness;
+
+          gain >= this.cull_threshold ? (
+            delay_samps = dist * BLEED_SPEED_OF_SOUND * 0.001 * srate;
+            delay_samps = max(delay_samps, samplesblock);
+
+            // HF loss: distance + off-axis + wall material
+            cutoff = 8000 / (1 + dist * 0.3);
+            cos_a < 0.5 ? cutoff *= (0.5 + cos_a);
+            // Absorptive walls pull HF down further
+            cutoff *= (0.3 + 0.7 * wall_hi);
+            cutoff = max(cutoff, 200);
+            lp_coeff = 1.0 - exp(-2.0 * $pi * cutoff / srate);
+
+            src_wpos = gmem[BLEED_WPOS_BASE + k];
+
+            cb[0] = gain;
+            cb[1] = delay_samps;
+            cb[2] = lp_coeff;
+            cb[3] = BLEED_RING_BASE + k * BLEED_RING_SIZE;
+            cb[4] = src_wpos;
+            this.active_count += 1;
+            gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = gain;
+
+            // Floor bounce (first-order image source)
+            horiz_dist = sqrt(dx*dx + dy*dy);
+            // Image source: reflect both source and mic heights through floor
+            floor_path = sqrt(horiz_dist*horiz_dist + (src_z + this.pos_z)*(src_z + this.pos_z));
+            floor_path = max(floor_path, 0.5);
+            floor_gain = (1.0 / (floor_path * floor_path)) * floor_lo * liveness;
+
+            // Floor bounce arrives from below — reduced polar response
+            this.is_mic ? (
+              floor_cos_a = cos_a * 0.7;
+              floor_polar = lms_bleed_polar_gain(this.pattern, floor_cos_a);
+            ) : (
+              floor_polar = 0.8;
+            );
+            floor_gain *= floor_polar;
+
+            floor_gain >= this.cull_threshold ? (
+              floor_delay = floor_path * BLEED_SPEED_OF_SOUND * 0.001 * srate;
+              floor_delay = max(floor_delay, samplesblock);
+              floor_cutoff = 6000 / (1 + floor_path * 0.4) * (0.3 + 0.7 * floor_hi);
+              floor_cutoff = max(floor_cutoff, 150);
+
+              fb[0] = floor_gain;
+              fb[1] = floor_delay;
+              fb[2] = 1.0 - exp(-2.0 * $pi * floor_cutoff / srate);
+            );
+          );
+        );
+      );
+    );
+    k += 1;
+  );
+  // Debug: write diagnostics to matrix diagonal and nearby gmem
+  gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + this.slot] = this.active_count;
+  // 1000996: slot id, 1000997: hb_found_count, 1000998: first other hb, 1000999: first other flags
+  this.slot == 0 ? (
+    gmem[1000996] = this.slot;
+    gmem[1000997] = this.dbg_hb_count;
+    gmem[1000998] = this.dbg_first_hb;
+    gmem[1000999] = this.dbg_first_flags;
+  );
+);
+
+// Consumer: call once per @sample, returns bleed sum (mono)
+function lms_bleed_con_read()
+  local(k, cb, fb, gain, delay, ring_base, read_pos, frac, idx,
+        s0, s1, raw, lp_state_addr, filtered, sum, src_wpos,
+        f_gain, f_delay, f_read, f_idx, f_frac, f_raw, f_lp_addr, f_filtered)
+(
+  sum = 0;
+  k = 0;
+  loop(BLEED_MAX_SLOTS,
+    cb = this.coeff_buf + k * 5;
+    gain = cb[0];
+
+    gain > 0 ? (
+      delay = cb[1];
+      ring_base = cb[3];
+      src_wpos = cb[4];
+
+      read_pos = src_wpos - delay + this.con_sample_idx;
+      read_pos < 0 ? read_pos += BLEED_RING_SIZE;
+      read_pos >= BLEED_RING_SIZE ? read_pos -= BLEED_RING_SIZE;
+
+      idx = floor(read_pos);
+      frac = read_pos - idx;
+      s0 = gmem[ring_base + (idx % BLEED_RING_SIZE)];
+      s1 = gmem[ring_base + ((idx + 1) % BLEED_RING_SIZE)];
+      raw = s0 + frac * (s1 - s0);
+
+      lp_state_addr = this.local_buf + k;
+      filtered = lp_state_addr[0] + cb[2] * (raw - lp_state_addr[0]);
+      lp_state_addr[0] = filtered;
+
+      sum += filtered * gain;
+
+      // Floor bounce tap
+      fb = this.floor_buf + k * 3;
+      f_gain = fb[0];
+      f_gain > 0 ? (
+        f_delay = fb[1];
+        f_read = src_wpos - f_delay + this.con_sample_idx;
+        f_read < 0 ? f_read += BLEED_RING_SIZE;
+        f_read >= BLEED_RING_SIZE ? f_read -= BLEED_RING_SIZE;
+        f_idx = floor(f_read);
+        f_frac = f_read - f_idx;
+        s0 = gmem[ring_base + (f_idx % BLEED_RING_SIZE)];
+        s1 = gmem[ring_base + ((f_idx + 1) % BLEED_RING_SIZE)];
+        f_raw = s0 + f_frac * (s1 - s0);
+        f_lp_addr = this.floor_lp + k;
+        f_filtered = f_lp_addr[0] + fb[2] * (f_raw - f_lp_addr[0]);
+        f_lp_addr[0] = f_filtered;
+        sum += f_filtered * f_gain;
+      );
+    );
+
+    k += 1;
+  );
+  this.con_sample_idx += 1;
+  // RMS envelope follower for metering
+  this.bleed_rms = this.bleed_rms * 0.999 + sum * sum * 0.001;
+  this.con_sample_idx >= samplesblock ? (
+    gmem[BLEED_RMS_BASE + this.slot] = sqrt(this.bleed_rms);
+  );
+  sum;
 );

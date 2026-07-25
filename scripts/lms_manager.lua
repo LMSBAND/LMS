@@ -58,6 +58,7 @@ local TYPE_REGISTRY = {
   [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 71, jsfx = "lms_satans_pedalboard.jsfx"},
   [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4,  jsfx = "lms_piece_of_shit.jsfx"},
   [33] = {name = "Nuug420",           cat = "synth",  sliders = 52, jsfx = "lms_nuug420.jsfx"},
+  [35] = {name = "Bloody Glue",      cat = "bleed",  sliders = 9,  jsfx = "lms_bloody_glue.jsfx"},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -99,6 +100,7 @@ local DISPLAY_TO_TYPE = {
   ["henge on crack"]       = 9,
   ["henge"]                = 8,
   ["reverb"]               = 27,
+  ["bloody glue"]          = 35,
 }
 
 local JSFX_TO_TYPE = {
@@ -140,6 +142,7 @@ local JSFX_TO_TYPE = {
   ["lms_room"]                 = "room",
   ["lms_room_send"]            = "room_send",
   ["lms_the_space"]            = "the_space",
+  ["lms_bloody_glue"]          = 35,
 }
 
 local TRACK_COLORS = {
@@ -162,6 +165,7 @@ local CAT_COLORS = {
   seq    = 0x44CCAAFF,
   fx     = 0xAAAA44FF,
   reverb = 0x6688AAFF,
+  bleed  = 0xCC6688FF,
 }
 
 -- ============================================================================
@@ -179,6 +183,42 @@ local db_edit_pad = 0
 local db_step_queue = {}
 local drone_states = {}
 local drone_arp_timer = 0
+local bleed_enabled = false
+local bleed_liveness = 100
+local bleed_solo = false
+local bleed_slots = {}
+
+local BLEED_GEO_BASE    = 1000000
+local BLEED_MIC_BASE    = 1000200
+local BLEED_WPOS_BASE   = 1000400
+local BLEED_ROOM_BASE   = 1000700
+local BLEED_SOLO        = 1000710
+local BLEED_RMS_BASE    = 1000720
+local BLEED_MATRIX_BASE = 1000740
+local BLEED_RING_BASE   = 1001000
+local BLEED_MAX_SLOTS   = 16
+
+local bleed_room_w = 25
+local bleed_room_d = 20
+local bleed_room_h = 10
+local bleed_wall_mat = 1
+local bleed_floor_mat = 1
+local bleed_ceil_mat = 0
+local MAT_NAMES = {"Concrete", "Wood", "Drywall", "Glass", "Brick", "Carpet", "Curtain", "Foam"}
+
+local BLEED_DEFAULT_POS = {
+  amp    = {x = -6, y = 2, z = 3, facing = 0,   pat = 1},
+  drum   = {x = 0,  y = -4, z = 6, facing = 180, pat = 1},
+  comp   = {x = 0,  y = 4, z = 3, facing = 0,   pat = 0},
+  mix    = {x = 0,  y = 4, z = 3, facing = 0,   pat = 0},
+  gate   = {x = 0,  y = -3, z = 3, facing = 0,   pat = 1},
+  pitch  = {x = 0,  y = 6, z = 5, facing = 180, pat = 1},
+  synth  = {x = 4,  y = 0, z = 3, facing = -90, pat = 0},
+  fx     = {x = -4, y = 0, z = 3, facing = 90,  pat = 0},
+  reverb = {x = 0,  y = 8, z = 4, facing = 180, pat = 0},
+  seq    = {x = 0,  y = 0, z = 3, facing = 0,   pat = 0},
+  bleed  = {x = 0,  y = 0, z = 3, facing = 0,   pat = 1},
+}
 
 -- Follow: follows[type_id][follower_track_idx] = leader_track_idx
 local follows = {}
@@ -2657,6 +2697,591 @@ local function draw_track_setup(ctx)
   end
 end
 
+-- ---- Bloody Glue Tab ----
+
+local function find_bleed_instances()
+  local bleed_insts = {}
+  for _, inst in ipairs(instances) do
+    if inst.type_id == 35 then
+      bleed_insts[#bleed_insts + 1] = inst
+    end
+  end
+  return bleed_insts
+end
+
+local function get_track_primary_cat(track)
+  local num_fx = r.TrackFX_GetCount(track)
+  for fi = 0, num_fx - 1 do
+    local _, fx_name = r.TrackFX_GetFXName(track, fi)
+    local lower = fx_name:lower()
+    for key, type_id in pairs(JSFX_TO_TYPE) do
+      if lower:find(key, 1, true) and type(type_id) == "number" then
+        local info = TYPE_REGISTRY[type_id]
+        if info and info.cat ~= "bleed" then
+          return info.cat
+        end
+      end
+    end
+  end
+  return nil
+end
+
+local function write_bleed_room_gmem()
+  r.gmem_write(BLEED_ROOM_BASE,     bleed_room_w)
+  r.gmem_write(BLEED_ROOM_BASE + 1, bleed_room_d)
+  r.gmem_write(BLEED_ROOM_BASE + 2, bleed_room_h)
+  r.gmem_write(BLEED_ROOM_BASE + 3, bleed_wall_mat)
+  r.gmem_write(BLEED_ROOM_BASE + 4, bleed_floor_mat)
+  r.gmem_write(BLEED_ROOM_BASE + 5, bleed_ceil_mat)
+  r.gmem_write(BLEED_ROOM_BASE + 6, bleed_liveness / 100)
+  r.gmem_write(BLEED_SOLO, bleed_solo and 1 or 0)
+end
+
+local function strip_bleed_from_track(track)
+  local num_fx = r.TrackFX_GetCount(track)
+  for fi = num_fx - 1, 0, -1 do
+    local _, fx_name = r.TrackFX_GetFXName(track, fi)
+    local lower = fx_name:lower()
+    if lower:find("lms_bloody_glue", 1, true) or lower:find("bloody glue", 1, true) then
+      r.TrackFX_Delete(track, fi)
+    end
+  end
+end
+
+local function bleed_auto_wire()
+  local next_slot = 0
+  local num_tracks = r.CountTracks(0)
+  local cat_counts = {}
+
+  r.Undo_BeginBlock()
+  r.PreventUIRefresh(1)
+
+  for ti = 0, num_tracks - 1 do
+    if next_slot >= BLEED_MAX_SLOTS then break end
+    local track = r.GetTrack(0, ti)
+    local _, tname = r.GetTrackName(track)
+
+    strip_bleed_from_track(track)
+
+    local has_lms = false
+    local num_fx = r.TrackFX_GetCount(track)
+    for fi = 0, num_fx - 1 do
+      local _, fx_name = r.TrackFX_GetFXName(track, fi)
+      local lower = fx_name:lower()
+      for key, tid in pairs(JSFX_TO_TYPE) do
+        if lower:find(key, 1, true) and tid ~= 35 then
+          has_lms = true
+          break
+        end
+      end
+      if has_lms then break end
+    end
+
+    if has_lms then
+      local bleed_fx = r.TrackFX_AddByName(track, JSFX_PREFIX .. "lms_bloody_glue.jsfx", false, -1)
+      local last_pos = r.TrackFX_GetCount(track) - 1
+      if bleed_fx >= 0 and bleed_fx < last_pos then
+        r.TrackFX_CopyToTrack(track, bleed_fx, track, last_pos, true)
+        bleed_fx = last_pos
+      end
+
+      if bleed_fx and bleed_fx >= 0 then
+        local cat = get_track_primary_cat(track) or "mix"
+        local pos = BLEED_DEFAULT_POS[cat] or BLEED_DEFAULT_POS.mix
+
+        cat_counts[cat] = (cat_counts[cat] or 0) + 1
+        local n = cat_counts[cat]
+
+        local px = pos.x
+        local py = pos.y
+        if cat == "amp" then
+          local side = (n % 2 == 1) and -1 or 1
+          px = side * (math.abs(pos.x) + math.floor((n - 1) / 2) * 2)
+        elseif cat == "drum" then
+          px = pos.x + (n - 1) * 3 - math.floor((n - 1) / 2) * 3
+        elseif n > 1 then
+          px = pos.x + (n - 1) * 2.5
+          py = pos.y + (n - 1) * 1.5
+        end
+
+        r.TrackFX_SetParam(track, bleed_fx, 0, next_slot / 15)
+        r.TrackFX_SetParam(track, bleed_fx, 1, 2)
+        r.TrackFX_SetParam(track, bleed_fx, 2, (px + 20) / 40)
+        r.TrackFX_SetParam(track, bleed_fx, 3, (py + 20) / 40)
+        r.TrackFX_SetParam(track, bleed_fx, 4, pos.z / 10)
+        r.TrackFX_SetParam(track, bleed_fx, 5, (pos.facing + 180) / 360)
+        r.TrackFX_SetParam(track, bleed_fx, 6, pos.pat)
+        r.TrackFX_SetParam(track, bleed_fx, 7, 0.5)
+        r.TrackFX_SetParam(track, bleed_fx, 8, bleed_liveness / 100)
+
+        next_slot = next_slot + 1
+      end
+    end
+  end
+
+  r.PreventUIRefresh(-1)
+  write_bleed_room_gmem()
+  r.Undo_EndBlock("Bloody Glue: auto-wire bleed instances", -1)
+  scan_tracks()
+end
+
+local function bleed_remove_all()
+  r.Undo_BeginBlock()
+  r.PreventUIRefresh(1)
+  local num_tracks = r.CountTracks(0)
+  for ti = 0, num_tracks - 1 do
+    strip_bleed_from_track(r.GetTrack(0, ti))
+  end
+  r.PreventUIRefresh(-1)
+  bleed_slots = {}
+  bleed_enabled = false
+  bleed_solo = false
+  r.gmem_write(BLEED_SOLO, 0)
+  r.Undo_EndBlock("Bloody Glue: remove all bleed instances", -1)
+  scan_tracks()
+end
+
+local function read_bleed_gmem()
+  bleed_slots = {}
+  for k = 0, BLEED_MAX_SLOTS - 1 do
+    local hb = r.gmem_read(BLEED_MIC_BASE + k * 4 + 3)
+    if hb > 0 then
+      local x = r.gmem_read(BLEED_GEO_BASE + k * 4)
+      local y = r.gmem_read(BLEED_GEO_BASE + k * 4 + 1)
+      local z = r.gmem_read(BLEED_GEO_BASE + k * 4 + 2)
+      local flags = r.gmem_read(BLEED_GEO_BASE + k * 4 + 3)
+      local fx = r.gmem_read(BLEED_MIC_BASE + k * 4)
+      local fy = r.gmem_read(BLEED_MIC_BASE + k * 4 + 1)
+      local pat = r.gmem_read(BLEED_MIC_BASE + k * 4 + 2)
+
+      local track_name = "?"
+      local track, fx_idx
+      for _, inst in ipairs(instances) do
+        if inst.type_id == 35 then
+          local slot_val = r.TrackFX_GetParam(inst.track, inst.fx_idx, 0)
+          if math.floor(slot_val * 15 + 0.5) == k then
+            local _, tn = r.GetTrackName(inst.track)
+            track_name = tn
+            track = inst.track
+            fx_idx = inst.fx_idx
+            break
+          end
+        end
+      end
+
+      bleed_slots[k] = {
+        x = x, y = y, z = z, flags = flags,
+        facing_x = fx, facing_y = fy, pattern = pat,
+        heartbeat = hb, track_name = track_name,
+        track = track, fx_idx = fx_idx, slot = k,
+      }
+    end
+  end
+end
+
+local PAT_NAMES = {"Omni", "Cardioid", "Hyper", "Fig-8"}
+
+local function draw_bleed(ctx)
+  local bleed_insts = find_bleed_instances()
+  local alive = #bleed_insts > 0
+
+  r.ImGui_Text(ctx, alive
+    and string.format("Bloody Glue ONLINE — %d instances", #bleed_insts)
+    or "Bloody Glue OFFLINE")
+
+  r.ImGui_Spacing(ctx)
+
+  if not alive then
+    r.ImGui_TextWrapped(ctx, "No Bloody Glue instances found. Enable to auto-wire bleed onto all LMS tracks.")
+    r.ImGui_Spacing(ctx)
+    if r.ImGui_Button(ctx, "Enable Bloody Glue") then
+      bleed_enabled = true
+      bleed_auto_wire()
+    end
+    return
+  end
+
+  bleed_enabled = true
+
+  if r.ImGui_Button(ctx, "Disable / Remove All") then
+    bleed_remove_all()
+    return
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Re-wire") then
+    bleed_remove_all()
+    bleed_enabled = true
+    bleed_auto_wire()
+    return
+  end
+  r.ImGui_SameLine(ctx)
+  if bleed_solo then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0xCC4444FF)
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_ButtonHovered(), 0xDD5555FF)
+    if r.ImGui_Button(ctx, "SOLO BLEED") then bleed_solo = false end
+    r.ImGui_PopStyleColor(ctx, 2)
+  else
+    if r.ImGui_Button(ctx, "Solo Bleed") then bleed_solo = true end
+  end
+
+  r.ImGui_Spacing(ctx)
+
+  -- Room parameters
+  if r.ImGui_CollapsingHeader(ctx, "Room") then
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    local rw_c, rw_n = r.ImGui_SliderInt(ctx, "Width (ft)", bleed_room_w, 10, 40)
+    if rw_c then bleed_room_w = rw_n end
+    r.ImGui_SameLine(ctx)
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    local rd_c, rd_n = r.ImGui_SliderInt(ctx, "Depth (ft)", bleed_room_d, 10, 40)
+    if rd_c then bleed_room_d = rd_n end
+
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    local rh_c, rh_n = r.ImGui_SliderInt(ctx, "Height (ft)", bleed_room_h, 7, 20)
+    if rh_c then bleed_room_h = rh_n end
+
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    if r.ImGui_BeginCombo(ctx, "Walls", MAT_NAMES[bleed_wall_mat + 1]) then
+      for mi = 0, 7 do
+        if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == bleed_wall_mat) then
+          bleed_wall_mat = mi
+        end
+      end
+      r.ImGui_EndCombo(ctx)
+    end
+    r.ImGui_SameLine(ctx)
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    if r.ImGui_BeginCombo(ctx, "Floor", MAT_NAMES[bleed_floor_mat + 1]) then
+      for mi = 0, 7 do
+        if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == bleed_floor_mat) then
+          bleed_floor_mat = mi
+        end
+      end
+      r.ImGui_EndCombo(ctx)
+    end
+    r.ImGui_SameLine(ctx)
+    r.ImGui_SetNextItemWidth(ctx, 150)
+    if r.ImGui_BeginCombo(ctx, "Ceiling", MAT_NAMES[bleed_ceil_mat + 1]) then
+      for mi = 0, 7 do
+        if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == bleed_ceil_mat) then
+          bleed_ceil_mat = mi
+        end
+      end
+      r.ImGui_EndCombo(ctx)
+    end
+  end
+
+  r.ImGui_SetNextItemWidth(ctx, 200)
+  local lv_changed, lv_new = r.ImGui_SliderInt(ctx, "Liveness", bleed_liveness, 0, 100, "%d%%")
+  if lv_changed then bleed_liveness = lv_new end
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Spacing(ctx)
+
+  -- Room map
+  local avail_w = r.ImGui_GetContentRegionAvail(ctx)
+  local map_size = math.min(avail_w - 20, 400)
+  if map_size < 100 then map_size = 100 end
+
+  local cx_x, cx_y = r.ImGui_GetCursorScreenPos(ctx)
+  local map_cx = cx_x + map_size * 0.5
+  local map_cy = cx_y + map_size * 0.5
+  local scale = map_size / 40
+
+  local dl = r.ImGui_GetWindowDrawList(ctx)
+
+  -- Room boundary rectangle
+  local room_px_w = bleed_room_w * scale
+  local room_px_d = bleed_room_d * scale
+  local room_x1 = map_cx - room_px_w * 0.5
+  local room_y1 = map_cy - room_px_d * 0.5
+  local room_x2 = map_cx + room_px_w * 0.5
+  local room_y2 = map_cy + room_px_d * 0.5
+  r.ImGui_DrawList_AddRect(dl, room_x1, room_y1, room_x2, room_y2, 0x555577FF)
+  r.ImGui_DrawList_AddRectFilled(dl, room_x1, room_y1, room_x2, room_y2, 0x0A0A1AFF)
+
+  local active_count = 0
+  local TWO_PI = 2 * math.pi
+  local PP_STEPS = 16
+
+  for _, inst in ipairs(bleed_insts) do
+    local fi = inst.fx_idx
+    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local node_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 1) + 0.5)
+    local x_val = r.TrackFX_GetParam(inst.track, fi, 2) * 40 - 20
+    local y_val = r.TrackFX_GetParam(inst.track, fi, 3) * 40 - 20
+    local face_val = r.TrackFX_GetParam(inst.track, fi, 5) * 360 - 180
+    local face_rad = face_val * math.pi / 180
+    local pat_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 6) + 0.5)
+
+    active_count = active_count + 1
+    local px = map_cx + x_val * scale
+    local py = map_cy - y_val * scale
+
+    local is_mic = (node_val == 1 or node_val == 2)
+    local is_src = (node_val == 0 or node_val == 2)
+    local col = is_mic and 0x55AAFFFF or (is_src and 0xFF8844FF or 0x666688FF)
+    local col_dim = is_mic and 0x3377AA88 or (is_src and 0xAA553388 or 0x44445588)
+
+    -- Polar pattern outline (mic or source cone)
+    local pp_size = 14
+    if is_mic or is_src then
+      local last_ppx, last_ppy
+      for pi = 0, PP_STEPS do
+        local ang = pi * TWO_PI / PP_STEPS
+        local rel = ang
+        if rel > math.pi then rel = rel - TWO_PI end
+        local pp_g
+        if is_mic then
+          if pat_val == 0 then pp_g = 1.0
+          elseif pat_val == 1 then pp_g = math.max(0, 0.5 * (1 + math.cos(rel)))
+          elseif pat_val == 2 then pp_g = math.max(0, 0.25 + 0.75 * math.cos(rel))
+          else pp_g = math.abs(math.cos(rel)) end
+        else
+          pp_g = 0.5 + 0.5 * math.cos(rel)
+        end
+        local ppx = px + math.cos(ang + face_rad) * pp_g * pp_size
+        local ppy = py + math.sin(ang + face_rad) * pp_g * pp_size
+        if pi > 0 then
+          r.ImGui_DrawList_AddLine(dl, last_ppx, last_ppy, ppx, ppy, col_dim, 1.0)
+        end
+        last_ppx, last_ppy = ppx, ppy
+      end
+    end
+
+    r.ImGui_DrawList_AddCircleFilled(dl, px, py, 4, col)
+
+    -- Facing line
+    if is_mic or is_src then
+      local lx = px + math.sin(face_rad) * 10
+      local ly = py - math.cos(face_rad) * 10
+      r.ImGui_DrawList_AddLine(dl, px, py, lx, ly, col, 1.5)
+    end
+
+    local _, tname = r.GetTrackName(inst.track)
+    r.ImGui_DrawList_AddText(dl, px + 8, py - 6, 0xCCCCDDFF,
+      string.format("%d:%s", slot_val, tname:sub(1, 8)))
+  end
+
+  r.ImGui_Dummy(ctx, map_size, map_size)
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Text(ctx, string.format("Active nodes: %d", active_count))
+
+  -- Debug readback
+  local solo_gmem = r.gmem_read(BLEED_SOLO)
+  local liveness_gmem = r.gmem_read(BLEED_ROOM_BASE + 6)
+  local dbg_parts = {string.format("solo_gmem=%.0f liveness=%.3f", solo_gmem, liveness_gmem)}
+  for _, inst in ipairs(bleed_insts) do
+    local fi = inst.fx_idx
+    local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local hb = r.gmem_read(BLEED_MIC_BASE + sv * 4 + 3)
+    local rms = r.gmem_read(BLEED_RMS_BASE + sv)
+    local flags = r.gmem_read(BLEED_GEO_BASE + sv * 4 + 3)
+    local wpos = r.gmem_read(BLEED_WPOS_BASE + sv)
+    local ring_peek = r.gmem_read(BLEED_RING_BASE + sv * 8192 + math.max(0, math.floor(wpos) - 1))
+    local max_gain = 0
+    for ks = 0, 15 do
+      if ks ~= sv then
+        local g = r.gmem_read(BLEED_MATRIX_BASE + sv * 16 + ks)
+        if g > max_gain then max_gain = g end
+      end
+    end
+    local _, tn = r.GetTrackName(inst.track)
+    local ac = r.gmem_read(BLEED_MATRIX_BASE + sv * 16 + sv)
+    dbg_parts[#dbg_parts + 1] = string.format(
+      "%s[%d]: hb=%.0f fl=%.0f ac=%.0f rms=%.4f wp=%.0f rng=%.4f mx=%.4f",
+      tn:sub(1,6), sv, hb, flags, ac, rms, wpos, ring_peek, max_gain)
+  end
+  r.ImGui_TextWrapped(ctx, table.concat(dbg_parts, " | "))
+  -- Slot 0 con_block internals
+  local dbg_slot = r.gmem_read(1000996)
+  local dbg_hbc  = r.gmem_read(1000997)
+  local dbg_fhb  = r.gmem_read(1000998)
+  local dbg_ffl  = r.gmem_read(1000999)
+  -- dbg_fhb = raw hb VALUE read, dbg_ffl = gmem ADDRESS checked
+  -- Manager checks same namespace: BLEED_MIC_BASE + slot*4 + 3
+  local mgr_addr = BLEED_MIC_BASE + 1 * 4 + 3  -- what manager would check for slot 1
+  local mgr_val = r.gmem_read(mgr_addr)
+  r.ImGui_TextWrapped(ctx, string.format(
+    "CON_BLOCK[slot%.0f]: hb_found=%.0f dsp_hb=%.1f dsp_addr=%.0f | mgr_addr=%.0f mgr_hb=%.1f",
+    dbg_slot, dbg_hbc, dbg_fhb, dbg_ffl, mgr_addr, mgr_val))
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Spacing(ctx)
+
+  -- Bleed matrix
+  if active_count > 1 and r.ImGui_CollapsingHeader(ctx, "Bleed Matrix") then
+    -- Build slot→name map from instances
+    local slot_info = {}
+    local slot_order = {}
+    for _, inst in ipairs(bleed_insts) do
+      local fi = inst.fx_idx
+      local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+      local nv = math.floor(r.TrackFX_GetParam(inst.track, fi, 1) + 0.5)
+      local _, tn = r.GetTrackName(inst.track)
+      slot_info[sv] = {name = tn:sub(1, 6), node = nv}
+      slot_order[#slot_order + 1] = sv
+    end
+    table.sort(slot_order)
+
+    local cell_w = 52
+    local cell_h = 18
+    local label_w = 60
+    local n = #slot_order
+
+    -- Header row
+    r.ImGui_Dummy(ctx, label_w, 1)
+    for ci = 1, n do
+      r.ImGui_SameLine(ctx)
+      r.ImGui_SetCursorPosX(ctx, r.ImGui_GetCursorPosX(ctx))
+      local src_slot = slot_order[ci]
+      local info = slot_info[src_slot]
+      r.ImGui_TextDisabled(ctx, string.format("%-6s", info.name))
+    end
+
+    -- Matrix rows (mic = row, source = col)
+    for ri = 1, n do
+      local mic_slot = slot_order[ri]
+      local mic_info = slot_info[mic_slot]
+      local is_mic = (mic_info.node == 1 or mic_info.node == 2)
+
+      r.ImGui_Text(ctx, string.format("%-6s", mic_info.name))
+      for ci = 1, n do
+        r.ImGui_SameLine(ctx)
+        local src_slot = slot_order[ci]
+        if src_slot == mic_slot then
+          r.ImGui_TextDisabled(ctx, "  --  ")
+        elseif not is_mic then
+          r.ImGui_TextDisabled(ctx, "      ")
+        else
+          local gain = r.gmem_read(BLEED_MATRIX_BASE + mic_slot * 16 + src_slot)
+          if gain > 0.0001 then
+            local db = 20 * math.log(gain, 10)
+            db = math.max(-99, db)
+            -- Color: green for mild, yellow for moderate, red for strong
+            local intensity = math.min(1.0, gain * 10)
+            local r_col = intensity
+            local g_col = 1.0 - intensity * 0.5
+            r.ImGui_TextColored(ctx,
+              math.floor(r_col * 255) * 0x1000000 +
+              math.floor(g_col * 255) * 0x10000 +
+              0x44 * 0x100 + 0xFF,
+              string.format("%5.1f", db))
+          else
+            r.ImGui_TextDisabled(ctx, " -inf ")
+          end
+        end
+      end
+    end
+
+    -- Per-slot RMS meters
+    r.ImGui_Spacing(ctx)
+    r.ImGui_Text(ctx, "Bleed RMS:")
+    for ri = 1, n do
+      local slot = slot_order[ri]
+      local info = slot_info[slot]
+      local rms = r.gmem_read(BLEED_RMS_BASE + slot)
+      local db = rms > 0.00001 and (20 * math.log(rms, 10)) or -100
+      db = math.max(-60, db)
+      local frac = math.max(0, (db + 60) / 60)
+
+      r.ImGui_Text(ctx, string.format("%-6s", info.name))
+      r.ImGui_SameLine(ctx)
+      local bar_w = 150
+      local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
+      r.ImGui_DrawList_AddRectFilled(dl, cx, cy, cx + bar_w, cy + 14, 0x1A1A2EFF)
+      if frac > 0 then
+        local fill = frac * bar_w
+        local bar_col = frac < 0.5 and 0x44AA44FF or (frac < 0.8 and 0xAAAA22FF or 0xCC4444FF)
+        r.ImGui_DrawList_AddRectFilled(dl, cx, cy + 1, cx + fill, cy + 13, bar_col)
+      end
+      r.ImGui_DrawList_AddText(dl, cx + bar_w + 4, cy, 0xAAAAAAFF,
+        string.format("%.1f dB", db))
+      r.ImGui_Dummy(ctx, bar_w + 60, 16)
+    end
+  end
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
+  r.ImGui_Spacing(ctx)
+
+  -- Per-instance controls (driven by scan, not gmem)
+  r.ImGui_Text(ctx, "Per-Track Controls:")
+  r.ImGui_Spacing(ctx)
+
+  for idx, inst in ipairs(bleed_insts) do
+    local _, tname = r.GetTrackName(inst.track)
+    local fi = inst.fx_idx
+    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local uid = inst.track_idx
+
+    local hdr = string.format("[%d] %s##bleed_%d", slot_val, tname, uid)
+    if r.ImGui_TreeNode(ctx, hdr) then
+      r.ImGui_SetNextItemWidth(ctx, 80)
+      local sc, sn = r.ImGui_SliderInt(ctx, "Slot##bs" .. uid, slot_val, 0, 15)
+      if sc then r.TrackFX_SetParam(inst.track, fi, 0, sn / 15) end
+
+      r.ImGui_SameLine(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 120)
+      local node_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 1) + 0.5)
+      local NODE_NAMES = {"Source", "Mic", "Both", "Off"}
+      if r.ImGui_BeginCombo(ctx, "Type##bt" .. uid, NODE_NAMES[node_val + 1] or "?") then
+        for ni = 0, 3 do
+          if r.ImGui_Selectable(ctx, NODE_NAMES[ni + 1], ni == node_val) then
+            r.TrackFX_SetParam(inst.track, fi, 1, ni)
+          end
+        end
+        r.ImGui_EndCombo(ctx)
+      end
+
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local x_val = r.TrackFX_GetParam(inst.track, fi, 2) * 40 - 20
+      local xc, xn = r.ImGui_SliderDouble(ctx, "X (ft)##bx" .. uid, x_val, -20, 20, "%.1f")
+      if xc then r.TrackFX_SetParam(inst.track, fi, 2, (xn + 20) / 40) end
+
+      r.ImGui_SameLine(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local y_val = r.TrackFX_GetParam(inst.track, fi, 3) * 40 - 20
+      local yc, yn = r.ImGui_SliderDouble(ctx, "Y (ft)##by" .. uid, y_val, -20, 20, "%.1f")
+      if yc then r.TrackFX_SetParam(inst.track, fi, 3, (yn + 20) / 40) end
+
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local z_val = r.TrackFX_GetParam(inst.track, fi, 4) * 10
+      local zc, zn = r.ImGui_SliderDouble(ctx, "Height (ft)##bz" .. uid, z_val, 0, 10, "%.1f")
+      if zc then r.TrackFX_SetParam(inst.track, fi, 4, zn / 10) end
+
+      r.ImGui_SameLine(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local face_val = r.TrackFX_GetParam(inst.track, fi, 5) * 360 - 180
+      local fc, fn = r.ImGui_SliderDouble(ctx, "Facing##bf" .. uid, face_val, -180, 180, "%.0f\xC2\xB0")
+      if fc then r.TrackFX_SetParam(inst.track, fi, 5, (fn + 180) / 360) end
+
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local pat_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 6) + 0.5)
+      local pat_label = PAT_NAMES[pat_val + 1] or "?"
+      if r.ImGui_BeginCombo(ctx, "Pattern##bp" .. uid, pat_label) then
+        for pi = 0, 3 do
+          if r.ImGui_Selectable(ctx, PAT_NAMES[pi + 1], pi == pat_val) then
+            r.TrackFX_SetParam(inst.track, fi, 6, pi)
+          end
+        end
+        r.ImGui_EndCombo(ctx)
+      end
+
+      r.ImGui_SameLine(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 150)
+      local lvl_val = r.TrackFX_GetParam(inst.track, fi, 7) * 48 - 24
+      local lc, ln = r.ImGui_SliderDouble(ctx, "Level (dB)##bl" .. uid, lvl_val, -24, 24, "%.1f")
+      if lc then r.TrackFX_SetParam(inst.track, fi, 7, (ln + 24) / 48) end
+
+      r.ImGui_TreePop(ctx)
+    end
+  end
+end
+
 -- ---- Main Window ----
 
 local function draw_main(ctx)
@@ -2708,6 +3333,10 @@ local function draw_main(ctx)
         draw_track_setup(ctx)
         r.ImGui_EndTabItem(ctx)
       end
+      if r.ImGui_BeginTabItem(ctx, "Bloody Glue") then
+        draw_bleed(ctx)
+        r.ImGui_EndTabItem(ctx)
+      end
       r.ImGui_EndTabBar(ctx)
     end
 
@@ -2742,6 +3371,7 @@ local function loop()
   update_drones()
   read_pitch_state()
   read_mega_state()
+  if bleed_enabled then write_bleed_room_gmem() end
 
   -- Sync DrumBanger per-pad routing flags every frame
   sync_drumbanger_routing()

@@ -1,0 +1,202 @@
+desc:LMS - Bloody Glue (Mic Bleed / Live Room Emulation)
+//tags: bleed mic room glue console live
+//author: LMS
+//version: 0.1
+//license: GPL-3.0
+//changelog: v0.1 — Build step 1: gmem plumbing, publisher/consumer ring buffers, distance-based gain + delay + one-pole HF loss + polar pattern. No floor bounce yet.
+filename:0,shakebot_logo.png
+options:gmem=DrumBanger
+options:want_all_kb=0
+
+import lms_core.jsfx-inc
+
+in_pin:Input L
+in_pin:Input R
+out_pin:Output L
+out_pin:Output R
+
+slider1:0<0,15,1>-Slot ID
+slider2:0<0,3,1{Source,Mic,Both,Off}>-Node Type
+slider3:0<-20,20,0.1>-Position X (ft)
+slider4:0<-20,20,0.1>-Position Y (ft)
+slider5:3<0,10,0.1>-Position Z / Height (ft)
+slider6:0<-180,180,1>-Mic Facing (degrees)
+slider7:1<0,3,1{Omni,Cardioid,Hypercardioid,Figure-8}>-Polar Pattern
+slider8:0<-24,24,0.1>-Bleed Level (dB)
+slider9:100<0,100,1>-Liveness (%)
+
+@init
+
+ext_noinit = 1;
+gfx_ext_retina = 1;
+
+buf_pos = 10000;
+bleed.lms_bleed_init(slider1, buf_pos);
+buf_pos += BLEED_MAX_SLOTS * 11 + 16;
+
+pdc_delay = samplesblock;
+pdc_bot_ch = 0;
+pdc_top_ch = 2;
+
+@slider
+
+slot_id = floor(slider1 + 0.5);
+node_type = floor(slider2 + 0.5);
+pat_id = floor(slider7 + 0.5);
+
+bleed.lms_bleed_init(slot_id, 10000);
+
+bleed.is_source = (node_type == 0 || node_type == 2) ? 1 : 0;
+bleed.is_mic    = (node_type == 1 || node_type == 2) ? 1 : 0;
+
+bleed.lms_bleed_set_position(slider3, slider4, slider5);
+
+facing_rad = slider6 * $pi / 180;
+bleed.lms_bleed_set_mic(sin(facing_rad), cos(facing_rad), pat_id);
+
+bleed_gain_lin = 10 ^ (slider8 / 20);
+liveness = slider9 / 100;
+
+@block
+
+bleed.is_source ? bleed.lms_bleed_pub_block();
+bleed.is_mic    ? bleed.lms_bleed_con_block();
+solo_bleed = gmem[BLEED_SOLO];
+
+pdc_delay = samplesblock;
+
+@sample
+
+in_l = spl0;
+in_r = spl1;
+in_mono = (in_l + in_r) * 0.5;
+
+bleed.is_source ? bleed.lms_bleed_pub_write(in_mono);
+
+node_type == 3 ? (
+  spl0 = in_l;
+  spl1 = in_r;
+) : bleed.is_mic ? (
+  bleed_in = bleed.lms_bleed_con_read() * bleed_gain_lin * liveness;
+  solo_bleed ? (
+    spl0 = bleed_in;
+    spl1 = bleed_in;
+  ) : (
+    spl0 = in_l + bleed_in;
+    spl1 = in_r + bleed_in;
+  );
+) : (
+  solo_bleed ? (
+    spl0 = 0;
+    spl1 = 0;
+  ) : (
+    spl0 = in_l;
+    spl1 = in_r;
+  );
+);
+
+@gfx 560 420
+
+gfx_clear = 0x1a1a2e;
+gfx_setfont(1, "Arial", 14 * (gfx_ext_retina + 1));
+
+// Title
+gfx_set(0.95, 0.85, 0.55);
+gfx_setfont(2, "Arial", 20 * (gfx_ext_retina + 1));
+gfx_x = 10; gfx_y = 8;
+gfx_drawstr("BLOODY GLUE");
+gfx_setfont(1, "Arial", 12 * (gfx_ext_retina + 1));
+gfx_set(0.6, 0.6, 0.7);
+gfx_x = 10; gfx_y = 32;
+gfx_drawstr("Mic Bleed / Live Room Emulation");
+
+// Status
+gfx_set(0.5, 0.8, 0.5);
+gfx_x = 10; gfx_y = 60;
+sprintf(#status, "Slot %d | ", slot_id);
+gfx_drawstr(#status);
+
+gfx_node = floor(slider2 + 0.5);
+gfx_node == 0 ? gfx_drawstr("SOURCE") :
+gfx_node == 1 ? gfx_drawstr("MIC") :
+gfx_node == 2 ? gfx_drawstr("BOTH") :
+gfx_drawstr("OFF");
+
+gfx_drawstr(" | Active paths: ");
+gfx_drawnumber(bleed.active_count, 0);
+
+// Position display
+gfx_set(0.7, 0.7, 0.8);
+gfx_x = 10; gfx_y = 85;
+sprintf(#pos, "Position: (%.1f, %.1f, %.1f) ft", slider3, slider4, slider5);
+gfx_drawstr(#pos);
+
+// Mic info
+bleed.is_mic ? (
+  gfx_x = 10; gfx_y = 105;
+  gfx_drawstr("Facing: ");
+  gfx_drawnumber(slider6, 0);
+  gfx_drawstr("° | Pattern: ");
+  slider7 == 0 ? gfx_drawstr("Omni") :
+  slider7 == 1 ? gfx_drawstr("Cardioid") :
+  slider7 == 2 ? gfx_drawstr("Hyper") :
+  gfx_drawstr("Figure-8");
+);
+
+// Room map — top-down view
+map_x = 40;
+map_y = 140;
+map_w = gfx_w - 80;
+map_h = gfx_h - 180;
+map_cx = map_x + map_w * 0.5;
+map_cy = map_y + map_h * 0.5;
+map_scale = min(map_w, map_h) / 40;
+
+// Room border
+gfx_set(0.3, 0.3, 0.4);
+gfx_rect(map_x, map_y, map_w, map_h, 0);
+
+// Draw all slots
+k = 0;
+loop(BLEED_MAX_SLOTS,
+  src_hb = gmem[BLEED_MIC_BASE + k * 4 + 3];
+  src_hb > 0 ? (
+    sx = gmem[BLEED_GEO_BASE + k * 4];
+    sy = gmem[BLEED_GEO_BASE + k * 4 + 1];
+    sf = gmem[BLEED_GEO_BASE + k * 4 + 3];
+
+    px = map_cx + sx * map_scale;
+    py = map_cy - sy * map_scale;
+
+    px >= map_x && px <= map_x + map_w && py >= map_y && py <= map_y + map_h ? (
+      k == slot_id ? (
+        gfx_set(0.95, 0.85, 0.55);
+        dot_r = 6;
+      ) : (
+        gfx_set(0.5, 0.7, 0.9);
+        dot_r = 4;
+      );
+
+      gfx_circle(px, py, dot_r * (gfx_ext_retina + 1), 1);
+
+      // Mic facing line
+      (sf >= 2) ? (
+        fx = gmem[BLEED_MIC_BASE + k * 4];
+        fy = gmem[BLEED_MIC_BASE + k * 4 + 1];
+        gfx_line(px, py,
+                 px + fx * 15 * (gfx_ext_retina + 1),
+                 py - fy * 15 * (gfx_ext_retina + 1));
+      );
+
+      gfx_x = px + 8; gfx_y = py - 6;
+      gfx_drawnumber(k, 0);
+    );
+  );
+  k += 1;
+);
+
+// Footer
+gfx_set(0.4, 0.4, 0.5);
+gfx_setfont(1, "Arial", 10 * (gfx_ext_retina + 1));
+gfx_x = 10; gfx_y = gfx_h - 18;
+gfx_drawstr("v0.1 — gain + delay + HF loss + polar | build step 1");
