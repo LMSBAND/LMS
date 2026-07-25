@@ -5020,16 +5020,10 @@ function lms_bleed_init(slot_id, local_buf_base)
 
 function lms_bleed_set_position(x, y, z)
 (
-  (x != this.pos_x || y != this.pos_y || z != this.pos_z) ? (
-    this.pos_x = x;
-    this.pos_y = y;
-    this.pos_z = z;
-    gmem[this.geo_addr]     = x;
-    gmem[this.geo_addr + 1] = y;
-    gmem[this.geo_addr + 2] = z;
-    gmem[this.geo_addr + 3] = this.is_source + this.is_mic * 2;
-    gmem[BLEED_DIRTY] += 1;
-  );
+  this.pos_x = x;
+  this.pos_y = y;
+  this.pos_z = z;
+  this.geo_dirty = 1;
 );
 
 function lms_bleed_set_mic(facing_x, facing_y, pattern)
@@ -5037,10 +5031,23 @@ function lms_bleed_set_mic(facing_x, facing_y, pattern)
   this.facing_x = facing_x;
   this.facing_y = facing_y;
   this.pattern = pattern;
-  gmem[this.mic_addr]     = facing_x;
-  gmem[this.mic_addr + 1] = facing_y;
-  gmem[this.mic_addr + 2] = pattern;
-  gmem[BLEED_DIRTY] += 1;
+  this.geo_dirty = 1;
+);
+
+// Write geo/mic data to gmem — call from @block, never @slider
+function lms_bleed_sync_gmem()
+(
+  this.geo_dirty ? (
+    gmem[this.geo_addr]     = this.pos_x;
+    gmem[this.geo_addr + 1] = this.pos_y;
+    gmem[this.geo_addr + 2] = this.pos_z;
+    gmem[this.geo_addr + 3] = this.is_source + this.is_mic * 2;
+    gmem[this.mic_addr]     = this.facing_x;
+    gmem[this.mic_addr + 1] = this.facing_y;
+    gmem[this.mic_addr + 2] = this.pattern;
+    gmem[BLEED_DIRTY] += 1;
+    this.geo_dirty = 0;
+  );
 );
 
 function lms_bleed_polar_gain(pat, cos_angle)
@@ -5125,92 +5132,81 @@ function lms_bleed_con_block()
     k != this.slot ? (
       src_geo = BLEED_GEO_BASE + k * 4;
       src_mic = BLEED_MIC_BASE + k * 4;
-      src_hb = gmem[src_mic + 3];
+      src_flags = gmem[src_geo + 3];
 
-      // Debug: track what we see — record first non-self slot's raw data
-      this.dbg_first_hb < 0 ? (
-        this.dbg_first_hb = src_hb;
-        this.dbg_first_flags = src_mic + 3;  // the gmem ADDRESS we read hb from
-      );
-      src_hb > 0 ? (
+      // Use flags as active check (flags written by set_position during setup)
+      (src_flags >= 1) ? (
         this.dbg_hb_count += 1;
-      );
+        this.dbg_first_hb < 0 ? (
+          this.dbg_first_hb = src_flags;
+          this.dbg_first_flags = src_geo + 3;
+        );
 
-      src_hb > 0 ? (
-        src_flags = gmem[src_geo + 3];
+        dx = gmem[src_geo] - this.pos_x;
+        dy = gmem[src_geo + 1] - this.pos_y;
+        dz = gmem[src_geo + 2] - this.pos_z;
+        dist = sqrt(dx*dx + dy*dy + dz*dz);
+        dist = max(dist, 0.5);
+        src_z = gmem[src_geo + 2];
 
-        (src_flags >= 1) ? (
-          dx = gmem[src_geo] - this.pos_x;
-          dy = gmem[src_geo + 1] - this.pos_y;
-          dz = gmem[src_geo + 2] - this.pos_z;
-          dist = sqrt(dx*dx + dy*dy + dz*dz);
-          dist = max(dist, 0.5);
-          src_z = gmem[src_geo + 2];
+        inv_sq = 1.0 / (dist * dist);
 
-          inv_sq = 1.0 / (dist * dist);
+        this.is_mic ? (
+          mag = sqrt(dx*dx + dy*dy);
+          mag > 0.001 ? (
+            cos_a = (dx * this.facing_x + dy * this.facing_y) / (mag * sqrt(this.facing_x*this.facing_x + this.facing_y*this.facing_y));
+          ) : (
+            cos_a = 1.0;
+          );
+          polar_g = lms_bleed_polar_gain(this.pattern, cos_a);
+        ) : (
+          polar_g = 1.0;
+        );
+
+        gain = inv_sq * polar_g * liveness;
+
+        gain >= this.cull_threshold ? (
+          delay_samps = dist * BLEED_SPEED_OF_SOUND * 0.001 * srate;
+          delay_samps = max(delay_samps, samplesblock);
+
+          cutoff = 8000 / (1 + dist * 0.3);
+          cos_a < 0.5 ? cutoff *= (0.5 + cos_a);
+          cutoff *= (0.3 + 0.7 * wall_hi);
+          cutoff = max(cutoff, 200);
+          lp_coeff = 1.0 - exp(-2.0 * $pi * cutoff / srate);
+
+          src_wpos = gmem[BLEED_WPOS_BASE + k];
+
+          cb[0] = gain;
+          cb[1] = delay_samps;
+          cb[2] = lp_coeff;
+          cb[3] = BLEED_RING_BASE + k * BLEED_RING_SIZE;
+          cb[4] = src_wpos;
+          this.active_count += 1;
+          gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = gain;
+
+          horiz_dist = sqrt(dx*dx + dy*dy);
+          floor_path = sqrt(horiz_dist*horiz_dist + (src_z + this.pos_z)*(src_z + this.pos_z));
+          floor_path = max(floor_path, 0.5);
+          floor_gain = (1.0 / (floor_path * floor_path)) * floor_lo * liveness;
 
           this.is_mic ? (
-            mag = sqrt(dx*dx + dy*dy);
-            mag > 0.001 ? (
-              cos_a = (dx * this.facing_x + dy * this.facing_y) / (mag * sqrt(this.facing_x*this.facing_x + this.facing_y*this.facing_y));
-            ) : (
-              cos_a = 1.0;
-            );
-            polar_g = lms_bleed_polar_gain(this.pattern, cos_a);
+            floor_cos_a = cos_a * 0.7;
+            floor_polar = lms_bleed_polar_gain(this.pattern, floor_cos_a);
           ) : (
-            polar_g = 1.0;
+            floor_polar = 0.8;
           );
+          floor_gain *= floor_polar;
 
-          gain = inv_sq * polar_g * liveness;
+          floor_gain >= this.cull_threshold ? (
+            floor_delay = floor_path * BLEED_SPEED_OF_SOUND * 0.001 * srate;
+            floor_delay = max(floor_delay, samplesblock);
+            floor_cutoff = 6000 / (1 + floor_path * 0.4) * (0.3 + 0.7 * floor_hi);
+            floor_cutoff = max(floor_cutoff, 150);
 
-          gain >= this.cull_threshold ? (
-            delay_samps = dist * BLEED_SPEED_OF_SOUND * 0.001 * srate;
-            delay_samps = max(delay_samps, samplesblock);
-
-            // HF loss: distance + off-axis + wall material
-            cutoff = 8000 / (1 + dist * 0.3);
-            cos_a < 0.5 ? cutoff *= (0.5 + cos_a);
-            // Absorptive walls pull HF down further
-            cutoff *= (0.3 + 0.7 * wall_hi);
-            cutoff = max(cutoff, 200);
-            lp_coeff = 1.0 - exp(-2.0 * $pi * cutoff / srate);
-
-            src_wpos = gmem[BLEED_WPOS_BASE + k];
-
-            cb[0] = gain;
-            cb[1] = delay_samps;
-            cb[2] = lp_coeff;
-            cb[3] = BLEED_RING_BASE + k * BLEED_RING_SIZE;
-            cb[4] = src_wpos;
-            this.active_count += 1;
-            gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = gain;
-
-            // Floor bounce (first-order image source)
-            horiz_dist = sqrt(dx*dx + dy*dy);
-            // Image source: reflect both source and mic heights through floor
-            floor_path = sqrt(horiz_dist*horiz_dist + (src_z + this.pos_z)*(src_z + this.pos_z));
-            floor_path = max(floor_path, 0.5);
-            floor_gain = (1.0 / (floor_path * floor_path)) * floor_lo * liveness;
-
-            // Floor bounce arrives from below — reduced polar response
-            this.is_mic ? (
-              floor_cos_a = cos_a * 0.7;
-              floor_polar = lms_bleed_polar_gain(this.pattern, floor_cos_a);
-            ) : (
-              floor_polar = 0.8;
-            );
-            floor_gain *= floor_polar;
-
-            floor_gain >= this.cull_threshold ? (
-              floor_delay = floor_path * BLEED_SPEED_OF_SOUND * 0.001 * srate;
-              floor_delay = max(floor_delay, samplesblock);
-              floor_cutoff = 6000 / (1 + floor_path * 0.4) * (0.3 + 0.7 * floor_hi);
-              floor_cutoff = max(floor_cutoff, 150);
-
-              fb[0] = floor_gain;
-              fb[1] = floor_delay;
-              fb[2] = 1.0 - exp(-2.0 * $pi * floor_cutoff / srate);
-            );
+            fb[0] = floor_gain;
+            fb[1] = floor_delay;
+            fb[2] = 1.0 - exp(-2.0 * $pi * floor_cutoff / srate);
           );
         );
       );
@@ -5219,12 +5215,11 @@ function lms_bleed_con_block()
   );
   // Debug: write diagnostics to matrix diagonal and nearby gmem
   gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + this.slot] = this.active_count;
-  // 1000996: slot id, 1000997: hb_found_count, 1000998: first other hb, 1000999: first other flags
   this.slot == 0 ? (
-    gmem[1000996] = this.slot;
-    gmem[1000997] = this.dbg_hb_count;
-    gmem[1000998] = this.dbg_first_hb;
-    gmem[1000999] = this.dbg_first_flags;
+    gmem[1000996] = BLEED_GEO_BASE;
+    gmem[1000997] = BLEED_MIC_BASE;
+    gmem[1000998] = BLEED_RING_BASE;
+    gmem[1000999] = this.dbg_hb_count;
   );
 );
 

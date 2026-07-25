@@ -44,7 +44,8 @@ slot_id = floor(slider1 + 0.5);
 node_type = floor(slider2 + 0.5);
 pat_id = floor(slider7 + 0.5);
 
-bleed.lms_bleed_init(slot_id, 10000);
+// Only reinit if slot changed — full init stomps other instances' gmem
+slot_id != bleed.slot ? bleed.lms_bleed_init(slot_id, 10000);
 
 bleed.is_source = (node_type == 0 || node_type == 2) ? 1 : 0;
 bleed.is_mic    = (node_type == 1 || node_type == 2) ? 1 : 0;
@@ -59,6 +60,7 @@ liveness = slider9 / 100;
 
 @block
 
+bleed.lms_bleed_sync_gmem();
 bleed.is_source ? bleed.lms_bleed_pub_block();
 bleed.is_mic    ? bleed.lms_bleed_con_block();
 solo_bleed = gmem[BLEED_SOLO];

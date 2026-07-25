@@ -2699,13 +2699,24 @@ end
 
 -- ---- Bloody Glue Tab ----
 
+local bleed_debug_logged = false  -- reset on reload
 local function find_bleed_instances()
   local bleed_insts = {}
+  local do_log = not bleed_debug_logged
   for _, inst in ipairs(instances) do
     if inst.type_id == 35 then
       bleed_insts[#bleed_insts + 1] = inst
+      if do_log then
+        local _, tn = r.GetTrackName(inst.track)
+        local sv = r.TrackFX_GetParam(inst.track, inst.fx_idx, 0)
+        local _, fx_name = r.TrackFX_GetFXName(inst.track, inst.fx_idx)
+        r.ShowConsoleMsg(string.format(
+          "BLEED INST: track='%s' fx_idx=%d param0_raw=%.6f fx_name='%s'\n",
+          tn, inst.fx_idx, sv, fx_name))
+      end
     end
   end
+  if do_log and #bleed_insts > 0 then bleed_debug_logged = true end
   return bleed_insts
 end
 
@@ -2767,14 +2778,12 @@ local function bleed_auto_wire()
     local num_fx = r.TrackFX_GetCount(track)
     for fi = 0, num_fx - 1 do
       local _, fx_name = r.TrackFX_GetFXName(track, fi)
-      local lower = fx_name:lower()
-      for key, tid in pairs(JSFX_TO_TYPE) do
-        if lower:find(key, 1, true) and tid ~= 35 then
-          has_lms = true
-          break
-        end
+      local lms_name, override_type = extract_lms_name(fx_name)
+      local tid = override_type or (lms_name and JSFX_TO_TYPE[lms_name])
+      if lms_name and tid and tid ~= 35 then
+        has_lms = true
+        break
       end
-      if has_lms then break end
     end
 
     if has_lms then
@@ -2804,7 +2813,7 @@ local function bleed_auto_wire()
           py = pos.y + (n - 1) * 1.5
         end
 
-        r.TrackFX_SetParam(track, bleed_fx, 0, next_slot / 15)
+        r.TrackFX_SetParam(track, bleed_fx, 0, next_slot)
         r.TrackFX_SetParam(track, bleed_fx, 1, 2)
         r.TrackFX_SetParam(track, bleed_fx, 2, (px + 20) / 40)
         r.TrackFX_SetParam(track, bleed_fx, 3, (py + 20) / 40)
@@ -3007,7 +3016,7 @@ local function draw_bleed(ctx)
 
   for _, inst in ipairs(bleed_insts) do
     local fi = inst.fx_idx
-    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) + 0.5)
     local node_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 1) + 0.5)
     local x_val = r.TrackFX_GetParam(inst.track, fi, 2) * 40 - 20
     local y_val = r.TrackFX_GetParam(inst.track, fi, 3) * 40 - 20
@@ -3075,7 +3084,7 @@ local function draw_bleed(ctx)
   local dbg_parts = {string.format("solo_gmem=%.0f liveness=%.3f", solo_gmem, liveness_gmem)}
   for _, inst in ipairs(bleed_insts) do
     local fi = inst.fx_idx
-    local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) + 0.5)
     local hb = r.gmem_read(BLEED_MIC_BASE + sv * 4 + 3)
     local rms = r.gmem_read(BLEED_RMS_BASE + sv)
     local flags = r.gmem_read(BLEED_GEO_BASE + sv * 4 + 3)
@@ -3100,13 +3109,14 @@ local function draw_bleed(ctx)
   local dbg_hbc  = r.gmem_read(1000997)
   local dbg_fhb  = r.gmem_read(1000998)
   local dbg_ffl  = r.gmem_read(1000999)
-  -- dbg_fhb = raw hb VALUE read, dbg_ffl = gmem ADDRESS checked
-  -- Manager checks same namespace: BLEED_MIC_BASE + slot*4 + 3
-  local mgr_addr = BLEED_MIC_BASE + 1 * 4 + 3  -- what manager would check for slot 1
-  local mgr_val = r.gmem_read(mgr_addr)
+  -- Check if bleed constants are correct inside DSP
+  local dsp_geo  = r.gmem_read(1000996)  -- should be 1000000
+  local dsp_mic  = r.gmem_read(1000997)  -- should be 1000200
+  local dsp_ring = r.gmem_read(1000998)  -- should be 1001000
+  local dsp_hbc  = r.gmem_read(1000999)  -- hb_count
   r.ImGui_TextWrapped(ctx, string.format(
-    "CON_BLOCK[slot%.0f]: hb_found=%.0f dsp_hb=%.1f dsp_addr=%.0f | mgr_addr=%.0f mgr_hb=%.1f",
-    dbg_slot, dbg_hbc, dbg_fhb, dbg_ffl, mgr_addr, mgr_val))
+    "DSP CONSTANTS: GEO=%.0f(want 1000000) MIC=%.0f(want 1000200) RING=%.0f(want 1001000) hbc=%.0f",
+    dsp_geo, dsp_mic, dsp_ring, dsp_hbc))
 
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
@@ -3119,7 +3129,7 @@ local function draw_bleed(ctx)
     local slot_order = {}
     for _, inst in ipairs(bleed_insts) do
       local fi = inst.fx_idx
-      local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+      local sv = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) + 0.5)
       local nv = math.floor(r.TrackFX_GetParam(inst.track, fi, 1) + 0.5)
       local _, tn = r.GetTrackName(inst.track)
       slot_info[sv] = {name = tn:sub(1, 6), node = nv}
@@ -3215,7 +3225,7 @@ local function draw_bleed(ctx)
   for idx, inst in ipairs(bleed_insts) do
     local _, tname = r.GetTrackName(inst.track)
     local fi = inst.fx_idx
-    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) * 15 + 0.5)
+    local slot_val = math.floor(r.TrackFX_GetParam(inst.track, fi, 0) + 0.5)
     local uid = inst.track_idx
 
     local hdr = string.format("[%d] %s##bleed_%d", slot_val, tname, uid)
