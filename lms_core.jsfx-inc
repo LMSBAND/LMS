@@ -1908,7 +1908,9 @@ function lms_draw_toggle(tx, ty, is_on, label) (
 );
 
 // ---- draw_mode_sel — clickable mode selector (up to 5 options) ----
-function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
+// Caller writes labels to string slots MS_BUF, MS_BUF+1, ... before calling.
+MS_BUF = 990;
+function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label) (
   gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(mx, my, mw, mh);
   gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
@@ -1920,11 +1922,7 @@ function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4)
   gfx_drawstr(label);
   gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
   gfx_x = mx + mw - floor(82 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
-  val == 0 ? gfx_drawstr(v0);
-  val == 1 ? gfx_drawstr(v1);
-  val == 2 ? gfx_drawstr(v2);
-  val == 3 ? gfx_drawstr(v3);
-  val == 4 ? gfx_drawstr(v4);
+  val >= 0 && val <= vmax ? gfx_drawstr(MS_BUF + val);
   (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= mx && mouse_x <= mx + mw &&
     mouse_y >= my && mouse_y <= my + mh ? (
@@ -5095,9 +5093,6 @@ function lms_bleed_con_block()
 (
   this.active_count = 0;
   this.con_sample_idx = 0;
-  this.dbg_hb_count = 0;
-  this.dbg_first_hb = -1;
-  this.dbg_first_flags = -1;
 
   // Read room parameters from gmem (written by manager)
   room_w    = gmem[BLEED_ROOM_BASE];
@@ -5136,12 +5131,6 @@ function lms_bleed_con_block()
 
       // Use flags as active check (flags written by set_position during setup)
       (src_flags >= 1) ? (
-        this.dbg_hb_count += 1;
-        this.dbg_first_hb < 0 ? (
-          this.dbg_first_hb = src_flags;
-          this.dbg_first_flags = src_geo + 3;
-        );
-
         dx = gmem[src_geo] - this.pos_x;
         dy = gmem[src_geo + 1] - this.pos_y;
         dz = gmem[src_geo + 2] - this.pos_z;
@@ -5167,7 +5156,7 @@ function lms_bleed_con_block()
 
         gain >= this.cull_threshold ? (
           delay_samps = dist * BLEED_SPEED_OF_SOUND * 0.001 * srate;
-          delay_samps = max(delay_samps, samplesblock);
+          delay_samps = max(delay_samps, 4);
 
           cutoff = 8000 / (1 + dist * 0.3);
           cos_a < 0.5 ? cutoff *= (0.5 + cos_a);
@@ -5200,7 +5189,7 @@ function lms_bleed_con_block()
 
           floor_gain >= this.cull_threshold ? (
             floor_delay = floor_path * BLEED_SPEED_OF_SOUND * 0.001 * srate;
-            floor_delay = max(floor_delay, samplesblock);
+            floor_delay = max(floor_delay, 4);
             floor_cutoff = 6000 / (1 + floor_path * 0.4) * (0.3 + 0.7 * floor_hi);
             floor_cutoff = max(floor_cutoff, 150);
 
@@ -5212,14 +5201,6 @@ function lms_bleed_con_block()
       );
     );
     k += 1;
-  );
-  // Debug: write diagnostics to matrix diagonal and nearby gmem
-  gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + this.slot] = this.active_count;
-  this.slot == 0 ? (
-    gmem[1000996] = BLEED_GEO_BASE;
-    gmem[1000997] = BLEED_MIC_BASE;
-    gmem[1000998] = BLEED_RING_BASE;
-    gmem[1000999] = this.dbg_hb_count;
   );
 );
 

@@ -156,22 +156,26 @@ fdn_lp0=0; fdn_lp1=0; fdn_lp2=0; fdn_lp3=0;
 sm_fdn_d0=0; sm_fdn_d1=0; sm_fdn_d2=0; sm_fdn_d3=0;
 
 // Default band positions: semicircle behind default source
-k = 0;
-loop(MAX_BAND,
-  angle = -0.6 + k * 1.2 / max(1, MAX_BAND - 1);
-  band_pos[k*2]   = slider2*0.5 + sin(angle)*1.5;
-  band_pos[k*2+1] = 1.0 + cos(angle)*0.5;
-  band_wr[k] = 0;
-  k += 1;
+// Only set on very first init — @serialize restores saved positions,
+// and later @init re-runs (sample rate change, undo) must not wipe them.
+band_pos_loaded == 0 ? (
+  k = 0;
+  loop(MAX_BAND,
+    angle = -0.6 + k * 1.2 / max(1, MAX_BAND - 1);
+    band_pos[k*2]   = slider2*0.5 + sin(angle)*1.5;
+    band_pos[k*2+1] = 1.0 + cos(angle)*0.5;
+    k += 1;
+  );
 );
+k = 0; loop(MAX_BAND, band_wr[k] = 0; k += 1);
 band_count = 0;
 room_heartbeat = 0;
 
 wr_pos = 0;
 computed_rt60 = 0;
 gfx_nw = 4;  // snapshot for @gfx
-prev_room_w = slider2;
-prev_room_d = slider3;
+prev_room_w = -1;
+prev_room_d = -1;
 comp_env = 0;
 comp_gr = 1;
 comp_sat = 1;
@@ -641,16 +645,9 @@ loop(TOTAL_SLOTS,
 
 // Material selector helper for @gfx
 function draw_mat_sel(bx, by, bw, bh, val, label) local(new_val) (
-  new_val = lms_draw_mode_sel(bx, by, bw, bh, val, 7, label, "Concrete", "Wood", "Drywall", "Glass");
-  new_val >= 4 ? (
-    gfx_r=COL_ACCENT_R; gfx_g=COL_ACCENT_G; gfx_b=COL_ACCENT_B;
-    gfx_setfont(1,"Arial",F_LABEL);
-    gfx_x=bx+bw-floor(72*S); gfx_y=by+floor((bh-F_LABEL)/2);
-    new_val==4 ? gfx_drawstr("Brick");
-    new_val==5 ? gfx_drawstr("Carpet");
-    new_val==6 ? gfx_drawstr("Curtain");
-    new_val==7 ? gfx_drawstr("Foam");
-  );
+  strcpy(MS_BUF, "Concrete"); strcpy(MS_BUF+1, "Wood"); strcpy(MS_BUF+2, "Drywall"); strcpy(MS_BUF+3, "Glass");
+  strcpy(MS_BUF+4, "Brick"); strcpy(MS_BUF+5, "Carpet"); strcpy(MS_BUF+6, "Curtain"); strcpy(MS_BUF+7, "Foam");
+  new_val = lms_draw_mode_sel(bx, by, bw, bh, val, 7, label);
   new_val;
 );
 
@@ -715,6 +712,8 @@ drag_band = -1;
 @block
   // Rescale source/mic positions proportionally when room dimensions change
   room_margin = 0.15;
+  prev_room_w < 0 ? prev_room_w = slider2;
+  prev_room_d < 0 ? prev_room_d = slider3;
   slider2 != prev_room_w ? (
     slider8  = slider8  * slider2 / prev_room_w;
     slider11 = slider11 * slider2 / prev_room_w;
@@ -1276,7 +1275,8 @@ cy+=floor(4*S);
 place_rows = room_mode == 0 ? 5 : 3;  // Single: mode+srcang+micang+pat+depth, Band: mode+micang+pat
 lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+place_rows*bar_sp,"PLACEMENT");
 cy+=floor(26*S);
-_old=slider22; slider22=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider22,1,"Mode","Single","Band","","");
+strcpy(MS_BUF, "Single"); strcpy(MS_BUF+1, "Band");
+_old=slider22; slider22=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider22,1,"Mode");
 slider22!=_old ? slider_automate(2^21); cy+=bar_sp;
 room_mode == 0 ? (
   _old=slider10; slider10=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider10,-180,180,"Src Angle",1);
@@ -1284,23 +1284,27 @@ room_mode == 0 ? (
 );
 _old=slider13; slider13=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider13,-180,180,"Mic Angle",1);
 slider13=floor(slider13+0.5); slider13!=_old ? slider_automate(2^12); cy+=bar_sp;
-_old=slider14; slider14=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider14,3,"Mic Pat","Omni","Cardioid","Fig-8","Hyper");
+strcpy(MS_BUF, "Omni"); strcpy(MS_BUF+1, "Cardioid"); strcpy(MS_BUF+2, "Fig-8"); strcpy(MS_BUF+3, "Hyper");
+_old=slider14; slider14=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider14,3,"Mic Pat");
 slider14!=_old ? slider_automate(2^13); cy+=bar_sp;
 room_mode == 0 ? (
-  _old=slider15; slider15=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,2,"Depth","1st Only","2nd Order","3rd Order","");
+  strcpy(MS_BUF, "1st Only"); strcpy(MS_BUF+1, "2nd Order"); strcpy(MS_BUF+2, "3rd Order");
+  _old=slider15; slider15=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,2,"Depth");
   slider15!=_old ? slider_automate(2^14); cy+=bar_sp;
 );
 cy+=floor(4*S);
 
 lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+5*bar_sp,"COMPRESSOR");
 cy+=floor(26*S);
-_old=slider18; slider18=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider18,3,"Comp","Off","LA2A","1176","Dist");
+strcpy(MS_BUF, "Off"); strcpy(MS_BUF+1, "LA2A"); strcpy(MS_BUF+2, "1176"); strcpy(MS_BUF+3, "Dist");
+_old=slider18; slider18=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider18,3,"Comp");
 slider18!=_old ? slider_automate(2^17); cy+=bar_sp;
 _old=slider20; slider20=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider20,-12,24,"Input dB",1);
 slider20!=_old ? slider_automate(2^19); cy+=bar_sp;
 _old=slider19; slider19=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider19,0,100,"Amount",1);
 slider19=floor(slider19+0.5); slider19!=_old ? slider_automate(2^18); cy+=bar_sp;
-_old=slider21; slider21=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider21,3,"Ratio","2:1","4:1","8:1","20:1");
+strcpy(MS_BUF, "2:1"); strcpy(MS_BUF+1, "4:1"); strcpy(MS_BUF+2, "8:1"); strcpy(MS_BUF+3, "20:1");
+_old=slider21; slider21=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider21,3,"Ratio");
 slider21!=_old ? slider_automate(2^20); cy+=bar_sp;
 // GR meter
 slider18 > 0 ? (
@@ -1356,3 +1360,4 @@ loop(MAX_BAND * 2,
   file_var(0, band_pos[k]);
   k += 1;
 );
+band_pos_loaded = 1;

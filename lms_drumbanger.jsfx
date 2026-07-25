@@ -4988,6 +4988,7 @@ serial_version >= 9 ? (
       MENU_MAP[i]      = PAD_POOL_IDX[i];
       MENU_MAP[16 + i] = PAD_CHOP_OFFSET[i];
       MENU_MAP[32 + i] = PAD_SLICE[i];
+      MENU_MAP[48 + i] = PAD_SUBDIV[i];
       i += 1;
     );
     // Load the correct kit (slider7 restored by REAPER before @serialize)
@@ -4997,6 +4998,7 @@ serial_version >= 9 ? (
     loop(NUM_PADS,
       PAD_CHOP_OFFSET[i] = MENU_MAP[16 + i];
       PAD_SLICE[i] = MENU_MAP[32 + i];
+      PAD_SUBDIV[i] = MENU_MAP[48 + i];
       MENU_MAP[i] >= 0 ? (
         load_pad_from_pool(i, MENU_MAP[i]);
       );

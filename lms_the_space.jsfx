@@ -490,7 +490,8 @@ cy += floor(4*S);
 // === VIBE ===
 lms_draw_panel(ctrl_x, cy, ctrl_w, floor(26*S)+2*bar_sp+5*floor(13*S)+floor(4*S), "VIBE");
 cy += floor(26*S);
-_old=slider6; slider6=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider6,2,"Vibe","Off","Bright","Moody","");
+strcpy(MS_BUF, "Off"); strcpy(MS_BUF+1, "Bright"); strcpy(MS_BUF+2, "Moody");
+_old=slider6; slider6=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider6,2,"Vibe");
 slider6!=_old ? slider_automate(2^5);
 cy+=bar_sp;
 
