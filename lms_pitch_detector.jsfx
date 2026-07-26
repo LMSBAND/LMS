@@ -24,7 +24,7 @@ slider8:100<20,500,1>-Min Note (ms)
   pd.lms_yin_init(5000, 80);
 
   // Pitch bus gmem addresses
-  PITCH_BUS_BASE = 950000;
+  G_PITCH_BUS = 950000;
 
   // MIDI state
   midi_last_note = -1;
@@ -331,24 +331,24 @@ vi_window_sec > 0 ? (
 );
 
 // ---- Publish to pitch bus (gmem) ----
-gmem[PITCH_BUS_BASE + 0] = pd.freq;
-gmem[PITCH_BUS_BASE + 1] = pd.confidence;
-gmem[PITCH_BUS_BASE + 2] = pd.midi_note;
-gmem[PITCH_BUS_BASE + 3] = pd.midi_int;
-gmem[PITCH_BUS_BASE + 4] = pd.cents;
-gmem[PITCH_BUS_BASE + 5] += 1;  // heartbeat
-gmem[PITCH_BUS_BASE + 6] = held_freq;       // target freq (scale-snapped, held)
-gmem[PITCH_BUS_BASE + 7] = held_note;       // target MIDI int (scale-snapped, held)
+gmem[G_PITCH_BUS + 0] = pd.freq;
+gmem[G_PITCH_BUS + 1] = pd.confidence;
+gmem[G_PITCH_BUS + 2] = pd.midi_note;
+gmem[G_PITCH_BUS + 3] = pd.midi_int;
+gmem[G_PITCH_BUS + 4] = pd.cents;
+gmem[G_PITCH_BUS + 5] += 1;  // heartbeat
+gmem[G_PITCH_BUS + 6] = held_freq;       // target freq (scale-snapped, held)
+gmem[G_PITCH_BUS + 7] = held_note;       // target MIDI int (scale-snapped, held)
 
 // ---- Expanded pitch bus: Vocal Intelligence data ----
-gmem[PITCH_BUS_BASE + 8] = vi_pitch_vel_smooth;  // pitch velocity (semitones/sec)
-gmem[PITCH_BUS_BASE + 9] = vi_voiced;             // voiced flag (0 or 1)
-gmem[PITCH_BUS_BASE + 10] = vi_onset_flag;        // onset flag (0 or 1 per block)
-gmem[PITCH_BUS_BASE + 11] = vi_vib_rate;          // vibrato rate (Hz, 0-12)
-gmem[PITCH_BUS_BASE + 12] = vi_vib_depth;         // vibrato depth (cents p-p, 0-200)
-gmem[PITCH_BUS_BASE + 13] = vi_hd.density;        // density (total, 1.0-2.5)
-gmem[PITCH_BUS_BASE + 14] = vi_hd.mid_density;    // mid density (0.0-1.0)
-gmem[PITCH_BUS_BASE + 15] = vi_hd.air_density;    // air density (0.0-1.0)
+gmem[G_PITCH_BUS + 8] = vi_pitch_vel_smooth;  // pitch velocity (semitones/sec)
+gmem[G_PITCH_BUS + 9] = vi_voiced;             // voiced flag (0 or 1)
+gmem[G_PITCH_BUS + 10] = vi_onset_flag;        // onset flag (0 or 1 per block)
+gmem[G_PITCH_BUS + 11] = vi_vib_rate;          // vibrato rate (Hz, 0-12)
+gmem[G_PITCH_BUS + 12] = vi_vib_depth;         // vibrato depth (cents p-p, 0-200)
+gmem[G_PITCH_BUS + 13] = vi_hd.density;        // density (total, 1.0-2.5)
+gmem[G_PITCH_BUS + 14] = vi_hd.mid_density;    // mid density (0.0-1.0)
+gmem[G_PITCH_BUS + 15] = vi_hd.air_density;    // air density (0.0-1.0)
 
 // ---- Display smoothing ----
 disp_freq = disp_smooth * disp_freq + (1 - disp_smooth) * pd.freq;

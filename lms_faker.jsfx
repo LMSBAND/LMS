@@ -24,7 +24,7 @@ slider10:0<0,1,1{Off,On}>-Follow Harmony Map
   // PITCH DETECTION INIT
   // ============================================================
   pd.lms_yin_init(5000, 80);  // YIN buffer at 5000, size scales with srate
-  PITCH_BUS_BASE = 950000;  // still publish to gmem for vocoder compat
+  G_PITCH_BUS = 950000;  // still publish to gmem for vocoder compat
 
   // Input envelope (for display/level tracking)
   input_env = 0;
@@ -395,22 +395,22 @@ vi_window_sec > 0 ? (
 );
 
 // ---- Publish to gmem pitch bus (for vocoder/standalone compat) ----
-gmem[PITCH_BUS_BASE + 0] = pd.freq;
-gmem[PITCH_BUS_BASE + 1] = pd.confidence;
-gmem[PITCH_BUS_BASE + 2] = pd.midi_note;
-gmem[PITCH_BUS_BASE + 3] = pd.midi_int;
-gmem[PITCH_BUS_BASE + 4] = pd.cents;
-gmem[PITCH_BUS_BASE + 5] = gmem[PITCH_BUS_BASE + 5] + 1;
-gmem[PITCH_BUS_BASE + 6] = held_freq;
-gmem[PITCH_BUS_BASE + 7] = held_note;
-gmem[PITCH_BUS_BASE + 8] = vi_pitch_vel_smooth;
-gmem[PITCH_BUS_BASE + 9] = vi_voiced;
-gmem[PITCH_BUS_BASE + 10] = vi_onset_flag;
-gmem[PITCH_BUS_BASE + 11] = vi_vib_rate;
-gmem[PITCH_BUS_BASE + 12] = vi_vib_depth;
-gmem[PITCH_BUS_BASE + 13] = vi_hd.density;
-gmem[PITCH_BUS_BASE + 14] = vi_hd.mid_density;
-gmem[PITCH_BUS_BASE + 15] = vi_hd.air_density;
+gmem[G_PITCH_BUS + 0] = pd.freq;
+gmem[G_PITCH_BUS + 1] = pd.confidence;
+gmem[G_PITCH_BUS + 2] = pd.midi_note;
+gmem[G_PITCH_BUS + 3] = pd.midi_int;
+gmem[G_PITCH_BUS + 4] = pd.cents;
+gmem[G_PITCH_BUS + 5] = gmem[G_PITCH_BUS + 5] + 1;
+gmem[G_PITCH_BUS + 6] = held_freq;
+gmem[G_PITCH_BUS + 7] = held_note;
+gmem[G_PITCH_BUS + 8] = vi_pitch_vel_smooth;
+gmem[G_PITCH_BUS + 9] = vi_voiced;
+gmem[G_PITCH_BUS + 10] = vi_onset_flag;
+gmem[G_PITCH_BUS + 11] = vi_vib_rate;
+gmem[G_PITCH_BUS + 12] = vi_vib_depth;
+gmem[G_PITCH_BUS + 13] = vi_hd.density;
+gmem[G_PITCH_BUS + 14] = vi_hd.mid_density;
+gmem[G_PITCH_BUS + 15] = vi_hd.air_density;
 
 // ============================================================
 // CORRECTION PIPELINE (uses direct variables, not gmem)

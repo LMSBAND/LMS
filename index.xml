@@ -112,6 +112,10 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
         <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
+      <version name="7.1" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v7.1 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -374,6 +378,10 @@
         <changelog>v1.3 — Mode selector uses string buffer (MS_BUF) for labels.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
       </version>
+      <version name="1.4" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v1.4 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_room_send.jsfx" type="effect" desc="LMS - Space Send — Satellite for The Space">
       <version name="5.0" author="LMS" time="2026-03-04T00:00:00Z">
@@ -388,10 +396,18 @@
         <changelog>Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
       </version>
+      <version name="5.3" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v5.3 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm — Material Room Reverb">
       <version name="1.0" author="LMS" time="2026-07-25T12:00:00Z">
         <changelog>Initial ReaPack release. Fix source/mic positions resetting on project reload. Fix material selector showing only 5 of 8 materials.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v1.1 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
@@ -898,6 +914,10 @@
         <changelog>v1.9 &#8212; Publishes the four raw band envelopes alongside the density ratios, so the manager can draw the same animated density matrix the amps carry.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.10" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v1.10 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -950,6 +970,10 @@
         <changelog>v2.4 — Broadcast code removed (pure audio processor). Fix phase calibration for multi-mic setups. Add mutual exclusion display. New Room drum type for ambient/room mics.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+      <version name="2.5" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v2.5 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
@@ -970,6 +994,10 @@
       </version>
       <version name="2.3" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v2.3 — Broadcast code removed (pure audio processor). Fix YIN buffer overflow at high sample rates.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+      <version name="2.4" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v2.4 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
@@ -996,6 +1024,10 @@
       </version>
       <version name="2.4" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v2.4 — Broadcast code removed (pure audio processor). Fix YIN buffer overflow at high sample rates. Harmony Map follow mode — reads chord from gmem for harmony-aware pitch correction.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
+      </version>
+      <version name="2.5" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v2.5 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
     </reapack>
@@ -1779,6 +1811,10 @@
         <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
         <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
       </version>
+      <version name="3.3" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v3.3 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_satans_pedalboard.jsfx" type="effect" desc="Satan's Little Helper — all the satanic minions required to achieve your darkest most twisted musical fantasy">
       <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">
@@ -1805,6 +1841,10 @@
     <reapack name="lms_harmony_map.jsfx" type="effect" desc="LMS - Harmony Map — Timeline Chord Sequencer with Song Mode">
       <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v1.0 — Timeline-locked chord sequencer with Song Mode. 16 patterns with labeled parts (Verse/Chorus/Bridge/Intro/Outro). Song sequence with drag-and-drop reorder. Per-section modifiers (modulate key, force major/minor, get quiet/loud). Full chord broadcast to gmem (root, quality, notes). Music theory navigation: key selector, scale-aware chord suggestions, Nashville number display. Conductor mode for transport-driven playback. 3440 lines.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
+      </version>
+      <version name="1.1" author="LMS" time="2026-07-26T18:00:00Z">
+        <changelog>v1.1 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
       </version>
     </reapack>

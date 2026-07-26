@@ -25,10 +25,10 @@ slider9:50<0,100,1>-Vibe Intensity (%)
 @init
 
 // === gmem protocol ===
-ROOM_GMEM_BASE   = 900000;
-ROOM_SEND_BASE   = 900010;
+G_ROOM_BASE   = 900000;
+G_ROOM_SEND   = 900010;
 ROOM_SEND_STRIDE = 4;
-ROOM_CTRL_BASE   = 900080;
+G_ROOM_CTRL   = 900080;
 ROOM_CTRL_STRIDE = 3;
 MAX_SLOTS = 8;
 
@@ -90,13 +90,13 @@ loop(MAX_SLOTS, sat_hb[k] = -1; k += 1;);
 
 // Clear SEND gmem so dead satellites don't ghost (live ones re-announce in 1 block)
 k = 0;
-loop(MAX_SLOTS * ROOM_SEND_STRIDE, gmem[ROOM_SEND_BASE + k] = 0; k += 1;);
+loop(MAX_SLOTS * ROOM_SEND_STRIDE, gmem[G_ROOM_SEND + k] = 0; k += 1;);
 
 // Restore ctrl VALUES from gmem (survives play/stop — gmem never cleared)
 // ctrl_init stays 0 — @block sets it to 1 only when a live satellite is detected
 k = 0;
 loop(MAX_SLOTS,
-  ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
+  ci = G_ROOM_CTRL + k * ROOM_CTRL_STRIDE;
   gd = gmem[ci];
   gd >= 0.5 && gd <= 15.0 ? (
     ctrl_dist[k] = gd;
@@ -201,13 +201,13 @@ decay_mult = 0.5 + 0.5 * (slider2 / 100);
 
 // Master heartbeat (so satellites know we're alive)
 room_heartbeat += 1;
-gmem[ROOM_GMEM_BASE] = room_heartbeat;
+gmem[G_ROOM_BASE] = room_heartbeat;
 
 // Scan satellites (SmartGate-style time-based stale detection)
 sat_count = 0;
 k = 0;
 loop(MAX_SLOTS,
-  si = ROOM_SEND_BASE + k * ROOM_SEND_STRIDE;
+  si = G_ROOM_SEND + k * ROOM_SEND_STRIDE;
   hb = gmem[si];
   active = gmem[si + 3];
 
@@ -241,12 +241,12 @@ loop(MAX_SLOTS,
   sat_active[k] ? (
     // Mark as initialized (ctrl values already restored from gmem or defaulted in @init)
     ctrl_init[k] = 1;
-    ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
+    ci = G_ROOM_CTRL + k * ROOM_CTRL_STRIDE;
     gmem[ci]     = ctrl_dist[k];
     gmem[ci + 1] = ctrl_send_db[k];
     gmem[ci + 2] = 1.0;
   ) : (
-    ci = ROOM_CTRL_BASE + k * ROOM_CTRL_STRIDE;
+    ci = G_ROOM_CTRL + k * ROOM_CTRL_STRIDE;
     gmem[ci + 2] = 0.0;
   );
   k += 1;

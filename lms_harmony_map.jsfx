@@ -111,7 +111,7 @@ SONG_PART_SIZE = 8;
 song_cur_seq = -1;  // currently playing sequence index (runtime)
 
 // Broadcast bus — manager reads these to display song structure
-COND_BUS       = 960100;  // broadcast base
+G_COND_BUS       = 960100;  // broadcast base
 COND_PARTS     = 960110;  // song parts mirror (16×8 = 128)
 COND_SEQ       = 960240;  // song sequence mirror (64)
 COND_OCT       = 960310;  // song part octave mirror (16)
@@ -204,7 +204,7 @@ preview_qual = 0;
 preview_ticks = 0;
 
 // Harmony bus gmem base
-HARMONY_BUS = 960000;
+G_HARMONY_BUS = 960000;
 
 
 // ============================================================================
@@ -713,14 +713,14 @@ build_diatonic(slider1, slider2);
 // ============================================================================
 song_num_parts < 1 ? song_num_parts = 1;
 _song_mode_eff = (song_seq_len > 0 && song_num_parts > 0);
-gmem[COND_BUS + 0] = bc.bc_my_id;
-gmem[COND_BUS + 1] = num_pats;
-gmem[COND_BUS + 2] = _song_mode_eff;
-gmem[COND_BUS + 3] = song_num_parts;
-gmem[COND_BUS + 4] = song_seq_len;
-gmem[COND_BUS + 5] = current_pat;
-gmem[COND_BUS + 6] = song_sel_part;
-gmem[COND_BUS + 7] = song_cur_seq >= 0 ? SONG_SEQ_SRC[song_cur_seq] : -1;
+gmem[G_COND_BUS + 0] = bc.bc_my_id;
+gmem[G_COND_BUS + 1] = num_pats;
+gmem[G_COND_BUS + 2] = _song_mode_eff;
+gmem[G_COND_BUS + 3] = song_num_parts;
+gmem[G_COND_BUS + 4] = song_seq_len;
+gmem[G_COND_BUS + 5] = current_pat;
+gmem[G_COND_BUS + 6] = song_sel_part;
+gmem[G_COND_BUS + 7] = song_cur_seq >= 0 ? SONG_SEQ_SRC[song_cur_seq] : -1;
 
 _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, gmem[COND_PARTS + _ci] = SONG_PARTS[_ci]; _ci += 1);
 _ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + _ci] = SONG_SEQ[_ci]; _ci += 1);
@@ -1254,33 +1254,33 @@ gmem[960330] > 0 ? (
 );
 
 // Broadcast additional state for manager
-gmem[HARMONY_BUS + 85] = current_pat;
-gmem[HARMONY_BUS + 86] = num_pats;
+gmem[G_HARMONY_BUS + 85] = current_pat;
+gmem[G_HARMONY_BUS + 86] = num_pats;
 
 // Harmony bus — single chord + full progression broadcast
-gmem[HARMONY_BUS] += 1;
-gmem[HARMONY_BUS + 1] = P_SLOTS[cur_step * 2];
-gmem[HARMONY_BUS + 2] = P_SLOTS[cur_step * 2 + 1];
-gmem[HARMONY_BUS + 3] = cur_step;
-gmem[HARMONY_BUS + 4] = slider3;
-gmem[HARMONY_BUS + 5] = slider1;
-gmem[HARMONY_BUS + 6] = slider2;
-gmem[HARMONY_BUS + 7] = slider4;
-gmem[HARMONY_BUS + 8] = transport_playing;
+gmem[G_HARMONY_BUS] += 1;
+gmem[G_HARMONY_BUS + 1] = P_SLOTS[cur_step * 2];
+gmem[G_HARMONY_BUS + 2] = P_SLOTS[cur_step * 2 + 1];
+gmem[G_HARMONY_BUS + 3] = cur_step;
+gmem[G_HARMONY_BUS + 4] = slider3;
+gmem[G_HARMONY_BUS + 5] = slider1;
+gmem[G_HARMONY_BUS + 6] = slider2;
+gmem[G_HARMONY_BUS + 7] = slider4;
+gmem[G_HARMONY_BUS + 8] = transport_playing;
 // Full chord state broadcast (via P_* so it works in all modes)
-gmem[HARMONY_BUS + 10] = P_NSTEPS;
+gmem[G_HARMONY_BUS + 10] = P_NSTEPS;
 _bci = 0; loop(32,
-  gmem[HARMONY_BUS + 11 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2] : 255;
-  gmem[HARMONY_BUS + 43 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2 + 1] : 255;
+  gmem[G_HARMONY_BUS + 11 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2] : 255;
+  gmem[G_HARMONY_BUS + 43 + _bci]  = P_FILLED[_bci] ? P_SLOTS[_bci * 2 + 1] : 255;
   _bci += 1;
 );
 // Song mode state
-gmem[HARMONY_BUS + 80] = song_mode;
-gmem[HARMONY_BUS + 81] = _song_mode_eff && song_cur_seq >= 0 ? song_cur_part_idx : -1;
-gmem[HARMONY_BUS + 82] = song_mod_key;
-gmem[HARMONY_BUS + 83] = song_mod_mode;
+gmem[G_HARMONY_BUS + 80] = song_mode;
+gmem[G_HARMONY_BUS + 81] = _song_mode_eff && song_cur_seq >= 0 ? song_cur_part_idx : -1;
+gmem[G_HARMONY_BUS + 82] = song_mod_key;
+gmem[G_HARMONY_BUS + 83] = song_mod_mode;
 // DrumBanger pattern for current sequence position (0=no change, 1-8=pattern)
-gmem[HARMONY_BUS + 84] = _song_mode_eff && song_cur_src >= 0 ? SONG_SEQ_DRUM[song_cur_src] : 0;
+gmem[G_HARMONY_BUS + 84] = _song_mode_eff && song_cur_src >= 0 ? SONG_SEQ_DRUM[song_cur_src] : 0;
 
 // Preview chord (triggered from @gfx click) — always uses working copy
 preview_chord_dirty ? (

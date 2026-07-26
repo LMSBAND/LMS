@@ -234,7 +234,7 @@ bc.bc_my_slot < 0 ? (
   bc_claim_hb = 0;
   loop(bc.BC_MAX_INST,
     bc.bc_my_slot < 0 ? (
-      psb = bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
+      psb = bc.G_BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
       bc_claim_hb = gmem[psb + 0];
       gmem[psb + 1] == 0 || STALE_BUF[bc_scan] == bc_claim_hb ? (
         bc.bc_my_slot = bc_scan;
@@ -257,7 +257,7 @@ bc_stale_timer >= srate ? (
   bc_scan = 0;
   loop(bc.BC_MAX_INST,
     bc_scan != bc.bc_my_slot ? (
-      psb = bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
+      psb = bc.G_BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
       gmem[psb + 1] > 0 ? (
         bc_stale_hb = gmem[psb + 0];
         STALE_BUF[bc_scan] == bc_stale_hb ? (
@@ -272,7 +272,7 @@ bc_stale_timer >= srate ? (
 
 // Write drum mode state so peers can coordinate
 bc.bc_my_slot >= 0 ? (
-  sb = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE;
+  sb = bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE;
   gmem[sb + 0] += 1;
   gmem[sb + 1] = bc.bc_my_slot + 1;
   gmem[sb + 2] = bc.BC_MY_TYPE;
@@ -314,7 +314,7 @@ mode == 1 ? (
   bc_scan = 0;
   loop(bc.BC_MAX_INST,
     bc_scan != bc.bc_my_slot ? (
-      psb = bc.BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
+      psb = bc.G_BC_MY_REGION + bc_scan * bc.BC_SLOT_SIZE;
       pid = gmem[psb + 1];
       pid > 0 ? (
         pbase = psb + 200;
@@ -342,7 +342,7 @@ mode == 1 ? (
             cal_oh_slot2 = -1;
             cal_oh_seq2 = 0;
             cal_oh_count = 1;
-            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : 0;
+            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : 0;
             cal_armed_time = sample_clock;
           );
         );
@@ -353,7 +353,7 @@ mode == 1 ? (
             cal_oh_slot = bc_scan;
             cal_oh_seq = gmem[pbase + 9];
             cal_oh_count = 1;
-            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : 0;
+            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : 0;
           ) : bc_scan != cal_oh_slot && cal_oh_slot2 < 0 ? (
             cal_oh_slot2 = bc_scan;
             cal_oh_seq2 = gmem[pbase + 9];
@@ -487,7 +487,7 @@ mode == 1 ? (
   mode == 1 && bc.bc_my_slot >= 0 ? (
     ts_cooldown > 0 ? ts_cooldown -= 1;
     gate_env > effective_thresh && ts_cooldown <= 0 ? (
-      ts_sb = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
+      ts_sb = bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
       gmem[ts_sb + 8] = sample_clock;
       gmem[ts_sb + 9] += 1;
       gmem[ts_sb + 13] = hd.density;
@@ -502,7 +502,7 @@ mode == 1 ? (
       (sample_clock - cal_armed_time) > cal_timeout ? (
         cal_state = 0;
       ) : (
-        oh_ebase = bc.BC_MY_REGION + cal_oh_slot * bc.BC_SLOT_SIZE + 200;
+        oh_ebase = bc.G_BC_MY_REGION + cal_oh_slot * bc.BC_SLOT_SIZE + 200;
         oh_seq_now = gmem[oh_ebase + 9];
         oh_seq_now > cal_oh_seq ? (
           // OH fired — check spectral match before accepting
@@ -514,7 +514,7 @@ mode == 1 ? (
           spec_match = 1;
 
           spec_match ? (
-            my_ebase = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
+            my_ebase = bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
             my_seq_now = gmem[my_ebase + 9];
             my_seq_now > cal_my_seq ? (
               cal_oh_timestamp = gmem[oh_ebase + 8];
@@ -522,7 +522,7 @@ mode == 1 ? (
               cal_off1 = cal_oh_timestamp - cal_my_timestamp;
 
               cal_oh_count == 2 && cal_oh_slot2 >= 0 ? (
-                oh_ebase2 = bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200;
+                oh_ebase2 = bc.G_BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200;
                 oh_seq_now2 = gmem[oh_ebase2 + 9];
                 oh_seq_now2 > cal_oh_seq2 ? (
                   cal_off2 = gmem[oh_ebase2 + 8] - cal_my_timestamp;
@@ -541,15 +541,15 @@ mode == 1 ? (
               // Close mic didn't fire on this hit — skip, advance baselines
               cal_oh_seq = oh_seq_now;
               cal_oh_slot2 >= 0 ? (
-                cal_oh_seq2 = gmem[bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
+                cal_oh_seq2 = gmem[bc.G_BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
               );
             );
           ) : (
             // Spectral mismatch — not our drum, skip and advance all baselines
             cal_oh_seq = oh_seq_now;
-            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : cal_my_seq;
+            cal_my_seq = bc.bc_my_slot >= 0 ? gmem[bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200 + 9] : cal_my_seq;
             cal_oh_slot2 >= 0 ? (
-              cal_oh_seq2 = gmem[bc.BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
+              cal_oh_seq2 = gmem[bc.G_BC_MY_REGION + cal_oh_slot2 * bc.BC_SLOT_SIZE + 200 + 9];
             );
           );
         );
@@ -1066,7 +1066,7 @@ mode == 1 ? (
       mouse_x >= c1x + pad && mouse_x <= c1x + pad + ph_btn_w &&
       mouse_y >= cy && mouse_y <= cy + ph_btn_h ? (
       bc.bc_my_slot >= 0 ? (
-        cal_ebase = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
+        cal_ebase = bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
         gmem[cal_ebase + 10] = 1;
         cal_request_age = 0;
       );
@@ -1363,7 +1363,7 @@ mode == 1 ? (
 // --- THRESHOLD POPUP OVERLAY (right-click on peer) ---
 tp_open ? (
   // Read current value from peer's gmem
-  tp_sb = bc.BC_MY_REGION + tp_peer_slot * bc.BC_SLOT_SIZE;
+  tp_sb = bc.G_BC_MY_REGION + tp_peer_slot * bc.BC_SLOT_SIZE;
   tp_cur_thresh = gmem[tp_sb + 200 + 5];  // ebase + 5 = threshold
   tp_cur_thresh = max(0, min(100, tp_cur_thresh));
 
@@ -1436,7 +1436,7 @@ tp_open ? (
       tp_new = ((tp_sl_y + tp_sl_h - mouse_y) / tp_sl_h) * 100;
       tp_new = max(0, min(100, (tp_new + 0.5) | 0));
       // Write to peer's remote threshold channel
-      tp_wsb = bc.BC_MY_REGION + tp_peer_slot * bc.BC_SLOT_SIZE + 200;
+      tp_wsb = bc.G_BC_MY_REGION + tp_peer_slot * bc.BC_SLOT_SIZE + 200;
       gmem[tp_wsb + 7] = tp_new;   // value
       gmem[tp_wsb + 6] = 1;        // flag: pending write
     );
@@ -1498,7 +1498,7 @@ pv_open && mode == 1 && drum_type == 3 ? (
   // Read our own transient timestamp for live delta comparison
   pv_my_ts = 0;
   bc.bc_my_slot >= 0 ? (
-    pv_my_ebase = bc.BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
+    pv_my_ebase = bc.G_BC_MY_REGION + bc.bc_my_slot * bc.BC_SLOT_SIZE + 200;
     pv_my_ts = gmem[pv_my_ebase + 8];
   );
 

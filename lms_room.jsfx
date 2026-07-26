@@ -58,8 +58,8 @@ TWO_PI = 2.0 * $pi;
 MAX_BAND = 8;
 BAND_TAPS = 1 + MAX_WALLS + 2;       // direct + 1st order + floor + ceil = 15
 BAND_TOTAL = MAX_BAND * BAND_TAPS;   // 120 total taps
-BAND_BASE_GMEM = 800000;             // room heartbeat lives here
-BAND_SLOT_BASE = 800010;             // DroneFX slots start here
+G_ROOM_STATE = 800000;             // room heartbeat lives here
+G_ROOM_BAND_SLOTS = 800010;             // DroneFX slots start here
 BAND_STRIDE_GMEM = 8;
 
 // Fixed slot layout — contiguous active range for efficient @sample loop
@@ -792,13 +792,13 @@ drag_band = -1;
   // Single mode: stop heartbeat so DroneFX instances don't try to connect
   room_mode == 1 ? (
     room_heartbeat += 1;
-    gmem[BAND_BASE_GMEM] = room_heartbeat;
+    gmem[G_ROOM_STATE] = room_heartbeat;
 
     // Scan DroneFX slots for active band sources
     band_count = 0;
     k = 0;
     loop(MAX_BAND,
-      bi = BAND_SLOT_BASE + k * BAND_STRIDE_GMEM;
+      bi = G_ROOM_BAND_SLOTS + k * BAND_STRIDE_GMEM;
       hb = gmem[bi];
       hb != band_hb[k] ? (
         band_hb[k] = hb;
@@ -824,7 +824,7 @@ drag_band = -1;
     );
   ) : (
     // Single mode: clear heartbeat, zero all band sources
-    gmem[BAND_BASE_GMEM] = 0;
+    gmem[G_ROOM_STATE] = 0;
     band_count = 0;
     k = 0;
     loop(MAX_BAND,
@@ -872,7 +872,7 @@ drag_band = -1;
     k = 0;
     loop(MAX_BAND,
       band_active[k] ? (
-        bi = BAND_SLOT_BASE + k * BAND_STRIDE_GMEM;
+        bi = G_ROOM_BAND_SLOTS + k * BAND_STRIDE_GMEM;
         band_in = gmem[bi+2];
 
         bd = band_delay + k * DELAY_BUF_SIZE;

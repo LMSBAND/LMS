@@ -34,6 +34,53 @@
 //   14. Bleed Engine               (N×N mic bleed via gmem ring buffers, this.* state)
 // ============================================================================
 
+// ============================================================================
+//  THE gmem ADDRESS MAP  —  authoritative, do not keep a second copy
+// ============================================================================
+//
+//  READ THIS FIRST: JSFX gives you two memory spaces and they look identical
+//  in source.
+//
+//      gmem[N]      GLOBAL. Every LMS plugin declares options:gmem=DrumBanger,
+//                   so all fourteen of them share ONE flat array. Two plugins
+//                   picking the same N will silently corrupt each other.
+//
+//      NAME[N]      LOCAL. Private to one plugin instance. Costs nothing to
+//                   collide with another plugin, because it cannot.
+//
+//  Both are declared the same way -- NAME = 42200; -- and only the USE tells
+//  you which space it is. This has already caused one wrong diagnosis:
+//  DRUMBANGER's own map is headed "using JSFX global memory" while describing
+//  entirely local memory, and PLOCK_HP_BASE = 42200 was read as a gmem region
+//  colliding with MEGA's meters at 50030. It never was; PLOCK_HP_BASE is only
+//  ever addressed as PLOCK_HP_BASE[i].
+//
+//  So: names that begin G_ are global. Everything else is local. If you add a
+//  global region, declare it below AND give it a G_ name.
+//
+//  The machine-readable lines are the @gmem ones. tools/gmem_audit.py resolves
+//  every gmem[...] in the suite back to its anchoring constant and fails if the
+//  anchor is not inside a declared region, which is what catches a new address
+//  squatted in empty space before it grows into a collision. Run it after
+//  touching anything here.
+//
+//  @gmem G_DRUMBANGER_BUS  start=0        size=10000   owner=lms_drumbanger.jsfx -- pad+transport state, and the sequencer mirror at 1000..9191. Read by drum_trigger, lil_stinker, nuug420, and the manager.
+//  @gmem G_BROADCAST       start=100000   size=622592  owner=lms_core.jsfx-inc -- follow/steal slots, G_BC_BASE + type_id*16384, 32 instances of 512. Only lms_smart_gate still uses it.
+//  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, then 8 DroneFX band slots of 8 from +10. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
+//  @gmem G_ROOM_SEND       start=900000   size=1000    owner=lms_room_send.jsfx -- room send bus and control block, shared with lms_the_space.
+//  @gmem G_PITCH_BUS       start=950000   size=100     owner=lms_pitch_detector.jsfx -- detected pitch, confidence, density. Written by faker too.
+//  @gmem G_HARMONY_BUS     start=960000   size=1000    owner=lms_harmony_map.jsfx -- chord/key/transport, the conditional bus at +100, and the song command bus at +330.
+//  @gmem G_DRONE_BUS       start=961100   size=320     owner=lms_drone_voice.jsfx -- 16 slots of 20, chord notes pushed by the manager.
+//  @gmem G_MEGA_BUS        start=970000   size=200     owner=lms_mega_increasinator.jsfx -- output analyser: loudness, 12-band in/out spectrum, density.
+//  @gmem G_BLEED           start=1000000  size=1000    owner=lms_core.jsfx-inc -- bleed engine geometry, mic vectors, write positions, RMS, matrix.
+//  @gmem G_BLEED_RINGS     start=1001000  size=131072  owner=lms_core.jsfx-inc -- 16 audio ring buffers of 8192 for the bleed engine.
+//
+//  HAZARD, for whoever adds the next plugin type: G_BROADCAST is sized for
+//  type_id up to 37, because the slot address is G_BC_BASE + type_id*16384. A
+//  type_id of 50 would land at 919200 -- inside G_ROOM_SEND. If the registry
+//  ever needs a type beyond 37, move the broadcast region, do not widen it.
+// ============================================================================
+
 @init
 
 // ============================================================================
@@ -3995,12 +4042,12 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
 
 function lms_bc_init(type_id, param_count)
 (
-  this.BC_BASE = 100000;
+  this.G_BC_BASE = 100000;
   this.BC_SLOT_SIZE = 512;
   this.BC_MAX_INST = 32;
   this.BC_MY_TYPE = type_id;
   this.BC_PARAM_COUNT = param_count;
-  this.BC_MY_REGION = this.BC_BASE + type_id * 16384;
+  this.G_BC_MY_REGION = this.G_BC_BASE + type_id * 16384;
 
   this.bc_my_slot = -1;
   this.bc_following = 0;
@@ -4030,7 +4077,7 @@ function lms_bc_block(mgr_track)
   mgr_track = floor(mgr_track);
   mgr_track > 0 && mgr_track <= this.BC_MAX_INST ? (
     this.bc_my_slot = mgr_track - 1;
-    sb = this.BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
+    sb = this.G_BC_MY_REGION + this.bc_my_slot * this.BC_SLOT_SIZE;
 
     gmem[sb + 0] += 1;
     gmem[sb + 1] = mgr_track;
@@ -4041,7 +4088,7 @@ function lms_bc_block(mgr_track)
     // Follow: manager writes leader track_idx+1 to slot+3
     this.bc_following = floor(gmem[sb + 3]);
     this.bc_following > 0 && this.bc_following != mgr_track ? (
-      lsb = this.BC_MY_REGION + (this.bc_following - 1) * this.BC_SLOT_SIZE;
+      lsb = this.G_BC_MY_REGION + (this.bc_following - 1) * this.BC_SLOT_SIZE;
       gmem[lsb + 1] > 0 ? (
         this.bc_leader_slot = this.bc_following - 1;
         this.bc_leader_pbase = lsb + 8;
@@ -4052,7 +4099,7 @@ function lms_bc_block(mgr_track)
 
     // Steal: one-shot copy command at slot+5
     floor(gmem[sb + 5]) > 0 ? (
-      lsb = this.BC_MY_REGION + (floor(gmem[sb + 5]) - 1) * this.BC_SLOT_SIZE;
+      lsb = this.G_BC_MY_REGION + (floor(gmem[sb + 5]) - 1) * this.BC_SLOT_SIZE;
       gmem[lsb + 1] > 0 ? (
         this.bc_steal_pbase = lsb + 8;
         this.bc_did_steal = 1;
@@ -4064,7 +4111,7 @@ function lms_bc_block(mgr_track)
     this.bc_instance_count = 0;
     bc_scan = 0;
     loop(this.BC_MAX_INST,
-      gmem[this.BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE + 1] > 0 ?
+      gmem[this.G_BC_MY_REGION + bc_scan * this.BC_SLOT_SIZE + 1] > 0 ?
         this.bc_instance_count += 1;
       bc_scan += 1;
     );
@@ -4144,7 +4191,7 @@ function lms_bc_gfx(S, lc)
     bc_active_slots = 0;
     bc_si = 0;
     loop(this.BC_MAX_INST,
-      gmem[this.BC_MY_REGION + bc_si * this.BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
+      gmem[this.G_BC_MY_REGION + bc_si * this.BC_SLOT_SIZE + 1] > 0 ? bc_active_slots += 1;
       bc_si += 1;
     );
     bc_total_pages = max(1, ceil(bc_active_slots / bc_rows_per_page));
@@ -4199,7 +4246,7 @@ function lms_bc_gfx(S, lc)
     bc_visible = 0;
     bc_s = 0;
     loop(this.BC_MAX_INST,
-      isb = this.BC_MY_REGION + bc_s * this.BC_SLOT_SIZE;
+      isb = this.G_BC_MY_REGION + bc_s * this.BC_SLOT_SIZE;
       istk = floor(gmem[isb + 1]);
       istk > 0 ? (
         bc_visible >= bc_page_start && bc_visible <= bc_page_end ? (
@@ -4230,7 +4277,7 @@ function lms_bc_gfx(S, lc)
             bc_has_follower = 0;
             bc_fsc = 0;
             loop(this.BC_MAX_INST,
-              fsb2 = this.BC_MY_REGION + bc_fsc * this.BC_SLOT_SIZE;
+              fsb2 = this.G_BC_MY_REGION + bc_fsc * this.BC_SLOT_SIZE;
               gmem[fsb2 + 1] > 0 && floor(gmem[fsb2 + 3]) == istk ? bc_has_follower = 1;
               bc_fsc += 1;
             );
@@ -4943,16 +4990,16 @@ function lms_paraeq_proc(x) local(y) (
 //    @sample: out = bleed.lms_bleed_con_read();  // consumer: sum bleed
 // ============================================================================
 
-BLEED_GMEM_BASE    = 1000000;
-BLEED_GEO_BASE     = 1000000;
-BLEED_MIC_BASE     = 1000200;
-BLEED_WPOS_BASE    = 1000400;
-BLEED_DIRTY        = 1000600;
-BLEED_ROOM_BASE    = 1000700;
-BLEED_SOLO         = 1000710;
-BLEED_RMS_BASE     = 1000720;
-BLEED_MATRIX_BASE  = 1000740;
-BLEED_RING_BASE    = 1001000;
+G_BLEED_BASE    = 1000000;
+G_BLEED_GEO     = 1000000;
+G_BLEED_MIC     = 1000200;
+G_BLEED_WPOS    = 1000400;
+G_BLEED_DIRTY        = 1000600;
+G_BLEED_ROOM    = 1000700;
+G_BLEED_SOLO         = 1000710;
+G_BLEED_RMS     = 1000720;
+G_BLEED_RINGS_MATRIX  = 1000740;
+G_BLEED_RINGS    = 1001000;
 BLEED_MAX_SLOTS    = 16;
 BLEED_RING_SIZE    = 8192;
 BLEED_SPEED_OF_SOUND = 1.13;
@@ -4976,12 +5023,12 @@ BLEED_PAT_FIGURE8   = 3;
 function lms_bleed_init(slot_id, local_buf_base)
 (
   this.slot = slot_id;
-  this.ring_gmem = BLEED_RING_BASE + slot_id * BLEED_RING_SIZE;
+  this.ring_gmem = G_BLEED_RINGS + slot_id * BLEED_RING_SIZE;
   this.write_pos = 0;
-  this.wpos_addr = BLEED_WPOS_BASE + slot_id;
+  this.wpos_addr = G_BLEED_WPOS + slot_id;
 
-  this.geo_addr = BLEED_GEO_BASE + slot_id * 4;
-  this.mic_addr = BLEED_MIC_BASE + slot_id * 4;
+  this.geo_addr = G_BLEED_GEO + slot_id * 4;
+  this.mic_addr = G_BLEED_MIC + slot_id * 4;
 
   // Buffer layout: local_buf[16] + coeff_buf[16*5] + floor_buf[16*3] + floor_lp[16] + mat_table[16]
   this.local_buf = local_buf_base;
@@ -5043,7 +5090,7 @@ function lms_bleed_sync_gmem()
     gmem[this.mic_addr]     = this.facing_x;
     gmem[this.mic_addr + 1] = this.facing_y;
     gmem[this.mic_addr + 2] = this.pattern;
-    gmem[BLEED_DIRTY] += 1;
+    gmem[G_BLEED_DIRTY] += 1;
     this.geo_dirty = 0;
   );
 );
@@ -5095,13 +5142,13 @@ function lms_bleed_con_block()
   this.con_sample_idx = 0;
 
   // Read room parameters from gmem (written by manager)
-  room_w    = gmem[BLEED_ROOM_BASE];
-  room_d    = gmem[BLEED_ROOM_BASE + 1];
-  room_h    = gmem[BLEED_ROOM_BASE + 2];
-  wall_mat  = floor(gmem[BLEED_ROOM_BASE + 3] + 0.5);
-  floor_mat = floor(gmem[BLEED_ROOM_BASE + 4] + 0.5);
-  ceil_mat  = floor(gmem[BLEED_ROOM_BASE + 5] + 0.5);
-  liveness  = gmem[BLEED_ROOM_BASE + 6];
+  room_w    = gmem[G_BLEED_ROOM];
+  room_d    = gmem[G_BLEED_ROOM + 1];
+  room_h    = gmem[G_BLEED_ROOM + 2];
+  wall_mat  = floor(gmem[G_BLEED_ROOM + 3] + 0.5);
+  floor_mat = floor(gmem[G_BLEED_ROOM + 4] + 0.5);
+  ceil_mat  = floor(gmem[G_BLEED_ROOM + 5] + 0.5);
+  liveness  = gmem[G_BLEED_ROOM + 6];
 
   // Clamp material indices
   wall_mat  = max(0, min(7, wall_mat));
@@ -5122,11 +5169,11 @@ function lms_bleed_con_block()
     fb = this.floor_buf + k * 3;
     cb[0] = 0;
     fb[0] = 0;
-    gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = 0;
+    gmem[G_BLEED_RINGS_MATRIX + this.slot * BLEED_MAX_SLOTS + k] = 0;
 
     k != this.slot ? (
-      src_geo = BLEED_GEO_BASE + k * 4;
-      src_mic = BLEED_MIC_BASE + k * 4;
+      src_geo = G_BLEED_GEO + k * 4;
+      src_mic = G_BLEED_MIC + k * 4;
       src_flags = gmem[src_geo + 3];
 
       // Use flags as active check (flags written by set_position during setup)
@@ -5164,15 +5211,15 @@ function lms_bleed_con_block()
           cutoff = max(cutoff, 200);
           lp_coeff = 1.0 - exp(-2.0 * $pi * cutoff / srate);
 
-          src_wpos = gmem[BLEED_WPOS_BASE + k];
+          src_wpos = gmem[G_BLEED_WPOS + k];
 
           cb[0] = gain;
           cb[1] = delay_samps;
           cb[2] = lp_coeff;
-          cb[3] = BLEED_RING_BASE + k * BLEED_RING_SIZE;
+          cb[3] = G_BLEED_RINGS + k * BLEED_RING_SIZE;
           cb[4] = src_wpos;
           this.active_count += 1;
-          gmem[BLEED_MATRIX_BASE + this.slot * BLEED_MAX_SLOTS + k] = gain;
+          gmem[G_BLEED_RINGS_MATRIX + this.slot * BLEED_MAX_SLOTS + k] = gain;
 
           horiz_dist = sqrt(dx*dx + dy*dy);
           floor_path = sqrt(horiz_dist*horiz_dist + (src_z + this.pos_z)*(src_z + this.pos_z));
@@ -5263,7 +5310,7 @@ function lms_bleed_con_read()
   // RMS envelope follower for metering
   this.bleed_rms = this.bleed_rms * 0.999 + sum * sum * 0.001;
   this.con_sample_idx >= samplesblock ? (
-    gmem[BLEED_RMS_BASE + this.slot] = sqrt(this.bleed_rms);
+    gmem[G_BLEED_RMS + this.slot] = sqrt(this.bleed_rms);
   );
   sum;
 );

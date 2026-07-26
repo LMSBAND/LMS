@@ -24,10 +24,10 @@ slider3:1<1,6,1>-Number
 // Room heartbeat: gmem[900000]
 // Send slots:     gmem[900010 + slot*4] = { heartbeat, type, number, active }
 // Ctrl slots:     gmem[900080 + slot*3] = { dist, send_db, active_flag }
-ROOM_GMEM_BASE   = 900000;
-ROOM_SEND_BASE   = 900010;
+G_ROOM_BASE   = 900000;
+G_ROOM_SEND   = 900010;
 ROOM_SEND_STRIDE = 4;
-ROOM_CTRL_BASE   = 900080;
+G_ROOM_CTRL   = 900080;
 ROOM_CTRL_STRIDE = 3;
 MAX_SLOTS = 8;
 
@@ -76,14 +76,14 @@ my_slot = max(0, min(7, floor(slider1) - 1));
 
 // Write heartbeat to our slot (so Space can detect us)
 send_heartbeat += 1;
-si = ROOM_SEND_BASE + my_slot * ROOM_SEND_STRIDE;
+si = G_ROOM_SEND + my_slot * ROOM_SEND_STRIDE;
 gmem[si]     = send_heartbeat;
 gmem[si + 1] = floor(slider2);
 gmem[si + 2] = floor(slider3);
 gmem[si + 3] = 1.0;
 
 // Check master heartbeat (Space alive?)
-master_hb = gmem[ROOM_GMEM_BASE];
+master_hb = gmem[G_ROOM_BASE];
 master_hb != last_master_hb ? (
   last_master_hb = master_hb;
   master_alive = 1;
@@ -94,7 +94,7 @@ master_hb != last_master_hb ? (
 );
 
 // Read control values from Space
-ci = ROOM_CTRL_BASE + my_slot * ROOM_CTRL_STRIDE;
+ci = G_ROOM_CTRL + my_slot * ROOM_CTRL_STRIDE;
 master_alive && gmem[ci + 2] > 0.5 ? (
   dist = gmem[ci];
   send_gain = lms_db2lin(gmem[ci + 1]);
@@ -108,7 +108,7 @@ apply_prox(dist);
 
 // Track slot changes — clear old slot's active flag
 prev_slot >= 0 && prev_slot != my_slot ? (
-  old_si = ROOM_SEND_BASE + prev_slot * ROOM_SEND_STRIDE;
+  old_si = G_ROOM_SEND + prev_slot * ROOM_SEND_STRIDE;
   gmem[old_si + 3] = 0;
 );
 prev_slot = my_slot;
@@ -119,7 +119,7 @@ loop(MAX_SLOTS,
   k == my_slot ? (
     slot_taken[k] = 0;
   ) : (
-    sj = ROOM_SEND_BASE + k * ROOM_SEND_STRIDE;
+    sj = G_ROOM_SEND + k * ROOM_SEND_STRIDE;
     slot_taken[k] = gmem[sj + 3] > 0.5 ? 1 : 0;
   );
   k += 1;

@@ -63,7 +63,7 @@ liveness = slider9 / 100;
 bleed.lms_bleed_sync_gmem();
 bleed.is_source ? bleed.lms_bleed_pub_block();
 bleed.is_mic    ? bleed.lms_bleed_con_block();
-solo_bleed = gmem[BLEED_SOLO];
+solo_bleed = gmem[G_BLEED_SOLO];
 
 pdc_delay = samplesblock;
 
@@ -161,11 +161,11 @@ gfx_rect(map_x, map_y, map_w, map_h, 0);
 // Draw all slots
 k = 0;
 loop(BLEED_MAX_SLOTS,
-  src_hb = gmem[BLEED_MIC_BASE + k * 4 + 3];
+  src_hb = gmem[G_BLEED_MIC + k * 4 + 3];
   src_hb > 0 ? (
-    sx = gmem[BLEED_GEO_BASE + k * 4];
-    sy = gmem[BLEED_GEO_BASE + k * 4 + 1];
-    sf = gmem[BLEED_GEO_BASE + k * 4 + 3];
+    sx = gmem[G_BLEED_GEO + k * 4];
+    sy = gmem[G_BLEED_GEO + k * 4 + 1];
+    sf = gmem[G_BLEED_GEO + k * 4 + 3];
 
     px = map_cx + sx * map_scale;
     py = map_cy - sy * map_scale;
@@ -183,8 +183,8 @@ loop(BLEED_MAX_SLOTS,
 
       // Mic facing line
       (sf >= 2) ? (
-        fx = gmem[BLEED_MIC_BASE + k * 4];
-        fy = gmem[BLEED_MIC_BASE + k * 4 + 1];
+        fx = gmem[G_BLEED_MIC + k * 4];
+        fy = gmem[G_BLEED_MIC + k * 4 + 1];
         gfx_line(px, py,
                  px + fx * 15 * (gfx_ext_retina + 1),
                  py - fy * 15 * (gfx_ext_retina + 1));

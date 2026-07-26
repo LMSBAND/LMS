@@ -161,9 +161,33 @@ slider74:0<0,1,0.001>-Bus HP Cutoff
 slider75:0<-12,12,0.1>-Comp Input Gain (dB)
 
 // ============================================================
-// MEMORY MAP
+// MEMORY MAP  —  LOCAL memory. Not gmem. See below.
 // ============================================================
-// Memory layout (using JSFX global memory):
+// Everything in this map is LOCAL memory, addressed as NAME[i]. It is private
+// to this instance and cannot collide with another plugin.
+//
+// This header used to say "using JSFX global memory", which is wrong and has
+// already cost real debugging time: PLOCK_HP_BASE = 42200 was read as a gmem
+// region, and MEGA's meters at gmem[50030] were reported as colliding with a
+// p-lock. They never could -- the two live in different address spaces.
+//
+// What DRUMBANGER actually puts in GLOBAL memory is much smaller, and is
+// declared as G_DRUMBANGER_BUS in lms_core.jsfx-inc:
+//
+//   gmem[0..17]      transport/heartbeat/pattern state for the manager
+//   gmem[100+p]      per-pad velocity     gmem[120+p]  per-pad playing flag
+//   gmem[140+p]      drum-trigger handoff
+//   gmem[200..223]   manager command block
+//   gmem[300..316]   kit/record/selection state
+//   gmem[365+p]      per-pad volume       gmem[381+p]  per-pad pan
+//   gmem[397..430]   bar/step counters, batch-write block
+//   gmem[1000+i]     sequencer mirror, i < 8192, copied from local SEQ_BASE
+//   gmem[960084]     READ ONLY -- harmony map's chord output
+//
+// Anything below is local and stays local. If you add a gmem address, declare
+// it in lms_core.jsfx-inc and run tools/gmem_audit.py.
+//
+// Local memory layout:
 //
 // 0-15:        pad_playing[16]     — 1 if pad is currently playing
 // 16-31:       pad_pos[16]         — current playback position (samples)
