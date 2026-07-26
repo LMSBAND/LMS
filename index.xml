@@ -1730,6 +1730,43 @@
         <changelog>v3.1 — Fix chop mode not persisting on project reload. PAD_SUBDIV now stashed/restored through load_kit_samples in @serialize.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
       </version>
+      <version name="3.2" author="LMS" time="2026-07-25T21:00:00Z">
+        <changelog>v3.2 — Restore the bundled sample pool. v3.0 dropped every data source from the package, so fresh installs got the plugin with no samples: pads silent, kit list empty. The starter kits (808 + LoFi) and pool/manifest.txt are back.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drumbanger.jsfx</source>
+        <source file="pool/manifest.txt" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/manifest.txt</source>
+        <source file="pool/Kit1-808/01-kick-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/01-kick-808.wav</source>
+        <source file="pool/Kit1-808/02-snare-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/02-snare-808.wav</source>
+        <source file="pool/Kit1-808/03-rimshot.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/03-rimshot.wav</source>
+        <source file="pool/Kit1-808/04-clap-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/04-clap-808.wav</source>
+        <source file="pool/Kit1-808/05-hihat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/05-hihat-808.wav</source>
+        <source file="pool/Kit1-808/06-openhat-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/06-openhat-808.wav</source>
+        <source file="pool/Kit1-808/07-tom-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/07-tom-808.wav</source>
+        <source file="pool/Kit1-808/08-tom-analog.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/08-tom-analog.wav</source>
+        <source file="pool/Kit1-808/09-tom-fm.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/09-tom-fm.wav</source>
+        <source file="pool/Kit1-808/10-crash-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/10-crash-808.wav</source>
+        <source file="pool/Kit1-808/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/11-ride.wav</source>
+        <source file="pool/Kit1-808/12-shaker.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/12-shaker.wav</source>
+        <source file="pool/Kit1-808/13-perc-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/13-perc-808.wav</source>
+        <source file="pool/Kit1-808/14-cowbell-808.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/14-cowbell-808.wav</source>
+        <source file="pool/Kit1-808/15-perc-laser.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/15-perc-laser.wav</source>
+        <source file="pool/Kit1-808/16-perc-chirpy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit1-808/16-perc-chirpy.wav</source>
+        <source file="pool/Kit2-LoFi/01-kick-juicy.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/01-kick-juicy.wav</source>
+        <source file="pool/Kit2-LoFi/02-snare-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/02-snare-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/03-snare-papercut.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/03-snare-papercut.wav</source>
+        <source file="pool/Kit2-LoFi/04-clap-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/04-clap-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/05-hat-sweet.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/05-hat-sweet.wav</source>
+        <source file="pool/Kit2-LoFi/06-hat-vinyl.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/06-hat-vinyl.wav</source>
+        <source file="pool/Kit2-LoFi/07-tom-lofi.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/07-tom-lofi.wav</source>
+        <source file="pool/Kit2-LoFi/08-tom-lofi2.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/08-tom-lofi2.wav</source>
+        <source file="pool/Kit2-LoFi/09-tom-roto.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/09-tom-roto.wav</source>
+        <source file="pool/Kit2-LoFi/10-crash-tape.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/10-crash-tape.wav</source>
+        <source file="pool/Kit2-LoFi/11-ride.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/11-ride.wav</source>
+        <source file="pool/Kit2-LoFi/12-shaker-shuffle.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/12-shaker-shuffle.wav</source>
+        <source file="pool/Kit2-LoFi/13-perc-retro.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/13-perc-retro.wav</source>
+        <source file="pool/Kit2-LoFi/14-tambo.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/14-tambo.wav</source>
+        <source file="pool/Kit2-LoFi/15-perc-wobble.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/15-perc-wobble.wav</source>
+        <source file="pool/Kit2-LoFi/16-snare-vhs.wav" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/pool/Kit2-LoFi/16-snare-vhs.wav</source>
+      </version>
     </reapack>
     <reapack name="lms_satans_pedalboard.jsfx" type="effect" desc="Satan's Little Helper — all the satanic minions required to achieve your darkest most twisted musical fantasy">
       <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">

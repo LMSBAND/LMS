@@ -559,7 +559,10 @@ function resolve_pad_pool_names() local(i, j, resolved) (
 );
 
 // ---- Sample pool ----
-// Pool lives in: <effect_dir>/pool/*.wav (and subfolders).
+// Pool lives in: <REAPER resource path>/Data/pool/*.wav (and subfolders).
+// file_open() resolves relative paths against Data/, NOT the effect's own
+// folder -- which is why the ReaPack index must ship pool/ as type="data"
+// sources. Drop those and the plugin still loads, but every pad is empty.
 // Subfolders = kits. Drop a folder of .wav files → it becomes a kit.
 scan_pool();
 

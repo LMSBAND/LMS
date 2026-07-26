@@ -91,10 +91,10 @@ All plugins share state through a common memory bus (gmem). The amp's density tr
 3. Copy these files into that folder:
    - `lms_core.jsfx-inc` ← **required, do this first**
    - All `lms_*.jsfx` files
-4. Create a subfolder called `DRUMBANGER` inside Effects and copy into it:
-   - `lms_drumbanger.jsfx`
-   - `DrumbangerDroneMIDI2.jsfx`
-   - The `kits/` and `pool/` folders
+4. Copy the `pool/` folder into the **`Data\`** folder of that same resource path
+   — not into `Effects\`. DRUMBANGER reads its samples from `Data\pool\`, and
+   `shakebot_logo.png` goes there too. Without `Data\pool\` the plugin loads and
+   runs but every pad is empty, so it makes no sound.
 5. **Restart REAPER.** It scans the Effects folder on launch — new JSFX will not
    appear, and cannot be inserted, until it has.
 6. Add any LMS plugin to a track via the FX browser
