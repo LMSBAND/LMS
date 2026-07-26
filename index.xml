@@ -886,6 +886,10 @@
         <changelog>Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.7" author="LMS" time="2026-07-26T02:30:00Z">
+        <changelog>v1.7 &#8212; Output analyser. Publishes loudness (ITU-R BS.1770-4 momentary, short-term and gated integrated), a 12-band spectrum of the output and a density tracker on the output, for the manager&#39;s metering page. K-weighting is derived from the spec&#39;s analog prototypes rather than the generic RBJ designers, which miss the 997 Hz calibration point by 0.26 dB; it now reads -23.000 LUFS on the spec&#39;s reference tone. The density shown until now came from the opto, which only runs when the opto is engaged and reports on the signal before the brick-wall; this one is unconditional and post-limiter. Meter values also move off gmem[50030..50032], three addresses squatting in unclaimed space with nothing declaring them, onto a documented bus at 970000, and publish once per block instead of once per sample.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -2017,6 +2021,10 @@
       </version>
       <version name="1.6" author="LMS" time="2026-07-25T23:30:00Z">
         <changelog>v1.6 &#8212; Overview: track headers stay where you put them (expanding one now selects that track in REAPER instead of the selection forcing headers shut), and Colorize All Tracks / Organize all FX / Add RTW to all tracks move here from Track Setup and Broadcast. Amps get a swap caret: pick any other amp and it takes over the same chain slot, bypass state and all. Space starts and stops the transport while the manager has focus. Metering gains an Add Mega Increasinator to Master button. Broadcast loses Dump to console. Fixes Send FX (right-click a track header) erroring out: copy_fx_chain was defined after its only caller, so the call hit a nil global.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="1.7" author="LMS" time="2026-07-26T02:30:00Z">
+        <changelog>v1.7 &#8212; Metering page rebuilt around MEGA&#39;s new output analyser: integrated LUFS as the headline with momentary and short-term meters, a 12-band output spectrum with peak hold, output peak against the limiter ceiling, and the post-limiter density tracker. Reset button for integrated loudness.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>

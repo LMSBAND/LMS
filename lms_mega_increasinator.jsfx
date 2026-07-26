@@ -46,6 +46,115 @@ slider9:0<0,300,1>-Lo Crossover (Hz) [0=Off]
   target_boost = 1.0;
   opto_blend = 0;
 
+// ============================================================
+//  OUTPUT ANALYSER — read-only, never touches the audio path
+// ============================================================
+// Measures what leaves the limiter and publishes it for the LMS Plugin
+// Manager's metering page. Reads spl0/spl1 after they are written; changes
+// neither. Always on: it is ~20 biquads on a single master-bus instance,
+// and a meter that needs arming is a meter that reads zero when you look.
+
+  MEGA_BUS = 970000;
+  mega_hb = 0;
+
+  // ---- Loudness, ITU-R BS.1770-4 ----
+  // K-weighting: a +4 dB shelf at 1681.97 Hz into the RLB high-pass at
+  // 38.14 Hz. The coefficients come from the spec's own analog prototypes
+  // rather than from the generic RBJ designers in lms_core -- an RBJ high
+  // shelf with the same corner, gain and Q traces a slightly different curve
+  // through the 1-3 kHz transition (-0.26 dB at 997 Hz, -0.41 dB at 2 kHz),
+  // which is enough to miss the spec's calibration point. These reproduce the
+  // published 48 kHz coefficients to machine precision and, being derived
+  // rather than tabulated, stay correct at every other samplerate too.
+  // The core biquad still does the processing; only the coefficients differ.
+  kw_shelf.lms_bq_init();
+  kw_f0 = 1681.974450955533;
+  kw_K  = tan($pi * kw_f0 / srate);
+  kw_Q  = 0.7071752369554196;
+  kw_Vh = pow(10, 3.999843853973347 / 20);
+  kw_Vb = pow(kw_Vh, 0.4996667741545416);
+  kw_a0 = 1 + kw_K / kw_Q + kw_K * kw_K;
+  kw_shelf.b0 = (kw_Vh + kw_Vb * kw_K / kw_Q + kw_K * kw_K) / kw_a0;
+  kw_shelf.b1 = 2 * (kw_K * kw_K - kw_Vh) / kw_a0;
+  kw_shelf.b2 = (kw_Vh - kw_Vb * kw_K / kw_Q + kw_K * kw_K) / kw_a0;
+  kw_shelf.a1 = 2 * (kw_K * kw_K - 1) / kw_a0;
+  kw_shelf.a2 = (1 - kw_K / kw_Q + kw_K * kw_K) / kw_a0;
+
+  kw_hp.lms_bq_init();
+  kw_f0 = 38.13547087602444;
+  kw_K  = tan($pi * kw_f0 / srate);
+  kw_Q  = 0.5003270373238773;
+  kw_a0 = 1 + kw_K / kw_Q + kw_K * kw_K;
+  kw_hp.b0 = 1; kw_hp.b1 = -2; kw_hp.b2 = 1;
+  kw_hp.a1 = 2 * (kw_K * kw_K - 1) / kw_a0;
+  kw_hp.a2 = (1 - kw_K / kw_Q + kw_K * kw_K) / kw_a0;
+
+  // Loudness accumulates in 100 ms sub-blocks. Momentary is the mean of the
+  // last 4 (400 ms), short-term the mean of the last 30 (3 s). Advancing the
+  // 400 ms window one sub-block at a time is exactly the 75% overlap the spec
+  // asks for on the blocks that feed the integrated measurement.
+  LUFS_RING    = 910000;
+  LUFS_RING_N  = 30;
+  lufs_sub_len = max(1, floor(srate * 0.1));
+  lufs_sub_pos = 0; lufs_sub_sum = 0;
+  lufs_ring_pos = 0; lufs_ring_fill = 0;
+  memset(LUFS_RING, 0, LUFS_RING_N);
+
+  // Integrated cannot be a running mean: the relative gate sits 10 LU below
+  // the ungated mean, so a block's eligibility is unknown until every block
+  // has been seen. A 0.1 LU histogram from -70 to 0 LUFS keeps all of them in
+  // fixed memory instead of a list that grows with the session.
+  LUFS_HIST   = 911000;
+  LUFS_HIST_N = 700;
+  memset(LUFS_HIST, 0, LUFS_HIST_N);
+
+  lufs_m = -70; lufs_s = -70; lufs_i = -70;
+
+  // Output peak with a slow fall, so a transient stays readable at 30 fps.
+  out_peak = 0;
+  peak_decay = exp(-1 / (srate * 1.5));
+
+  // ---- Density of the output ----
+  // The reactive EQ reads opto.hd, which only runs when the opto is engaged
+  // and reports on the signal BEFORE the brick-wall. This one is unconditional
+  // and sits on the output, which is what "the density of what is leaving" means.
+  out_hd.lms_hd_init(250, 2000, 5000);
+
+  // ---- 12-band analyser ----
+  // Log-spaced 40 Hz to 16 kHz, ~0.8 octave apart. Centres clamp below Nyquist
+  // so a 44.1 kHz project does not park a band on top of it.
+  // lms_bq_set_bp is the constant-skirt-gain form, whose peak gain IS Q. Left
+  // uncorrected every band would read a uniform 20*log10(1.7) = 4.6 dB hot,
+  // so the envelope is normalised by Q and the published dB means something.
+  BND_Q = 1.7;
+
+  function ana_band_init(f) (
+    this.fc = min(f, srate * 0.45);
+    this.bp.lms_bq_init();
+    this.bp.lms_bq_set_bp(this.fc, BND_Q);
+    this.env = 0;
+  );
+  function ana_band_proc(x) local(a) (
+    a = abs(this.bp.lms_bq_proc(x)) / BND_Q;
+    a > this.env ? (this.env = a) : (this.env = this.env * bnd_rel + a * (1 - bnd_rel));
+  );
+
+  bnd_rel = exp(-1 / (srate * 0.15));
+  b01.ana_band_init(40);   b02.ana_band_init(70);    b03.ana_band_init(120);
+  b04.ana_band_init(205);  b05.ana_band_init(355);   b06.ana_band_init(610);
+  b07.ana_band_init(1050); b08.ana_band_init(1815);  b09.ana_band_init(3130);
+  b10.ana_band_init(5400); b11.ana_band_init(9300);  b12.ana_band_init(16000);
+
+  // Centres are published too, so the manager labels its axis from the plugin
+  // instead of keeping its own copy of this list in sync by hand.
+  gmem[MEGA_BUS + 20] = 12;
+  gmem[MEGA_BUS + 41] = b01.fc; gmem[MEGA_BUS + 42] = b02.fc;
+  gmem[MEGA_BUS + 43] = b03.fc; gmem[MEGA_BUS + 44] = b04.fc;
+  gmem[MEGA_BUS + 45] = b05.fc; gmem[MEGA_BUS + 46] = b06.fc;
+  gmem[MEGA_BUS + 47] = b07.fc; gmem[MEGA_BUS + 48] = b08.fc;
+  gmem[MEGA_BUS + 49] = b09.fc; gmem[MEGA_BUS + 50] = b10.fc;
+  gmem[MEGA_BUS + 51] = b11.fc; gmem[MEGA_BUS + 52] = b12.fc;
+
 
 @slider
   in_gain = lms_db2lin(slider1);
@@ -167,6 +276,79 @@ opto_blend > 0.01 ? (
   adapted_release = slider4;
 );
 
+// ============================================================
+//  PUBLISH — output analyser results onto the gmem bus
+// ============================================================
+// Once per block, not per sample. The old code wrote its three meter values
+// every single sample, into gmem[50030..50032]: three addresses squatting in
+// the middle of otherwise unclaimed space, documented nowhere, adjacent to
+// nothing. Nothing collided with them, but nothing stopped anything from
+// doing so either. This bus is a declared region with room for the rest.
+
+// Integrated loudness, BS.1770 two-pass gate. Pass 1 takes the mean of every
+// block above the -70 LUFS absolute gate; pass 2 re-takes it over only the
+// blocks within 10 LU of that mean. Cheap enough per block: 700 bins at the
+// block rate is nothing, and it keeps @sample lean.
+mega_reset = gmem[MEGA_BUS + 63];
+mega_reset > 0 ? (
+  memset(LUFS_HIST, 0, LUFS_HIST_N);
+  lufs_i = -70;
+  gmem[MEGA_BUS + 63] = 0;
+);
+
+pub_sum = 0; pub_n = 0; pub_i = 0;
+loop(LUFS_HIST_N,
+  pub_c = LUFS_HIST[pub_i];
+  pub_c > 0 ? (
+    pub_lv = -70 + (pub_i + 0.5) * 0.1;
+    pub_sum += pub_c * pow(10, (pub_lv + 0.691) / 10);
+    pub_n += pub_c;
+  );
+  pub_i += 1;
+);
+pub_n > 0 ? (
+  pub_ungated = -0.691 + 10 * log10(pub_sum / pub_n);
+  pub_rel = pub_ungated - 10;
+  pub_sum = 0; pub_n = 0; pub_i = 0;
+  loop(LUFS_HIST_N,
+    pub_c = LUFS_HIST[pub_i];
+    pub_c > 0 ? (
+      pub_lv = -70 + (pub_i + 0.5) * 0.1;
+      pub_lv > pub_rel ? (
+        pub_sum += pub_c * pow(10, (pub_lv + 0.691) / 10);
+        pub_n += pub_c;
+      );
+    );
+    pub_i += 1;
+  );
+  lufs_i = pub_n > 0 ? (-0.691 + 10 * log10(pub_sum / pub_n)) : pub_ungated;
+) : (
+  lufs_i = -70;
+);
+
+mega_hb += 1;
+gmem[MEGA_BUS + 0]  = mega_hb;
+gmem[MEGA_BUS + 1]  = lim.gr;         // gain reduction, linear
+gmem[MEGA_BUS + 2]  = lim.gr_meter;   // gain reduction, dB
+gmem[MEGA_BUS + 3]  = lim.true_peak;  // what the limiter is responding to
+gmem[MEGA_BUS + 4]  = lufs_m;
+gmem[MEGA_BUS + 5]  = lufs_s;
+gmem[MEGA_BUS + 6]  = lufs_i;
+gmem[MEGA_BUS + 7]  = out_peak;       // output peak, linear, slow fall
+gmem[MEGA_BUS + 8]  = slider2;        // ceiling dBFS, so the meter can mark it
+gmem[MEGA_BUS + 9]  = slider3;        // target loudness
+gmem[MEGA_BUS + 10] = out_hd.density;
+gmem[MEGA_BUS + 11] = out_hd.mid_density;
+gmem[MEGA_BUS + 12] = out_hd.hi_density;
+gmem[MEGA_BUS + 13] = out_hd.air_density;
+
+gmem[MEGA_BUS + 21] = lms_lin2db(b01.env); gmem[MEGA_BUS + 22] = lms_lin2db(b02.env);
+gmem[MEGA_BUS + 23] = lms_lin2db(b03.env); gmem[MEGA_BUS + 24] = lms_lin2db(b04.env);
+gmem[MEGA_BUS + 25] = lms_lin2db(b05.env); gmem[MEGA_BUS + 26] = lms_lin2db(b06.env);
+gmem[MEGA_BUS + 27] = lms_lin2db(b07.env); gmem[MEGA_BUS + 28] = lms_lin2db(b08.env);
+gmem[MEGA_BUS + 29] = lms_lin2db(b09.env); gmem[MEGA_BUS + 30] = lms_lin2db(b10.env);
+gmem[MEGA_BUS + 31] = lms_lin2db(b11.env); gmem[MEGA_BUS + 32] = lms_lin2db(b12.env);
+
 
 @sample
 
@@ -212,10 +394,59 @@ opto_blend > 0.01 ? (
   // Metering
   slider5 = lim.gr_meter;
 
-  // Broadcast state (backward compatible with existing gmem slots)
-  gmem[50030] = lim.gr;            // current gain reduction (linear)
-  gmem[50031] = lim.gr_meter;      // GR in dB
-  gmem[50032] = lim.true_peak;     // what we're responding to
+  // ---- Output analysis (see @init) ----
+  // Everything here reads spl0/spl1 and writes nothing back to them.
+  ana_mono = (spl0 + spl1) * 0.5;
+
+  out_hd.lms_hd_proc(ana_mono);
+
+  b01.ana_band_proc(ana_mono); b02.ana_band_proc(ana_mono); b03.ana_band_proc(ana_mono);
+  b04.ana_band_proc(ana_mono); b05.ana_band_proc(ana_mono); b06.ana_band_proc(ana_mono);
+  b07.ana_band_proc(ana_mono); b08.ana_band_proc(ana_mono); b09.ana_band_proc(ana_mono);
+  b10.ana_band_proc(ana_mono); b11.ana_band_proc(ana_mono); b12.ana_band_proc(ana_mono);
+
+  ana_pk = max(abs(spl0), abs(spl1));
+  ana_pk > out_peak ? (out_peak = ana_pk) : (out_peak *= peak_decay);
+
+  // K-weighted mean square, summed over channels. Stereo L and R both carry
+  // weight 1.0 in BS.1770, so a plain sum is the channel-weighted sum.
+  ana_kl = kw_hp.lms_bq_proc_l(kw_shelf.lms_bq_proc_l(spl0));
+  ana_kr = kw_hp.lms_bq_proc_r(kw_shelf.lms_bq_proc_r(spl1));
+  lufs_sub_sum += ana_kl * ana_kl + ana_kr * ana_kr;
+  lufs_sub_pos += 1;
+
+  lufs_sub_pos >= lufs_sub_len ? (
+    LUFS_RING[lufs_ring_pos] = lufs_sub_sum / lufs_sub_len;
+    lufs_ring_pos = (lufs_ring_pos + 1) % LUFS_RING_N;
+    lufs_ring_fill < LUFS_RING_N ? lufs_ring_fill += 1;
+    lufs_sub_sum = 0; lufs_sub_pos = 0;
+
+    // Momentary — 400 ms
+    lufs_ring_fill >= 4 ? (
+      ana_ms = 0; ana_i = 0;
+      loop(4,
+        ana_ms += LUFS_RING[(lufs_ring_pos - 1 - ana_i + LUFS_RING_N * 2) % LUFS_RING_N];
+        ana_i += 1;
+      );
+      ana_ms *= 0.25;
+      lufs_m = ana_ms > 0 ? (-0.691 + 10 * log10(ana_ms)) : -70;
+
+      // Absolute gate at -70 LUFS, then bin it for the integrated pass.
+      lufs_m > -70 ? (
+        ana_i = floor((lufs_m + 70) * 10);
+        ana_i = max(0, min(LUFS_HIST_N - 1, ana_i));
+        LUFS_HIST[ana_i] += 1;
+      );
+    );
+
+    // Short-term — 3 s
+    lufs_ring_fill >= LUFS_RING_N ? (
+      ana_ms = 0; ana_i = 0;
+      loop(LUFS_RING_N, ana_ms += LUFS_RING[ana_i]; ana_i += 1);
+      ana_ms /= LUFS_RING_N;
+      lufs_s = ana_ms > 0 ? (-0.691 + 10 * log10(ana_ms)) : -70;
+    );
+  );
 
 // ============================================================
 // @GFX

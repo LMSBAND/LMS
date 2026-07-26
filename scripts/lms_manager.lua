@@ -591,11 +591,36 @@ local function read_pitch_state()
   }
 end
 
+-- MEGA's output analyser publishes here. It used to write three values into
+-- gmem[50030..50032] -- three addresses squatting in unclaimed space,
+-- documented nowhere. This bus is a declared region, and carries loudness,
+-- spectrum and output density as well.
+local MEGA_BUS = 970000
+local MEGA_BANDS = 12
+
 local function read_mega_state()
+  local bands, centers = {}, {}
+  for i = 1, MEGA_BANDS do
+    bands[i] = r.gmem_read(MEGA_BUS + 20 + i)
+    centers[i] = r.gmem_read(MEGA_BUS + 40 + i)
+  end
   mega_state = {
-    gr_lin = r.gmem_read(50030),
-    gr_db = r.gmem_read(50031),
-    true_peak = r.gmem_read(50032),
+    heartbeat = r.gmem_read(MEGA_BUS + 0),
+    gr_lin    = r.gmem_read(MEGA_BUS + 1),
+    gr_db     = r.gmem_read(MEGA_BUS + 2),
+    true_peak = r.gmem_read(MEGA_BUS + 3),
+    lufs_m    = r.gmem_read(MEGA_BUS + 4),
+    lufs_s    = r.gmem_read(MEGA_BUS + 5),
+    lufs_i    = r.gmem_read(MEGA_BUS + 6),
+    out_peak  = r.gmem_read(MEGA_BUS + 7),
+    ceiling   = r.gmem_read(MEGA_BUS + 8),
+    target    = r.gmem_read(MEGA_BUS + 9),
+    density   = r.gmem_read(MEGA_BUS + 10),
+    mid_density = r.gmem_read(MEGA_BUS + 11),
+    hi_density  = r.gmem_read(MEGA_BUS + 12),
+    air_density = r.gmem_read(MEGA_BUS + 13),
+    bands = bands,
+    centers = centers,
   }
 end
 
@@ -2689,35 +2714,226 @@ end
 
 -- ---- Metering Tab ----
 
-local function draw_metering(ctx)
-  r.ImGui_Text(ctx, "Live Metering from LMS Plugins")
-  r.ImGui_Separator(ctx)
+-- Ink. Values, labels and axes wear text colors, never a series color -- the
+-- colored mark beside them is what carries identity.
+local INK        = 0xE6E6E6FF
+local INK_DIM    = 0x9A9A9AFF
+local INK_FAINT  = 0x5A5A5AFF
+local GRID       = 0x2E2E2EFF
+local SURFACE    = 0x14141AFF
+local STATUS_BAD = 0xD03B3BFF   -- reserved: only ever means over-ceiling
 
-  r.ImGui_Spacing(ctx)
-  if mega_state.gr_db ~= 0 or mega_state.true_peak ~= 0 then
-    r.ImGui_Text(ctx, "Mega Increasinator:")
-    r.ImGui_Text(ctx, string.format("  GR: %.1f dB   True Peak: %.1f dB",
-      mega_state.gr_db, mega_state.true_peak))
-  else
-    r.ImGui_TextDisabled(ctx, "Mega Increasinator: no data")
+-- Frequency is an ORDERED dimension, so the spectrum gets one hue stepped
+-- light to dark, not the rainbow a spectrum analyzer usually reaches for --
+-- a multi-hue ramp for magnitude is the classic misread, and bar height
+-- already carries the magnitude. The hue is the suite's "comp" green, which
+-- is the category MEGA lives in.
+local function band_hue(i, n)
+  local t = (n > 1) and ((i - 1) / (n - 1)) or 0
+  local r8 = math.floor(0x30 + t * 0x60)
+  local g8 = math.floor(0x88 + t * 0x60)
+  local b8 = math.floor(0x50 + t * 0x50)
+  return (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF
+end
+
+-- Peak-hold state lives here, not in the plugin: it is a property of the
+-- display, and the plugin should not care how fast someone's eyes are.
+local spec_hold = {}
+
+local function db_to_frac(db, floor_db)
+  if db <= floor_db then return 0 end
+  return math.min(1, (db - floor_db) / -floor_db)
+end
+
+-- A labelled horizontal bar: the same mark for loudness, GR and density, so
+-- three different quantities stay comparable at a glance.
+local function meter_bar(ctx, label, frac, text, color, w, h)
+  local dl = r.ImGui_GetWindowDrawList(ctx)
+  local x, y = r.ImGui_GetCursorScreenPos(ctx)
+  r.ImGui_DrawList_AddText(dl, x, y + 1, INK_DIM, label)
+  local bx = x + 74 * ui_scale
+  local bw = w - 74 * ui_scale
+  r.ImGui_DrawList_AddRectFilled(dl, bx, y, bx + bw, y + h, SURFACE, 2)
+  local fw = math.max(0, math.min(1, frac)) * bw
+  if fw > 1 then
+    r.ImGui_DrawList_AddRectFilled(dl, bx, y, bx + fw, y + h, color, 2)
   end
+  if text then
+    r.ImGui_DrawList_AddText(dl, bx + bw + 6 * ui_scale, y + 1, INK, text)
+  end
+  r.ImGui_Dummy(ctx, w, h + 3 * ui_scale)
+end
 
-  -- The master bus is where this one earns its keep, and it reports GR here.
+local function draw_metering(ctx)
+  -- The master bus is where this one earns its keep, and it is the only place
+  -- the analyser describes the whole mix, so the tab leads with getting it there.
   local mega_master = find_instance(19, -1)
-  if mega_master then
-    r.ImGui_TextDisabled(ctx, "  on the master bus")
-    r.ImGui_SameLine(ctx)
-    if r.ImGui_SmallButton(ctx, "Open##mega_master") then
-      toggle_fx(mega_master)
-    end
-  else
+  if not mega_master then
+    r.ImGui_TextWrapped(ctx, "MEGA INCREASINATOR is not on the master bus. It measures loudness, spectrum and density of whatever leaves it, so on the master that is the whole mix.")
+    r.ImGui_Spacing(ctx)
     if r.ImGui_Button(ctx, "Add Mega Increasinator to Master") then
       local master = r.GetMasterTrack(0)
       if master and add_lms_fx(master, TYPE_REGISTRY[19].jsfx) >= 0 then
         scan_tracks()
       end
     end
+    r.ImGui_Spacing(ctx)
+    r.ImGui_Separator(ctx)
   end
+
+  local live = (mega_state.heartbeat or 0) > 0
+  if not live then
+    r.ImGui_Spacing(ctx)
+    r.ImGui_TextDisabled(ctx, mega_master
+      and "Waiting for audio -- start playback to read the analyser."
+      or  "No analyser data.")
+  else
+    local avail = r.ImGui_GetContentRegionAvail(ctx)
+    local w = math.max(320, avail - 8)
+
+    -- ---- Loudness ----------------------------------------------------
+    -- One measure at three time constants, not three series. Integrated is
+    -- the headline: it is the number a release is judged by, so it gets the
+    -- hero treatment and the other two support it.
+    r.ImGui_Text(ctx, "LOUDNESS")
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), INK)
+    r.ImGui_PushFont(ctx, nil, math.floor(26 * ui_scale))
+    r.ImGui_Text(ctx, string.format("%.1f LUFS", mega_state.lufs_i or -70))
+    r.ImGui_PopFont(ctx)
+    r.ImGui_PopStyleColor(ctx)
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "integrated (gated)")
+
+    local LUFS_FLOOR = -40
+    local function lufs_frac(v) return db_to_frac(v or -70, LUFS_FLOOR) end
+    meter_bar(ctx, "Momentary", lufs_frac(mega_state.lufs_m),
+      string.format("%.1f", mega_state.lufs_m or -70), 0x44AA66FF, w, 12 * ui_scale)
+    meter_bar(ctx, "Short-term", lufs_frac(mega_state.lufs_s),
+      string.format("%.1f", mega_state.lufs_s or -70), 0x338855FF, w, 12 * ui_scale)
+
+    if r.ImGui_SmallButton(ctx, "Reset integrated") then
+      r.gmem_write(MEGA_BUS + 63, 1)
+    end
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, string.format("target %+.1f dB  |  ceiling %.1f dBFS",
+      mega_state.target or 0, mega_state.ceiling or 0))
+
+    -- Output peak against the limiter ceiling. Status color is reserved for
+    -- state, and never carries the meaning alone -- the word CLIP does that.
+    local peak_db = 20 * math.log(math.max(mega_state.out_peak or 0, 1e-7)) / math.log(10)
+    local over = peak_db > (mega_state.ceiling or 0) + 0.05
+    meter_bar(ctx, "Out peak", db_to_frac(peak_db, -60),
+      string.format("%.1f dBFS", peak_db), over and STATUS_BAD or 0x4488CCFF,
+      w, 12 * ui_scale)
+    if over then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), STATUS_BAD)
+      r.ImGui_Text(ctx, "CLIP -- output is above the ceiling")
+      r.ImGui_PopStyleColor(ctx)
+    end
+    meter_bar(ctx, "Reduction", math.min(1, math.abs(mega_state.gr_db or 0) / 24),
+      string.format("%.1f dB", mega_state.gr_db or 0), 0xCC8844FF, w, 12 * ui_scale)
+
+    r.ImGui_Spacing(ctx)
+    r.ImGui_Separator(ctx)
+
+    -- ---- Spectrum ----------------------------------------------------
+    r.ImGui_Text(ctx, "OUTPUT SPECTRUM")
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "12 bands, 40 Hz - 16 kHz")
+
+    local n = MEGA_BANDS
+    local plot_h = math.floor(120 * ui_scale)
+    local dl = r.ImGui_GetWindowDrawList(ctx)
+    local px, py = r.ImGui_GetCursorScreenPos(ctx)
+    local pw = w
+    local FLOOR_DB = -72
+
+    r.ImGui_DrawList_AddRectFilled(dl, px, py, px + pw, py + plot_h, SURFACE, 3)
+
+    -- Recessive gridlines every 12 dB, labelled at the left.
+    for gdb = -12, FLOOR_DB, -12 do
+      local gy = py + plot_h * (1 - db_to_frac(gdb, FLOOR_DB))
+      r.ImGui_DrawList_AddLine(dl, px, gy, px + pw, gy, GRID, 1)
+      r.ImGui_DrawList_AddText(dl, px + 2, gy - 5 * ui_scale, INK_FAINT, string.format("%d", gdb))
+    end
+
+    local slot = pw / n
+    local gap = math.max(2, slot * 0.18)
+    local bw = slot - gap
+
+    for i = 1, n do
+      local db = mega_state.bands[i] or -140
+      local frac = db_to_frac(db, FLOOR_DB)
+
+      -- Peak hold: decays slowly, drawn as a thin recessive line rather than
+      -- a second colored series.
+      local hold = spec_hold[i] or 0
+      if frac >= hold then hold = frac else hold = math.max(frac, hold - 0.004) end
+      spec_hold[i] = hold
+
+      local bx = px + (i - 1) * slot + gap * 0.5
+      local bh = frac * (plot_h - 2)
+      if bh > 1 then
+        r.ImGui_DrawList_AddRectFilled(dl, bx, py + plot_h - bh, bx + bw, py + plot_h,
+          band_hue(i, n), 3)
+      end
+      if hold > 0.01 then
+        local hy = py + plot_h - hold * (plot_h - 2)
+        r.ImGui_DrawList_AddLine(dl, bx, hy, bx + bw, hy, INK_DIM, 2)
+      end
+    end
+    r.ImGui_Dummy(ctx, pw, plot_h)
+
+    -- Label only the decade-ish landmarks. A number under all twelve is noise.
+    local lx, ly = r.ImGui_GetCursorScreenPos(ctx)
+    for i = 1, n do
+      local fc = mega_state.centers[i] or 0
+      local show = (i == 1) or (i == 4) or (i == 7) or (i == 10) or (i == n)
+      if show and fc > 0 then
+        local label = fc >= 1000 and string.format("%.1fk", fc / 1000) or string.format("%d", fc)
+        local tw = r.ImGui_CalcTextSize(ctx, label)
+        r.ImGui_DrawList_AddText(dl, lx + (i - 0.5) * slot - tw * 0.5, ly, INK_FAINT, label)
+      end
+    end
+    r.ImGui_Dummy(ctx, pw, 14 * ui_scale)
+
+    r.ImGui_Separator(ctx)
+
+    -- ---- Density -----------------------------------------------------
+    -- Total density is one number, so it reads as a number. The three band
+    -- ratios are an ordered set and share the spectrum's ramp direction.
+    r.ImGui_Text(ctx, "DENSITY")
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "of the output, post-limiter")
+
+    local dens = mega_state.density or 1.0
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), INK)
+    r.ImGui_PushFont(ctx, nil, math.floor(22 * ui_scale))
+    r.ImGui_Text(ctx, string.format("%.2f", dens))
+    r.ImGui_PopFont(ctx)
+    r.ImGui_PopStyleColor(ctx)
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "total  (1.00 sparse -> 2.50 dense)")
+
+    meter_bar(ctx, "Total", math.min(1, math.max(0, (dens - 1.0) / 1.5)),
+      nil, band_hue(1, 4), w, 10 * ui_scale)
+    meter_bar(ctx, "Mid", mega_state.mid_density or 0,
+      string.format("%.2f", mega_state.mid_density or 0), band_hue(2, 4), w, 10 * ui_scale)
+    meter_bar(ctx, "High", mega_state.hi_density or 0,
+      string.format("%.2f", mega_state.hi_density or 0), band_hue(3, 4), w, 10 * ui_scale)
+    meter_bar(ctx, "Air", mega_state.air_density or 0,
+      string.format("%.2f", mega_state.air_density or 0), band_hue(4, 4), w, 10 * ui_scale)
+  end
+
+  if mega_master then
+    r.ImGui_Spacing(ctx)
+    if r.ImGui_SmallButton(ctx, "Open MEGA##mega_master") then
+      toggle_fx(mega_master)
+    end
+  end
+
+  r.ImGui_Spacing(ctx)
+  r.ImGui_Separator(ctx)
 
   r.ImGui_Spacing(ctx)
   if pitch_state.heartbeat ~= 0 then
