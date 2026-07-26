@@ -77,6 +77,18 @@
 //  @gmem G_SRC_SLOTS       start=1140000  size=64      owner=lms_core.jsfx-inc -- source-ring handshake, 8 slots of 8: heartbeat, active, write position.
 //  @gmem G_SRC_RINGS       start=1141000  size=65536   owner=lms_core.jsfx-inc -- 8 audio rings of 8192, satellite track to room track. See SECTION 15.
 //
+//  LOCAL MEMORY, the other space. These are the only hardcoded local bases in
+//  the library; everything else either takes its base as an argument or bump
+//  allocates from 0. A plugin that bump allocates AND instantiates one of
+//  these three must check it does not grow into them -- lms_room's allocator
+//  already reaches past 300000, which would land on both of the first two.
+//  Use the _at() variants to place them somewhere else, and for a second
+//  instance of any of them in one plugin you MUST, or the two shred each other.
+//
+//    LMS_SPRING_DEFAULT_BUF     50000  .. 61000
+//    LMS_TAPE_ECHO_DEFAULT_BUF 200000  .. 250000
+//    LMS_LIM_DEFAULT_BUF       900000  .. 900000 + 2*srate*0.001
+//
 //  HAZARD, for whoever adds the next plugin type: G_BROADCAST is sized for
 //  type_id up to 37, because the slot address is G_BC_BASE + type_id*16384. A
 //  type_id of 50 would land at 919200 -- inside G_ROOM_SEND. If the registry
@@ -84,6 +96,14 @@
 // ============================================================================
 
 @init
+
+// Default local-memory bases for the three primitives that own a buffer
+// outright. Assigned here, at the top of the imported @init, so they are
+// already set whichever order a plugin's own @init calls things in.
+// See the LOCAL MEMORY note in the map above.
+LMS_SPRING_DEFAULT_BUF    = 50000;
+LMS_TAPE_ECHO_DEFAULT_BUF = 200000;
+LMS_LIM_DEFAULT_BUF       = 900000;
 
 // ============================================================================
 //  SECTION 1: Math Utilities (stateless)
@@ -1694,8 +1714,8 @@ function lms_spring_ap(buf, pos, len, input, coeff)
 // ============================================================================
 
 // === SPRING REVERB ===
-function lms_spring_init() (
-  this.buf_base = 50000;
+function lms_spring_init_at(buf_base) (
+  this.buf_base = buf_base;
   this.pd_off = 0;       this.pd_len = 337;    this.pd_pos = 0;
   this.ap1_off = 400;    this.ap1_len = 1087;  this.ap1_pos = 0;
   this.ap2_off = 1500;   this.ap2_len = 1483;  this.ap2_pos = 0;
@@ -1712,6 +1732,10 @@ function lms_spring_init() (
   this.spring_wet = 0.3;
   this.sm_mix = 0;
   this.sm_coeff = 1.0 - exp(-1.0 / (0.01 * srate));
+);
+
+function lms_spring_init() (
+  this.lms_spring_init_at(LMS_SPRING_DEFAULT_BUF);
 );
 
 function lms_spring_proc(x, mix) local(input, ap_out, delayed, fb, wet, coeff) (
@@ -1776,8 +1800,8 @@ function lms_trem_proc(x, depth, speed) local(rate, lfo) (
 );
 
 // === TAPE ECHO (warm analog delay with LP rolloff and wow) ===
-function lms_tape_echo_init() (
-  this.buf_base = 200000;
+function lms_tape_echo_init_at(buf_base) (
+  this.buf_base = buf_base;
   this.buf_len = (srate * 1.0)|0;
   this.buf_len = min(this.buf_len, 48000);
   this.write_pos = 0;
@@ -1790,6 +1814,10 @@ function lms_tape_echo_init() (
   this.sm_time = 0.5;
   this.sm_fb = 0.4;
   this.sm_coeff = 1.0 - exp(-1.0 / (0.01 * srate));
+);
+
+function lms_tape_echo_init() (
+  this.lms_tape_echo_init_at(LMS_TAPE_ECHO_DEFAULT_BUF);
 );
 
 function lms_tape_echo_proc(x, mix, time, feedback) local(delay_samps, read_pos, wow, delayed, wet, frac, idx, s0, s1) (
@@ -2538,7 +2566,10 @@ function lms_opto_lite_proc(l, r)
 //  Nothing exceeds ceiling. Period.
 // ============================================================================
 
-function lms_lim_init() (
+// Place the lookahead buffer explicitly. Use this for a second limiter in one
+// plugin, or in any plugin whose own allocator reaches past LMS_LIM_DEFAULT_BUF.
+function lms_lim_init_at(buf_base) (
+  this.la_buf = buf_base;
   // State
   this.gr = 1.0;
   this.gr_db = 0.0;
@@ -2555,13 +2586,8 @@ function lms_lim_init() (
 
   // Lookahead buffer (1ms — enough to catch transients before they hit output)
   this.la_len = max(1, floor(srate * 0.001));
-  this.la_buf = 900000;  // memory offset for lookahead buffer (L+R interleaved)
   this.la_pos = 0;
-  i = 0;
-  loop(this.la_len * 2,
-    this.la_buf[i] = 0;
-    i += 1;
-  );
+  memset(this.la_buf, 0, this.la_len * 2);
 
   // True peak detection (2x oversampled half-band interpolation)
   this.hb_l.lms_bq_init();
@@ -2574,6 +2600,10 @@ function lms_lim_init() (
   // Metering
   this.gr_meter = 0;
   this.gr_meter_rel = exp(-1 / (srate * 0.100));
+);
+
+function lms_lim_init() (
+  this.lms_lim_init_at(LMS_LIM_DEFAULT_BUF);
 );
 
 function lms_lim_set(ceiling_db, release_ms) (
