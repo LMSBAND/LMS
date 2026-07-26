@@ -1881,7 +1881,7 @@
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
       <version name="1.4" author="LMS" time="2026-07-25T20:00:00Z">
-        <changelog>v1.4 — Fix "Could not find lms_manager.lua" on fresh ReaPack installs. ReaPack installs each package into its own category folder, so lms_setup.lua (DRUMBANGER/Scripts) and lms_manager.lua (LMS/Scripts) never land side by side — setup assumed they were siblings and aborted. It now searches every known install layout (manual/zip, both ReaPack categories, Scripts root) for each script, and error dialogs list every path tried.</changelog>
+        <changelog>v1.4 — Two fresh-install fixes. (1) "Could not find lms_manager.lua": ReaPack installs each package into its own category folder, so lms_setup.lua (DRUMBANGER/Scripts) and lms_manager.lua (LMS/Scripts) never land side by side — setup assumed they were siblings and aborted. It now searches every known install layout (manual/zip, both ReaPack categories, Scripts root) for each script, and error dialogs list every path tried. (2) "ImGui_PushFont: expected a valid ImGui_Context*" right after setup finished: the service and manager were launched before the modal completion dialog, which blocks the defer loop while it is open. ReaImGui garbage-collects unused contexts, so the manager's context was destroyed while the dialog sat on screen and its first deferred frame failed. Both are now launched last, after every dialog is dismissed.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
     </reapack>

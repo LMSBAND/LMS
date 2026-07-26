@@ -75,10 +75,6 @@ if old_svc ~= "" then
   reaper.DeleteExtState("LMS", "registered_cmd", true)
 end
 
--- Start both right now (ReaPack already registers them as actions via main="main")
-dofile(service_path)
-dofile(manager_path)
-
 -- Install __startup.lua for auto-start on REAPER launch
 -- REAPER natively runs Scripts/__startup.lua on every launch (no SWS needed)
 local startup_path = scripts_root .. "/__startup.lua"
@@ -152,7 +148,17 @@ sf:close()
 
 reaper.ShowMessageBox(
   "LMS Suite setup complete!\n\n" ..
-  "Plugin Manager + DrumBanger service are now running.\n\n" ..
+  "Plugin Manager + DrumBanger service are starting now.\n\n" ..
   "Auto-start installed — both will launch\n" ..
   "automatically every time you open REAPER.",
   "LMS Setup", 0)
+
+-- Start both LAST, after every modal dialog is out of the way.
+-- ShowMessageBox is modal and blocks the defer loop while it is open. The
+-- manager creates its ImGui context at load, and ReaImGui garbage-collects
+-- contexts that go unused, so launching before the dialog let the context be
+-- destroyed while the user read it -- the first deferred frame then failed with
+-- "ImGui_PushFont: expected a valid ImGui_Context*". Nothing may block between
+-- the manager loading and its first rendered frame.
+dofile(service_path)
+dofile(manager_path)
