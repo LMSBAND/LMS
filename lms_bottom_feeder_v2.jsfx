@@ -93,6 +93,7 @@ psu.lms_psu_init(0.004, 0.150, 0.22, 0.65, 1.0);
 
 // Bassman power amp (single — both channels share the same power section)
 bassman_pa.lms_pp_pa_init(2.2, 1.5, 1.45, 0.85);
+bassman_pa.lms_pa_hd_tune(150, 1200, 3500);   // bass tuning
 bassman_pa.lms_pp_pa_cathode(0.004, 0.100, 0.14);
 bassman_pa.lms_pp_pa_xfmr(2.4, 0.984, 1.0, 0.20);
 bassman_pa.lms_pp_pa_xfmr_res(3200, 2.0, 1.8);

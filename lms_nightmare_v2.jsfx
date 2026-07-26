@@ -93,6 +93,7 @@ ts.lms_tmb_init();
 ts.lms_tmb_config(35,125, 20,0.55,  500, 0.8,1.2, 10,  800,2700, 14,0.65,  2.0,1.5);
 ts.lms_tmb_set(0.5, 0.5, 0.5);
 pa.lms_classd_pa_init(1.5, 8000, 0.90);
+pa.lms_pa_hd_tune(150, 1200, 3500);   // bass tuning
 pa.poweramp_set(0.5, 0.5);
 gate.lms_sgate_init(0.001, 0.0002);
 spring.lms_spring_init();

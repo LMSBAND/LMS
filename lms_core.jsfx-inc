@@ -1231,6 +1231,15 @@ function lms_triode_proc(x, drive, bplus, pos_hard, neg_hard, pos_ceil, neg_ceil
 
 function lms_pp_pa_init(drive_mult, push_hard, pull_hard, output_gain)
 (
+  // The density tracker the transformer and NFB read from. Without this its
+  // biquad coefficients are all zero, so it outputs silence: env_lo stays 0,
+  // xfmr_sat = min(1, 0 * sens) = 0, and the `xfmr_sat > 0.05` gate below
+  // never opens. Transformer saturation and hysteresis were unreachable code
+  // in every amp in the suite, and density pinned at exactly 1.0 so the
+  // density-driven NFB never swept either. Guitar tuning by default; bass
+  // amps call lms_pa_hd_tune(150, 1200, 3500).
+  this.hd.lms_hd_init(250, 2000, 5000);
+
   this.dc.lms_dc_init();
   this.pa_drive_mult = drive_mult;
   this.pa_push_hard = push_hard;
@@ -1260,6 +1269,14 @@ function lms_pp_pa_deadzone(base)
 (
   this.pa_dz_base = base;
   this.pa_has_deadzone = 1;
+);
+
+// Re-tune the power amp's density tracker. Bass rigs want the crossovers
+// lower or every note sits in the "lo" band and the transformer reads it as
+// constant saturation.
+function lms_pa_hd_tune(lo_freq, mid_freq, air_freq)
+(
+  this.hd.lms_hd_init(lo_freq, mid_freq, air_freq);
 );
 
 function lms_pp_pa_xfmr(sensitivity, lp_coeff, sat_mult, sat_div)
@@ -1387,6 +1404,15 @@ function lms_pp_pa_proc(x, bplus)
 
 function lms_se_pa_init(drive_mult, pos_hard, pos_ceil, neg_hard, neg_ceil, output_gain)
 (
+  // The density tracker the transformer and NFB read from. Without this its
+  // biquad coefficients are all zero, so it outputs silence: env_lo stays 0,
+  // xfmr_sat = min(1, 0 * sens) = 0, and the `xfmr_sat > 0.05` gate below
+  // never opens. Transformer saturation and hysteresis were unreachable code
+  // in every amp in the suite, and density pinned at exactly 1.0 so the
+  // density-driven NFB never swept either. Guitar tuning by default; bass
+  // amps call lms_pa_hd_tune(150, 1200, 3500).
+  this.hd.lms_hd_init(250, 2000, 5000);
+
   this.dc.lms_dc_init();
   this.pa_drive_mult = drive_mult;
   this.pa_pos_hard = pos_hard;
@@ -1515,6 +1541,15 @@ function lms_se_pa_proc(x, bplus)
 
 function lms_classd_pa_init(drive_mult, lp_freq, output_gain)
 (
+  // The density tracker the transformer and NFB read from. Without this its
+  // biquad coefficients are all zero, so it outputs silence: env_lo stays 0,
+  // xfmr_sat = min(1, 0 * sens) = 0, and the `xfmr_sat > 0.05` gate below
+  // never opens. Transformer saturation and hysteresis were unreachable code
+  // in every amp in the suite, and density pinned at exactly 1.0 so the
+  // density-driven NFB never swept either. Guitar tuning by default; bass
+  // amps call lms_pa_hd_tune(150, 1200, 3500).
+  this.hd.lms_hd_init(250, 2000, 5000);
+
   this.dc.lms_dc_init();
   this.pa_drive_mult = drive_mult;
   this.pa_output_gain = output_gain;
