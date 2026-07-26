@@ -268,6 +268,12 @@ local follows = {}
 -- Track Scanning
 -- ============================================================================
 
+-- Returns (key, type_id_override). NOTE: the returned key is whichever table
+-- matched, so it is NOT a stable identifier. TrackFX_GetFXName gives REAPER's
+-- display name ("JS: LMS DRUMBANGER"), not the filename, so the JSFX_TO_TYPE
+-- lookup usually misses on the underscore and DISPLAY_TO_TYPE answers instead
+-- -- yielding "drumbanger" rather than "lms_drumbanger". Always compare
+-- inst.type_id, never inst.lms_name: type_id is identical from either table.
 local function extract_lms_name(fx_name)
   local lower = fx_name:lower()
   for key, _ in pairs(JSFX_TO_TYPE) do
@@ -327,7 +333,7 @@ local function scan_tracks()
   end
 
   for _, inst in ipairs(instances) do
-    if inst.lms_name == "lms_drumbanger" then
+    if inst.type_id == "drumbanger" then
       ensure_low_latency(inst.track)
     end
   end
@@ -396,7 +402,7 @@ r.gmem_attach("DrumBanger")
 
 local function find_db_instance()
   for _, inst in ipairs(instances) do
-    if inst.lms_name == "lms_drumbanger" then return inst end
+    if inst.type_id == "drumbanger" then return inst end
   end
   return nil
 end
@@ -1714,7 +1720,7 @@ local function draw_drumbanger(ctx)
   r.ImGui_SameLine(ctx)
   local has_consumer = false
   for _, inst_c in ipairs(instances) do
-    if inst_c.lms_name == "lms_lil_stinker" or inst_c.lms_name == "lms_nuug420" then
+    if inst_c.type_id == 29 or inst_c.type_id == 33 then
       local info = type(inst_c.type_id) == "number" and TYPE_REGISTRY[inst_c.type_id]
       r.ImGui_SameLine(ctx)
       r.ImGui_TextDisabled(ctx, string.format("%s (T%d)", info and info.name or inst_c.lms_name, inst_c.track_idx + 1))
@@ -2419,7 +2425,7 @@ local function draw_harmony(ctx)
 
   local has_listener = false
   for _, inst in ipairs(instances) do
-    if inst.lms_name == "lms_faker" then
+    if inst.type_id == 23 then
       local follow = r.TrackFX_GetParam(inst.track, inst.fx_idx, 9)
       local is_following = follow > 0.5
       has_listener = has_listener or is_following
