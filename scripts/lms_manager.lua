@@ -2773,15 +2773,30 @@ local function meter_bar(ctx, label, frac, text, color, w, h)
   local dl = r.ImGui_GetWindowDrawList(ctx)
   local x, y = r.ImGui_GetCursorScreenPos(ctx)
   r.ImGui_DrawList_AddText(dl, x, y + 1, INK_DIM, label)
-  local bx = x + 74 * ui_scale
-  local bw = w - 74 * ui_scale
+
+  -- The bar has to end short of w by the width of the readout, or the readout
+  -- lands outside the content region and ImGui clips it -- which showed up as
+  -- a lone dash on the right, that being the minus sign of a negative number
+  -- with every other glyph cut off.
+  --
+  -- The gutter is measured from a fixed template rather than from the current
+  -- text, so the bar keeps its length as the digits change instead of
+  -- twitching a few pixels every frame. It is reserved whether or not this
+  -- particular bar has a readout, so all the bars line up.
+  local lab_w = 74 * ui_scale
+  local val_w = r.ImGui_CalcTextSize(ctx, "-000.0 dBFS") + 10 * ui_scale
+  local bx = x + lab_w
+  local bw = math.max(8, w - lab_w - val_w)
+
   r.ImGui_DrawList_AddRectFilled(dl, bx, y, bx + bw, y + h, SURFACE, 2)
   local fw = math.max(0, math.min(1, frac)) * bw
   if fw > 1 then
     r.ImGui_DrawList_AddRectFilled(dl, bx, y, bx + fw, y + h, color, 2)
   end
   if text then
-    r.ImGui_DrawList_AddText(dl, bx + bw + 6 * ui_scale, y + 1, INK, text)
+    -- Right-aligned against w, so the decimal points stack down the column.
+    local tw = r.ImGui_CalcTextSize(ctx, text)
+    r.ImGui_DrawList_AddText(dl, x + w - tw, y + 1, INK, text)
   end
   r.ImGui_Dummy(ctx, w, h + 3 * ui_scale)
 end

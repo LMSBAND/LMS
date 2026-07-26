@@ -2051,6 +2051,10 @@
         <changelog>v2.0 &#8212; Remove the Song buttons from the Harmony Map tab. They wrote gmem[960096], which flips a song_mode flag that only shows or hides the song panel inside the plugin&#39;s own window and gates no behaviour: the plugin runs a song whenever one exists. Where the button sat in the Song Structure section there is now a status line saying so. Also fixes 19 widgets across six groups that shared ImGui ids &#8212; ImGui takes everything after ## as the id and discards the label, so &quot;Key##hm&quot;, &quot;Mode##hm&quot; and &quot;Steps##hm&quot; were all one widget as far as it was concerned. The two Song buttons were the same bug, both being ##hm_song.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="2.1" author="LMS" time="2026-07-26T16:30:00Z">
+        <changelog>v2.1 &#8212; Fix the readouts on the metering bars showing as a lone dash. The bar filled the full width it was given and the value was drawn past the end of it, outside the content region, so ImGui clipped every glyph but the leading minus sign. The bars now reserve a gutter for the readout and right-align it, and the gutter is measured from a fixed template so bar length no longer twitches as the digits change.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">
