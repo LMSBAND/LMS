@@ -116,6 +116,10 @@
         <changelog>v7.1 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.2" author="LMS" time="2026-07-26T20:00:00Z">
+        <changelog>v7.2 &#8212; gmem map updated: The Space is retired, so nothing writes the room master heartbeat at 900000 and Space Send currently has no room to talk to. Also records that the band slots at 800010 have no writer.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -361,28 +365,6 @@
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_henge.jsfx</source>
       </version>
     </reapack>
-    <reapack name="lms_the_space.jsfx" type="effect" desc="LMS - The Space — Material Reverb with Satellite Sends">
-      <version name="1.0" author="LMS" time="2026-03-04T00:00:00Z">
-        <changelog>v1.0 — Schroeder reverb with material-based damping. 4 parallel comb filters (LP+HP feedback) into 2 allpass diffusers. Continuous size (1-20m), 8 surface materials (Concrete/Wood/Drywall/Brick/Metal/Carpet/Glass/Curtain) for floor/walls/ceiling with averaged absorption coefficients. Reactive Vibe modes (Bright opens on air content, Moody thickens on lo/mid) driven by 4-band density tracker with adjustable intensity. 8-slot satellite system via gmem — Space Send instances on source tracks route proximity-filtered audio to The Space bus. Click-through material selectors, per-source distance and send level control. 0.22% CPU with 10 sources.</changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
-      </version>
-      <version name="1.1" author="LMS" time="2026-03-07T13:00:00Z">
-        <changelog>v1.1 — Fix gmem namespace typo (DrumBagger → DrumBanger).</changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
-      </version>
-      <version name="1.2" author="LMS" time="2026-07-18T00:00:00Z">
-        <changelog>Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.</changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
-      </version>
-      <version name="1.3" author="LMS" time="2026-07-25T12:00:00Z">
-        <changelog>v1.3 — Mode selector uses string buffer (MS_BUF) for labels.</changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
-      </version>
-      <version name="1.4" author="LMS" time="2026-07-26T18:00:00Z">
-        <changelog>v1.4 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_the_space.jsfx</source>
-      </version>
-    </reapack>
     <reapack name="lms_room_send.jsfx" type="effect" desc="LMS - Space Send — Satellite for The Space">
       <version name="5.0" author="LMS" time="2026-03-04T00:00:00Z">
         <changelog>v5.0 — Satellite send for The Space reverb. Proximity filtering (lo shelf + hi shelf based on distance), outputs processed audio on ch 3/4 for routing to The Space bus. 8-slot button selector with live occupancy (green=free, red=taken, accent=yours). Click-through instrument type (Drums/Percussion/Guitar/Bass/Vocals/Keys/Synth/Other) and number selectors. Auto-detects The Space via gmem heartbeat.</changelog>
@@ -408,6 +390,10 @@
       </version>
       <version name="1.1" author="LMS" time="2026-07-26T18:00:00Z">
         <changelog>v1.1 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.2" author="LMS" time="2026-07-26T20:00:00Z">
+        <changelog>v1.2 &#8212; Room Juice. The tail damping is normally fixed by the wall materials; Room Juice lets a 4-band density read of the reverb feed move it, so the room responds to what is played in it. Bright opens the tail with air content, Moody thickens it with low and mid content and lengthens the feedback slightly. Ported from The Space, where it was called Vibe, since The Space is retired in favour of this plugin.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
@@ -2093,6 +2079,10 @@
       </version>
       <version name="2.1" author="LMS" time="2026-07-26T16:30:00Z">
         <changelog>v2.1 &#8212; Fix the readouts on the metering bars showing as a lone dash. The bar filled the full width it was given and the value was drawn past the end of it, outside the content region, so ImGui clipped every glyph but the leading minus sign. The bars now reserve a gutter for the readout and right-align it, and the gutter is measured from a fixed template so bar length no longer twitches as the digits change.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.2" author="LMS" time="2026-07-26T20:00:00Z">
+        <changelog>v2.2 &#8212; Black In Bluhm gained two sliders (Room Juice), so its parameter count is corrected from 22 to 24 &#8212; follow and steal copy by count and would have missed them.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>

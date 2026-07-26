@@ -58,7 +58,7 @@ local TYPE_REGISTRY = {
   [31] = {name = "Satan's Pedalboard",cat = "fx",     sliders = 71, jsfx = "lms_satans_pedalboard.jsfx"},
   [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4,  jsfx = "lms_piece_of_shit.jsfx"},
   [33] = {name = "Nuug420",           cat = "synth",  sliders = 52, jsfx = "lms_nuug420.jsfx"},
-  [36] = {name = "Black In Bluhm",   cat = "reverb", sliders = 22, jsfx = "lms_room.jsfx"},
+  [36] = {name = "Black In Bluhm",   cat = "reverb", sliders = 24, jsfx = "lms_room.jsfx"},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -141,7 +141,7 @@ local JSFX_TO_TYPE = {
   ["lms_tape"]                 = "tape",
   ["lms_room"]                 = 36,
   ["lms_room_send"]            = "room_send",
-  ["lms_the_space"]            = "the_space",
+  ["lms_the_space"]            = "the_space",   -- retired, superseded by Black In Bluhm; kept so old projects still resolve
 }
 
 local TRACK_COLORS = {

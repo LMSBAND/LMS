@@ -43,6 +43,9 @@ slider21:1<0,3,1{2:1,4:1,8:1,20:1}>-Comp Ratio
 // --- MODE ---
 slider22:0<0,1,1{Single,Band}>-Mode
 
+slider23:0<0,2,1{Off,Bright,Moody}>-Room Juice
+slider24:50<0,100,1>-Juice Amount (%)
+
 @init
 
 // ============================================================================
@@ -154,6 +157,11 @@ fdn_wr0=0; fdn_wr1=0; fdn_wr2=0; fdn_wr3=0;
 fdn_lp0=0; fdn_lp1=0; fdn_lp2=0; fdn_lp3=0;
 // Smoothed FDN delay times (converge in @sample)
 sm_fdn_d0=0; sm_fdn_d1=0; sm_fdn_d2=0; sm_fdn_d3=0;
+
+// Room Juice: 4-band density read of the reverb feed. Off by default, and
+// when it is off the tracker never runs -- see @sample.
+rj_hd.lms_opto_hd_init();
+rj_damp = 0; rj_damp_inv = 1; rj_fb = 0; rj_active = 0;
 
 // Default band positions: semicircle behind default source
 // Only set on very first init — @serialize restores saved positions,
@@ -915,6 +923,34 @@ drag_band = -1;
   wet_l *= sm_wet_norm;
   wet_r *= sm_wet_norm;
 
+  // ---- Room Juice ----------------------------------------------------
+  // Ported from The Space, where it was called Vibe. The tail damping is
+  // normally fixed by the wall materials; this lets the material read of
+  // the signal move it, so the room breathes with what is played in it
+  // instead of sounding the same on every source.
+  //
+  // Bright: air content opens the tail up. Moody: low and mid content
+  // thickens it and pushes the feedback a little longer.
+  //
+  // Tapped off the summed early reflections, which exist in Single and Band
+  // mode alike -- spl0/spl1 would read silence in Band mode, where the
+  // sources do not arrive on this track's own input.
+  rj_damp = fdn_damp;
+  rj_fb   = fdn_fb;
+  slider23 > 0 ? (
+    rj_hd.lms_opto_hd_proc((wet_l + wet_r) * 0.5);
+    rj_amt = slider24 * 0.01;
+    slider23 == 1 ? (
+      rj_damp = max(0.01, fdn_damp - rj_hd.air_density * 2.0 * rj_amt);
+    ) : (
+      rj_lm = min(0.5, (rj_hd.env_lo + rj_hd.env_mid) * 0.5 * 2.0) * rj_amt;
+      rj_damp = min(0.95, fdn_damp + rj_lm);
+      rj_fb   = min(0.95, fdn_fb + rj_lm * 0.3);
+    );
+  );
+  rj_damp_inv = 1.0 - rj_damp;
+  rj_active = min(1.0, abs(rj_damp - fdn_damp) * 5.0);
+
   // Late reverb: allpass pre-diffusion → 4-line FDN
   fdn_in = (wet_l + wet_r) * 0.06;
 
@@ -938,15 +974,15 @@ drag_band = -1;
   h0 = 0.5*(d0+d1+d2+d3); h1 = 0.5*(d0-d1+d2-d3);
   h2 = 0.5*(d0+d1-d2-d3); h3 = 0.5*(d0-d1-d2+d3);
   // Damping lowpass in feedback path (absorptive materials → darker tail)
-  fdn_lp0 = fdn_lp0*fdn_damp + h0*fdn_damp_inv;
-  fdn_lp1 = fdn_lp1*fdn_damp + h1*fdn_damp_inv;
-  fdn_lp2 = fdn_lp2*fdn_damp + h2*fdn_damp_inv;
-  fdn_lp3 = fdn_lp3*fdn_damp + h3*fdn_damp_inv;
+  fdn_lp0 = fdn_lp0*rj_damp + h0*rj_damp_inv;
+  fdn_lp1 = fdn_lp1*rj_damp + h1*rj_damp_inv;
+  fdn_lp2 = fdn_lp2*rj_damp + h2*rj_damp_inv;
+  fdn_lp3 = fdn_lp3*rj_damp + h3*rj_damp_inv;
   // Write: damped feedback + pre-diffused input
-  fdn_buf0[fdn_wr0] = fdn_lp0*fdn_fb + fdn_in;
-  fdn_buf1[fdn_wr1] = fdn_lp1*fdn_fb + fdn_in;
-  fdn_buf2[fdn_wr2] = fdn_lp2*fdn_fb + fdn_in;
-  fdn_buf3[fdn_wr3] = fdn_lp3*fdn_fb + fdn_in;
+  fdn_buf0[fdn_wr0] = fdn_lp0*rj_fb + fdn_in;
+  fdn_buf1[fdn_wr1] = fdn_lp1*rj_fb + fdn_in;
+  fdn_buf2[fdn_wr2] = fdn_lp2*rj_fb + fdn_in;
+  fdn_buf3[fdn_wr3] = fdn_lp3*rj_fb + fdn_in;
   // Advance write heads
   fdn_wr0 += 1; fdn_wr0 >= FDN_LEN0 ? fdn_wr0 = 0;
   fdn_wr1 += 1; fdn_wr1 >= FDN_LEN1 ? fdn_wr1 = 0;

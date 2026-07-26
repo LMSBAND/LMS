@@ -66,8 +66,8 @@
 //
 //  @gmem G_DRUMBANGER_BUS  start=0        size=10000   owner=lms_drumbanger.jsfx -- pad+transport state, and the sequencer mirror at 1000..9191. Read by drum_trigger, lil_stinker, nuug420, and the manager.
 //  @gmem G_BROADCAST       start=100000   size=622592  owner=lms_core.jsfx-inc -- follow/steal slots, G_BC_BASE + type_id*16384, 32 instances of 512. Only lms_smart_gate still uses it.
-//  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, then 8 DroneFX band slots of 8 from +10. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
-//  @gmem G_ROOM_SEND       start=900000   size=1000    owner=lms_room_send.jsfx -- room send bus and control block, shared with lms_the_space.
+//  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, then 8 band slots of 8 from +10. The band slots have NO writer: see the note under G_ROOM_SEND. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
+//  @gmem G_ROOM_SEND       start=900000   size=1000    owner=lms_room_send.jsfx -- satellite handshake: master heartbeat at +0, slot claims from +10, per-slot control from +80. Audio does NOT travel here; Space Send passes it on channels 3/4 for a REAPER send to carry. lms_the_space was the master and is retired, so nothing writes +0 today and Space Send finds no room to talk to.
 //  @gmem G_PITCH_BUS       start=950000   size=100     owner=lms_pitch_detector.jsfx -- detected pitch, confidence, density. Written by faker too.
 //  @gmem G_HARMONY_BUS     start=960000   size=1000    owner=lms_harmony_map.jsfx -- chord/key/transport, the conditional bus at +100, and the song command bus at +330.
 //  @gmem G_DRONE_BUS       start=961100   size=320     owner=lms_drone_voice.jsfx -- 16 slots of 20, chord notes pushed by the manager.
