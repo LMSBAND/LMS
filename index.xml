@@ -393,8 +393,6 @@
       <version name="1.0" author="LMS" time="2026-07-25T12:00:00Z">
         <changelog>Initial ReaPack release. Fix source/mic positions resetting on project reload. Fix material selector showing only 5 of 8 materials.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
-        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware 5W Class A Amp Sim">
@@ -1737,34 +1735,28 @@
       <version name="1.0" author="LMS" time="2026-04-21T12:00:00Z">
         <changelog>Initial release — 10-pedal container plugin. DOA666 (ODB-3 bass distortion), HARDWARE INCOMPATIBLE (BD-2 Blues Driver), BLACK MASS (CE-2 chorus), THE ELEPHANT (Memory Boy BBD delay), PIPEWORKS (BF-2 flanger), UNHOLY BOWL (Holy Grail — Spring/Hall/Flerb), MARMOT (ProCo RAT), 12 STEPPER (OC-2 / Octavia octave pedal), GREEN SIN (TS-808/TS-9 Tube Screamer), JUDGEMENT DAY (4-band parametric EQ with Punk/Jazz/Metal/Flat voicings — mode auto-snaps knobs to preset defaults). Section-based chain ordering: 6 presets reorder DIST / MOD / DELAY / REVERB / EQ as sections, with 12 STEPPER always at the head of the chain. Dual FET compressors (input + output). Broadcast type_id 31. Every pedal's DSP lives in lms_core as lms_* primitives — no DSP duplication.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
       <version name="1.1" author="LMS" time="2026-05-06T18:00:00Z">
         <changelog>v1.1 — YIN-based tuner integrated as a featured strip between the title bar and IN COMP. Huge note name with octave, color-zoned cents meter with needle, frequency readout, IN-TUNE LED, click-to-toggle MUTE for silent stage tuning, and a PWR button (off by default to keep CPU free). Detection range covers every drop tuning down to drop A (55Hz). Detection rate decimated to every 4th block. PWR state persists across reloads. Requires lms_core 6.4.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
       <version name="1.2" author="LMS" time="2026-06-04T00:00:00Z">
         <changelog>v1.2 — Golden Calf (Klon Centaur): dual-gang gain structure with clean blend, germanium soft-clip, post-clip treble peaker and bass recovery. Fix: slider automation now works correctly on all pedal controls.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
       <version name="1.3" author="LMS" time="2026-06-14T18:00:00Z">
         <changelog>v1.3 — Fix spring reverb + BBD delay buffer collision (Unholy Bowl spring buffer overlapped Elephant delay). Mouse capture on sliders prevents accidental edits while dragging.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
       <version name="1.4" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>Broadcast code removed — plugin is now a pure audio processor. Follow/steal/instance management handled entirely by LMS Plugin Manager via TrackFX_GetParam/SetParam.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_satans_pedalboard.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_harmony_map.jsfx" type="effect" desc="LMS - Harmony Map — Timeline Chord Sequencer with Song Mode">
       <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v1.0 — Timeline-locked chord sequencer with Song Mode. 16 patterns with labeled parts (Verse/Chorus/Bridge/Intro/Outro). Song sequence with drag-and-drop reorder. Per-section modifiers (modulate key, force major/minor, get quiet/loud). Full chord broadcast to gmem (root, quality, notes). Music theory navigation: key selector, scale-aware chord suggestions, Nashville number display. Conductor mode for transport-driven playback. 3440 lines.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_harmony_map.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
     <reapack name="lms_drone_voice.jsfx" type="effect" desc="LMS - Drone Voice — gmem-Driven MIDI Generator for Synth Roles">
@@ -1777,7 +1769,6 @@
       <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v1.0 — Solid-state practice amp sim. The shittiest amp you've ever heard — intentionally. Transistor clipping (hard asymmetric), tiny speaker sim (bandpass 200Hz-4kHz, resonance peak at 800Hz), cabinet rattle at high gain, cheap spring reverb approximation. 4 controls: Input Level, Gain, Tone, Volume. Density-aware saturation via lms_core. 478 lines.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_piece_of_shit.jsfx</source>
-        <source file="shakebot_logo.png" type="data">https://raw.githubusercontent.com/LMSBAND/LMS/master/shakebot_logo.png</source>
       </version>
     </reapack>
   </category>
@@ -1887,6 +1878,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-07-18T00:00:00Z">
         <changelog>v1.3 — Updated for LMS Plugin Manager integration. Song structure support.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
+      </version>
+      <version name="1.4" author="LMS" time="2026-07-25T20:00:00Z">
+        <changelog>v1.4 — Fix "Could not find lms_manager.lua" on fresh ReaPack installs. ReaPack installs each package into its own category folder, so lms_setup.lua (DRUMBANGER/Scripts) and lms_manager.lua (LMS/Scripts) never land side by side — setup assumed they were siblings and aborted. It now searches every known install layout (manual/zip, both ReaPack categories, Scripts root) for each script, and error dialogs list every path tried.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_setup.lua</source>
       </version>
     </reapack>

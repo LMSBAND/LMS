@@ -17,31 +17,48 @@ if not reaper.ImGui_CreateContext then
   return
 end
 
--- Find scripts (same directory as this setup script)
+-- Find scripts. ReaPack installs each package into its own category folder, so
+-- lms_setup.lua (DRUMBANGER/Scripts) and lms_manager.lua (LMS/Scripts) do NOT
+-- end up side by side. Search every known layout instead of assuming siblings.
 local info = debug.getinfo(1, "S")
 local script_dir = info.source:match("@?(.+)[/\\]")
+local scripts_root = reaper.GetResourcePath() .. "/Scripts"
 
-local service_path = script_dir .. "/drumbanger_service.lua"
-local manager_path = script_dir .. "/lms_manager.lua"
+local function find_script(name)
+  local candidates = {
+    script_dir .. "/" .. name,                              -- manual / zip install
+    scripts_root .. "/LMS Plugins/LMS/Scripts/" .. name,    -- ReaPack, LMS category
+    scripts_root .. "/LMS Plugins/DRUMBANGER/Scripts/" .. name, -- ReaPack, DRUMBANGER
+    scripts_root .. "/LMS/" .. name,
+    scripts_root .. "/" .. name,
+  }
+  for _, path in ipairs(candidates) do
+    local f = io.open(path, "r")
+    if f then
+      f:close()
+      return path
+    end
+  end
+  return nil, candidates
+end
 
--- Verify both scripts exist
-local f = io.open(service_path, "r")
-if not f then
+local service_path, service_tried = find_script("drumbanger_service.lua")
+if not service_path then
   reaper.ShowMessageBox(
-    "Could not find drumbanger_service.lua\nExpected at: " .. service_path,
+    "Could not find drumbanger_service.lua\n\nLooked in:\n  " ..
+    table.concat(service_tried, "\n  "),
     "LMS Setup", 0)
   return
 end
-f:close()
 
-f = io.open(manager_path, "r")
-if not f then
+local manager_path, manager_tried = find_script("lms_manager.lua")
+if not manager_path then
   reaper.ShowMessageBox(
-    "Could not find lms_manager.lua\nExpected at: " .. manager_path,
+    "Could not find lms_manager.lua\n\nLooked in:\n  " ..
+    table.concat(manager_tried, "\n  "),
     "LMS Setup", 0)
   return
 end
-f:close()
 
 -- Save verified paths so __startup.lua can find them on restart
 reaper.SetExtState("LMS", "service_path", service_path, true)
@@ -64,8 +81,7 @@ dofile(manager_path)
 
 -- Install __startup.lua for auto-start on REAPER launch
 -- REAPER natively runs Scripts/__startup.lua on every launch (no SWS needed)
-local scripts_dir = reaper.GetResourcePath() .. "/Scripts"
-local startup_path = scripts_dir .. "/__startup.lua"
+local startup_path = scripts_root .. "/__startup.lua"
 
 local LMS_START = "-- [LMS AUTO-START BEGIN]"
 local LMS_END   = "-- [LMS AUTO-START END]"
