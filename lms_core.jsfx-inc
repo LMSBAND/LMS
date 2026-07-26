@@ -5400,9 +5400,11 @@ function lms_srcring_con_init()
   local(k)
 (
   this.rd_idx = 0;
+  this.prev_n = 0;
   k = 0;
   loop(SRC_MAX_SLOTS,
     this.snap[k] = 0;
+    this.rpos[k] = 0;
     this.alive[k] = 0;
     this.last_hb[k] = -1;
     k += 1;
@@ -5410,7 +5412,7 @@ function lms_srcring_con_init()
 );
 
 function lms_srcring_con_block()
-  local(k, sb, hb)
+  local(k, sb, hb, avail)
 (
   this.rd_idx = 0;
   k = 0;
@@ -5425,9 +5427,38 @@ function lms_srcring_con_block()
     ) : (
       this.alive[k] > 0 ? this.alive[k] -= 1;
     );
+
+    // Advance our own read pointer by what we actually consumed last block,
+    // instead of deriving the read position from the writer every time.
+    //
+    // Reading at snap - samplesblock looks equivalent and is not: snap moved
+    // by the PREVIOUS block's length while we subtract the CURRENT one. The
+    // moment REAPER hands out a short block -- a loop boundary, the tail of a
+    // render, a buffer size change -- the read window slips and continuity
+    // breaks. It survives constant block sizes perfectly, which is exactly
+    // what makes it a bad bug: fine all session, clicking on the render.
+    this.rpos[k] = (this.rpos[k] + this.prev_n) % SRC_RING_SIZE;
+
+    // Resync if the writer has not left a full block, or if we have drifted
+    // so far that we would read into what it has not written yet. A resync is
+    // a discontinuity -- a click -- so it is worth knowing when one can happen.
+    //
+    // Simulated against REAPER's real block behaviour: steady buffers, the
+    // short blocks that loop points and render tails produce, the 441/512
+    // mixture at 44.1k, and buffer size changes in both directions. All
+    // seamless except one case: raising the device buffer while the publisher
+    // runs after the room, which costs exactly one discontinuity. Changing the
+    // audio buffer interrupts playback anyway, so that is a click inside a
+    // gap. Lowering it is seamless.
+    avail = (gmem[sb + 2] - this.rpos[k] + SRC_RING_SIZE) % SRC_RING_SIZE;
+    (avail < samplesblock || avail > SRC_RING_SIZE - samplesblock) ? (
+      this.rpos[k] = (gmem[sb + 2] - samplesblock + SRC_RING_SIZE) % SRC_RING_SIZE;
+    );
+
     this.snap[k] = gmem[sb + 2];
     k += 1;
   );
+  this.prev_n = samplesblock;
 );
 
 function lms_srcring_active(slot_id)
@@ -5439,8 +5470,7 @@ function lms_srcring_active(slot_id)
 function lms_srcring_read(slot_id)
   local(rp)
 (
-  rp = this.snap[slot_id] - samplesblock + this.rd_idx;
-  rp < 0 ? rp += SRC_RING_SIZE;
+  rp = this.rpos[slot_id] + this.rd_idx;
   rp >= SRC_RING_SIZE ? rp -= SRC_RING_SIZE;
   gmem[G_SRC_RINGS + slot_id * SRC_RING_SIZE + rp];
 );

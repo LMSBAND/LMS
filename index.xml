@@ -124,6 +124,10 @@
         <changelog>v7.3 &#8212; SECTION 15: source rings, cross-track audio over gmem. A satellite publishes its track&#39;s audio into a ring; a room on another track reads it back sample-aligned by snapshotting the write position once per block and walking forward. Same mechanism as the bleed engine, reduced to just the transport. Needed because a single gmem cell cannot carry audio between tracks: REAPER runs a whole block per track, so the cell only ever holds the writer&#39;s last sample.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.4" author="LMS" time="2026-07-26T22:00:00Z">
+        <changelog>v7.4 &#8212; Fix the source-ring consumer losing continuity when REAPER changes block size. It read at (writer position - samplesblock), but the writer position had advanced by the PREVIOUS block&#39;s length while the read subtracted the CURRENT one, so any short block slipped the read window. Constant block sizes hid it entirely. The consumer now keeps its own read pointer, advances it by what it actually consumed, and resyncs only when the writer has not left a full block. Simulated clean against steady buffers, loop-point short blocks, 441/512 mixtures and buffer changes.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
