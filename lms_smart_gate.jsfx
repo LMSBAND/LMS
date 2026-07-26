@@ -42,7 +42,7 @@ slider15:100<0,100,1>-Mix (%)
   bc.lms_bc_init(21, 16);
 
   // Density tracker (4-band spectral analysis from lms_core.jsfx-inc)
-  hd.lms_opto_hd_init();
+  hd.lms_hd_init(250, 2000, 5000);
 
   // Sidechain HPF (removes rumble from gate sidechain)
   sc_hpf.lms_bq_init();
@@ -414,7 +414,7 @@ mode == 1 ? (
   // Sidechain: mono sum → HPF → density tracker (runs on CURRENT signal, not delayed)
   sc_mono = (l + r) * 0.5;
   sc_mono = sc_hpf.lms_bq_proc(sc_mono);
-  hd.lms_opto_hd_proc(sc_mono);
+  hd.lms_hd_proc(sc_mono);
 
   // Spectral baseline follower — slow-tracks band envelopes so delta isolates transients
   tc_base_lo = tc_base_coeff * tc_base_lo + (1 - tc_base_coeff) * hd.env_lo;

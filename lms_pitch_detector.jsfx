@@ -55,7 +55,7 @@ slider8:100<20,500,1>-Min Note (ms)
   hold_release_max = 0.150; // 150ms of silence before releasing held note
 
   // ---- Vocal Intelligence: Density Tracker ----
-  vi_hd.lms_opto_hd_init();
+  vi_hd.lms_hd_init(250, 2000, 5000);
 
   // ---- Voiced/Unvoiced State ----
   vi_voiced = 0;
@@ -389,7 +389,7 @@ midi_enabled ? (
 
   // ---- Vocal Intelligence per-sample ----
   // Density tracker (~30 ops: 5 biquads + 5 envelope followers + ratios)
-  vi_hd.lms_opto_hd_proc(mono);
+  vi_hd.lms_hd_proc(mono);
 
   // Onset envelope follower (fast attack, moderate release)
   vi_abs_mono = abs(mono);

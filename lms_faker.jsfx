@@ -40,7 +40,7 @@ slider10:0<0,1,1{Off,On}>-Follow Harmony Map
   hold_release_max = 0.150;
 
   // Density tracker (4-band harmonic distribution)
-  vi_hd.lms_opto_hd_init();
+  vi_hd.lms_hd_init(250, 2000, 5000);
 
   // Voiced/unvoiced state
   vi_voiced = 0;
@@ -529,7 +529,7 @@ vi_effective_speed > 0.01 ? (
   // ---- Pitch detection per-sample (on raw input, before HPF) ----
   pd_mono = (spl0 + spl1) * 0.5;
   pd.lms_yin_write(pd_mono);
-  vi_hd.lms_opto_hd_proc(pd_mono);
+  vi_hd.lms_hd_proc(pd_mono);
 
   // Onset envelope follower
   vi_abs_mono = abs(pd_mono);

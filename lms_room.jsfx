@@ -162,7 +162,7 @@ srcring.lms_srcring_con_init();
 
 // Room Juice: 4-band density read of the reverb feed. Off by default, and
 // when it is off the tracker never runs -- see @sample.
-rj_hd.lms_opto_hd_init();
+rj_hd.lms_hd_init(250, 2000, 5000);
 rj_damp = 0; rj_damp_inv = 1; rj_fb = 0; rj_active = 0;
 
 // Default band positions: semicircle behind default source
@@ -937,7 +937,7 @@ drag_band = -1;
   rj_damp = fdn_damp;
   rj_fb   = fdn_fb;
   slider23 > 0 ? (
-    rj_hd.lms_opto_hd_proc((wet_l + wet_r) * 0.5);
+    rj_hd.lms_hd_proc((wet_l + wet_r) * 0.5);
     rj_amt = slider24 * 0.01;
     slider23 == 1 ? (
       rj_damp = max(0.01, fdn_damp - rj_hd.air_density * 2.0 * rj_amt);
