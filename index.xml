@@ -1946,6 +1946,10 @@
         <changelog>v1.2 — Fix "ImGui_CreateImage: No such file or directory" on startup. The header logo path was built from the git checkout layout (repo root, one level above scripts/), but ReaPack ships shakebot_logo.png as a data source, which installs to &lt;resource&gt;/Data. The manager now checks both layouts and wraps image creation in pcall, so a missing or unreadable logo degrades to a header without an image instead of aborting the script.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="1.3" author="LMS" time="2026-07-25T21:00:00Z">
+        <changelog>v1.3 — Fix "Create Track" buttons building an empty track on other people's rigs. The DrumBanger, Harmony Map, Drone Voice, Track Setup and Room buttons all inserted FX using a hardcoded "LMS Plugins/LMS/" path. That folder name is not fixed: under ReaPack it is "&lt;remote name&gt;/&lt;category&gt;", and the remote name is chosen by whoever imports the repo, while a manual install uses a different layout again. On any rig that named the remote differently, TrackFX_AddByName returned -1, and because the result was never checked the track was created and named with an empty FX bin and no error. JSFX are now located by searching &lt;resource&gt;/Effects for the file and using the path actually found, with the old prefix and bare filename as fallbacks. Failures are reported to the ReaScript console (never a modal dialog, which would let ReaImGui collect the context mid-frame) and point at Preferences &gt; Plug-ins &gt; JS &gt; Re-scan, since REAPER cannot insert a JSFX it has not scanned.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">

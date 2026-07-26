@@ -151,7 +151,83 @@ local TRACK_COLORS = {
   {200, 200, 100}, {140, 100, 180}, {230, 160, 130}, {100, 200, 220},
 }
 local color_idx = 0
+
+-- ---- JSFX resolution -------------------------------------------------------
+-- Where our .jsfx files land is NOT fixed. Under ReaPack the folder is
+-- "<remote name>/<category>/", and the remote name is chosen by whoever
+-- imports the repo -- it is only "LMS Plugins" by convention. A manual install
+-- per the README puts them somewhere else again. Hardcoding a prefix meant
+-- TrackFX_AddByName silently returned -1 on any rig that named things
+-- differently: the track got built and the FX never appeared.
+--
+-- So: search <resource>/Effects for the file and use whatever relative path we
+-- actually find. Keep the old prefix and the bare name as fallbacks.
 local JSFX_PREFIX = "LMS Plugins/LMS/"
+
+local jsfx_path_cache = {}
+
+local function find_jsfx(filename)
+  local cached = jsfx_path_cache[filename]
+  if cached ~= nil then
+    return cached or nil
+  end
+
+  local root = r.GetResourcePath() .. "/Effects"
+  local found = nil
+  local queue = { "" }
+
+  while #queue > 0 and not found do
+    local rel = table.remove(queue, 1)
+    local dir = (rel == "") and root or (root .. "/" .. rel)
+
+    local i = 0
+    while true do
+      local f = r.EnumerateFiles(dir, i)
+      if not f then break end
+      if f == filename then
+        found = (rel == "") and f or (rel .. "/" .. f)
+        break
+      end
+      i = i + 1
+    end
+
+    if not found then
+      local d = 0
+      while true do
+        local sub = r.EnumerateSubdirectories(dir, d)
+        if not sub then break end
+        queue[#queue + 1] = (rel == "") and sub or (rel .. "/" .. sub)
+        d = d + 1
+      end
+    end
+  end
+
+  jsfx_path_cache[filename] = found or false
+  return found
+end
+
+-- Add an LMS JSFX to a track. Returns the FX index, or -1 if every candidate
+-- failed. Never use ShowMessageBox to report this: it is modal, and blocking
+-- the defer loop lets ReaImGui garbage-collect our context mid-frame.
+local function add_lms_fx(track, filename)
+  local tried = {}
+  local discovered = find_jsfx(filename)
+  if discovered then tried[#tried + 1] = discovered end
+  tried[#tried + 1] = JSFX_PREFIX .. filename
+  tried[#tried + 1] = filename
+
+  for _, candidate in ipairs(tried) do
+    local fx = r.TrackFX_AddByName(track, candidate, false, -1)
+    if fx >= 0 then return fx end
+  end
+
+  r.ShowConsoleMsg(
+    "LMS Manager: could not add " .. filename .. "\n" ..
+    "  tried: " .. table.concat(tried, ", ") .. "\n" ..
+    "  If the plugin is installed, run Options > Preferences > Plug-ins > JS >\n" ..
+    "  Re-scan -- REAPER cannot insert a JSFX it has not scanned yet.\n")
+  return -1
+end
 
 local CAT_COLORS = {
   amp    = 0xFF6644FF,
@@ -1166,7 +1242,7 @@ local function draw_drumbanger(ctx)
       local track = r.GetTrack(0, idx)
       r.GetSetMediaTrackInfo_String(track, "P_NAME", "DRUMBANGER", true)
       r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(204, 136, 68) | 0x1000000)
-      r.TrackFX_AddByName(track, "LMS Plugins/LMS/lms_drumbanger.jsfx", false, -1)
+      add_lms_fx(track, "lms_drumbanger.jsfx")
       ensure_low_latency(track)
       scan_tracks()
     end
@@ -1611,7 +1687,7 @@ local function draw_drumbanger(ctx)
             r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_SRCCHAN", 2 + p * 2)
             r.SetTrackSendInfo_Value(db_track, 0, send_idx, "I_DSTCHAN", 0)
 
-            r.TrackFX_AddByName(child, "LMS Plugins/LMS/lms_rtw.jsfx", false, -1)
+            add_lms_fx(child, "lms_rtw.jsfx")
             insert_at = insert_at + 1
           end
         end
@@ -2001,7 +2077,7 @@ local function draw_harmony(ctx)
       local track = r.GetTrack(0, idx)
       r.GetSetMediaTrackInfo_String(track, "P_NAME", "HARMONY MAP", true)
       r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(100, 180, 230) | 0x1000000)
-      r.TrackFX_AddByName(track, "LMS Plugins/LMS/lms_harmony_map.jsfx", false, -1)
+      add_lms_fx(track, "lms_harmony_map.jsfx")
       scan_tracks()
     end
     return
@@ -2515,9 +2591,9 @@ local function draw_harmony(ctx)
         r.SetMediaTrackInfo_Value(new_track, "I_CUSTOMCOLOR",
           r.ColorToNative(synth.color[1], synth.color[2], synth.color[3]) | 0x1000000)
 
-        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. "lms_drone_voice.jsfx", false, -1)
-        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. synth.jsfx, false, -1)
-        r.TrackFX_AddByName(new_track, JSFX_PREFIX .. "lms_rtw.jsfx", false, -1)
+        add_lms_fx(new_track, "lms_drone_voice.jsfx")
+        add_lms_fx(new_track, synth.jsfx)
+        add_lms_fx(new_track, "lms_rtw.jsfx")
 
         -- Keep FX chain awake: monitoring without arm
         r.SetMediaTrackInfo_Value(new_track, "I_RECMON", 1)
@@ -2658,7 +2734,7 @@ local function draw_track_setup(ctx)
       r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
       for type_id, info in pairs(TYPE_REGISTRY) do
         if setup_selected[type_id] and info.jsfx then
-          r.TrackFX_AddByName(track, JSFX_PREFIX .. info.jsfx, false, -1)
+          add_lms_fx(track, info.jsfx)
         end
       end
     end
@@ -2677,7 +2753,7 @@ local function draw_track_setup(ctx)
       if r.ImGui_SmallButton(ctx, string.format("T%d: %s##setup_add_%d", ti + 1, tname, ti)) then
         for type_id, info in pairs(TYPE_REGISTRY) do
           if setup_selected[type_id] and info.jsfx then
-            r.TrackFX_AddByName(track, JSFX_PREFIX .. info.jsfx, false, -1)
+            add_lms_fx(track, info.jsfx)
           end
         end
         scan_tracks()
@@ -2710,7 +2786,7 @@ local function room_verb_enable()
 
   local master, existing_fi = find_room_on_master()
   if not existing_fi then
-    local fi = r.TrackFX_AddByName(master, JSFX_PREFIX .. "lms_room.jsfx", false, -1)
+    local fi = add_lms_fx(master, "lms_room.jsfx")
     if fi >= 0 and fi > 0 then
       r.TrackFX_CopyToTrack(master, fi, master, 0, true)
       fi = 0
