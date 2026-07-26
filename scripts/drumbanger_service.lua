@@ -24,28 +24,14 @@ local SAMPLE_RATE     = 48000
 local NUM_CHANNELS    = 2
 local MAX_WAIT_CYCLES = 300       -- ~5 seconds at 60fps defer rate
 
--- Find pool/ by locating the JSFX (works regardless of ReaPack index name)
+-- The pool DRUMBANGER actually reads. It loads samples with
+-- file_open("pool/..."), and JSFX resolves a relative path against
+-- <resource>/Data -- never against the folder the .jsfx sits in. ReaPack
+-- agrees: the samples ship as type="data" sources, which install to Data/.
+-- A pool sitting next to the effect is invisible to the plugin no matter how
+-- correct it looks, which is exactly what these scripts used to build.
 local function find_pool()
-  local fx = reaper.GetResourcePath() .. "/Effects"
-  local function search(dir, depth)
-    if depth > 4 then return nil end
-    local i = 0
-    while true do
-      local f = reaper.EnumerateFiles(dir, i)
-      if not f then break end
-      if f == "lms_drumbanger.jsfx" then return dir .. "/pool" end
-      i = i + 1
-    end
-    local j = 0
-    while true do
-      local d = reaper.EnumerateSubdirectories(dir, j)
-      if not d then break end
-      local r = search(dir .. "/" .. d, depth + 1)
-      if r then return r end
-      j = j + 1
-    end
-  end
-  return search(fx, 0) or (fx .. "/DRUMBANGER/pool")
+  return reaper.GetResourcePath() .. "/Data/pool"
 end
 
 -- ---- WAV helpers (little-endian) ----

@@ -1,9 +1,9 @@
 -- DRUMBANGER: Fix Pool Directory
 -- --------------------------------
 -- Nukes the pool directory and rebuilds it clean.
--- Finds ALL .wav files anywhere under the DRUMBANGER folder
--- (including nested pool/pool/, legacy kits/, wrong paths)
--- and puts them in the one correct place: Effects/DRUMBANGER/pool/
+-- Finds ALL .wav files in the live pool and anywhere under the Effects
+-- folder (nested pool/pool/, legacy kits/, wrong paths) and puts them in
+-- the one place the plugin can actually read: <resource>/Data/pool/
 --
 -- If stock kits (Kit1-808, Kit2-LoFi) are missing, downloads them
 -- from GitHub automatically.
@@ -165,7 +165,16 @@ local function find_wavs(dir, depth, results)
 end
 
 local function main()
-  -- Find the JSFX to determine the correct DRUMBANGER directory
+  -- The pool DRUMBANGER actually reads. It loads samples with
+  -- file_open("pool/..."), and JSFX resolves a relative path against
+  -- <resource>/Data -- never against the folder the .jsfx sits in. ReaPack
+  -- agrees: the samples ship as type="data" sources, which install to Data/.
+  -- This script used to rebuild the pool next to the .jsfx, where the plugin
+  -- cannot see it, so "repairing" a broken install left it just as silent.
+  local pool_dir = reaper.GetResourcePath() .. "/Data/pool"
+
+  -- The Effects folder is still worth finding, but only as a place to sweep
+  -- legacy wavs out of and into the real pool.
   local fx_root = reaper.GetResourcePath() .. "/Effects"
   local db_dir = nil
   local function find_jsfx(dir, depth)
@@ -189,7 +198,6 @@ local function main()
   if not db_dir then
     db_dir = fx_root .. "/DRUMBANGER"
   end
-  local pool_dir = db_dir .. "/pool"
 
   reaper.ShowConsoleMsg("\n====================================\n")
   reaper.ShowConsoleMsg("DRUMBANGER FIX: Rebuilding pool...\n")
@@ -197,9 +205,13 @@ local function main()
   reaper.ShowConsoleMsg("  JSFX dir: " .. db_dir .. "\n")
   reaper.ShowConsoleMsg("  Pool target: " .. pool_dir .. "\n\n")
 
-  -- Step 1: Find every .wav file under the JSFX directory
-  -- Also search the entire Effects tree in case wavs are scattered
+  -- Step 1: Find every .wav file worth keeping.
+  -- The live pool comes FIRST: step 3 nukes pool_dir, and anything not read
+  -- into memory by then is gone -- including kits the user added themselves.
+  -- Dedup below keeps the first occurrence, so the live copy also wins over
+  -- any stale duplicate found in a legacy folder.
   local wavs = {}
+  find_wavs(pool_dir, 0, wavs)
   find_wavs(db_dir, 0, wavs)
   -- Also check Effects/DRUMBANGER/ and Effects/DrumBox16/ (legacy paths)
   local alt_dirs = {fx_root .. "/DRUMBANGER", fx_root .. "/DrumBox16"}

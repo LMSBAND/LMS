@@ -1823,6 +1823,10 @@
         <changelog>v1.2 — Dynamic pool discovery: searches Effects/ tree for lms_drumbanger.jsfx and uses pool/ next to it. Works with any ReaPack index name or install layout.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
       </version>
+      <version name="1.3" author="LMS" time="2026-07-26T01:00:00Z">
+        <changelog>v1.3 &#8212; Look for the sample pool in &lt;resource path&gt;/Data/pool, which is where DRUMBANGER reads it from and where ReaPack installs it. This script built the path from the folder holding lms_drumbanger.jsfx instead, so it pointed at a pool the plugin cannot see: file_open() resolves relative paths against Data/, never against the effect&#39;s own folder.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_load.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_rescan.lua" type="script" desc="DRUMBANGER: Rescan Pool">
       <version name="1.0" author="LMS" time="2026-02-15T00:00:00Z">
@@ -1843,6 +1847,10 @@
       </version>
       <version name="1.4" author="LMS" time="2026-03-01T00:00:00Z">
         <changelog>v1.4 — Dynamic pool discovery: searches Effects/ tree for lms_drumbanger.jsfx and uses pool/ next to it. Works with any ReaPack index name or install layout.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
+      </version>
+      <version name="1.5" author="LMS" time="2026-07-26T01:00:00Z">
+        <changelog>v1.5 &#8212; Look for the sample pool in &lt;resource path&gt;/Data/pool, which is where DRUMBANGER reads it from and where ReaPack installs it. This script built the path from the folder holding lms_drumbanger.jsfx instead, so it pointed at a pool the plugin cannot see: file_open() resolves relative paths against Data/, never against the effect&#39;s own folder.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_rescan.lua</source>
       </version>
     </reapack>
@@ -1867,6 +1875,10 @@
         <changelog>v1.4 — Fix WAV writer: add math.floor to write_u16/u32/i16 (prevents fractional byte values). NaN guard on audio samples (NaN → 0). Peak detection moved after clamp for correct reporting.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
       </version>
+      <version name="1.5" author="LMS" time="2026-07-26T01:00:00Z">
+        <changelog>v1.5 &#8212; Look for the sample pool in &lt;resource path&gt;/Data/pool, which is where DRUMBANGER reads it from and where ReaPack installs it. This script built the path from the folder holding lms_drumbanger.jsfx instead, so it pointed at a pool the plugin cannot see: file_open() resolves relative paths against Data/, never against the effect&#39;s own folder.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_service.lua</source>
+      </version>
     </reapack>
     <reapack name="drumbanger_open_pool.lua" type="script" desc="DRUMBANGER: Open Pool Folder">
       <version name="1.0" author="LMS" time="2026-02-28T23:00:00Z">
@@ -1879,6 +1891,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-03-01T00:00:00Z">
         <changelog>v1.2 — Dynamic pool discovery: searches Effects/ tree for lms_drumbanger.jsfx and opens pool/ next to it. Works with any ReaPack index name or install layout.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-07-26T01:00:00Z">
+        <changelog>v1.3 &#8212; Look for the sample pool in &lt;resource path&gt;/Data/pool, which is where DRUMBANGER reads it from and where ReaPack installs it. This script built the path from the folder holding lms_drumbanger.jsfx instead, so it pointed at a pool the plugin cannot see: file_open() resolves relative paths against Data/, never against the effect&#39;s own folder.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_open_pool.lua</source>
       </version>
     </reapack>
@@ -1897,6 +1913,10 @@
       </version>
       <version name="1.3" author="LMS" time="2026-03-07T13:00:00Z">
         <changelog>v1.3 — Stock kit auto-download on first run. GUI restyle support.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
+      </version>
+      <version name="1.4" author="LMS" time="2026-07-26T01:00:00Z">
+        <changelog>v1.4 &#8212; Look for the sample pool in &lt;resource path&gt;/Data/pool, which is where DRUMBANGER reads it from and where ReaPack installs it. This script built the path from the folder holding lms_drumbanger.jsfx instead, so it pointed at a pool the plugin cannot see: file_open() resolves relative paths against Data/, never against the effect&#39;s own folder. Fix Pool now also reads the live pool before wiping it, so custom kits are no longer destroyed by a repair, and sweeps any wavs left in Effects/ into the real pool.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/drumbanger_fix_pool.lua</source>
       </version>
     </reapack>
