@@ -894,6 +894,10 @@
         <changelog>v1.8 &#8212; Second analyser bank on the input, same 12 centres, so the manager can overlay input against output. The reactive EQ moves four bands from a density reading and a single curve cannot show a move. Also publishes whether the EQ is actually running (it needs both a profile AND the opto engaged) and its four live band gains.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.9" author="LMS" time="2026-07-26T14:00:00Z">
+        <changelog>v1.9 &#8212; Publishes the four raw band envelopes alongside the density ratios, so the manager can draw the same animated density matrix the amps carry.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -1809,6 +1813,10 @@
         <changelog>v1.0 — MIDI generator satellite for LMS synths (Nuug420, Lil Stinker). 5 roles: Bass (root-12), Chords (full voicing), Arp Up/Down/Bounce, Arp+Harmony (parallel interval), Power (root+5th). Settings persist with project via JSFX sliders (role, octave, velocity, arp rate, arp direction, harmony interval). Glide/portamento support via note-on-before-note-off overlap. Reads chord data from Harmony Map via gmem. Transport follows REAPER play_state directly.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drone_voice.jsfx</source>
       </version>
+      <version name="1.1" author="LMS" time="2026-07-26T14:00:00Z">
+        <changelog>v1.1 &#8212; Harm Arp harmonises by chord tone instead of by semitone. The old Harm Interval added a fixed chromatic interval to every arp note, which leaves the key on most degrees -- that is what made it sound wrong. Harm Offset walks the chord array instead, so the harmony voice is always a note already in the chord, and wraps up an octave past the top rather than folding under the arp. Existing projects will reinterpret the saved value as an offset.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_drone_voice.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_piece_of_shit.jsfx" type="effect" desc="LMS - The Piece of Shit — 5-inch Solid State Practice Amp">
       <version name="1.0" author="LMS" time="2026-07-18T00:00:00Z">
@@ -2033,6 +2041,10 @@
       </version>
       <version name="1.8" author="LMS" time="2026-07-26T03:30:00Z">
         <changelog>v1.8 &#8212; Spectrum overlays the input as an outline behind the output bars, so the reactive EQ&#39;s move is visible rather than just its result. Align levels (on by default) subtracts the broadband difference so the comparison shows shape rather than makeup gain. Reads out the EQ&#39;s live band gains, and says which of profile-or-opto is missing when it is idle.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="1.9" author="LMS" time="2026-07-26T14:00:00Z">
+        <changelog>v1.9 &#8212; Metering: density now uses the amps&#39; DENSITY AWARENESS matrix -- 16x8 animated cells, LO blue / MID orange / HI red / AIR purple -- sized to match the spectrum above it, so density reads the same everywhere in the suite and the page is not four more shades of green. Harmony arp: the 12-way chromatic interval combo is replaced by a 1-8 chord-tone offset.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>

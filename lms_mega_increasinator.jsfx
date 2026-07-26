@@ -352,6 +352,14 @@ gmem[MEGA_BUS + 11] = out_hd.mid_density;
 gmem[MEGA_BUS + 12] = out_hd.hi_density;
 gmem[MEGA_BUS + 13] = out_hd.air_density;
 
+// Raw band envelopes as well as the ratios above. The amps' density matrix
+// animates from these, not from the ratios, so publishing them lets the
+// manager draw the same display from the same numbers.
+gmem[MEGA_BUS + 100] = out_hd.env_lo;
+gmem[MEGA_BUS + 101] = out_hd.env_mid;
+gmem[MEGA_BUS + 102] = out_hd.env_hi;
+gmem[MEGA_BUS + 103] = out_hd.env_air;
+
 gmem[MEGA_BUS + 21] = lms_lin2db(b01.env); gmem[MEGA_BUS + 22] = lms_lin2db(b02.env);
 gmem[MEGA_BUS + 23] = lms_lin2db(b03.env); gmem[MEGA_BUS + 24] = lms_lin2db(b04.env);
 gmem[MEGA_BUS + 25] = lms_lin2db(b05.env); gmem[MEGA_BUS + 26] = lms_lin2db(b06.env);

@@ -10,7 +10,7 @@ slider3:0<-2,3,1>Octave
 slider4:100<1,127,1>Velocity
 slider5:3<0,7,1>Arp Rate
 slider6:0<0,4,1>Arp Dir
-slider7:4<0,11,1>Harm Interval
+slider7:2<1,8,1>Harm Offset (chord tones)
 
 in_pin:left input
 in_pin:right input
@@ -82,7 +82,8 @@ transport && chord_count > 0 ? (
     // Arp from beat position
     arp_rate = slider5 | 0;
     arp_dir = slider6 | 0;
-    harm_int = slider7 | 0;
+    harm_off = slider7 | 0;
+    harm_off < 1 ? harm_off = 1;
     spb = SPB_TBL[arp_rate];
     step = floor(beat_position * spb);
     step < 0 ? step = 0;
@@ -104,7 +105,19 @@ transport && chord_count > 0 ? (
     target_count = 1;
 
     role == 3 ? (
-      TARGET[1] = max(0, min(127, TARGET[0] + harm_int));
+      // Harmony voice: another CHORD TONE, harm_off positions above the one
+      // the arp is on. This used to be a fixed chromatic interval added to the
+      // arp note, which is why it sounded wrong so often -- a constant number
+      // of semitones above every degree lands outside the key on most of them.
+      // Walking the chord array instead can only ever produce notes that are
+      // already in the chord, so it is in key by construction.
+      //
+      // Past the end of the array it wraps and climbs an octave, so the voice
+      // keeps rising instead of folding back underneath the arp.
+      harm_raw = idx + harm_off;
+      harm_idx = harm_raw % chord_count;
+      harm_oct = floor(harm_raw / chord_count);
+      TARGET[1] = max(0, min(127, CHORD[harm_idx] + 12 * harm_oct));
       target_count = 2;
     );
   ) :

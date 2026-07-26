@@ -528,7 +528,7 @@ local function update_drones()
           vel = math.floor(r_vel),
           arp_rate = math.floor(r_arp),
           arp_dir = math.floor(r_dir),
-          harm_int = math.floor(r_hint)
+          harm_off = math.max(1, math.floor(r_hint))
         }
       end
       local ds = drone_states[ds_key]
@@ -541,7 +541,7 @@ local function update_drones()
       r.TrackFX_SetParam(inst.track, inst.fx_idx, 3, ds.vel)
       r.TrackFX_SetParam(inst.track, inst.fx_idx, 4, ds.arp_rate)
       r.TrackFX_SetParam(inst.track, inst.fx_idx, 5, ds.arp_dir)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 6, ds.harm_int)
+      r.TrackFX_SetParam(inst.track, inst.fx_idx, 6, ds.harm_off)
 
       local gbase = 961100 + slot * 20
       local chord = {}
@@ -629,6 +629,10 @@ local function read_mega_state()
     eq_mid = r.gmem_read(MEGA_BUS + 17),
     eq_hi  = r.gmem_read(MEGA_BUS + 18),
     eq_air = r.gmem_read(MEGA_BUS + 19),
+    env_lo  = r.gmem_read(MEGA_BUS + 100),
+    env_mid = r.gmem_read(MEGA_BUS + 101),
+    env_hi  = r.gmem_read(MEGA_BUS + 102),
+    env_air = r.gmem_read(MEGA_BUS + 103),
   }
 end
 
@@ -2572,7 +2576,6 @@ local function draw_harmony(ctx)
   local DRONE_ROLES = {"Bass", "Chords", "Arp", "Harm Arp", "Power"}
   local DRONE_ARP_RATES = {"1/1", "1/2", "1/4", "1/8", "1/16", "1/4T", "1/8T", "1/16T"}
   local DRONE_ARP_DIRS = {"Up", "Down", "UpDown", "Rand", "Voiced"}
-  local DRONE_INTERVALS = {"Uni", "m2", "M2", "m3", "M3", "4th", "Tri", "5th", "m6", "M6", "m7", "M7"}
   local drone_count = 0
 
   for _, inst in ipairs(instances) do
@@ -2636,17 +2639,18 @@ local function draw_harmony(ctx)
         end
       end
 
-      -- Harmonized interval
+      -- Harmony offset, in chord tones rather than semitones. A fixed
+      -- chromatic interval above every degree leaves the key on most of
+      -- them, which is what made this sound wrong; stepping through the
+      -- chord can only land on notes already in it.
       if ds.role == 3 then
         r.ImGui_SameLine(ctx)
-        r.ImGui_SetNextItemWidth(ctx, 50)
-        if r.ImGui_BeginCombo(ctx, "##harm", DRONE_INTERVALS[ds.harm_int + 1] or "?") then
-          for hi = 0, #DRONE_INTERVALS - 1 do
-            if r.ImGui_Selectable(ctx, DRONE_INTERVALS[hi + 1], hi == ds.harm_int) then
-              ds.harm_int = hi
-            end
-          end
-          r.ImGui_EndCombo(ctx)
+        r.ImGui_SetNextItemWidth(ctx, 78)
+        local ho_changed, ho_new = r.ImGui_SliderInt(ctx, "##harm", ds.harm_off, 1, 8, "+%d tones")
+        if ho_changed then ds.harm_off = ho_new end
+        if r.ImGui_IsItemHovered(ctx) then
+          r.ImGui_SetTooltip(ctx, "Harmony voice sits this many chord tones above the arp note. "
+            .. "2 is a third, 3 a fifth. Past the top of the chord it wraps up an octave.")
         end
       end
 
@@ -2748,6 +2752,21 @@ end
 -- display, and the plugin should not care how fast someone's eyes are.
 local spec_hold = {}
 local spec_align = true
+
+-- Density matrix, the same display the amps carry in their DENSITY AWARENESS
+-- panel: 16x8 cells, a row pair per band, animated from the band envelopes.
+-- Band colours are the amps' own -- LO blue, MID orange, HI red, AIR purple --
+-- so density reads identically wherever you meet it in the suite, and so this
+-- page is not four more shades of the spectrum's green.
+local DM_COLS, DM_ROWS = 16, 8
+local DM_BANDS = {
+  {name = "LO",  r = 0.12, g = 0.31, b = 0.86, scale = 8.0},
+  {name = "MID", r = 0.86, g = 0.63, b = 0.12, scale = 10.0},
+  {name = "HI",  r = 0.86, g = 0.24, b = 0.12, scale = 12.0},
+  {name = "AIR", r = 0.71, g = 0.16, b = 0.86, scale = 16.0},
+}
+local dm_cells = {}
+local dm_frame = 0
 
 local function db_to_frac(db, floor_db)
   if db <= floor_db then return 0 end
@@ -2973,14 +2992,71 @@ local function draw_metering(ctx)
     r.ImGui_SameLine(ctx)
     r.ImGui_TextDisabled(ctx, "total  (1.00 sparse -> 2.50 dense)")
 
-    meter_bar(ctx, "Total", math.min(1, math.max(0, (dens - 1.0) / 1.5)),
-      nil, band_hue(1, 4), w, 10 * ui_scale)
-    meter_bar(ctx, "Mid", mega_state.mid_density or 0,
-      string.format("%.2f", mega_state.mid_density or 0), band_hue(2, 4), w, 10 * ui_scale)
-    meter_bar(ctx, "High", mega_state.hi_density or 0,
-      string.format("%.2f", mega_state.hi_density or 0), band_hue(3, 4), w, 10 * ui_scale)
-    meter_bar(ctx, "Air", mega_state.air_density or 0,
-      string.format("%.2f", mega_state.air_density or 0), band_hue(4, 4), w, 10 * ui_scale)
+    -- Same box as the spectrum above it, so the two plots stack as one column.
+    local mx, my = r.ImGui_GetCursorScreenPos(ctx)
+    local mw, mh = pw, plot_h
+    r.ImGui_DrawList_AddRectFilled(dl, mx, my, mx + mw, my + mh, SURFACE, 3)
+
+    -- Square cells, like the amps'. Taking the smaller of the two fits and
+    -- centring keeps them square at any window width -- deriving cell width
+    -- from the panel instead would stretch them into flat bars, which reads
+    -- as a bar chart rather than the matrix this is meant to match.
+    local lbl_w = 34 * ui_scale
+    local cell_gap = math.max(1, 1.5 * ui_scale)
+    local cell = math.min(
+      (mw - lbl_w - 12 * ui_scale - (DM_COLS - 1) * cell_gap) / DM_COLS,
+      (mh - 8 * ui_scale - (DM_ROWS - 1) * cell_gap) / DM_ROWS)
+    cell = math.max(2, cell)
+    local cw, ch = cell, cell
+    local grid_w = DM_COLS * cw + (DM_COLS - 1) * cell_gap
+    local grid_h = DM_ROWS * ch + (DM_ROWS - 1) * cell_gap
+    local gx0 = mx + math.max(4 * ui_scale, (mw - grid_w - lbl_w) * 0.5)
+    local gy0 = my + math.max(4 * ui_scale, (mh - grid_h) * 0.5)
+
+    local envs = {mega_state.env_lo or 0, mega_state.env_mid or 0,
+                  mega_state.env_hi or 0, mega_state.env_air or 0}
+
+    dm_frame = dm_frame + 1
+    local dm_t = dm_frame * 0.025
+
+    for row = 0, DM_ROWS - 1 do
+      local bi = math.floor(row / 2) + 1          -- rows 0-1 LO, 2-3 MID, ...
+      local band = DM_BANDS[bi]
+      local bval = math.min(1.0, envs[bi] * band.scale)
+      for col = 0, DM_COLS - 1 do
+        local ci = row * DM_COLS + col
+        local phase = math.sin(dm_t * ((ci * 0.37 + row * 1.1) * 0.1) + col * 0.5 + row * 0.8)
+        local target = math.max(0, math.min(1, phase * bval * 1.3))
+        local cur = dm_cells[ci] or 0
+        cur = cur + (target - cur) * 0.15
+        dm_cells[ci] = cur
+
+        -- The amps draw on black and scale the colour by cell brightness,
+        -- which is what makes the grid glow rather than blink. Same here.
+        local a = math.max(0.03, cur * 0.9)
+        local col_rgba = (math.floor(band.r * a * 255) << 24)
+                       | (math.floor(band.g * a * 255) << 16)
+                       | (math.floor(band.b * a * 255) << 8) | 0xFF
+        local cx = gx0 + col * (cw + cell_gap)
+        local cy = gy0 + row * (ch + cell_gap)
+        r.ImGui_DrawList_AddRectFilled(dl, cx, cy, cx + cw, cy + ch, col_rgba, 1)
+      end
+    end
+
+    -- Direct band labels in their own colour: four series, so identity never
+    -- rests on the grid alone.
+    for bi = 1, 4 do
+      local band = DM_BANDS[bi]
+      local ly = gy0 + (bi - 1) * 2 * (ch + cell_gap) + ch * 0.5
+      local col_rgba = (math.floor(band.r * 255) << 24) | (math.floor(band.g * 255) << 16)
+                     | (math.floor(band.b * 255) << 8) | 0xFF
+      r.ImGui_DrawList_AddText(dl, gx0 + grid_w + 6 * ui_scale, ly, col_rgba, band.name)
+    end
+    r.ImGui_Dummy(ctx, mw, mh)
+
+    r.ImGui_TextDisabled(ctx, string.format(
+      "mid %.2f   high %.2f   air %.2f      (band share of total energy)",
+      mega_state.mid_density or 0, mega_state.hi_density or 0, mega_state.air_density or 0))
   end
 
   if mega_master then
