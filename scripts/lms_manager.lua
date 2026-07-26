@@ -714,9 +714,168 @@ local function draw_clickable_plugin(ctx, inst, label)
   end
 end
 
+-- ============================================================================
+-- Track Management Actions
+-- ============================================================================
+
+local function track_has_fx_type(track, type_id)
+  local num_fx = r.TrackFX_GetCount(track)
+  for fi = 0, num_fx - 1 do
+    local _, fx_name = r.TrackFX_GetFXName(track, fi)
+    local lms_name, override = extract_lms_name(fx_name)
+    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+    if tid == type_id then return true, fi end
+  end
+  return false, -1
+end
+
+local function add_rtw_to_all_tracks()
+  local src_track = nil
+  local src_fx = -1
+  for _, inst in ipairs(instances) do
+    if inst.type_id == 4 then
+      src_track = inst.track
+      src_fx = inst.fx_idx
+      break
+    end
+  end
+
+  if not src_track then
+    r.ShowConsoleMsg("LMS Manager: No existing RTW found to copy from. Add one manually first.\n")
+    return
+  end
+
+  local added = 0
+  local num_tracks = r.CountTracks(0)
+  for ti = 0, num_tracks - 1 do
+    local track = r.GetTrack(0, ti)
+    if not track_has_fx_type(track, 4) then
+      local dst_count = r.TrackFX_GetCount(track)
+      r.TrackFX_CopyToTrack(src_track, src_fx, track, dst_count, false)
+      added = added + 1
+    end
+  end
+  scan_tracks()
+  r.ShowConsoleMsg(string.format("LMS Manager: Added RTW to %d tracks\n", added))
+end
+
+local function organize_track_fx(track)
+  local num_fx = r.TrackFX_GetCount(track)
+  if num_fx < 2 then return end
+
+  local gate_idx = -1
+  local rtw_idx = -1
+  for fi = 0, num_fx - 1 do
+    local _, fx_name = r.TrackFX_GetFXName(track, fi)
+    local lms_name, override = extract_lms_name(fx_name)
+    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+    if tid == 21 then gate_idx = fi end
+    if tid == 4 then rtw_idx = fi end
+  end
+
+  if gate_idx > 0 then
+    r.TrackFX_CopyToTrack(track, gate_idx, track, 0, true)
+    if rtw_idx >= 0 then
+      if rtw_idx < gate_idx then rtw_idx = rtw_idx + 1
+      elseif rtw_idx == gate_idx then rtw_idx = 0
+      end
+    end
+  end
+
+  num_fx = r.TrackFX_GetCount(track)
+  if rtw_idx >= 0 and rtw_idx < num_fx - 1 then
+    r.TrackFX_CopyToTrack(track, rtw_idx, track, num_fx - 1, true)
+  end
+end
+
+local function organize_all_tracks()
+  local num_tracks = r.CountTracks(0)
+  for ti = 0, num_tracks - 1 do
+    organize_track_fx(r.GetTrack(0, ti))
+  end
+  scan_tracks()
+  r.ShowConsoleMsg("LMS Manager: Organized FX on all tracks\n")
+end
+
+local function copy_fx_chain(src_track, dst_track)
+  local src_fx = r.TrackFX_GetCount(src_track)
+  for fi = 0, src_fx - 1 do
+    r.TrackFX_CopyToTrack(src_track, fi, dst_track, fi, false)
+  end
+  scan_tracks()
+end
+
+local function colorize_all_tracks()
+  local num = r.CountTracks(0)
+  for ti = 0, num - 1 do
+    local track = r.GetTrack(0, ti)
+    local c = TRACK_COLORS[(ti % #TRACK_COLORS) + 1]
+    r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
+  end
+  r.TrackList_AdjustWindows(false)
+  r.UpdateArrange()
+end
+
+-- ---- Amp swapping ----
+-- Amps are interchangeable: same job in the chain, different flavor. Swapping
+-- is delete + insert at the same slot so the rest of the chain keeps its order.
+
+local AMP_TYPES = {}
+for type_id, info in pairs(TYPE_REGISTRY) do
+  if info.cat == "amp" and info.jsfx then AMP_TYPES[#AMP_TYPES + 1] = type_id end
+end
+table.sort(AMP_TYPES, function(a, b) return TYPE_REGISTRY[a].name < TYPE_REGISTRY[b].name end)
+
+local function swap_amp(inst, new_type_id)
+  local info = TYPE_REGISTRY[new_type_id]
+  if not info or not info.jsfx then return end
+  local track, slot = inst.track, inst.fx_idx
+  if not r.ValidatePtr(track, "MediaTrack*") then return end
+
+  local was_enabled = r.TrackFX_GetEnabled(track, slot)
+  local was_open = r.TrackFX_GetOpen(track, slot)
+
+  -- add_lms_fx appends to the end of the chain.
+  local added = add_lms_fx(track, info.jsfx)
+  if added < 0 then return end
+
+  -- Move the newcomer into the old amp's slot; that pushes the old amp down one.
+  r.TrackFX_CopyToTrack(track, added, track, slot, true)
+  r.TrackFX_Delete(track, slot + 1)
+
+  r.TrackFX_SetEnabled(track, slot, was_enabled)
+  if was_open then r.TrackFX_Show(track, slot, 3) end
+  scan_tracks()
+end
+
 -- ---- Overview Tab ----
 
+-- Which track headers are expanded. This is the user's state, not a mirror of
+-- REAPER's track selection -- deriving it from selection every frame is what
+-- made an expanded header snap shut as soon as another track got selected.
+-- Expanding a header selects that track in REAPER instead, so the two agree
+-- without one overwriting the other.
+local ov_open = {}
+local ov_last_sel = nil
+
 local function draw_overview(ctx)
+  -- Whole-project actions. These live here rather than buried in Broadcast and
+  -- Track Setup because they all operate on the track list this tab shows.
+  -- Above the empty-project bail-out: colorizing is worth having on a project
+  -- that has no LMS plugins on it yet.
+  if r.ImGui_Button(ctx, "Colorize All Tracks") then
+    colorize_all_tracks()
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Organize all FX") then
+    organize_all_tracks()
+  end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Add RTW to all tracks") then
+    add_rtw_to_all_tracks()
+  end
+  r.ImGui_Separator(ctx)
+
   if #instances == 0 then
     r.ImGui_TextWrapped(ctx, "No LMS plugins found on any track. Add some JSFX and hit Rescan.")
     return
@@ -739,9 +898,19 @@ local function draw_overview(ctx)
   r.ImGui_Separator(ctx)
 
   local sel_tracks = {}
+  local sel_first = nil
   for si = 0, r.CountSelectedTracks(0) - 1 do
     local st = r.GetSelectedTrack(0, si)
-    sel_tracks[r.CSurf_TrackToID(st, false) - 1] = true
+    local sidx = r.CSurf_TrackToID(st, false) - 1
+    sel_tracks[sidx] = true
+    if not sel_first then sel_first = sidx end
+  end
+
+  -- Selecting a track in REAPER (track panel, arrow keys) expands it here. Our
+  -- own header clicks update ov_last_sel too, so this never fights them.
+  if sel_first ~= ov_last_sel then
+    ov_last_sel = sel_first
+    if sel_first then ov_open[sel_first] = true end
   end
 
   for _, tidx in ipairs(track_order) do
@@ -759,8 +928,24 @@ local function draw_overview(ctx)
     local header_label = string.format("%sT%s: %s  (%d fx)%s###track_%d",
       is_selected and "> " or "  ", track_num, tinfo.track_name, #tinfo.plugins, flags, tidx)
 
-    r.ImGui_SetNextItemOpen(ctx, is_selected)
-    if r.ImGui_CollapsingHeader(ctx, header_label) then
+    -- First sighting of a track defaults to REAPER's selection; after that the
+    -- header is whatever the user last left it as.
+    if ov_open[tidx] == nil then ov_open[tidx] = is_selected end
+    r.ImGui_SetNextItemOpen(ctx, ov_open[tidx])
+    local hdr_open = r.ImGui_CollapsingHeader(ctx, header_label)
+
+    if hdr_open ~= ov_open[tidx] then
+      ov_open[tidx] = hdr_open
+      -- Expanding here selects the track in REAPER, so the arrange view follows
+      -- what you are looking at.
+      if hdr_open and tidx >= 0 and r.ValidatePtr(tinfo.track, "MediaTrack*") then
+        r.SetOnlyTrackSelected(tinfo.track)
+        ov_last_sel = tidx
+        r.TrackList_AdjustWindows(false)
+      end
+    end
+
+    if hdr_open then
 
       -- Right-click track header → send FX menu
       if r.ImGui_IsItemClicked(ctx, 1) and tidx >= 0 then
@@ -859,6 +1044,31 @@ local function draw_overview(ctx)
         if not enabled then
           r.ImGui_PopStyleColor(ctx)
         end
+
+        -- Amps get a swap caret. It is its own button rather than a left-click
+        -- on the name so amps still open like every other plugin here.
+        if cat == "amp" then
+          local popup_id = "ampswap_" .. tidx .. "_" .. pi
+          r.ImGui_SameLine(ctx, 0, 4)
+          if r.ImGui_SmallButton(ctx, "v##" .. popup_id) then
+            r.ImGui_OpenPopup(ctx, popup_id)
+          end
+          if r.ImGui_IsItemHovered(ctx) then
+            r.ImGui_SetTooltip(ctx, "Swap this amp for another")
+          end
+          if r.ImGui_BeginPopup(ctx, popup_id) then
+            r.ImGui_Text(ctx, "Swap " .. name .. " for:")
+            r.ImGui_Separator(ctx)
+            for _, atype in ipairs(AMP_TYPES) do
+              if atype ~= inst.type_id then
+                if r.ImGui_MenuItem(ctx, TYPE_REGISTRY[atype].name .. "##" .. popup_id .. "_" .. atype) then
+                  swap_amp(inst, atype)
+                end
+              end
+            end
+            r.ImGui_EndPopup(ctx)
+          end
+        end
       end
     end
   end
@@ -884,97 +1094,6 @@ local function draw_overview(ctx)
   end
 end
 
--- ============================================================================
--- Track Management Actions
--- ============================================================================
-
-local function track_has_fx_type(track, type_id)
-  local num_fx = r.TrackFX_GetCount(track)
-  for fi = 0, num_fx - 1 do
-    local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    local lms_name, override = extract_lms_name(fx_name)
-    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
-    if tid == type_id then return true, fi end
-  end
-  return false, -1
-end
-
-local function add_rtw_to_all_tracks()
-  local src_track = nil
-  local src_fx = -1
-  for _, inst in ipairs(instances) do
-    if inst.type_id == 4 then
-      src_track = inst.track
-      src_fx = inst.fx_idx
-      break
-    end
-  end
-
-  if not src_track then
-    r.ShowConsoleMsg("LMS Manager: No existing RTW found to copy from. Add one manually first.\n")
-    return
-  end
-
-  local added = 0
-  local num_tracks = r.CountTracks(0)
-  for ti = 0, num_tracks - 1 do
-    local track = r.GetTrack(0, ti)
-    if not track_has_fx_type(track, 4) then
-      local dst_count = r.TrackFX_GetCount(track)
-      r.TrackFX_CopyToTrack(src_track, src_fx, track, dst_count, false)
-      added = added + 1
-    end
-  end
-  scan_tracks()
-  r.ShowConsoleMsg(string.format("LMS Manager: Added RTW to %d tracks\n", added))
-end
-
-local function organize_track_fx(track)
-  local num_fx = r.TrackFX_GetCount(track)
-  if num_fx < 2 then return end
-
-  local gate_idx = -1
-  local rtw_idx = -1
-  for fi = 0, num_fx - 1 do
-    local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    local lms_name, override = extract_lms_name(fx_name)
-    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
-    if tid == 21 then gate_idx = fi end
-    if tid == 4 then rtw_idx = fi end
-  end
-
-  if gate_idx > 0 then
-    r.TrackFX_CopyToTrack(track, gate_idx, track, 0, true)
-    if rtw_idx >= 0 then
-      if rtw_idx < gate_idx then rtw_idx = rtw_idx + 1
-      elseif rtw_idx == gate_idx then rtw_idx = 0
-      end
-    end
-  end
-
-  num_fx = r.TrackFX_GetCount(track)
-  if rtw_idx >= 0 and rtw_idx < num_fx - 1 then
-    r.TrackFX_CopyToTrack(track, rtw_idx, track, num_fx - 1, true)
-  end
-end
-
-local function organize_all_tracks()
-  local num_tracks = r.CountTracks(0)
-  for ti = 0, num_tracks - 1 do
-    organize_track_fx(r.GetTrack(0, ti))
-  end
-  scan_tracks()
-  r.ShowConsoleMsg("LMS Manager: Organized FX on all tracks\n")
-end
-
-local function copy_fx_chain(src_track, dst_track)
-  local src_fx = r.TrackFX_GetCount(src_track)
-  for fi = 0, src_fx - 1 do
-    r.TrackFX_CopyToTrack(src_track, fi, dst_track, fi, false)
-  end
-  scan_tracks()
-end
-
 local ctx_menu_track = nil
 local ctx_menu_track_name = nil
 local ctx_menu_track_idx = nil
@@ -990,55 +1109,8 @@ local function draw_broadcast(ctx)
   r.ImGui_Separator(ctx)
 
   -- Toolbar
-  if r.ImGui_Button(ctx, "Add RTW to all tracks") then
-    add_rtw_to_all_tracks()
-  end
-  r.ImGui_SameLine(ctx)
-  if r.ImGui_Button(ctx, "Organize all FX") then
-    organize_all_tracks()
-  end
-  r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Clear All Follows") then
     follows = {}
-  end
-  r.ImGui_SameLine(ctx)
-
-  -- Dump
-  if r.ImGui_Button(ctx, "Dump to console") then
-    r.ShowConsoleMsg("\n=== LMS MANAGER STATE ===\n")
-    r.ShowConsoleMsg(string.format("Instances: %d\n\n", #instances))
-
-    r.ShowConsoleMsg("-- Instances --\n")
-    for _, inst in ipairs(instances) do
-      local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
-      local name = info and info.name or inst.lms_name
-      local tn = inst.track_idx == -1 and "MASTER" or tostring(inst.track_idx + 1)
-      local leader = type(inst.type_id) == "number" and get_follow(inst.type_id, inst.track_idx)
-      local follow_str = leader and ("follows Track " .. (leader + 1)) or "independent"
-      r.ShowConsoleMsg(string.format("  Track %-2s (%s): %s [type %s] %s\n",
-        tn, inst.track_name, name, tostring(inst.type_id), follow_str))
-    end
-
-    r.ShowConsoleMsg("\n-- Follow Relationships --\n")
-    local any_follow = false
-    for type_id, type_follows in pairs(follows) do
-      for follower_tidx, leader_tidx in pairs(type_follows) do
-        any_follow = true
-        local info = TYPE_REGISTRY[type_id]
-        local name = info and info.name or ("Type " .. type_id)
-        local follower = find_instance(type_id, follower_tidx)
-        local leader = find_instance(type_id, leader_tidx)
-        r.ShowConsoleMsg(string.format("  %s: %s (T%d) → %s (T%d)\n",
-          name,
-          follower and follower.track_name or "?", follower_tidx + 1,
-          leader and leader.track_name or "?", leader_tidx + 1))
-      end
-    end
-    if not any_follow then
-      r.ShowConsoleMsg("  (none)\n")
-    end
-
-    r.ShowConsoleMsg("===========================\n")
   end
 
   r.ImGui_Spacing(ctx)
@@ -2630,6 +2702,23 @@ local function draw_metering(ctx)
     r.ImGui_TextDisabled(ctx, "Mega Increasinator: no data")
   end
 
+  -- The master bus is where this one earns its keep, and it reports GR here.
+  local mega_master = find_instance(19, -1)
+  if mega_master then
+    r.ImGui_TextDisabled(ctx, "  on the master bus")
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Open##mega_master") then
+      toggle_fx(mega_master)
+    end
+  else
+    if r.ImGui_Button(ctx, "Add Mega Increasinator to Master") then
+      local master = r.GetMasterTrack(0)
+      if master and add_lms_fx(master, TYPE_REGISTRY[19].jsfx) >= 0 then
+        scan_tracks()
+      end
+    end
+  end
+
   r.ImGui_Spacing(ctx)
   if pitch_state.heartbeat ~= 0 then
     r.ImGui_Text(ctx, "Pitch Detection:")
@@ -2654,19 +2743,6 @@ local CAT_ORDER_SETUP = {"amp", "mix", "comp", "gate", "fx", "reverb", "pitch", 
 local function draw_track_setup(ctx)
   r.ImGui_Text(ctx, "Select plugins, then add to existing track or create new.")
   r.ImGui_Separator(ctx)
-
-  -- Colorize all tracks button
-  if r.ImGui_Button(ctx, "Colorize All Tracks") then
-    local num = r.CountTracks(0)
-    for ti = 0, num - 1 do
-      local track = r.GetTrack(0, ti)
-      local c = TRACK_COLORS[(ti % #TRACK_COLORS) + 1]
-      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
-    end
-    r.TrackList_AdjustWindows(false)
-    r.UpdateArrange()
-  end
-  r.ImGui_Spacing(ctx)
 
   -- Plugin checklist by category
   for _, cat in ipairs(CAT_ORDER_SETUP) do
@@ -2996,6 +3072,16 @@ local function draw_main(ctx)
   if visible then
     local win_w = r.ImGui_GetWindowWidth(ctx)
     ui_scale = math.max(0.6, math.min(2.0, win_w / 600))
+
+    -- Space runs the transport, the way it does everywhere else in REAPER.
+    -- While this window has focus ImGui swallows the key, so hand it back.
+    -- Skipped whenever a widget is active, or space could never reach the
+    -- rename box or any other text field.
+    if r.ImGui_IsWindowFocused(ctx, r.ImGui_FocusedFlags_RootAndChildWindows())
+      and not r.ImGui_IsAnyItemActive(ctx)
+      and r.ImGui_IsKeyPressed(ctx, r.ImGui_Key_Space(), false) then
+      r.Main_OnCommand(40044, 0)  -- Transport: Play/stop
+    end
     if logo and r.ImGui_ValidatePtr(logo, "ImGui_Image*") then
       local lh = math.floor(28 * ui_scale)
       local lw = math.floor(lh * (200 / 112))

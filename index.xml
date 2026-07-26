@@ -1995,6 +1995,10 @@
         <changelog>v1.5 — Correct the advice printed when an FX cannot be inserted. It pointed at Options &gt; Preferences &gt; Plug-ins &gt; JS &gt; Re-scan, which is not a button that exists; REAPER scans the Effects folder on launch, so the fix is simply to restart REAPER. Same correction applied to the install steps in the README, along with the Windows Effects path, which assumed %APPDATA% and is wrong for portable installs.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="1.6" author="LMS" time="2026-07-25T23:30:00Z">
+        <changelog>v1.6 &#8212; Overview: track headers stay where you put them (expanding one now selects that track in REAPER instead of the selection forcing headers shut), and Colorize All Tracks / Organize all FX / Add RTW to all tracks move here from Track Setup and Broadcast. Amps get a swap caret: pick any other amp and it takes over the same chain slot, bypass state and all. Space starts and stops the transport while the manager has focus. Metering gains an Add Mega Increasinator to Master button. Broadcast loses Dump to console. Fixes Send FX (right-click a track header) erroring out: copy_fx_chain was defined after its only caller, so the call hit a nil global.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">
