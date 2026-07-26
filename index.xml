@@ -1942,6 +1942,10 @@
         <changelog>v1.1 — Add shakebot logo to manager header.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="1.2" author="LMS" time="2026-07-25T20:30:00Z">
+        <changelog>v1.2 — Fix "ImGui_CreateImage: No such file or directory" on startup. The header logo path was built from the git checkout layout (repo root, one level above scripts/), but ReaPack ships shakebot_logo.png as a data source, which installs to &lt;resource&gt;/Data. The manager now checks both layouts and wraps image creation in pcall, so a missing or unreadable logo degrades to a header without an image instead of aborting the script.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">

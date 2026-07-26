@@ -564,9 +564,30 @@ end
 local ctx = r.ImGui_CreateContext("LMS Manager")
 local ui_scale = 1.0
 
+-- Locate the logo. ReaPack ships it as a "data" source, so it installs to
+-- <resource>/Data, while a git checkout keeps it at the repo root beside
+-- scripts/. Try both layouts, and never let a missing or unreadable image
+-- take the whole manager down -- the header simply renders without it.
 local script_dir = debug.getinfo(1, "S").source:match("@?(.*[/\\])") or ""
-local logo_path = script_dir .. ".." .. package.config:sub(1,1) .. "shakebot_logo.png"
-local logo = r.ImGui_CreateImage(logo_path)
+local sep = package.config:sub(1,1)
+
+local logo = nil
+local logo_candidates = {
+  r.GetResourcePath() .. sep .. "Data" .. sep .. "shakebot_logo.png", -- ReaPack install
+  script_dir .. ".." .. sep .. "shakebot_logo.png",                   -- git checkout / manual
+  script_dir .. "shakebot_logo.png",
+}
+for _, path in ipairs(logo_candidates) do
+  local f = io.open(path, "rb")
+  if f then
+    f:close()
+    local ok, img = pcall(r.ImGui_CreateImage, path)
+    if ok and img then
+      logo = img
+      break
+    end
+  end
+end
 if logo then r.ImGui_Attach(ctx, logo) end
 
 local FlagsNone = r.ImGui_WindowFlags_None()
