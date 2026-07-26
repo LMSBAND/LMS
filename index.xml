@@ -120,6 +120,10 @@
         <changelog>v7.2 &#8212; gmem map updated: The Space is retired, so nothing writes the room master heartbeat at 900000 and Space Send currently has no room to talk to. Also records that the band slots at 800010 have no writer.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.3" author="LMS" time="2026-07-26T21:00:00Z">
+        <changelog>v7.3 &#8212; SECTION 15: source rings, cross-track audio over gmem. A satellite publishes its track&#39;s audio into a ring; a room on another track reads it back sample-aligned by snapshotting the write position once per block and walking forward. Same mechanism as the bleed engine, reduced to just the transport. Needed because a single gmem cell cannot carry audio between tracks: REAPER runs a whole block per track, so the cell only ever holds the writer&#39;s last sample.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -382,6 +386,10 @@
         <changelog>v5.3 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
       </version>
+      <version name="6.0" author="LMS" time="2026-07-26T21:00:00Z">
+        <changelog>v6.0 &#8212; Renamed Bluhm Send and repointed at Black In Bluhm, The Space having been retired. Publishes dry mono into its slot&#39;s source ring instead of emitting on channels 3/4, so there is no REAPER send to wire up: add it to a track, pick a slot, done. The track passes through untouched, and the room applies distance, air and placement itself rather than having them baked in twice.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm — Material Room Reverb">
       <version name="1.0" author="LMS" time="2026-07-25T12:00:00Z">
@@ -394,6 +402,10 @@
       </version>
       <version name="1.2" author="LMS" time="2026-07-26T20:00:00Z">
         <changelog>v1.2 &#8212; Room Juice. The tail damping is normally fixed by the wall materials; Room Juice lets a 4-band density read of the reverb feed move it, so the room responds to what is played in it. Bright opens the tail with air content, Moody thickens it with low and mid content and lengthens the feedback slightly. Ported from The Space, where it was called Vibe, since The Space is retired in favour of this plugin.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.3" author="LMS" time="2026-07-26T21:00:00Z">
+        <changelog>v1.3 &#8212; Band mode works. It read each source from one gmem cell per sample, which could never have carried audio across tracks, and nothing wrote those cells anyway. Sources now arrive through the source rings in lms_core, with slot liveness from the ring handshake.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>

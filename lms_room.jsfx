@@ -62,7 +62,6 @@ MAX_BAND = 8;
 BAND_TAPS = 1 + MAX_WALLS + 2;       // direct + 1st order + floor + ceil = 15
 BAND_TOTAL = MAX_BAND * BAND_TAPS;   // 120 total taps
 G_ROOM_STATE = 800000;             // room heartbeat lives here
-G_ROOM_BAND_SLOTS = 800010;             // DroneFX slots start here
 BAND_STRIDE_GMEM = 8;
 
 // Fixed slot layout — contiguous active range for efficient @sample loop
@@ -157,6 +156,9 @@ fdn_wr0=0; fdn_wr1=0; fdn_wr2=0; fdn_wr3=0;
 fdn_lp0=0; fdn_lp1=0; fdn_lp2=0; fdn_lp3=0;
 // Smoothed FDN delay times (converge in @sample)
 sm_fdn_d0=0; sm_fdn_d1=0; sm_fdn_d2=0; sm_fdn_d3=0;
+
+// Source-ring consumer for Band mode (lms_core SECTION 15).
+srcring.lms_srcring_con_init();
 
 // Room Juice: 4-band density read of the reverb feed. Off by default, and
 // when it is off the tracker never runs -- see @sample.
@@ -802,19 +804,15 @@ drag_band = -1;
     room_heartbeat += 1;
     gmem[G_ROOM_STATE] = room_heartbeat;
 
-    // Scan DroneFX slots for active band sources
+    // Scan source-ring slots for active band sources. The ring consumer does
+    // the heartbeat timeout and snapshots every publisher's write position for
+    // this block; see SECTION 15 of lms_core.
+    srcring.lms_srcring_con_block();
     band_count = 0;
     k = 0;
     loop(MAX_BAND,
-      bi = G_ROOM_BAND_SLOTS + k * BAND_STRIDE_GMEM;
-      hb = gmem[bi];
-      hb != band_hb[k] ? (
-        band_hb[k] = hb;
-        band_active[k] = 20;
-      ) : (
-        band_active[k] > 0 ? band_active[k] -= 1;
-      );
-      (gmem[bi+1] > 0.5 && band_active[k] > 0) ? (
+      band_active[k] = srcring.lms_srcring_active(k) ? 20 : 0;
+      band_active[k] > 0 ? (
         band_count += 1;
         bpx = band_pos[k*2]; bpy = band_pos[k*2+1];
         bpx = max(room_margin, min(slider2-room_margin, bpx));
@@ -880,8 +878,7 @@ drag_band = -1;
     k = 0;
     loop(MAX_BAND,
       band_active[k] ? (
-        bi = G_ROOM_BAND_SLOTS + k * BAND_STRIDE_GMEM;
-        band_in = gmem[bi+2];
+        band_in = srcring.lms_srcring_read(k);
 
         bd = band_delay + k * DELAY_BUF_SIZE;
         bw = band_wr[k];
@@ -916,6 +913,8 @@ drag_band = -1;
       );
       k += 1;
     );
+    // Once per sample, not once per slot: every source walks the block together.
+    srcring.lms_srcring_advance();
   );
 
   // Normalize wet signal energy to match dry

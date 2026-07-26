@@ -74,6 +74,8 @@
 //  @gmem G_MEGA_BUS        start=970000   size=200     owner=lms_mega_increasinator.jsfx -- output analyser: loudness, 12-band in/out spectrum, density.
 //  @gmem G_BLEED           start=1000000  size=1000    owner=lms_core.jsfx-inc -- bleed engine geometry, mic vectors, write positions, RMS, matrix.
 //  @gmem G_BLEED_RINGS     start=1001000  size=131072  owner=lms_core.jsfx-inc -- 16 audio ring buffers of 8192 for the bleed engine.
+//  @gmem G_SRC_SLOTS       start=1140000  size=64      owner=lms_core.jsfx-inc -- source-ring handshake, 8 slots of 8: heartbeat, active, write position.
+//  @gmem G_SRC_RINGS       start=1141000  size=65536   owner=lms_core.jsfx-inc -- 8 audio rings of 8192, satellite track to room track. See SECTION 15.
 //
 //  HAZARD, for whoever adds the next plugin type: G_BROADCAST is sized for
 //  type_id up to 37, because the slot address is G_BC_BASE + type_id*16384. A
@@ -5313,4 +5315,137 @@ function lms_bleed_con_read()
     gmem[G_BLEED_RMS + this.slot] = sqrt(this.bleed_rms);
   );
   sum;
+);
+
+
+// ============================================================================
+//  SECTION 15: Source Rings — cross-track audio over gmem
+//
+//  A satellite plugin on a source track publishes its audio here; a room
+//  plugin on another track reads it back sample-aligned. This is the same
+//  mechanism the bleed engine uses, reduced to just the transport: no
+//  geometry, no polar patterns, no N x N matrix. The consumer supplies all of
+//  that itself.
+//
+//  WHY A RING AND NOT A SINGLE SLOT: REAPER processes a whole block per
+//  track, not a sample per track. The satellite runs all N samples of the
+//  block, then the room runs all N. A single gmem cell handed between them
+//  would only ever hold the last sample of the writer's block. Black In
+//  Bluhm's band mode was written that way and could never have worked.
+//
+//  HOW ALIGNMENT WORKS: the consumer snapshots the publisher's write position
+//  once per block and then walks forward one sample at a time through the
+//  block. The read sits samplesblock behind that snapshot, which is the
+//  margin that makes track order irrelevant:
+//
+//    publisher ran first  -> the snapshot already covers this block, and the
+//                            consumer reads this block's audio. No latency.
+//    publisher ran second -> the snapshot is last block's, and the consumer
+//                            reads that. Exactly one block of latency.
+//
+//  Either way it is correct and bounded, which a single slot never is.
+//
+//  Usage, publisher:  @init   pub.lms_srcring_pub_init(slot);
+//                     @block  pub.lms_srcring_pub_block(active);
+//                     @sample pub.lms_srcring_pub_write(mono);
+//
+//  Usage, consumer:   @block  con.lms_srcring_con_block();
+//                     @sample s = con.lms_srcring_read(slot);
+// ============================================================================
+
+G_SRC_SLOTS    = 1140000;
+G_SRC_RINGS    = 1141000;
+SRC_RING_SIZE  = 8192;
+SRC_MAX_SLOTS  = 8;
+SRC_SLOT_SIZE  = 8;        // heartbeat, active, wpos, spare
+
+function lms_srcring_pub_init(slot_id)
+(
+  this.slot      = max(0, min(SRC_MAX_SLOTS - 1, slot_id));
+  this.slot_base = G_SRC_SLOTS + this.slot * SRC_SLOT_SIZE;
+  this.ring_base = G_SRC_RINGS + this.slot * SRC_RING_SIZE;
+  this.write_pos = 0;
+  this.heartbeat = 0;
+);
+
+// Re-point at another slot without losing the ring contents.
+function lms_srcring_pub_slot(slot_id)
+(
+  slot_id != this.slot ? (
+    gmem[this.slot_base + 1] = 0;          // release the old slot
+    this.lms_srcring_pub_init(slot_id);
+  );
+);
+
+function lms_srcring_pub_block(active)
+(
+  this.heartbeat += 1;
+  gmem[this.slot_base]     = this.heartbeat;
+  gmem[this.slot_base + 1] = active ? 1 : 0;
+);
+
+function lms_srcring_pub_write(spl)
+(
+  gmem[this.ring_base + this.write_pos] = spl;
+  this.write_pos += 1;
+  this.write_pos >= SRC_RING_SIZE ? this.write_pos = 0;
+  gmem[this.slot_base + 2] = this.write_pos;
+);
+
+// ---- Consumer ----
+// Snapshots every slot's write position, so all sources advance together and
+// a source that stalls mid-block cannot skew the ones around it.
+
+function lms_srcring_con_init()
+  local(k)
+(
+  this.rd_idx = 0;
+  k = 0;
+  loop(SRC_MAX_SLOTS,
+    this.snap[k] = 0;
+    this.alive[k] = 0;
+    this.last_hb[k] = -1;
+    k += 1;
+  );
+);
+
+function lms_srcring_con_block()
+  local(k, sb, hb)
+(
+  this.rd_idx = 0;
+  k = 0;
+  loop(SRC_MAX_SLOTS,
+    sb = G_SRC_SLOTS + k * SRC_SLOT_SIZE;
+    hb = gmem[sb];
+    // A publisher that stops bumping its heartbeat has gone away: REAPER does
+    // not tell us when an FX is removed, so the slot has to time out.
+    hb != this.last_hb[k] ? (
+      this.last_hb[k] = hb;
+      this.alive[k] = 20;
+    ) : (
+      this.alive[k] > 0 ? this.alive[k] -= 1;
+    );
+    this.snap[k] = gmem[sb + 2];
+    k += 1;
+  );
+);
+
+function lms_srcring_active(slot_id)
+(
+  this.alive[slot_id] > 0 && gmem[G_SRC_SLOTS + slot_id * SRC_SLOT_SIZE + 1] > 0.5;
+);
+
+// Call once per slot per sample, then lms_srcring_advance() once per sample.
+function lms_srcring_read(slot_id)
+  local(rp)
+(
+  rp = this.snap[slot_id] - samplesblock + this.rd_idx;
+  rp < 0 ? rp += SRC_RING_SIZE;
+  rp >= SRC_RING_SIZE ? rp -= SRC_RING_SIZE;
+  gmem[G_SRC_RINGS + slot_id * SRC_RING_SIZE + rp];
+);
+
+function lms_srcring_advance()
+(
+  this.rd_idx += 1;
 );

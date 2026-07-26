@@ -1,5 +1,5 @@
-desc:LMS - Space Send
-//tags: reverb room routing satellite
+desc:LMS - Bluhm Send
+//tags: reverb room routing satellite band
 //author: LMS
 //version: 5.0
 filename:0,shakebot_logo.png
@@ -11,8 +11,6 @@ in_pin:Input L
 in_pin:Input R
 out_pin:Output L
 out_pin:Output R
-out_pin:Send L
-out_pin:Send R
 
 slider1:1<1,8,1>-Slot
 slider2:0<0,7,1{Drums,Percussion,Guitar,Bass,Vocals,Keys,Synth,Other}>-Source
@@ -24,12 +22,17 @@ slider3:1<1,6,1>-Number
 // Room heartbeat: gmem[900000]
 // Send slots:     gmem[900010 + slot*4] = { heartbeat, type, number, active }
 // Ctrl slots:     gmem[900080 + slot*3] = { dist, send_db, active_flag }
+G_ROOM_STATE  = 800000;   // Black In Bluhm's band-mode heartbeat
 G_ROOM_BASE   = 900000;
 G_ROOM_SEND   = 900010;
 ROOM_SEND_STRIDE = 4;
 G_ROOM_CTRL   = 900080;
 ROOM_CTRL_STRIDE = 3;
 MAX_SLOTS = 8;
+
+// Ring publisher (lms_core SECTION 15). Audio reaches Black In Bluhm through
+// this, not through REAPER routing -- so there is no send to wire up.
+ring.lms_srcring_pub_init(0);
 
 slot_taken = 1000;  // 8-slot occupancy snapshot for @gfx
 prev_slot = -1;
@@ -73,8 +76,11 @@ apply_prox(dist);
 @block
 // Manual slot (1-based slider, 0-based index)
 my_slot = max(0, min(7, floor(slider1) - 1));
+ring.lms_srcring_pub_slot(my_slot);
+ring.lms_srcring_pub_block(1);
 
-// Write heartbeat to our slot (so Space can detect us)
+// The old metadata bus is kept alongside so the room can still show what kind
+// of source each slot is. Audio does not travel here -- it goes in the ring.
 send_heartbeat += 1;
 si = G_ROOM_SEND + my_slot * ROOM_SEND_STRIDE;
 gmem[si]     = send_heartbeat;
@@ -82,8 +88,10 @@ gmem[si + 1] = floor(slider2);
 gmem[si + 2] = floor(slider3);
 gmem[si + 3] = 1.0;
 
-// Check master heartbeat (Space alive?)
-master_hb = gmem[G_ROOM_BASE];
+// Check master heartbeat. Black In Bluhm publishes this at G_ROOM_STATE while
+// it is in Band mode; The Space used to publish at G_ROOM_BASE and is retired,
+// so watching the old address would report "no room" forever.
+master_hb = gmem[G_ROOM_STATE];
 master_hb != last_master_hb ? (
   last_master_hb = master_hb;
   master_alive = 1;
@@ -126,18 +134,12 @@ loop(MAX_SLOTS,
 );
 
 @sample
-l = spl0;
-r = spl1;
+// Publish dry mono into this slot's ring. Black In Bluhm applies distance,
+// air absorption, reflections and placement itself, so anything shaped here
+// would be applied twice.
+ring.lms_srcring_pub_write((spl0 + spl1) * 0.5);
 
-fl = prox_lo.lms_bq_proc_l(l);
-fr = prox_lo.lms_bq_proc_r(r);
-fl = prox_hi.lms_bq_proc_l(fl);
-fr = prox_hi.lms_bq_proc_r(fr);
-
-spl0 = l;
-spl1 = r;
-spl2 = fl * dist_gain * send_gain;
-spl3 = fr * dist_gain * send_gain;
+// The track passes through untouched: this is a tap, not an insert.
 
 @gfx 300 240
 
