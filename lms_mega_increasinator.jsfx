@@ -145,6 +145,16 @@ slider9:0<0,300,1>-Lo Crossover (Hz) [0=Off]
   b07.ana_band_init(1050); b08.ana_band_init(1815);  b09.ana_band_init(3130);
   b10.ana_band_init(5400); b11.ana_band_init(9300);  b12.ana_band_init(16000);
 
+  // A second bank on the input, same centres. The reactive EQ is the whole
+  // reason: it moves four bands from a density reading, and a single curve
+  // cannot show you a move -- you need what the signal looked like before it.
+  // Tapped at the very top of @sample, ahead of even the input trim, so
+  // "original" means what arrived rather than what survived some of the chain.
+  i01.ana_band_init(40);   i02.ana_band_init(70);    i03.ana_band_init(120);
+  i04.ana_band_init(205);  i05.ana_band_init(355);   i06.ana_band_init(610);
+  i07.ana_band_init(1050); i08.ana_band_init(1815);  i09.ana_band_init(3130);
+  i10.ana_band_init(5400); i11.ana_band_init(9300);  i12.ana_band_init(16000);
+
   // Centres are published too, so the manager labels its axis from the plugin
   // instead of keeping its own copy of this list in sync by hand.
   gmem[MEGA_BUS + 20] = 12;
@@ -349,8 +359,35 @@ gmem[MEGA_BUS + 27] = lms_lin2db(b07.env); gmem[MEGA_BUS + 28] = lms_lin2db(b08.
 gmem[MEGA_BUS + 29] = lms_lin2db(b09.env); gmem[MEGA_BUS + 30] = lms_lin2db(b10.env);
 gmem[MEGA_BUS + 31] = lms_lin2db(b11.env); gmem[MEGA_BUS + 32] = lms_lin2db(b12.env);
 
+// Input spectrum, same 12 centres, for the before/after overlay.
+gmem[MEGA_BUS + 81] = lms_lin2db(i01.env); gmem[MEGA_BUS + 82] = lms_lin2db(i02.env);
+gmem[MEGA_BUS + 83] = lms_lin2db(i03.env); gmem[MEGA_BUS + 84] = lms_lin2db(i04.env);
+gmem[MEGA_BUS + 85] = lms_lin2db(i05.env); gmem[MEGA_BUS + 86] = lms_lin2db(i06.env);
+gmem[MEGA_BUS + 87] = lms_lin2db(i07.env); gmem[MEGA_BUS + 88] = lms_lin2db(i08.env);
+gmem[MEGA_BUS + 89] = lms_lin2db(i09.env); gmem[MEGA_BUS + 90] = lms_lin2db(i10.env);
+gmem[MEGA_BUS + 91] = lms_lin2db(i11.env); gmem[MEGA_BUS + 92] = lms_lin2db(i12.env);
+
+// Reactive EQ state. It only runs with a profile chosen AND the opto engaged,
+// so the manager can say which of those is missing instead of just showing a
+// flat overlay and leaving you to guess why nothing is moving.
+gmem[MEGA_BUS + 14] = (eq_profile > 0 && opto_blend > 0.01) ? 1 : 0;
+gmem[MEGA_BUS + 15] = eq_profile;
+gmem[MEGA_BUS + 16] = req_lo_db;
+gmem[MEGA_BUS + 17] = req_mid_db;
+gmem[MEGA_BUS + 18] = req_hi_db;
+gmem[MEGA_BUS + 19] = req_air_db;
+
 
 @sample
+
+  // Analyser tap 1 of 2: the untouched input, before even the trim. Paired
+  // with the output bank at the bottom of this block, this is what lets the
+  // manager draw the reactive EQ's move instead of just its result.
+  ana_in_mono = (spl0 + spl1) * 0.5;
+  i01.ana_band_proc(ana_in_mono); i02.ana_band_proc(ana_in_mono); i03.ana_band_proc(ana_in_mono);
+  i04.ana_band_proc(ana_in_mono); i05.ana_band_proc(ana_in_mono); i06.ana_band_proc(ana_in_mono);
+  i07.ana_band_proc(ana_in_mono); i08.ana_band_proc(ana_in_mono); i09.ana_band_proc(ana_in_mono);
+  i10.ana_band_proc(ana_in_mono); i11.ana_band_proc(ana_in_mono); i12.ana_band_proc(ana_in_mono);
 
   // Input gain — clean trim into the opto, doesn't affect limiter drive
   l = spl0 * in_gain;

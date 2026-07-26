@@ -890,6 +890,10 @@
         <changelog>v1.7 &#8212; Output analyser. Publishes loudness (ITU-R BS.1770-4 momentary, short-term and gated integrated), a 12-band spectrum of the output and a density tracker on the output, for the manager&#39;s metering page. K-weighting is derived from the spec&#39;s analog prototypes rather than the generic RBJ designers, which miss the 997 Hz calibration point by 0.26 dB; it now reads -23.000 LUFS on the spec&#39;s reference tone. The density shown until now came from the opto, which only runs when the opto is engaged and reports on the signal before the brick-wall; this one is unconditional and post-limiter. Meter values also move off gmem[50030..50032], three addresses squatting in unclaimed space with nothing declaring them, onto a documented bus at 970000, and publish once per block instead of once per sample.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-07-26T03:30:00Z">
+        <changelog>v1.8 &#8212; Second analyser bank on the input, same 12 centres, so the manager can overlay input against output. The reactive EQ moves four bands from a density reading and a single curve cannot show a move. Also publishes whether the EQ is actually running (it needs both a profile AND the opto engaged) and its four live band gains.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_mega_increasinator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_silver69.jsfx" type="effect" desc="LMS - Silver Sixty Nine — Density-Aware Opto Compressor">
       <version name="1.0" author="LMS" time="2026-02-22T00:00:00Z">
@@ -2025,6 +2029,10 @@
       </version>
       <version name="1.7" author="LMS" time="2026-07-26T02:30:00Z">
         <changelog>v1.7 &#8212; Metering page rebuilt around MEGA&#39;s new output analyser: integrated LUFS as the headline with momentary and short-term meters, a 12-band output spectrum with peak hold, output peak against the limiter ceiling, and the post-limiter density tracker. Reset button for integrated loudness.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="1.8" author="LMS" time="2026-07-26T03:30:00Z">
+        <changelog>v1.8 &#8212; Spectrum overlays the input as an outline behind the output bars, so the reactive EQ&#39;s move is visible rather than just its result. Align levels (on by default) subtracts the broadband difference so the comparison shows shape rather than makeup gain. Reads out the EQ&#39;s live band gains, and says which of profile-or-opto is missing when it is idle.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>

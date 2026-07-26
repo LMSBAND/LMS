@@ -599,10 +599,11 @@ local MEGA_BUS = 970000
 local MEGA_BANDS = 12
 
 local function read_mega_state()
-  local bands, centers = {}, {}
+  local bands, centers, in_bands = {}, {}, {}
   for i = 1, MEGA_BANDS do
     bands[i] = r.gmem_read(MEGA_BUS + 20 + i)
     centers[i] = r.gmem_read(MEGA_BUS + 40 + i)
+    in_bands[i] = r.gmem_read(MEGA_BUS + 80 + i)
   end
   mega_state = {
     heartbeat = r.gmem_read(MEGA_BUS + 0),
@@ -621,6 +622,13 @@ local function read_mega_state()
     air_density = r.gmem_read(MEGA_BUS + 13),
     bands = bands,
     centers = centers,
+    in_bands = in_bands,
+    eq_active  = r.gmem_read(MEGA_BUS + 14),
+    eq_profile = r.gmem_read(MEGA_BUS + 15),
+    eq_lo  = r.gmem_read(MEGA_BUS + 16),
+    eq_mid = r.gmem_read(MEGA_BUS + 17),
+    eq_hi  = r.gmem_read(MEGA_BUS + 18),
+    eq_air = r.gmem_read(MEGA_BUS + 19),
   }
 end
 
@@ -2739,6 +2747,7 @@ end
 -- Peak-hold state lives here, not in the plugin: it is a property of the
 -- display, and the plugin should not care how fast someone's eyes are.
 local spec_hold = {}
+local spec_align = true
 
 local function db_to_frac(db, floor_db)
   if db <= floor_db then return 0 end
@@ -2837,9 +2846,33 @@ local function draw_metering(ctx)
     r.ImGui_Separator(ctx)
 
     -- ---- Spectrum ----------------------------------------------------
-    r.ImGui_Text(ctx, "OUTPUT SPECTRUM")
+    r.ImGui_Text(ctx, "SPECTRUM")
     r.ImGui_SameLine(ctx)
     r.ImGui_TextDisabled(ctx, "12 bands, 40 Hz - 16 kHz")
+
+    -- Two series, so a legend is mandatory: identity can never rest on colour
+    -- alone. Input is the reference, not a peer, so it reads as a recessive
+    -- outline rather than a second filled colour competing with the output.
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, " |  filled = output   outline = input   tick = output peak")
+
+    -- The reactive EQ is a spectral move, and a move needs a before. Aligning
+    -- levels subtracts the broadband difference so only the SHAPE change shows
+    -- -- without it, target loudness lifts the whole output curve and the
+    -- vertical gap you are reading is mostly makeup gain, not the EQ.
+    local _, new_align = r.ImGui_Checkbox(ctx, "Align levels##spec_align", spec_align)
+    spec_align = new_align
+    r.ImGui_SameLine(ctx)
+    if (mega_state.eq_active or 0) > 0 then
+      r.ImGui_TextDisabled(ctx, string.format(
+        "Reactive EQ live  |  lo %+.1f  mid %+.1f  hi %+.1f  air %+.1f dB",
+        mega_state.eq_lo or 0, mega_state.eq_mid or 0,
+        mega_state.eq_hi or 0, mega_state.eq_air or 0))
+    elseif (mega_state.eq_profile or 0) > 0 then
+      r.ImGui_TextDisabled(ctx, "Reactive EQ idle -- it needs Opto Pre-Limit above 0")
+    else
+      r.ImGui_TextDisabled(ctx, "Reactive EQ off -- pick an EQ Profile")
+    end
 
     local n = MEGA_BANDS
     local plot_h = math.floor(120 * ui_scale)
@@ -2861,6 +2894,22 @@ local function draw_metering(ctx)
     local gap = math.max(2, slot * 0.18)
     local bw = slot - gap
 
+    -- Offset applied to the input curve when levels are aligned: the mean
+    -- output-minus-input difference over the bands carrying real signal.
+    -- Bands near the floor are excluded, or a silent top end would drag the
+    -- average toward a number that describes nothing.
+    local align_off = 0
+    if spec_align then
+      local sum, cnt = 0, 0
+      for i = 1, n do
+        local o, s = mega_state.bands[i] or -140, mega_state.in_bands[i] or -140
+        if o > FLOOR_DB + 6 and s > FLOOR_DB + 6 then
+          sum = sum + (o - s); cnt = cnt + 1
+        end
+      end
+      if cnt > 0 then align_off = sum / cnt end
+    end
+
     for i = 1, n do
       local db = mega_state.bands[i] or -140
       local frac = db_to_frac(db, FLOOR_DB)
@@ -2880,6 +2929,15 @@ local function draw_metering(ctx)
       if hold > 0.01 then
         local hy = py + plot_h - hold * (plot_h - 2)
         r.ImGui_DrawList_AddLine(dl, bx, hy, bx + bw, hy, INK_DIM, 2)
+      end
+
+      -- Input, drawn last so it sits over the fill: an open outline, same
+      -- geometry as the bar it is being compared against.
+      local in_db = (mega_state.in_bands[i] or -140) + align_off
+      local in_frac = db_to_frac(in_db, FLOOR_DB)
+      if in_frac > 0.005 then
+        local iy = py + plot_h - in_frac * (plot_h - 2)
+        r.ImGui_DrawList_AddRect(dl, bx, iy, bx + bw, py + plot_h, 0xBFBFBFAA, 3, 0, 2)
       end
     end
     r.ImGui_Dummy(ctx, pw, plot_h)
