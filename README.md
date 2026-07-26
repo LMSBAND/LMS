@@ -82,8 +82,12 @@ All plugins share state through a common memory bus (gmem). The amp's density tr
 ### Windows Install (manual)
 
 1. Download or clone this repo
-2. Open `%APPDATA%\REAPER\Effects\` in Explorer
-   *(usually `C:\Users\YourName\AppData\Roaming\REAPER\Effects\`)*
+2. Open your REAPER **Effects** folder in Explorer. To find it for certain:
+   REAPER → Options → **Show REAPER resource path in explorer/finder**, then
+   open `Effects\` inside it.
+   *(A normal install is `C:\Users\YourName\AppData\Roaming\REAPER\Effects\`.
+   A **portable** install has no `%APPDATA%` folder at all — the resource path
+   is wherever `reaper.exe` lives.)*
 3. Copy these files into that folder:
    - `lms_core.jsfx-inc` ← **required, do this first**
    - All `lms_*.jsfx` files
@@ -91,7 +95,8 @@ All plugins share state through a common memory bus (gmem). The amp's density tr
    - `lms_drumbanger.jsfx`
    - `DrumbangerDroneMIDI2.jsfx`
    - The `kits/` and `pool/` folders
-5. Open REAPER → Options → Preferences → Plug-ins → JS → click **Re-scan**
+5. **Restart REAPER.** It scans the Effects folder on launch — new JSFX will not
+   appear, and cannot be inserted, until it has.
 6. Add any LMS plugin to a track via the FX browser
 
 For DRUMBANGER's sample browser: Actions → Run ReaScript → pick `scripts/drumbanger_service.lua`, check **"Run in background"**
@@ -107,7 +112,8 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Then in REAPER: Options → Preferences → Plug-ins → JS → Re-scan
+Then **restart REAPER** — it scans the Effects folder on launch, and new JSFX
+will not show up in the FX browser until it has.
 
 ---
 

@@ -224,8 +224,8 @@ local function add_lms_fx(track, filename)
   r.ShowConsoleMsg(
     "LMS Manager: could not add " .. filename .. "\n" ..
     "  tried: " .. table.concat(tried, ", ") .. "\n" ..
-    "  If the plugin is installed, run Options > Preferences > Plug-ins > JS >\n" ..
-    "  Re-scan -- REAPER cannot insert a JSFX it has not scanned yet.\n")
+    "  If the plugin is installed, restart REAPER -- it scans the Effects\n" ..
+    "  folder on launch and cannot insert a JSFX it has not scanned yet.\n")
   return -1
 end
 

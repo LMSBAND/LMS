@@ -1954,6 +1954,10 @@
         <changelog>v1.4 — Fix the DrumBanger tab not seeing a loaded DrumBanger (and the same fault for The Faker, Lil Stinker and NUUG 420). Instances were matched with inst.lms_name == "lms_drumbanger", but that key is not a stable identifier: TrackFX_GetFXName returns REAPER's display name ("JS: LMS DRUMBANGER"), not the filename, so the underscored JSFX_TO_TYPE lookup misses and DISPLAY_TO_TYPE answers instead, setting lms_name to "drumbanger". The comparison could never be true, so the tab kept reporting no instance even with the plugin loaded and its heartbeat running. All four lookups now compare inst.type_id, which is identical whichever table matched — the same approach the Harmony Map tab already used, which is why that tab worked and these did not.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="1.5" author="LMS" time="2026-07-25T22:00:00Z">
+        <changelog>v1.5 — Correct the advice printed when an FX cannot be inserted. It pointed at Options &gt; Preferences &gt; Plug-ins &gt; JS &gt; Re-scan, which is not a button that exists; REAPER scans the Effects folder on launch, so the fix is simply to restart REAPER. Same correction applied to the install steps in the README, along with the Windows Effects path, which assumed %APPDATA% and is wrong for portable installs.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">
