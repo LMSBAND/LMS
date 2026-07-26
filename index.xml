@@ -2047,6 +2047,10 @@
         <changelog>v1.9 &#8212; Metering: density now uses the amps&#39; DENSITY AWARENESS matrix -- 16x8 animated cells, LO blue / MID orange / HI red / AIR purple -- sized to match the spectrum above it, so density reads the same everywhere in the suite and the page is not four more shades of green. Harmony arp: the 12-way chromatic interval combo is replaced by a 1-8 chord-tone offset.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="2.0" author="LMS" time="2026-07-26T15:00:00Z">
+        <changelog>v2.0 &#8212; Remove the Song buttons from the Harmony Map tab. They wrote gmem[960096], which flips a song_mode flag that only shows or hides the song panel inside the plugin&#39;s own window and gates no behaviour: the plugin runs a song whenever one exists. Where the button sat in the Song Structure section there is now a status line saying so. Also fixes 19 widgets across six groups that shared ImGui ids &#8212; ImGui takes everything after ## as the id and discards the label, so &quot;Key##hm&quot;, &quot;Mode##hm&quot; and &quot;Steps##hm&quot; were all one widget as far as it was concerned. The two Song buttons were the same bug, both being ##hm_song.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">

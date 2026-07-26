@@ -1423,7 +1423,7 @@ local function draw_drumbanger(ctx)
         r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x4488CCFF)
         r.ImGui_PushStyleColor(ctx, r.ImGui_Col_ButtonHovered(), 0x55AAEEFF)
       end
-      if r.ImGui_SmallButton(ctx, tostring(b + 1) .. "##bar") then
+      if r.ImGui_SmallButton(ctx, tostring(b + 1) .. "##bar" .. b) then
         r.gmem_write(406, b + 1)
       end
       if b == display_bar then
@@ -1431,14 +1431,14 @@ local function draw_drumbanger(ctx)
       end
     end
     r.ImGui_SameLine(ctx, 0, 10)
-    if r.ImGui_SmallButton(ctx, "Copy##bar") then
+    if r.ImGui_SmallButton(ctx, "Copy##bar_copy") then
       local src = display_bar
       local dst = (display_bar + 1) % bar_count
       r.gmem_write(408, dst + 1)
       r.gmem_write(407, src + 1)
     end
     r.ImGui_SameLine(ctx)
-    if r.ImGui_SmallButton(ctx, "Clear##bar") then
+    if r.ImGui_SmallButton(ctx, "Clear##bar_clear") then
       r.gmem_write(409, display_bar + 1)
     end
   end
@@ -1502,17 +1502,17 @@ local function draw_drumbanger(ctx)
     local pitch = db_get_param(50 + db_edit_pad)
 
     r.ImGui_SetNextItemWidth(ctx, 120)
-    local v_chg, v_new = r.ImGui_SliderDouble(ctx, "Vol##padctl", vol, 0, 1, "%.2f")
+    local v_chg, v_new = r.ImGui_SliderDouble(ctx, "Vol##padctl_vol", vol, 0, 1, "%.2f")
     if v_chg then db_set_param(10 + db_edit_pad, v_new) end
     r.ImGui_SameLine(ctx)
 
     r.ImGui_SetNextItemWidth(ctx, 120)
-    local p_chg, p_new = r.ImGui_SliderDouble(ctx, "Pan##padctl", pan, -1, 1, "%.2f")
+    local p_chg, p_new = r.ImGui_SliderDouble(ctx, "Pan##padctl_pan", pan, -1, 1, "%.2f")
     if p_chg then db_set_param(30 + db_edit_pad, p_new) end
     r.ImGui_SameLine(ctx)
 
     r.ImGui_SetNextItemWidth(ctx, 120)
-    local pt_chg, pt_new = r.ImGui_SliderDouble(ctx, "Pitch##padctl", pitch, -24, 24, "%.1f st")
+    local pt_chg, pt_new = r.ImGui_SliderDouble(ctx, "Pitch##padctl_pitch", pitch, -24, 24, "%.1f st")
     if pt_chg then db_set_param(50 + db_edit_pad, pt_new) end
   end
 
@@ -1561,7 +1561,7 @@ local function draw_drumbanger(ctx)
     if s < total_steps then upbeats[#upbeats + 1] = s end
   end
 
-  if r.ImGui_SmallButton(ctx, "4 Floor##bp") then
+  if r.ImGui_SmallButton(ctx, "4 Floor##bp_floor") then
     apply_beat_preset({
       {pad = 0, steps = all_quarters, vel = 110},
       {pad = 1, steps = beats_24, vel = 100},
@@ -1569,7 +1569,7 @@ local function draw_drumbanger(ctx)
     })
   end
   r.ImGui_SameLine(ctx)
-  if r.ImGui_SmallButton(ctx, "Boots & Cats##bp") then
+  if r.ImGui_SmallButton(ctx, "Boots & Cats##bp_boots") then
     apply_beat_preset({
       {pad = 0, steps = beats_13, vel = 110},
       {pad = 1, steps = beats_24, vel = 100},
@@ -1577,7 +1577,7 @@ local function draw_drumbanger(ctx)
     })
   end
   r.ImGui_SameLine(ctx)
-  if r.ImGui_SmallButton(ctx, "Rock##bp") then
+  if r.ImGui_SmallButton(ctx, "Rock##bp_rock") then
     apply_beat_preset({
       {pad = 0, steps = {0, 2 * quarter + math.floor(quarter/2)}, vel = 110},
       {pad = 1, steps = beats_24, vel = 100},
@@ -1585,7 +1585,7 @@ local function draw_drumbanger(ctx)
     })
   end
   r.ImGui_SameLine(ctx)
-  if r.ImGui_SmallButton(ctx, "Halftime##bp") then
+  if r.ImGui_SmallButton(ctx, "Halftime##bp_half") then
     apply_beat_preset({
       {pad = 0, steps = {0}, vel = 110},
       {pad = 1, steps = {2 * quarter}, vel = 100},
@@ -2214,44 +2214,33 @@ local function draw_harmony(ctx)
   if num_steps < 1 then num_steps = 4 end
   local transport = math.floor(hm_state.transport or 0)
   local current_pat = math.floor(hm_state.current_pat or 0)
-  local song_mode = math.floor(hm_state.song_mode or 0)
 
   -- Transport
   if transport == 1 then
     r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF)
   end
-  if r.ImGui_Button(ctx, transport == 1 and "STOP##hm" or "PLAY##hm") then
+  if r.ImGui_Button(ctx, transport == 1 and "STOP##hm_transport" or "PLAY##hm_transport") then
     r.gmem_write(960098, 1)
   end
   if transport == 1 then r.ImGui_PopStyleColor(ctx) end
   r.ImGui_SameLine(ctx)
 
-  -- Song mode toggle
-  if song_mode ~= 0 then
-    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x8866CCFF)
-  end
-  if r.ImGui_Button(ctx, "Song##hm_song") then
-    r.gmem_write(960096, 1)
-  end
-  if song_mode ~= 0 then r.ImGui_PopStyleColor(ctx) end
-  r.ImGui_SameLine(ctx)
-
   -- Key selector
   r.ImGui_SetNextItemWidth(ctx, 50)
-  local k_chg, k_new = r.ImGui_Combo(ctx, "Key##hm",
+  local k_chg, k_new = r.ImGui_Combo(ctx, "Key##hm_key",
     key_root, "C\0C#\0D\0D#\0E\0F\0F#\0G\0G#\0A\0A#\0B\0")
   if k_chg then r.gmem_write(960094, k_new + 1) end
   r.ImGui_SameLine(ctx)
 
   -- Mode selector
   r.ImGui_SetNextItemWidth(ctx, 70)
-  local m_chg, m_new = r.ImGui_Combo(ctx, "Mode##hm", key_mode, "Major\0Minor\0")
+  local m_chg, m_new = r.ImGui_Combo(ctx, "Mode##hm_mode", key_mode, "Major\0Minor\0")
   if m_chg then r.gmem_write(960099, m_new + 1) end
   r.ImGui_SameLine(ctx)
 
   -- Steps
   r.ImGui_SetNextItemWidth(ctx, 60)
-  local ns_chg, ns_new = r.ImGui_SliderInt(ctx, "Steps##hm", num_steps, 1, 32)
+  local ns_chg, ns_new = r.ImGui_SliderInt(ctx, "Steps##hm_steps", num_steps, 1, 32)
   if ns_chg then r.gmem_write(960093, math.floor(ns_new)) end
 
   -- === PATTERN SELECT ===
@@ -2401,15 +2390,20 @@ local function draw_harmony(ctx)
   local song_sel_part = hm_state.song_sel_part or 0
   local song_playing_src = hm_state.song_cur_src or -1
 
-  -- Song mode toggle + builder
+  -- Song mode is not a switch: the plugin runs the song whenever one exists
+  -- (_song_mode_eff = song_seq_len > 0 && song_num_parts > 0). So this states
+  -- the condition rather than offering a toggle for it. The button that used
+  -- to be here wrote gmem[960096], which flips song_mode -- a variable that
+  -- only shows/hides the song panel inside the plugin's OWN window and gates
+  -- no behaviour at all.
   local sm_active = (song_seq_len > 0 and song_num_parts > 0)
   if sm_active then
-    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x8866CCFF)
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0xBB99EEFF)
+    r.ImGui_Text(ctx, "SONG ON")
+    r.ImGui_PopStyleColor(ctx)
+  else
+    r.ImGui_TextDisabled(ctx, "No song -- build one to run it")
   end
-  if r.ImGui_Button(ctx, sm_active and "SONG ON##hm_song" or "Song##hm_song") then
-    r.gmem_write(960096, 1)
-  end
-  if sm_active then r.ImGui_PopStyleColor(ctx) end
   r.ImGui_SameLine(ctx)
 
   if r.ImGui_Button(ctx, "Song Builder##hm_builder") then
@@ -3127,11 +3121,11 @@ local function draw_track_setup(ctx)
   r.ImGui_Spacing(ctx)
 
   -- Clear / Select All
-  if r.ImGui_SmallButton(ctx, "Clear All##setup") then
+  if r.ImGui_SmallButton(ctx, "Clear All##setup_clear") then
     setup_selected = {}
   end
   r.ImGui_SameLine(ctx)
-  if r.ImGui_SmallButton(ctx, "Select All##setup") then
+  if r.ImGui_SmallButton(ctx, "Select All##setup_selall") then
     for type_id, info in pairs(TYPE_REGISTRY) do
       if info.jsfx then setup_selected[type_id] = true end
     end
@@ -3325,7 +3319,7 @@ local function draw_room_verb(ctx)
     local ceil_mat = math.floor(r.TrackFX_GetParam(master, fi, 6) + 0.5)
 
     r.ImGui_SetNextItemWidth(ctx, 150)
-    if r.ImGui_BeginCombo(ctx, "Walls##mat", MAT_NAMES[wall_mat + 1] or "?") then
+    if r.ImGui_BeginCombo(ctx, "Walls##mat_walls", MAT_NAMES[wall_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == wall_mat) then
           r.TrackFX_SetParam(master, fi, 4, mi)
@@ -3335,7 +3329,7 @@ local function draw_room_verb(ctx)
     end
     r.ImGui_SameLine(ctx)
     r.ImGui_SetNextItemWidth(ctx, 150)
-    if r.ImGui_BeginCombo(ctx, "Floor##mat", MAT_NAMES[floor_mat + 1] or "?") then
+    if r.ImGui_BeginCombo(ctx, "Floor##mat_floor", MAT_NAMES[floor_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == floor_mat) then
           r.TrackFX_SetParam(master, fi, 5, mi)
@@ -3345,7 +3339,7 @@ local function draw_room_verb(ctx)
     end
     r.ImGui_SameLine(ctx)
     r.ImGui_SetNextItemWidth(ctx, 150)
-    if r.ImGui_BeginCombo(ctx, "Ceiling##mat", MAT_NAMES[ceil_mat + 1] or "?") then
+    if r.ImGui_BeginCombo(ctx, "Ceiling##mat_ceil", MAT_NAMES[ceil_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == ceil_mat) then
           r.TrackFX_SetParam(master, fi, 6, mi)
