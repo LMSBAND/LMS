@@ -226,35 +226,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_mode_sel — clickable mode selector (up to 4 options)
 // ============================================================================
-function draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3) (
-  gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
-  gfx_rect(mx, my, mw, mh);
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(mx, my, mw, 1); gfx_rect(mx, my + mh - 1, mw, 1);
-  gfx_rect(mx, my, 1, mh); gfx_rect(mx + mw - 1, my, 1, mh);
-  gfx_r = COL_TEXT_R; gfx_g = COL_TEXT_G; gfx_b = COL_TEXT_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = mx + floor(5 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
-  gfx_drawstr(label);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_x = mx + mw - floor(72 * S); gfx_y = my + floor((mh - F_LABEL) / 2);
-  val == 0 ? gfx_drawstr(v0);
-  val == 1 ? gfx_drawstr(v1);
-  val == 2 ? gfx_drawstr(v2);
-  val == 3 ? gfx_drawstr(v3);
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= mx && mouse_x <= mx + mw &&
-    mouse_y >= my && mouse_y <= my + mh ? (
-      val = (val + 1) % (vmax + 1);
-  );
-  (mouse_cap & 2) && !(last_cap & 2) &&
-    mouse_x >= mx && mouse_x <= mx + mw &&
-    mouse_y >= my && mouse_y <= my + mh ? (
-      val = val - 1; val < 0 ? val = vmax;
-  );
-  val;
-);
-
 // ============================================================================
 //  HELPER: draw_ratio_sel — clickable ratio selector (8 options)
 // ============================================================================
@@ -375,7 +346,7 @@ gr_w > 0 ? (
 c2x = margin + col_w + gap;
 lms_draw_panel(c2x, body_y, col_w, floor(178 * S), "CHARACTER");
 cy = body_y + floor(26 * S);
-_old = slider6; slider6 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, slider6, 2, "Dist", "Off", "Tape", "Tube", "");
+_old = slider6; slider6 = lms_draw_mode_sel4(c2x + pad, cy, col_w - pad2, bar_h, slider6, 2, "Dist", "Off", "Tape", "Tube", "");
 slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
 _old = slider7; slider7 = lms_draw_toggle(c2x + pad2, cy + floor(2 * S), slider7, "HP Sidechain");

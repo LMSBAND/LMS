@@ -2089,6 +2089,17 @@ function lms_draw_value_row(mx, my, label, value_str) (
 // Same selector as above, for callers that would rather hand over the strings
 // than fill MS_BUF themselves. EEL2 has no varargs, so the arity is in the
 // name -- five options here because that is what Tube Sat needs.
+function lms_draw_mode_sel2(mx, my, mw, mh, val, vmax, label, v0, v1) (
+  strcpy(MS_BUF, v0); strcpy(MS_BUF + 1, v1);
+  lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label);
+);
+
+function lms_draw_mode_sel4(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3) (
+  strcpy(MS_BUF, v0); strcpy(MS_BUF + 1, v1);
+  strcpy(MS_BUF + 2, v2); strcpy(MS_BUF + 3, v3);
+  lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label);
+);
+
 function lms_draw_mode_sel5(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
   strcpy(MS_BUF, v0); strcpy(MS_BUF + 1, v1); strcpy(MS_BUF + 2, v2);
   strcpy(MS_BUF + 3, v3); strcpy(MS_BUF + 4, v4);
