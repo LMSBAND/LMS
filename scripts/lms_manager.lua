@@ -2094,6 +2094,7 @@ local KITS = (function()
     dir = DIR, pool = POOL, list = list, save = save, recall = recall,
     generate = generate, manifest = manifest, pump = pump,
     name_buf = "", msg = nil, msg_ok = true, files = nil, queue = {},
+    man = nil,
   }
   return M
 end)()
@@ -2345,6 +2346,49 @@ local function draw_drumbanger(ctx)
     r.ImGui_SetNextItemWidth(ctx, 120)
     local pt_chg, pt_new = r.ImGui_SliderDouble(ctx, "Pitch##padctl_pitch", pitch, -24, 24, "%.1f st")
     if pt_chg then db_set_param(50 + db_edit_pad, pt_new) end
+
+    -- Sample picker for the selected pad. The list is pool/manifest.txt in
+    -- order, so its position IS the index gmem[414] wants.
+    if KITS.man == nil then KITS.man = KITS.manifest() end
+    local cur_idx = math.floor(r.gmem_read(9200 + db_edit_pad) or -1)
+    local cur = (cur_idx >= 0 and KITS.man[cur_idx + 1]) or "(none)"
+
+    r.ImGui_SetNextItemWidth(ctx, 320)
+    if r.ImGui_BeginCombo(ctx, "Sample##padctl_smp", cur) then
+      local folder = nil
+      for i, path in ipairs(KITS.man) do
+        local f = path:match("^([^/]+)/")
+        if f and f ~= folder then
+          folder = f
+          -- Only use in this file, so guarded: a missing call takes the defer
+          -- loop down rather than losing a divider.
+          if r.ImGui_SeparatorText then
+            r.ImGui_SeparatorText(ctx, f)
+          else
+            r.ImGui_Separator(ctx)
+            r.ImGui_TextDisabled(ctx, f)
+          end
+        end
+        local leaf = path:match("([^/]+)$") or path
+        if r.ImGui_Selectable(ctx, leaf .. "##smp" .. i, i - 1 == cur_idx) then
+          -- Same command the overlay recall uses: one pad, no pool rescan,
+          -- no audition. Hit the pad to hear it.
+          r.gmem_write(415, i)                    -- index + 1
+          r.gmem_write(414, db_edit_pad + 1)
+        end
+      end
+      r.ImGui_EndCombo(ctx)
+    end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Rescan##padctl_rescan") then
+      KITS.man = nil
+      KITS.files = nil
+    end
+    if r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_SetTooltip(ctx,
+        "Re-reads pool/manifest.txt. Run the DrumBanger rescan action first\n" ..
+        "if you have added files since REAPER started.")
+    end
   end
 
   -- === BEAT PRESETS ===
