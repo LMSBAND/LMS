@@ -128,6 +128,10 @@
         <changelog>v7.4 &#8212; Fix the source-ring consumer losing continuity when REAPER changes block size. It read at (writer position - samplesblock), but the writer position had advanced by the PREVIOUS block&#39;s length while the read subtracted the CURRENT one, so any short block slipped the read window. Constant block sizes hid it entirely. The consumer now keeps its own read pointer, advances it by what it actually consumed, and resyncs only when the writer has not left a full block. Simulated clean against steady buffers, loop-point short blocks, 441/512 mixtures and buffer changes.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.5" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v7.5 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Also: lms_spring_init, lms_tape_echo_init and lms_lim_init take an optional explicit buffer base via _at() variants, since each hardcoded one and two instances in a plugin would shred each other; local memory bases are now documented alongside the gmem map; lms_lim_init no longer zeroes its buffer with a bare i, which in JSFX is a global and clobbered the host plugin&#39;s; and the duplicate density tracker in Section 10 is gone, verified character-identical to the canonical one before removal.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -412,6 +416,10 @@
         <changelog>v1.3 &#8212; Band mode works. It read each source from one gmem cell per sample, which could never have carried audio across tracks, and nothing wrote those cells anyway. Sources now arrive through the source rings in lms_core, with slot liveness from the ring handshake.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
+      <version name="1.4" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v1.4 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware 5W Class A Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -618,6 +626,10 @@
         <changelog>Channel/mode selector uses string buffer (MS_BUF) for labels.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
       </version>
+      <version name="2.6" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.6 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Bass tuning: the tracker crossovers move to 150/1200/3500, since at 250 Hz an open E sits almost entirely in the low band and the transformer would read constant saturation.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_fridge_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_tomasteknik_v2.jsfx" type="effect" desc="LMS - TOMASTEKNIK v2 — Density-Aware All-Tube Bass + OD Amp Sim">
       <version name="1.0" author="LMS" time="2026-03-01T12:00:00Z">
@@ -658,6 +670,10 @@
       </version>
       <version name="2.3" author="LMS" time="2026-07-25T12:00:00Z">
         <changelog>Channel/mode selector uses string buffer (MS_BUF) for labels.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
+      </version>
+      <version name="2.4" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.4 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Bass tuning: crossovers at 150/1200/3500.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_tomasteknik_v2.jsfx</source>
       </version>
     </reapack>
@@ -976,6 +992,10 @@
         <changelog>v2.5 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
+      <version name="2.6" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.6 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_pitch_detector.jsfx" type="effect" desc="LMS - Pitch Detector — YIN Vocal Pitch Tracker + MIDI Output">
       <version name="1.0" author="LMS" time="2026-02-23T12:00:00Z">
@@ -1000,6 +1020,10 @@
       </version>
       <version name="2.4" author="LMS" time="2026-07-26T18:00:00Z">
         <changelog>v2.4 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
+      </version>
+      <version name="2.5" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.5 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_pitch_detector.jsfx</source>
       </version>
     </reapack>
@@ -1030,6 +1054,10 @@
       </version>
       <version name="2.5" author="LMS" time="2026-07-26T18:00:00Z">
         <changelog>v2.5 &#8212; gmem address space documented and organised. lms_core.jsfx-inc now carries the one authoritative map of the shared global memory every LMS plugin writes into, and global region constants take a G_ prefix so they can be told apart from local memory at a glance &#8212; the two look identical in JSFX source and confusing them has already produced one wrong bug report. tools/gmem_audit.py resolves every gmem access back to its region and fails on anything undeclared. No address changed: all 481 resolvable accesses verified byte-identical before and after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
+      </version>
+      <version name="2.6" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.6 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_faker.jsfx</source>
       </version>
     </reapack>
@@ -1230,6 +1258,10 @@
         <changelog>Channel/mode selector uses string buffer (MS_BUF) for labels.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.3 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Bass tuning: crossovers at 150/1200/3500.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_bottom_feeder_v2.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_nightmare_v2.jsfx" type="effect" desc="LMS - The Fucking Nightmare v2 — Density-Aware Hybrid Bass Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-28T18:00:00Z">
@@ -1274,6 +1306,10 @@
       </version>
       <version name="2.2" author="LMS" time="2026-07-25T12:00:00Z">
         <changelog>Channel/mode selector uses string buffer (MS_BUF) for labels.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
+      </version>
+      <version name="2.3" author="LMS" time="2026-07-26T23:30:00Z">
+        <changelog>v2.3 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Bass tuning: crossovers at 150/1200/3500.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_nightmare_v2.jsfx</source>
       </version>
     </reapack>
