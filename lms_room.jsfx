@@ -1,7 +1,7 @@
 desc:LMS - Black In Bluhm Special
 //tags: reverb room acoustics physical-model compressor
 //author: LMS
-//version: 1.7
+//version: 1.8
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
@@ -843,6 +843,19 @@ drag_band = -1;
     band_count = 0;
     k = 0;
     loop(MAX_BAND,
+      // A move asked for from outside, at slot +6/+7. The room owns band_pos
+      // -- it clamps into the polygon, recomputes reflections and serialises
+      // it -- so a mover proposes and this applies. Consuming the request by
+      // zeroing it is what keeps a stale cell from dragging the source back
+      // every block: x is a metre coordinate inside the room, so it is never
+      // legitimately 0, which makes 0 a safe "nothing pending".
+      gmem[G_ROOM_STATE + 10 + k*8 + 6] > 0 ? (
+        band_pos[k*2]     = gmem[G_ROOM_STATE + 10 + k*8 + 6];
+        band_pos[k*2 + 1] = gmem[G_ROOM_STATE + 10 + k*8 + 7];
+        gmem[G_ROOM_STATE + 10 + k*8 + 6] = 0;
+        gmem[G_ROOM_STATE + 10 + k*8 + 7] = 0;
+      );
+
       band_active[k] = srcring.lms_srcring_active(k) ? 20 : 0;
       band_active[k] > 0 ? (
         band_count += 1;

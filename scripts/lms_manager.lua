@@ -59,6 +59,17 @@ local TYPE_REGISTRY = {
   [32] = {name = "Piece of Shit",     cat = "amp",    sliders = 4,  jsfx = "lms_piece_of_shit.jsfx"},
   [33] = {name = "Nuug420",           cat = "synth",  sliders = 52, jsfx = "lms_nuug420.jsfx"},
   [36] = {name = "Black In Bluhm",   cat = "reverb", sliders = 24, jsfx = "lms_room.jsfx"},
+
+  -- Satellites, keyed by name rather than number because they have no type id
+  -- of their own. Without an entry here a plugin still scans and still appears,
+  -- but wearing its lookup key -- "bluhm send", lowercase, in the no-category
+  -- grey -- which reads as debris rather than as the plugin it is.
+  --
+  -- sliders = 0 on purpose. That count is what follow and steal copy, and this
+  -- plugin's parameters are its slot identity: copying them between instances
+  -- would put two sends on one ring, which is the exact fault they cause. Zero
+  -- makes both a no-op instead of a footgun.
+  ["room_send"] = {name = "Bluhm Send", cat = "reverb", sliders = 0, jsfx = "lms_room_send.jsfx"},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -106,6 +117,7 @@ local DISPLAY_TO_TYPE = {
   ["reverb"]               = 27,
   ["black in bluhm"]       = 36,
   ["bluhm send"]           = "room_send",
+  ["space send"]           = "room_send",   -- REAPER may still serve this name from its scan cache
   ["bloody glue"]          = "bloody_glue",
 }
 
@@ -314,13 +326,49 @@ local function extract_lms_name(fx_name)
   return nil
 end
 
+-- Identify a plugin by its FILE, and only fall back to its name.
+--
+-- The name is not ours. REAPER caches the desc line at scan time and keeps
+-- serving that until something makes it rescan, so a rename leaves every
+-- project identifying the plugin by the old one. Verified rather than assumed:
+-- reaper-jsfx.ini on this machine carries
+--   NAME "LMS Plugins/LMS/lms_room_send.jsfx" "JS: LMS - Space Send"
+-- months after the desc became "LMS - Bluhm Send". Every name-based check
+-- missed it, so the manager added a second send each run, Strip All Sends
+-- removed nothing, and it never appeared in the Overview.
+--
+-- The filename is the one part of a plugin's identity that nothing renames
+-- behind us, and TrackFX_GetNamedConfigParm hands it over directly.
+local JSFX_FILE_TO_TYPE = {}
+for type_id, info in pairs(TYPE_REGISTRY) do
+  if info.jsfx then JSFX_FILE_TO_TYPE[info.jsfx:lower()] = type_id end
+end
+-- The ones with no registry entry of their own.
+JSFX_FILE_TO_TYPE["lms_drumbanger.jsfx"]  = "drumbanger"
+JSFX_FILE_TO_TYPE["lms_bloody_glue.jsfx"] = "bloody_glue"
+JSFX_FILE_TO_TYPE["lms_drone_voice.jsfx"] = 34
+JSFX_FILE_TO_TYPE["lms_the_space.jsfx"]   = "the_space"
+
+local function fx_type_id(track, fx_idx, fx_name)
+  if r.TrackFX_GetNamedConfigParm then
+    local ok, ident = r.TrackFX_GetNamedConfigParm(track, fx_idx, "fx_ident")
+    if ok and ident and ident ~= "" then
+      local base = ident:lower():match("([^/\\]+)$")
+      local tid = base and JSFX_FILE_TO_TYPE[base]
+      if tid then return tid, base end
+    end
+  end
+  -- Older hosts, or a plugin we have no file mapping for.
+  local lms_name, override = extract_lms_name(fx_name)
+  return override or (lms_name and JSFX_TO_TYPE[lms_name]), lms_name
+end
+
 local function scan_one_track(track, ti, track_name)
   local num_fx = r.TrackFX_GetCount(track)
   for fi = 0, num_fx - 1 do
     local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    local lms_name, override_type = extract_lms_name(fx_name)
-    local type_id = override_type or (lms_name and JSFX_TO_TYPE[lms_name])
-    if lms_name and type_id then
+    local type_id, lms_name = fx_type_id(track, fi, fx_name)
+    if type_id then
       instances[#instances + 1] = {
         track = track,
         track_idx = ti,
@@ -784,8 +832,7 @@ local function track_has_fx_type(track, type_id)
   local num_fx = r.TrackFX_GetCount(track)
   for fi = 0, num_fx - 1 do
     local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    local lms_name, override = extract_lms_name(fx_name)
-    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+    local tid = fx_type_id(track, fi, fx_name)
     if tid == type_id then return true, fi end
   end
   return false, -1
@@ -887,8 +934,7 @@ local function organize_track_fx(track)
   local chain = {}
   for fi = 0, num_fx - 1 do
     local _, fx_name = r.TrackFX_GetFXName(track, fi)
-    local lms_name, override = extract_lms_name(fx_name)
-    local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+    local tid = fx_type_id(track, fi, fx_name)
     chain[#chain + 1] = {
       idx  = fi,
       rank = (tid and FX_ORDER[tid]) or FX_ORDER_UNKNOWN,
@@ -1153,7 +1199,7 @@ local function draw_overview(ctx)
 
       -- Plugin list
       for pi, inst in ipairs(tinfo.plugins) do
-        local info = type(inst.type_id) == "number" and TYPE_REGISTRY[inst.type_id]
+        local info = TYPE_REGISTRY[inst.type_id]
         local name = info and info.name or inst.lms_name
         local cat = info and info.cat or "other"
         local color = CAT_COLORS[cat] or 0xAAAAAAFF
@@ -1934,7 +1980,7 @@ local function draw_drumbanger(ctx)
   local has_consumer = false
   for _, inst_c in ipairs(instances) do
     if inst_c.type_id == 29 or inst_c.type_id == 33 then
-      local info = type(inst_c.type_id) == "number" and TYPE_REGISTRY[inst_c.type_id]
+      local info = TYPE_REGISTRY[inst_c.type_id]
       r.ImGui_SameLine(ctx)
       r.ImGui_TextDisabled(ctx, string.format("%s (T%d)", info and info.name or inst_c.lms_name, inst_c.track_idx + 1))
       has_consumer = true
@@ -3397,8 +3443,40 @@ local function remove_order_sends(bus)
   return removed
 end
 
+-- Every Bluhm Send on a track, highest FX index first so a caller can delete
+-- from the list without the indices shifting under it. Matched by resolved
+-- type AND by name: identification is the thing that failed here before, and a
+-- duplicate that hides from the check is exactly the one that causes damage.
+local function track_send_indices(track)
+  local list = {}
+  for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
+    local _, fx_name = r.TrackFX_GetFXName(track, fi)
+    local tid = fx_type_id(track, fi, fx_name)
+    if tid == "room_send" or fx_name:lower():find("bluhm send", 1, true) then
+      list[#list + 1] = fi
+    end
+  end
+  return list
+end
+
+-- One send per track, enforced rather than assumed. A second send is not a
+-- cosmetic duplicate: it publishes into a ring of its own choosing, it is
+-- never renumbered because setup only ever finds the first, and it therefore
+-- ends up writing over a slot that now belongs to another track. The oldest
+-- one in the chain is kept, since that is the one carrying the slot the room
+-- already knows about.
+local function room_dedupe_sends(track)
+  local list = track_send_indices(track)
+  local removed = 0
+  for i = 1, #list - 1 do          -- list is descending; the last is the first in chain
+    r.TrackFX_Delete(track, list[i])
+    removed = removed + 1
+  end
+  return removed
+end
+
 -- Put a Bluhm Send on every source track and hand each one its own slot.
--- Returns placed, skipped_children, over.
+-- Returns placed, skipped_children, over, cleaned.
 --
 -- Folder children are skipped. A folder is already a submix, so its parent
 -- carries the whole group's audio; sending the children as well would put the
@@ -3406,17 +3484,38 @@ end
 -- the bus. Only tracks with no parent get a send -- a folder parent stands for
 -- its group, a plain top-level track for itself.
 local function room_place_sends(bus)
-  local placed, skipped_children, over = 0, 0, 0
+  local placed, skipped_children, over, cleaned = 0, 0, 0, 0
 
   for ti = 0, r.CountTracks(0) - 1 do
     local track = r.GetTrack(0, ti)
     if track ~= bus then
       if r.GetParentTrack(track) then
         skipped_children = skipped_children + 1
+        -- A send here is never renumbered, because setup does not walk folder
+        -- children -- so it keeps publishing into whatever slot it holds, on
+        -- top of whoever owns that slot now. The parent carries this track's
+        -- audio into the room already.
+        local n = #track_send_indices(track)
+        if n > 0 then
+          for _, fx in ipairs(track_send_indices(track)) do
+            r.TrackFX_Delete(track, fx)
+          end
+          cleaned = cleaned + n
+        end
       elseif placed >= BLUHM_SEND_SLOTS then
         over = over + 1
       else
+        cleaned = cleaned + room_dedupe_sends(track)
         local has, fx = track_has_fx_type(track, "room_send")
+        if not has then
+          -- Trust the deletion pass, not the type lookup: if identification is
+          -- what is broken, track_has_fx_type would say "none" on a track that
+          -- already has one and we would add a second.
+          local remaining = track_send_indices(track)
+          if #remaining > 0 then
+            has, fx = true, remaining[1]
+          end
+        end
         if not has then fx = add_lms_fx(track, "lms_room_send.jsfx") end
         if fx and fx >= 0 then
           -- The tap belongs dead last: the room should hear the track the way
@@ -3436,7 +3535,7 @@ local function room_place_sends(bus)
     end
   end
 
-  return placed, skipped_children, over
+  return placed, skipped_children, over, cleaned
 end
 
 local function room_verb_enable()
@@ -3498,7 +3597,7 @@ local function room_verb_enable()
   end
 
   -- 3. The sends.
-  local placed, skipped_children, over = room_place_sends(bus)
+  local placed, skipped_children, over, cleaned = room_place_sends(bus)
 
   r.PreventUIRefresh(-1)
   r.Undo_EndBlock("Room Verb: build room bus, sends and 100% wet return", -1)
@@ -3507,13 +3606,14 @@ local function room_verb_enable()
 
   r.ShowConsoleMsg(string.format(
     "LMS Room Verb: %s at 100%% wet on '%s'%s, %d source(s) sending, "
-    .. "%d folder child(ren) skipped (their parent carries them)%s\n",
+    .. "%d folder child(ren) skipped (their parent carries them)%s%s\n",
     fresh_room and "Black In Bluhm added" or "Black In Bluhm moved",
     ROOM_BUS_NAME,
     fresh_bus and " (new bus)" or "",
     placed, skipped_children,
     over > 0 and string.format(", %d track(s) left out -- only %d slots exist",
-      over, BLUHM_SEND_SLOTS) or ""))
+      over, BLUHM_SEND_SLOTS) or "",
+    cleaned > 0 and string.format(", %d stray send(s) removed", cleaned) or ""))
 end
 
 -- Remove everything enable built: the room, every Bluhm Send, and the bus
@@ -3527,8 +3627,7 @@ local function room_verb_disable()
     local removed_room, removed_send = 0, 0
     for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
       local _, fx_name = r.TrackFX_GetFXName(track, fi)
-      local lms_name, override = extract_lms_name(fx_name)
-      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      local tid = fx_type_id(track, fi, fx_name)
       if tid == 36 then
         r.TrackFX_Delete(track, fi)
         removed_room = removed_room + 1
@@ -3583,8 +3682,7 @@ local function room_strip_all_sends()
     local track = r.GetTrack(0, ti)
     for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
       local _, fx_name = r.TrackFX_GetFXName(track, fi)
-      local lms_name, override = extract_lms_name(fx_name)
-      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      local tid = fx_type_id(track, fi, fx_name)
       if tid == "room_send" then
         r.TrackFX_Delete(track, fi)
         removed = removed + 1
@@ -3646,8 +3744,7 @@ local function room_slot_owners()
     local track = r.GetTrack(0, ti)
     for fi = 0, r.TrackFX_GetCount(track) - 1 do
       local _, fx_name = r.TrackFX_GetFXName(track, fi)
-      local lms_name, override = extract_lms_name(fx_name)
-      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      local tid = fx_type_id(track, fi, fx_name)
       if tid == "room_send" or fx_name:lower():find("bluhm send", 1, true) then
         local slot = math.floor(r.TrackFX_GetParam(track, fi, 0) + 0.5)
         local _, tname = r.GetTrackName(track)
@@ -3680,7 +3777,7 @@ local function with_alpha(color, a)
   return (color & 0xFFFFFF00) | (a & 0xFF)
 end
 
-local function draw_room_plan(ctx, st, owners)
+local function draw_room_plan(ctx, st, owners, room, fi)
   local dl = r.ImGui_GetWindowDrawList(ctx)
   local x0, y0 = r.ImGui_GetCursorScreenPos(ctx)
   local avail = r.ImGui_GetContentRegionAvail(ctx)
@@ -3733,8 +3830,11 @@ local function draw_room_plan(ctx, st, owners)
   r.ImGui_DrawList_AddLine(dl, mx + mr, my, mx, my + mr, INK, 2)
   r.ImGui_DrawList_AddLine(dl, mx, my + mr, mx - mr, my, INK, 2)
   r.ImGui_DrawList_AddLine(dl, mx - mr, my, mx, my - mr, INK, 2)
+  r.ImGui_DrawList_AddText(dl, x0 + 8 * ui_scale, y0 + h - 16 * ui_scale, INK_FAINT,
+    "drag a source to move it in the room")
   r.ImGui_DrawList_AddText(dl, mx + mr + 3 * ui_scale, my - 6 * ui_scale, INK_DIM, "MIC")
 
+  local dots = {}
   for s = 1, ROOM_SLOTS do
     local sl = st.slots[s]
     local o = owners[s]
@@ -3742,6 +3842,7 @@ local function draw_room_plan(ctx, st, owners)
     if o or live then
       local sx, sy = ox + sl.x * px, oy + sl.y * px
       local col = (o and o.color) or room_slot_color(s)
+      local name = o and o.name or string.format("slot %d", s)
       -- Level is a halo, not a bar: the room lighting up where someone plays.
       local lvl = math.min(1, sl.env * 3)
       if live and lvl > 0.02 then
@@ -3754,11 +3855,76 @@ local function draw_room_plan(ctx, st, owners)
         r.ImGui_DrawList_AddCircle(dl, sx, sy, 5 * ui_scale, INK_FAINT, 0, 1)
       end
       r.ImGui_DrawList_AddText(dl, sx + 9 * ui_scale, sy - 6 * ui_scale,
-        live and INK or INK_FAINT, o and o.name or string.format("slot %d", s))
+        live and INK or INK_FAINT, name)
+      dots[#dots + 1] = {s = s, sx = sx, sy = sy, name = name, live = live}
     end
   end
 
   r.ImGui_Dummy(ctx, w, h)
+
+  -- Dragging. The room owns band_pos -- it clamps into the polygon, recomputes
+  -- the reflections and serialises the result -- so this proposes a position
+  -- at slot +6/+7 and the room applies it. Writing every frame of the drag is
+  -- fine: the room consumes the cell and zeroes it, so the last word wins and
+  -- a stale request cannot drag the source back later.
+  --
+  -- The hit targets go down after the canvas is reserved, so nothing below
+  -- shifts, and the cursor is put back at the end of the canvas afterwards.
+  local hit = 11 * ui_scale
+
+  -- The mic moves too, and it needs no handshake: its position is a plain
+  -- parameter on the room, slider11 and slider12, so this sets them directly
+  -- and REAPER's own undo covers it.
+  if room and fi then
+    r.ImGui_SetCursorScreenPos(ctx, mx - hit, my - hit)
+    r.ImGui_InvisibleButton(ctx, "##room_mic", hit * 2, hit * 2)
+    if r.ImGui_IsItemActive(ctx) then
+      local mxp, myp = r.ImGui_GetMousePos(ctx)
+      local m = 0.35
+      local nx = math.max(m, math.min(rw - m, (mxp - ox) / px))
+      local ny = math.max(m, math.min(rd - m, (myp - oy) / px))
+      r.TrackFX_SetParam(room, fi, 10, nx)   -- slider11: Mic X
+      r.TrackFX_SetParam(room, fi, 11, ny)   -- slider12: Mic Y
+      r.ImGui_DrawList_AddCircle(dl, mx, my, 12 * ui_scale, INK, 0, 2)
+      r.ImGui_SetTooltip(ctx, string.format("Mic\n%.1f m across, %.1f m deep", nx, ny))
+    elseif r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_DrawList_AddCircle(dl, mx, my, 11 * ui_scale, INK_DIM, 0, 1)
+      if r.ImGui_SetMouseCursor and r.ImGui_MouseCursor_ResizeAll then
+        r.ImGui_SetMouseCursor(ctx, r.ImGui_MouseCursor_ResizeAll())
+      end
+      r.ImGui_SetTooltip(ctx, "Mic — drag to move it in the room")
+    end
+  end
+
+  for _, d in ipairs(dots) do
+    r.ImGui_SetCursorScreenPos(ctx, d.sx - hit, d.sy - hit)
+    r.ImGui_InvisibleButton(ctx, string.format("##room_src_%d", d.s), hit * 2, hit * 2)
+
+    if r.ImGui_IsItemActive(ctx) then
+      local mxp, myp = r.ImGui_GetMousePos(ctx)
+      local nx = (mxp - ox) / px
+      local ny = (myp - oy) / px
+      -- Hold it inside the room. The room would clamp a wilder value itself,
+      -- but then the dot fights the cursor, which reads as the drag breaking.
+      local m = 0.35
+      nx = math.max(m, math.min(rw - m, nx))
+      ny = math.max(m, math.min(rd - m, ny))
+      r.gmem_write(ROOM_STATE + 10 + (d.s - 1) * 8 + 6, nx)
+      r.gmem_write(ROOM_STATE + 10 + (d.s - 1) * 8 + 7, ny)
+
+      r.ImGui_DrawList_AddCircle(dl, d.sx, d.sy, 10 * ui_scale, INK, 0, 2)
+      r.ImGui_SetTooltip(ctx, string.format("%s\n%.1f m across, %.1f m deep", d.name, nx, ny))
+    elseif r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_DrawList_AddCircle(dl, d.sx, d.sy, 9 * ui_scale, INK_DIM, 0, 1)
+      -- Guarded: the move cursor is decoration, and an absent call in a defer
+      -- loop takes the whole window down for it.
+      if r.ImGui_SetMouseCursor and r.ImGui_MouseCursor_ResizeAll then
+        r.ImGui_SetMouseCursor(ctx, r.ImGui_MouseCursor_ResizeAll())
+      end
+      r.ImGui_SetTooltip(ctx, string.format("%s — drag to move in the room", d.name))
+    end
+  end
+  r.ImGui_SetCursorScreenPos(ctx, x0, y0 + h)
 end
 
 local function draw_room_verb(ctx)
@@ -3803,15 +3969,16 @@ local function draw_room_verb(ctx)
   if r.ImGui_Button(ctx, "Send New Tracks") then
     r.Undo_BeginBlock()
     r.PreventUIRefresh(1)
-    local placed, skipped, over = room_place_sends(room)
+    local placed, skipped, over, cleaned = room_place_sends(room)
     r.PreventUIRefresh(-1)
     r.Undo_EndBlock("Room Verb: send new tracks to the room", -1)
     scan_tracks()
     r.ShowConsoleMsg(string.format(
-      "LMS Room Verb: %d source(s) sending, %d folder child(ren) skipped%s\n",
+      "LMS Room Verb: %d source(s) sending, %d folder child(ren) skipped%s%s\n",
       placed, skipped,
       over > 0 and string.format(", %d left out -- only %d slots exist",
-        over, BLUHM_SEND_SLOTS) or ""))
+        over, BLUHM_SEND_SLOTS) or "",
+      cleaned > 0 and string.format(", %d stray send(s) removed", cleaned) or ""))
   end
   if r.ImGui_IsItemHovered(ctx) then
     r.ImGui_SetTooltip(ctx,
@@ -3863,7 +4030,7 @@ local function draw_room_verb(ctx)
 
   r.ImGui_Spacing(ctx)
   if st.w > 0 then
-    draw_room_plan(ctx, st, owners)
+    draw_room_plan(ctx, st, owners, room, fi)
   else
     -- Nothing to draw from. Drawing a default room here would be inventing
     -- one, and a plausible wrong picture is worse than none.

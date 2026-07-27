@@ -444,6 +444,10 @@
         <changelog>v1.7 &#8212; Allocates the source-ring consumer&#39;s state instead of letting it land on address 0, which is the head of delay_buf: see lms_core 7.7 for what that cost. Requires lms_core 7.7. Also publishes what it can see, so it can be read from outside: a build stamp at G_ROOM_STATE +1/+2 carrying the ring constants this plugin was compiled with, since editing an include changes nothing until something recompiles and there is otherwise no way to tell which build is running; and the room&#39;s own per-slot view at +10, its liveness countdown, verdict and read position. gmem only ever carried the publisher&#39;s half of the handshake, so a source could publish perfectly while the room ignored it with nothing to see.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
+      <version name="1.8" author="LMS" time="2026-07-27T07:00:00Z">
+        <changelog>v1.8 &#8212; Band sources can be moved from outside. The room still owns where a source stands: it clamps into the polygon, recomputes the reflections and serialises the result, so a mover proposes a position at the slot&#39;s request cell and the room applies it. The request is consumed and zeroed when it lands, so the last word wins during a drag and a stale cell cannot pull the source back a block later. A metre coordinate inside the room is never 0, which is what makes 0 a safe &quot;nothing pending&quot;. Lets the manager&#39;s room plan place the band directly instead of sending you to the plugin window.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_frenchie_v2.jsfx" type="effect" desc="LMS - The Frenchie v2 — Density-Aware 5W Class A Amp Sim">
       <version name="1.0" author="LMS" time="2026-02-18T20:00:00Z">
@@ -498,8 +502,8 @@
         <changelog>v2.7 &#8212; Strip All Sends in the Room Verb tab: deletes every Bluhm Send in the project, including the ones on folder children that setup skips on purpose and therefore never renumbers. Those keep publishing into a slot that has since been handed to another track, and nothing in the normal flow clears them. Follow it with Enable Room Verb for a clean numbering. The gmem readout used to find the source-ring memory fault is not shipped &#8212; the plugins still publish both halves of the handshake, so it can be put back in an afternoon if a ring ever misbehaves again.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
-      <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
-        <changelog>v2.8 — Speaker Breakup slider (0-100%) for user-controllable cabinet speaker breakup intensity. Core 6.6.</changelog>
+      <version name="2.8" author="LMS" time="2026-07-27T07:00:00Z">
+        <changelog>v2.8 &#8212; Plugins are identified by their FILE, not by the name REAPER shows. REAPER caches a JSFX&#39;s desc line when it scans it and serves that until something makes it rescan, so a rename leaves every project identifying the plugin by the old name: reaper-jsfx.ini on the machine this was found on still read NAME &quot;lms_room_send.jsfx&quot; &quot;JS: LMS - Space Send&quot; months after the desc became &quot;Bluhm Send&quot;. Every name-based check missed it, so the manager added a second send on each run, Strip All Sends removed nothing, and the plugin never appeared in the Overview &#8212; one cause, three symptoms. All seven identification sites now read fx_ident, with name matching kept only as a fallback. Also: drag sources and the mic directly on the room plan, the mic being a plain parameter and the sources going through the room, which owns their placement. One Bluhm Send per track is now enforced by deleting extras rather than assumed from a lookup &#8212; a second send publishes into a ring of its own, is never renumbered, and ends up writing over a slot that belongs to another track &#8212; and sends stranded on folder children, which setup skips and therefore never renumbers, are removed the same way. Both are reported. Bluhm Send gains a registry entry so it reads as itself rather than as its lookup key, with a slider count of zero so follow and steal cannot copy one send&#39;s slot identity onto another.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
       <version name="2.9" author="LMS" time="2026-06-14T18:00:00Z">
@@ -2179,6 +2183,10 @@
       </version>
       <version name="2.7" author="LMS" time="2026-07-27T05:30:00Z">
         <changelog>v2.7 &#8212; Ring Diagnostics in the Room Verb tab. It reads the handshake table the sends and the room actually use and watches it change frame to frame: per slot, which track claims it, the publisher&#39;s heartbeat and write position with their deltas, the room&#39;s own liveness countdown and verdict, the lag between them, and how many times the slot has been seen dropping. Two track names on one slot is called out as a collision, a send on a folder child is called out as an orphan the setup skips and never renumbers, and the room&#39;s build stamp is shown so a stale compile is a fact on screen rather than an assumption. Strip All Sends clears every Bluhm Send including the ones setup skips. Built because the room reported a source count and nothing else, so &quot;a source keeps dropping&quot; had no way to become &quot;which one, and why&quot;.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.8" author="LMS" time="2026-07-27T07:00:00Z">
+        <changelog>v2.8 &#8212; Drag the band around the room plan. Each source has a hit target on the plan; dragging one proposes a position to the room, which clamps and applies it, so the placement that used to mean opening the plugin window happens where you are already looking. Requires lms_room 1.8. The hit targets are placed after the canvas is reserved so nothing below shifts, and the position is held inside the room while dragging &#8212; the room would clamp a wilder value itself, but then the dot fights the cursor, which reads as the drag being broken.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>
