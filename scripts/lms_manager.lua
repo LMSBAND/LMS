@@ -2885,62 +2885,118 @@ local function draw_harmony(ctx)
     r.ImGui_EndPopup(ctx)
   end
 
-  -- Parts and sequence are read-only here, so they fold away: they were taking
-  -- the height the chord work needs, to show something you cannot act on.
-  local song_open = r.ImGui_CollapsingHeader(ctx, "Song parts & sequence##hm_song")
-  if song_open and r.ImGui_BeginTable(ctx, "hm_parts", 7, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
-    r.ImGui_TableSetupColumn(ctx, "#", 0, 20)
-    r.ImGui_TableSetupColumn(ctx, "Type", 0, 65)
-    r.ImGui_TableSetupColumn(ctx, "N", 0, 25)
-    r.ImGui_TableSetupColumn(ctx, "Pat", 0, 35)
-    r.ImGui_TableSetupColumn(ctx, "Rep", 0, 35)
-    r.ImGui_TableSetupColumn(ctx, "Drum", 0, 35)
-    r.ImGui_TableSetupColumn(ctx, "Oct", 0, 35)
+  -- The song structure, editable. The plugin has accepted every one of these
+  -- edits all along -- set field, add, remove, sequence append, reorder, drum,
+  -- octave -- through a command bus this tab used for presets and nothing
+  -- else, so the table sat here read-only telling you to go open the plugin.
+  -- Each control queues one command; the table redraws from the plugin's own
+  -- mirror a block later, so what you see is what it did.
+  local song_open = r.ImGui_CollapsingHeader(ctx, "Song parts & sequence##hm_song",
+    r.ImGui_TreeNodeFlags_DefaultOpen())
+  if song_open and r.ImGui_BeginTable(ctx, "hm_parts", 8, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
+    r.ImGui_TableSetupColumn(ctx, "#", 0, 24)
+    r.ImGui_TableSetupColumn(ctx, "Type", 0, 80)
+    r.ImGui_TableSetupColumn(ctx, "N", 0, 46)
+    r.ImGui_TableSetupColumn(ctx, "Pat", 0, 52)
+    r.ImGui_TableSetupColumn(ctx, "Rep", 0, 52)
+    r.ImGui_TableSetupColumn(ctx, "Key", 0, 76)
+    r.ImGui_TableSetupColumn(ctx, "Oct", 0, 52)
+    r.ImGui_TableSetupColumn(ctx, "", 0, 62)
     r.ImGui_TableHeadersRow(ctx)
 
     for i = 0, song_num_parts - 1 do
       local p = hm_state.parts[i]
       if not p then break end
       r.ImGui_TableNextRow(ctx)
+      r.ImGui_PushID(ctx, "hmpart" .. i)
 
       if i == song_sel_part then
         r.ImGui_TableSetBgColor(ctx, r.ImGui_TableBgTarget_RowBg1(), 0x4444AA44)
       end
 
+      -- The row number selects: the plugin tracks a selected part and nothing
+      -- here could tell it which one.
       r.ImGui_TableNextColumn(ctx)
-      r.ImGui_Text(ctx, tostring(i + 1))
+      if r.ImGui_SmallButton(ctx, tostring(i + 1)) then hm_song_cmd(11, i) end
 
+      -- Type, field 0. Worn in the part colour, as the sequence blocks are,
+      -- so a row and its blocks read as the same thing.
       r.ImGui_TableNextColumn(ctx)
       local cat = math.max(0, math.min(4, p.cat))
-      r.ImGui_TextColored(ctx, PART_COLORS[cat + 1], PART_NAMES[cat + 1])
-
-      r.ImGui_TableNextColumn(ctx)
-      r.ImGui_Text(ctx, tostring(math.max(1, p.num)))
-
-      r.ImGui_TableNextColumn(ctx)
-      r.ImGui_Text(ctx, "P" .. (p.pat + 1))
-
-      r.ImGui_TableNextColumn(ctx)
-      r.ImGui_Text(ctx, "x" .. math.max(1, p.rep))
-
-      r.ImGui_TableNextColumn(ctx)
-      local part_drum = 0
-      for si = 0, song_seq_len - 1 do
-        if (hm_state.seq[si] or -1) == i then
-          part_drum = hm_state.seq_drum[si] or 0
-          break
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), PART_COLORS[cat + 1])
+      r.ImGui_SetNextItemWidth(ctx, 76)
+      if r.ImGui_BeginCombo(ctx, "##cat", PART_NAMES[cat + 1]) then
+        for c = 0, #PART_NAMES - 1 do
+          if r.ImGui_Selectable(ctx, PART_NAMES[c + 1], c == cat) then
+            hm_song_cmd(1, i, 0, c)
+          end
         end
+        r.ImGui_EndCombo(ctx)
       end
-      r.ImGui_Text(ctx, part_drum > 0 and ("D" .. part_drum) or "--")
+      r.ImGui_PopStyleColor(ctx)
+
+      -- Number, pattern, repeats: fields 1, 2, 3. InputInt and not a slider,
+      -- because a slider drag would queue a command every frame it moved.
+      r.ImGui_TableNextColumn(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 42)
+      local n_chg, n_new = r.ImGui_InputInt(ctx, "##num", math.max(1, p.num), 0, 0)
+      if n_chg then hm_song_cmd(1, i, 1, math.max(1, math.min(99, n_new))) end
 
       r.ImGui_TableNextColumn(ctx)
-      local oct = (hm_state.oct[i] or 3) - 3
-      r.ImGui_Text(ctx, oct == 0 and "--" or (oct > 0 and "+" .. oct or tostring(oct)))
+      r.ImGui_SetNextItemWidth(ctx, 48)
+      local pt_chg, pt_new = r.ImGui_InputInt(ctx, "##pat", p.pat + 1, 0, 0)
+      if pt_chg then hm_song_cmd(1, i, 2, math.max(1, math.min(16, pt_new)) - 1) end
+
+      r.ImGui_TableNextColumn(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 48)
+      local rp_chg, rp_new = r.ImGui_InputInt(ctx, "##rep", math.max(1, p.rep), 0, 0)
+      if rp_chg then hm_song_cmd(1, i, 3, math.max(1, math.min(64, rp_new))) end
+
+      -- Per-part transpose, field 4. The plugin has read this the whole time
+      -- -- it is how a chorus lifts -- and nothing here ever set it.
+      r.ImGui_TableNextColumn(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 72)
+      local mk = math.max(0, math.min(11, math.floor(p.mod_key or 0)))
+      if r.ImGui_BeginCombo(ctx, "##mkey", mk == 0 and "--" or ("+" .. mk)) then
+        for k = 0, 11 do
+          local lbl = (k == 0) and "-- (song key)"
+            or ("+" .. k .. "   " .. NOTE_NAMES[((key_root + k) % 12) + 1])
+          if r.ImGui_Selectable(ctx, lbl, k == mk) then hm_song_cmd(1, i, 4, k) end
+        end
+        r.ImGui_EndCombo(ctx)
+      end
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_SetTooltip(ctx, "Semitones this part is transposed from the song key")
+      end
+
+      -- Octave has its own opcode: it lives in a separate array, not in the
+      -- part fields. 0..6 on the wire, -2..+3 to read.
+      r.ImGui_TableNextColumn(ctx)
+      r.ImGui_SetNextItemWidth(ctx, 48)
+      local oct_raw = math.max(0, math.min(6, math.floor(hm_state.oct[i] or 3)))
+      local o_chg, o_new = r.ImGui_InputInt(ctx, "##oct", oct_raw - 3, 0, 0)
+      if o_chg then hm_song_cmd(10, i, math.max(0, math.min(6, o_new + 3))) end
+
+      r.ImGui_TableNextColumn(ctx)
+      if r.ImGui_SmallButton(ctx, "+seq") then hm_song_cmd(4, i) end
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_SetTooltip(ctx, "Append this part to the sequence")
+      end
+      if song_num_parts > 1 then
+        r.ImGui_SameLine(ctx)
+        if r.ImGui_SmallButton(ctx, "x") then hm_song_cmd(3, i) end
+      end
+
+      r.ImGui_PopID(ctx)
     end
     r.ImGui_EndTable(ctx)
   end
   if song_open then
-    r.ImGui_TextDisabled(ctx, "Open Harmony Map plugin to edit parts & sequence")
+    if r.ImGui_SmallButton(ctx, "Add Part##hm_addpart") then hm_song_cmd(2) end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Clear Song##hm_clearsong") then hm_song_cmd(8) end
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, "row number selects the part the plugin edits")
   end
 
   -- Song sequence strip (read-only)
@@ -2949,7 +3005,7 @@ local function draw_harmony(ctx)
   r.ImGui_Text(ctx, "Sequence:")
   if song_seq_len == 0 then
     r.ImGui_SameLine(ctx)
-    r.ImGui_TextDisabled(ctx, "(empty)")
+    r.ImGui_TextDisabled(ctx, "(empty) — add parts with +seq above")
   else
     local seq_w = 52
     local seq_h = 24
@@ -2978,6 +3034,45 @@ local function draw_harmony(ctx)
 
       local slabel = string.format("%s %d", PART_NAMES[cat2 + 1]:sub(1, 3), math.max(1, p.num))
       r.ImGui_DrawList_AddText(dl, sx + 4, sy + 4, 0xFFFFFFFF, slabel)
+
+      -- A drum pattern set on this entry shows in its corner: the parts table
+      -- above can only ever show the first entry that uses a given part.
+      local sdrum = hm_state.seq_drum[si] or 0
+      if sdrum > 0 then
+        r.ImGui_DrawList_AddText(dl, sx + seq_w - 15, sy + seq_h - 13, 0xFFDD88FF, "D" .. sdrum)
+      end
+
+      r.ImGui_SetCursorScreenPos(ctx, sx, sy)
+      local pressed = r.ImGui_InvisibleButton(ctx, "##seqblk" .. si, seq_w, seq_h)
+      if r.ImGui_IsItemClicked(ctx, 1) then
+        hm_song_cmd(5, si)          -- right-click: out of the sequence
+      elseif pressed then
+        -- One decision per click. Read separately, a shift+click would both
+        -- move the block and select its part.
+        --
+        -- Guarded: these three have no other use in this file, and an absent
+        -- call in a defer loop takes the window down rather than degrading to
+        -- "the modifiers do nothing".
+        local mods = r.ImGui_GetKeyMods and r.ImGui_GetKeyMods(ctx) or 0
+        local m_shift = r.ImGui_Mod_Shift and r.ImGui_Mod_Shift() or 0
+        local m_alt = r.ImGui_Mod_Alt and r.ImGui_Mod_Alt() or 0
+        local m_ctrl = r.ImGui_Mod_Ctrl and r.ImGui_Mod_Ctrl() or 0
+        if m_shift ~= 0 and (mods & m_shift) ~= 0 and si > 0 then
+          hm_song_cmd(6, si, si - 1)
+        elseif m_alt ~= 0 and (mods & m_alt) ~= 0 and si < song_seq_len - 1 then
+          hm_song_cmd(6, si, si + 1)
+        elseif m_ctrl ~= 0 and (mods & m_ctrl) ~= 0 then
+          hm_song_cmd(7, si, (sdrum + 1) % 9)
+        else
+          hm_song_cmd(11, part_idx)
+        end
+      end
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_DrawList_AddRect(dl, sx - 1, sy - 1, sx + seq_w + 1, sy + seq_h + 1, INK, 3, 0, 2)
+        r.ImGui_SetTooltip(ctx, string.format(
+          "%s %d  —  step %d\nclick: select part   right-click: remove\nshift+click: move left   alt+click: move right   ctrl+click: drum",
+          PART_NAMES[cat2 + 1], math.max(1, p.num), si + 1))
+      end
     end
 
     local total_rows2 = math.ceil(song_seq_len / cols2)
