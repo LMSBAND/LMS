@@ -390,30 +390,7 @@ d_bplus = bplus;
 // ============================================================================
 //  SCALING — compute scale factor from actual window size vs nominal
 // ============================================================================
-gfx_ext_retina > 0 ? gfx_ext_retina = 1;
-S = gfx_w / 600;
-S < 0.5 ? S = 0.5;
-
-// Scaled font sizes
-F_TITLE = max(10, floor(22 * S));
-F_LABEL = max(8, floor(12 * S));
-F_SMALL = max(7, floor(11 * S));
-F_TINY  = max(7, floor(10 * S));
-// ============================================================================
-//  COLOR CONSTANTS
-// ============================================================================
-COL_BG_R = 0.05; COL_BG_G = 0.05; COL_BG_B = 0.07;
-COL_PANEL_R = 0.08; COL_PANEL_G = 0.08; COL_PANEL_B = 0.11;
-COL_PANEL_HI_R = 0.12; COL_PANEL_HI_G = 0.12; COL_PANEL_HI_B = 0.16;
-COL_BORDER_R = 0.20; COL_BORDER_G = 0.20; COL_BORDER_B = 0.25;
-COL_TITLE_R = 0.95; COL_TITLE_G = 0.78; COL_TITLE_B = 0.35;
-COL_SEC_R = 0.55; COL_SEC_G = 0.50; COL_SEC_B = 0.40;
-COL_TEXT_R = 0.78; COL_TEXT_G = 0.78; COL_TEXT_B = 0.82;
-COL_DIM_R = 0.38; COL_DIM_G = 0.38; COL_DIM_B = 0.42;
-COL_ACCENT_R = 0.95; COL_ACCENT_G = 0.45; COL_ACCENT_B = 0.15;
-COL_GREEN_R = 0.25; COL_GREEN_G = 0.80; COL_GREEN_B = 0.50;
-COL_CYAN_R = 0.20; COL_CYAN_G = 0.60; COL_CYAN_B = 0.85;
-COL_BAR_BG_R = 0.12; COL_BAR_BG_G = 0.12; COL_BAR_BG_B = 0.16;
+lms_gfx_setup(600);
 
 // ============================================================================
 //  BACKGROUND
