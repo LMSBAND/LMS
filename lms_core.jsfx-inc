@@ -66,7 +66,7 @@
 //
 //  @gmem G_DRUMBANGER_BUS  start=0        size=10000   owner=lms_drumbanger.jsfx -- pad+transport state, and the sequencer mirror at 1000..9191. Read by drum_trigger, lil_stinker, nuug420, and the manager.
 //  @gmem G_BROADCAST       start=100000   size=622592  owner=lms_core.jsfx-inc -- follow/steal slots, G_BC_BASE + type_id*16384, 32 instances of 512. Only lms_smart_gate still uses it.
-//  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, then 8 band slots of 8 from +10. The band slots have NO writer: see the note under G_ROOM_SEND. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
+//  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, build stamp (compiled SRC_RING_SIZE, SRC_ALIVE_BLOCKS) at +1/+2, then 8 band slots of 8 from +10 holding the room's own view of each source ring: liveness countdown, active verdict, read position. The band slots have NO writer: see the note under G_ROOM_SEND. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
 //  @gmem G_ROOM_SEND       start=900000   size=1000    owner=lms_room_send.jsfx -- satellite handshake: master heartbeat at +0, slot claims from +10, per-slot control from +80. Audio does NOT travel here; Space Send passes it on channels 3/4 for a REAPER send to carry. lms_the_space was the master and is retired, so nothing writes +0 today and Space Send finds no room to talk to.
 //  @gmem G_PITCH_BUS       start=950000   size=100     owner=lms_pitch_detector.jsfx -- detected pitch, confidence, density. Written by faker too.
 //  @gmem G_HARMONY_BUS     start=960000   size=1000    owner=lms_harmony_map.jsfx -- chord/key/transport, the conditional bus at +100, and the song command bus at +330.
@@ -75,7 +75,7 @@
 //  @gmem G_BLEED           start=1000000  size=1000    owner=lms_core.jsfx-inc -- bleed engine geometry, mic vectors, write positions, RMS, matrix.
 //  @gmem G_BLEED_RINGS     start=1001000  size=131072  owner=lms_core.jsfx-inc -- 16 audio ring buffers of 8192 for the bleed engine.
 //  @gmem G_SRC_SLOTS       start=1140000  size=64      owner=lms_core.jsfx-inc -- source-ring handshake, 8 slots of 8: heartbeat, active, write position.
-//  @gmem G_SRC_RINGS       start=1141000  size=65536   owner=lms_core.jsfx-inc -- 8 audio rings of 8192, satellite track to room track. See SECTION 15.
+//  @gmem G_SRC_RINGS       start=1141000  size=262144  owner=lms_core.jsfx-inc -- 8 audio rings of 32768, satellite track to room track. Sized past REAPER's anticipative render-ahead; see SECTION 15.
 //
 //  LOCAL MEMORY, the other space. These are the only hardcoded local bases in
 //  the library; everything else either takes its base as an argument or bump
@@ -5347,6 +5347,15 @@ function lms_bleed_con_read()
 //
 //  Either way it is correct and bounded, which a single slot never is.
 //
+//  ANTICIPATIVE FX IS THE THIRD CASE, and it is not one block: REAPER renders
+//  each track ahead on its own thread, by different amounts, so "ran first" can
+//  mean hundreds of milliseconds first. The transport survives that -- the
+//  reader simply sits further back -- as long as the lead stays inside the ring
+//  and the publisher's heartbeat gap stays inside the liveness timeout. Both
+//  constants below are sized against REAPER's default render-ahead for that
+//  reason. A room fed by sends is also ordered by the routing graph, which
+//  keeps the lead small in the first place.
+//
 //  Usage, publisher:  @init   pub.lms_srcring_pub_init(slot);
 //                     @block  pub.lms_srcring_pub_block(active);
 //                     @sample pub.lms_srcring_pub_write(mono);
@@ -5357,9 +5366,26 @@ function lms_bleed_con_read()
 
 G_SRC_SLOTS    = 1140000;
 G_SRC_RINGS    = 1141000;
-SRC_RING_SIZE  = 8192;
+
+// The ring has to be longer than REAPER can run one track ahead of another.
+// Anticipative FX processing renders each track ahead on its own thread, up to
+// 200 ms by default, so the publisher can be that far in front of the room --
+// which at 8192 samples (186 ms at 44.1k) wraps the ring and resyncs, over and
+// over. 32768 is 743 ms at 44.1k and 341 ms at 96k, past the default with room
+// to spare. The reader still sits one block behind whatever it snapshots, so a
+// longer ring costs nothing but gmem.
+SRC_RING_SIZE  = 32768;
 SRC_MAX_SLOTS  = 8;
 SRC_SLOT_SIZE  = 8;        // heartbeat, active, wpos, spare
+
+// How many of OUR blocks a publisher may go quiet before we call it gone.
+// Rendering ahead is bursty: a track runs a run of blocks, then waits while
+// its buffer drains, so its heartbeat arrives in clumps rather than one per
+// block. At 20 blocks (232 ms at 512/44.1k) a burst gap crossed the timeout
+// and sources flickered in and out -- audible as a wobble, since each one
+// takes its reflections with it. 200 blocks is ~2.3 s, longer than any gap and
+// still quick enough that a deleted send stops showing up.
+SRC_ALIVE_BLOCKS = 200;
 
 function lms_srcring_pub_init(slot_id)
 (
@@ -5398,9 +5424,29 @@ function lms_srcring_pub_write(spl)
 // Snapshots every slot's write position, so all sources advance together and
 // a source that stalls mid-block cannot skew the ones around it.
 
-function lms_srcring_con_init()
+// The consumer keeps four per-slot arrays and they need somewhere to live.
+// This took an argument-free form and never assigned a base to any of them,
+// which in EEL is not an empty array -- it is address 0. this.alive[k] means
+// mem[this.alive + k], and an unassigned variable is 0, so snap, rpos, alive
+// and last_hb were all the same eight cells at mem[0..7], overwriting each
+// other every block. lms_room bump allocates from 0 as well, so those cells
+// are also the head of its delay line.
+//
+// What it sounded like: rpos ended each block holding the writer's position
+// rather than a block behind it, so the room read from a wandering point in
+// the ring -- chopped, repeating fragments -- and alive[k] held whatever was
+// written last, so slots blinked in and out. Section 14 takes an explicit
+// local_buf_base for exactly this reason; this one now does too.
+//
+// Needs SRC_MAX_SLOTS * 4 cells.
+function lms_srcring_con_init(local_buf_base)
   local(k)
 (
+  this.snap    = local_buf_base;
+  this.rpos    = local_buf_base + SRC_MAX_SLOTS;
+  this.alive   = local_buf_base + SRC_MAX_SLOTS * 2;
+  this.last_hb = local_buf_base + SRC_MAX_SLOTS * 3;
+
   this.rd_idx = 0;
   this.prev_n = 0;
   k = 0;
@@ -5425,7 +5471,7 @@ function lms_srcring_con_block()
     // not tell us when an FX is removed, so the slot has to time out.
     hb != this.last_hb[k] ? (
       this.last_hb[k] = hb;
-      this.alive[k] = 20;
+      this.alive[k] = SRC_ALIVE_BLOCKS;
     ) : (
       this.alive[k] > 0 ? this.alive[k] -= 1;
     );

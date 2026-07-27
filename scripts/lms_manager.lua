@@ -280,16 +280,35 @@ local follows = {}
 -- lookup usually misses on the underscore and DISPLAY_TO_TYPE answers instead
 -- -- yielding "drumbanger" rather than "lms_drumbanger". Always compare
 -- inst.type_id, never inst.lms_name: type_id is identical from either table.
+--
+-- Longest key first, and in a fixed order. Several keys are prefixes of others
+-- -- "lms_room" of "lms_room_send", "henge" of "henge on crack" -- and pairs()
+-- walks a hash table in whatever order it likes, so which one matched was down
+-- to luck: a Bluhm Send could identify as Black In Bluhm on one run and itself
+-- on the next. The longest match is the specific one.
+local function sorted_keys(tbl)
+  local keys = {}
+  for key in pairs(tbl) do keys[#keys + 1] = key end
+  table.sort(keys, function(a, b)
+    if #a ~= #b then return #a > #b end
+    return a < b
+  end)
+  return keys
+end
+
+local JSFX_KEYS_BY_LEN = sorted_keys(JSFX_TO_TYPE)
+local DISPLAY_KEYS_BY_LEN = sorted_keys(DISPLAY_TO_TYPE)
+
 local function extract_lms_name(fx_name)
   local lower = fx_name:lower()
-  for key, _ in pairs(JSFX_TO_TYPE) do
+  for _, key in ipairs(JSFX_KEYS_BY_LEN) do
     if lower:find(key, 1, true) then
       return key
     end
   end
-  for key, type_id in pairs(DISPLAY_TO_TYPE) do
+  for _, key in ipairs(DISPLAY_KEYS_BY_LEN) do
     if lower:find(key, 1, true) then
-      return key, type_id
+      return key, DISPLAY_TO_TYPE[key]
     end
   end
   return nil
@@ -802,32 +821,104 @@ local function add_rtw_to_all_tracks()
   r.ShowConsoleMsg(string.format("LMS Manager: Added RTW to %d tracks\n", added))
 end
 
+-- Canonical chain order, as ranks. It follows how the rig is actually plugged
+-- together: nothing can be processed before it is generated, the gate cleans
+-- the input before anything amplifies its noise floor, pedals hit the amp, and
+-- tone, dynamics and ambience happen to what came out of it.
+--
+-- Ties are allowed on purpose -- every amp shares a rank -- and the sort below
+-- is stable, so plugins on the same rank keep the order you put them in.
+local FX_ORDER = {
+  -- Generators. MIDI first, since the synths downstream play what it sends.
+  [30]  = 10,   -- Harmony Map
+  [34]  = 11,   -- Drone Voice
+  ["drumbanger"] = 20,
+  [29]  = 21,   -- Lil Stinker
+  [33]  = 22,   -- Nuug420
+
+  [21]  = 30,   -- Smart Gate -- on the raw input, before any gain stage
+  [20]  = 40,   -- Drum Trigger -- wants the untouched transient
+  [22]  = 50,   -- Pitch Detector -- tracks a clean signal, not a clipped one
+  [23]  = 51,   -- Faker
+
+  [31]  = 60,   -- Satan's Pedalboard -- pedals go in front of the amp
+
+  [11]  = 70,   -- Frenchie
+  [12]  = 70,   -- Punk Idol
+  [13]  = 70,   -- Fridge
+  [14]  = 70,   -- Ol' Reliable
+  [15]  = 70,   -- TRSOB
+  [16]  = 70,   -- Twins
+  [17]  = 70,   -- Area51
+  [24]  = 70,   -- Bottom Feeder
+  [25]  = 70,   -- Nightmare
+  [26]  = 70,   -- OJ95
+  [28]  = 70,   -- Tomas Teknik
+  [32]  = 70,   -- Piece of Shit
+
+  [6]   = 90,   -- Passive EQ -- shape first, then colour it
+  [7]   = 95,   -- Tube Sat
+  [5]   = 96,   -- Traumatizer
+  [18]  = 110,  -- Silver69
+  [19]  = 115,  -- Mega Increasinator -- the loudest link goes after the comp
+  [8]   = 120,  -- Henge
+  [9]   = 121,  -- Henge on Crack
+  [27]  = 122,  -- Reverb
+  [36]  = 125,  -- Black In Bluhm
+
+  [4]   = 200,  -- RTW Channel Strip -- the strip is the end of the path
+
+  -- Taps. These read the track and pass it through untouched, so they belong
+  -- after everything that shapes it: what they publish should be what the
+  -- master hears.
+  ["bloody_glue"] = 210,
+  ["room_send"]   = 220,
+}
+
+-- Anything we do not recognise -- a third-party EQ, compressor or saturator --
+-- lands after the amp with the tone plugins, which is where most of them go.
+-- Unknown plugins keep their order among themselves.
+local FX_ORDER_UNKNOWN = 80
+
 local function organize_track_fx(track)
   local num_fx = r.TrackFX_GetCount(track)
   if num_fx < 2 then return end
 
-  local gate_idx = -1
-  local rtw_idx = -1
+  local chain = {}
   for fi = 0, num_fx - 1 do
     local _, fx_name = r.TrackFX_GetFXName(track, fi)
     local lms_name, override = extract_lms_name(fx_name)
     local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
-    if tid == 21 then gate_idx = fi end
-    if tid == 4 then rtw_idx = fi end
+    chain[#chain + 1] = {
+      idx  = fi,
+      rank = (tid and FX_ORDER[tid]) or FX_ORDER_UNKNOWN,
+    }
   end
 
-  if gate_idx > 0 then
-    r.TrackFX_CopyToTrack(track, gate_idx, track, 0, true)
-    if rtw_idx >= 0 then
-      if rtw_idx < gate_idx then rtw_idx = rtw_idx + 1
-      elseif rtw_idx == gate_idx then rtw_idx = 0
+  -- Stable: rank decides, and the current index breaks ties. table.sort is not
+  -- stable on its own, so the index is part of the comparison rather than a
+  -- hope about how it behaves.
+  table.sort(chain, function(a, b)
+    if a.rank ~= b.rank then return a.rank < b.rank end
+    return a.idx < b.idx
+  end)
+
+  -- Selection sort with moves. Moving an FX from `cur` down to `target` shifts
+  -- everything in between up by one, so the indices read before the first move
+  -- go stale immediately -- pos[] tracks where each plugin actually sits.
+  local pos = {}
+  for _, e in ipairs(chain) do pos[e.idx] = e.idx end
+
+  for target = 0, #chain - 1 do
+    local want = chain[target + 1].idx
+    local cur = pos[want]
+    if cur ~= target then
+      r.TrackFX_CopyToTrack(track, cur, track, target, true)
+      for k, v in pairs(pos) do
+        if v >= target and v < cur then pos[k] = v + 1 end
       end
+      pos[want] = target
     end
-  end
-
-  num_fx = r.TrackFX_GetCount(track)
-  if rtw_idx >= 0 and rtw_idx < num_fx - 1 then
-    r.TrackFX_CopyToTrack(track, rtw_idx, track, num_fx - 1, true)
   end
 end
 
@@ -912,6 +1003,13 @@ local function draw_overview(ctx)
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Organize all FX") then
     organize_all_tracks()
+  end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Reorders every track's FX into signal-chain order:\n"
+      .. "generators > gate > pitch > pedals > amp > EQ/saturation > comp > reverb > RTW > sends.\n"
+      .. "Plugins that share a stage keep the order you put them in, and anything\n"
+      .. "non-LMS is treated as post-amp tone.")
   end
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Add RTW to all tracks") then
@@ -1302,7 +1400,7 @@ local function draw_broadcast(ctx)
       r.ImGui_EndMenu(ctx)
     end
 
-    if r.ImGui_MenuItem(ctx, "Organize FX (Gate first, RTW last)") then
+    if r.ImGui_MenuItem(ctx, "Organize FX (gate > pedals > amp > tone > strip)") then
       organize_track_fx(ctx_menu_track)
       scan_tracks()
       r.ShowConsoleMsg(string.format("LMS Manager: Organized FX on '%s'\n", ctx_menu_track_name))
@@ -3212,109 +3310,318 @@ local function draw_track_setup(ctx)
 end
 
 -- ---- Room Verb Tab (Black In Bluhm) ----
+--
+-- The room is a send/return, not a master insert. That is the whole shape of
+-- this tab, and it is what the first attempt got wrong: with the room on the
+-- master every source reached it twice -- summed into the master mix on the
+-- dry path, and again individually through its ring on the wet path. Eight
+-- delayed copies against the original is comb filtering, and through an FDN
+-- with a long tail it rings.
+--
+-- So enabling builds the whole topology instead:
+--   - a bus of its own, ROOM VERB, with nothing routed into it
+--   - Black In Bluhm on that bus at 100% wet, in Band mode
+--   - a Bluhm Send at the end of every source track's chain, one slot each
+--
+-- The direct sound is the source tracks going to the master as they always
+-- did. The room sound is the rings the sends publish into. Nothing arrives
+-- twice, and the bus carries only reverb because its dry path has no input.
+--
+-- Each source also gets a real REAPER send to the bus, at -inf. It carries no
+-- audio and is not meant to: the room hears the ring, not the send. What it
+-- buys is ORDER. REAPER's anticipative FX processing renders tracks ahead on
+-- separate threads by different amounts, and two tracks drifting hundreds of
+-- milliseconds apart is what made the first working version wobble -- sources
+-- timing out of the ring handshake and dropping their reflections, one at a
+-- time. A receive makes the bus depend on its sources, so the graph keeps them
+-- together. The volume stays at -inf so the dry path can never double the
+-- direct sound, even if the wet mix comes down off 100%.
 
-local function find_room_on_master()
+local ROOM_BUS_NAME = "ROOM VERB"
+local BLUHM_SEND_SLOTS = 8
+
+-- Find Black In Bluhm wherever it lives: its own bus, some other track, or the
+-- master in a project built before this tab moved it off there.
+local function find_room()
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    local has, fi = track_has_fx_type(track, 36)
+    if has then return track, fi end
+  end
   local master = r.GetMasterTrack(0)
-  if not master then return nil end
-  local num_fx = r.TrackFX_GetCount(master)
-  for fi = 0, num_fx - 1 do
-    local _, fx_name = r.TrackFX_GetFXName(master, fi)
-    local lower = fx_name:lower()
-    if lower:find("lms_room", 1, true) or lower:find("black in bluhm", 1, true) then
-      return master, fi
+  if master then
+    local has, fi = track_has_fx_type(master, 36)
+    if has then return master, fi end
+  end
+  return nil, nil
+end
+
+local function find_room_bus()
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    local _, name = r.GetTrackName(track)
+    if name:upper() == ROOM_BUS_NAME then return track end
+  end
+  return nil
+end
+
+-- The silent send that pins the bus behind its sources in the routing graph.
+-- Returns true if it made one, false if the track already had it.
+local function ensure_order_send(track, bus)
+  for si = 0, r.GetTrackNumSends(track, 0) - 1 do
+    local dest = r.GetTrackSendInfo_Value(track, 0, si, "P_DESTTRACK")
+    -- P_DESTTRACK comes back as a track pointer; compare it both ways rather
+    -- than assuming which representation this REAPER hands us.
+    if dest == bus or tostring(dest) == tostring(bus) then return false end
+  end
+  local si = r.CreateTrackSend(track, bus)
+  if si and si >= 0 then
+    r.SetTrackSendInfo_Value(track, 0, si, "D_VOL", 0)  -- -inf: ordering only
+    return true
+  end
+  return false
+end
+
+local function remove_order_sends(bus)
+  local removed = 0
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    for si = r.GetTrackNumSends(track, 0) - 1, 0, -1 do
+      local dest = r.GetTrackSendInfo_Value(track, 0, si, "P_DESTTRACK")
+      if dest == bus or tostring(dest) == tostring(bus) then
+        r.RemoveTrackSend(track, 0, si)
+        removed = removed + 1
+      end
     end
   end
-  return master, nil
+  return removed
+end
+
+-- Put a Bluhm Send on every source track and hand each one its own slot.
+-- Returns placed, skipped_children, over.
+--
+-- Folder children are skipped. A folder is already a submix, so its parent
+-- carries the whole group's audio; sending the children as well would put the
+-- same signal in the room several times over, once per member and again for
+-- the bus. Only tracks with no parent get a send -- a folder parent stands for
+-- its group, a plain top-level track for itself.
+local function room_place_sends(bus)
+  local placed, skipped_children, over = 0, 0, 0
+
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    if track ~= bus then
+      if r.GetParentTrack(track) then
+        skipped_children = skipped_children + 1
+      elseif placed >= BLUHM_SEND_SLOTS then
+        over = over + 1
+      else
+        local has, fx = track_has_fx_type(track, "room_send")
+        if not has then fx = add_lms_fx(track, "lms_room_send.jsfx") end
+        if fx and fx >= 0 then
+          -- The tap belongs dead last: the room should hear the track the way
+          -- the master hears it, after the amp and the strip.
+          local last = r.TrackFX_GetCount(track) - 1
+          if fx < last then
+            r.TrackFX_CopyToTrack(track, fx, track, last, true)
+            fx = last
+          end
+          -- slider1 is Slot, 1-based in the UI, and JSFX params take raw
+          -- values -- a normalised one rounds to the same slot for everybody.
+          r.TrackFX_SetParam(track, fx, 0, placed + 1)
+          ensure_order_send(track, bus)
+          placed = placed + 1
+        end
+      end
+    end
+  end
+
+  return placed, skipped_children, over
 end
 
 local function room_verb_enable()
   r.Undo_BeginBlock()
   r.PreventUIRefresh(1)
 
-  local master, existing_fi = find_room_on_master()
-  if not existing_fi then
-    local fi = add_lms_fx(master, "lms_room.jsfx")
-    if fi >= 0 and fi > 0 then
-      r.TrackFX_CopyToTrack(master, fi, master, 0, true)
-      fi = 0
-    end
-    if fi >= 0 then
-      r.TrackFX_SetParam(master, fi, 0, 4)
-      r.TrackFX_SetParam(master, fi, 4, 1)
-      r.TrackFX_SetParam(master, fi, 5, 1)
-      r.TrackFX_SetParam(master, fi, 6, 2)
-      r.TrackFX_SetParam(master, fi, 14, 50)
-      r.TrackFX_SetParam(master, fi, 15, 30)
+  local master = r.GetMasterTrack(0)
+  local room_track, room_fi = find_room()
+
+  -- 1. The return bus. Adopt one that already exists, or a track someone has
+  --    already parked the room on; otherwise make one at the end of the list.
+  local bus = find_room_bus()
+  local fresh_bus = false
+  if not bus then
+    if room_track and room_track ~= master then
+      bus = room_track
+      r.GetSetMediaTrackInfo_String(bus, "P_NAME", ROOM_BUS_NAME, true)
+    else
+      local idx = r.CountTracks(0)
+      r.InsertTrackAtIndex(idx, true)
+      bus = r.GetTrack(0, idx)
+      fresh_bus = true
+      r.GetSetMediaTrackInfo_String(bus, "P_NAME", ROOM_BUS_NAME, true)
+      r.SetMediaTrackInfo_Value(bus, "I_FOLDERDEPTH", 0)
+      r.SetMediaTrackInfo_Value(bus, "I_CUSTOMCOLOR",
+        r.ColorToNative(90, 110, 150) | 0x1000000)
     end
   end
 
+  -- 2. The room, on that bus and nowhere else.
+  local fi
+  local fresh_room = false
+  if room_track == bus then
+    fi = room_fi
+  elseif room_track then
+    -- Moving it keeps the room the user already tuned, rather than replacing
+    -- it with a default one and losing the shape.
+    r.TrackFX_CopyToTrack(room_track, room_fi, bus, r.TrackFX_GetCount(bus), true)
+    local _, moved_fi = track_has_fx_type(bus, 36)
+    fi = moved_fi
+  else
+    fi = add_lms_fx(bus, "lms_room.jsfx")
+    fresh_room = true
+  end
+
+  if fi and fi >= 0 then
+    if fresh_room then
+      r.TrackFX_SetParam(bus, fi, 0, 4)    -- walls
+      r.TrackFX_SetParam(bus, fi, 4, 1)    -- wall material
+      r.TrackFX_SetParam(bus, fi, 5, 1)    -- floor material
+      r.TrackFX_SetParam(bus, fi, 6, 2)    -- ceiling material
+      r.TrackFX_SetParam(bus, fi, 14, 50)  -- reverb tail
+    end
+    -- 100% wet, always: on a return the dry path is the direct sound arriving
+    -- a second time. Band mode, so the room reads the rings the sends publish
+    -- into instead of this track's own (silent) input.
+    r.TrackFX_SetParam(bus, fi, 15, 100)
+    r.TrackFX_SetParam(bus, fi, 21, 1)
+  end
+
+  -- 3. The sends.
+  local placed, skipped_children, over = room_place_sends(bus)
+
   r.PreventUIRefresh(-1)
-  r.Undo_EndBlock("Room Verb: enable Black In Bluhm on master", -1)
+  r.Undo_EndBlock("Room Verb: build room bus, sends and 100% wet return", -1)
   room_verb_enabled = true
   scan_tracks()
+
+  r.ShowConsoleMsg(string.format(
+    "LMS Room Verb: %s at 100%% wet on '%s'%s, %d source(s) sending, "
+    .. "%d folder child(ren) skipped (their parent carries them)%s\n",
+    fresh_room and "Black In Bluhm added" or "Black In Bluhm moved",
+    ROOM_BUS_NAME,
+    fresh_bus and " (new bus)" or "",
+    placed, skipped_children,
+    over > 0 and string.format(", %d track(s) left out -- only %d slots exist",
+      over, BLUHM_SEND_SLOTS) or ""))
 end
 
+-- Remove everything enable built: the room, every Bluhm Send, and the bus
+-- itself if it is now the empty track we made. A bus the user put anything
+-- else on -- another plugin, an item -- is left alone and just emptied.
 local function room_verb_disable()
   r.Undo_BeginBlock()
   r.PreventUIRefresh(1)
 
+  local function strip(track)
+    local removed_room, removed_send = 0, 0
+    for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
+      local _, fx_name = r.TrackFX_GetFXName(track, fi)
+      local lms_name, override = extract_lms_name(fx_name)
+      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      if tid == 36 then
+        r.TrackFX_Delete(track, fi)
+        removed_room = removed_room + 1
+      elseif tid == "room_send" then
+        r.TrackFX_Delete(track, fi)
+        removed_send = removed_send + 1
+      end
+    end
+    return removed_room, removed_send
+  end
+
+  local rooms, sends = 0, 0
+  for ti = r.CountTracks(0) - 1, 0, -1 do
+    local a, b = strip(r.GetTrack(0, ti))
+    rooms, sends = rooms + a, sends + b
+  end
   local master = r.GetMasterTrack(0)
   if master then
-    local num_fx = r.TrackFX_GetCount(master)
-    for fi = num_fx - 1, 0, -1 do
-      local _, fx_name = r.TrackFX_GetFXName(master, fi)
-      local lower = fx_name:lower()
-      if lower:find("lms_room", 1, true) or lower:find("black in bluhm", 1, true) then
-        r.TrackFX_Delete(master, fi)
-      end
+    local a = strip(master)
+    rooms = rooms + a
+  end
+
+  local bus_removed = false
+  local bus = find_room_bus()
+  if bus then
+    remove_order_sends(bus)
+    if r.TrackFX_GetCount(bus) == 0 and r.CountTrackMediaItems(bus) == 0 then
+      r.DeleteTrack(bus)
+      bus_removed = true
     end
   end
 
   r.PreventUIRefresh(-1)
-  r.Undo_EndBlock("Room Verb: remove Black In Bluhm from master", -1)
+  r.Undo_EndBlock("Room Verb: remove the room, its sends and its bus", -1)
   room_verb_enabled = false
   scan_tracks()
+
+  r.ShowConsoleMsg(string.format(
+    "LMS Room Verb: removed %d room, %d send(s)%s\n",
+    rooms, sends, bus_removed and (", and the empty " .. ROOM_BUS_NAME .. " bus") or ""))
 end
 
--- BAND MODE SETUP -- removed, needs a different topology first.
---
--- The button here put a Bluhm Send on every top-level track and switched
--- Black In Bluhm to Band mode. It oscillated, and the cause is topological
--- rather than a coding mistake:
---
---   1. The room sits on the MASTER, so every source reaches it twice: once
---      summed into the master mix on the dry path, and once individually
---      through its ring on the wet path. Eight delayed copies of a signal
---      summed against the original is comb filtering, and through an FDN
---      with a long tail it rings.
---
---   2. wet_norm in lms_room is computed over the SINGLE-source tap set
---      (SLOT_CEIL + 1 slots), so with eight band sources up to eight times
---      the energy arrives while the normalisation still assumes one.
---
--- A band in a room is a send/return, so the room cannot live on the master:
---   - room on its OWN bus, no direct input, 100% wet
---   - sources go to the master as usual, which is the direct sound
---   - sources also publish to rings, which is the room sound
---
--- So the setup wants to create a dedicated bus and move the room onto it,
--- zero the dry path in Band mode, and scale wet_norm by band_count.
---
--- The folder rule was right and worth keeping: only tracks with no parent
--- get a send, because a folder parent already carries its children's audio
--- and sending both would put the group in the room twice over.
+-- Deletes every Bluhm Send anywhere, including the ones on folder children
+-- that setup skips on purpose and therefore never renumbers -- those keep
+-- publishing into a slot that has since been handed to someone else, and
+-- nothing in the normal flow clears them.
+local function room_strip_all_sends()
+  r.Undo_BeginBlock()
+  r.PreventUIRefresh(1)
+  local removed = 0
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
+      local _, fx_name = r.TrackFX_GetFXName(track, fi)
+      local lms_name, override = extract_lms_name(fx_name)
+      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      if tid == "room_send" then
+        r.TrackFX_Delete(track, fi)
+        removed = removed + 1
+      end
+    end
+  end
+  r.PreventUIRefresh(-1)
+  r.Undo_EndBlock("Room Verb: strip every Bluhm Send", -1)
+  scan_tracks()
+  r.ShowConsoleMsg(string.format("LMS Room Verb: removed %d Bluhm Send(s) everywhere
+", removed))
+end
 
 local function draw_room_verb(ctx)
-  local master, fi = find_room_on_master()
-  local alive = fi ~= nil
+  local room, fi = find_room()
+  local alive = room ~= nil and fi ~= nil
+  local room_name = ""
+  if alive then
+    local _, n = r.GetTrackName(room)
+    room_name = n
+  end
 
   r.ImGui_Text(ctx, alive
-    and "Black In Bluhm ONLINE — master bus"
+    and ("Black In Bluhm ONLINE — " .. room_name)
     or "Black In Bluhm OFFLINE")
   r.ImGui_Spacing(ctx)
 
   if not alive then
-    r.ImGui_TextWrapped(ctx, "Adds room reverb to the master bus. One click, done.")
+    r.ImGui_TextWrapped(ctx,
+      "Builds the whole room in one click: a " .. ROOM_BUS_NAME .. " bus with Black In "
+      .. "Bluhm on it at 100% wet in Band mode, and a Bluhm Send at the end of every "
+      .. "source track's chain, each with its own slot.")
+    r.ImGui_Spacing(ctx)
+    r.ImGui_TextWrapped(ctx,
+      "Your tracks keep going to the master, which is the direct sound. The sends "
+      .. "publish them into the room, which is the only thing the bus carries. Folder "
+      .. "children are skipped — the folder parent already carries them.")
     r.ImGui_Spacing(ctx)
     if r.ImGui_Button(ctx, "Enable Room Verb") then
       room_verb_enable()
@@ -3330,7 +3637,73 @@ local function draw_room_verb(ctx)
   end
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Open Plugin Window") then
-    r.TrackFX_SetOpen(master, fi, true)
+    r.TrackFX_SetOpen(room, fi, true)
+  end
+  r.ImGui_SameLine(ctx)
+  -- Tracks added after the room was built have no send yet, and this is
+  -- cheaper than tearing the whole thing down to get one.
+  if r.ImGui_Button(ctx, "Send New Tracks") then
+    r.Undo_BeginBlock()
+    r.PreventUIRefresh(1)
+    local placed, skipped, over = room_place_sends(room)
+    r.PreventUIRefresh(-1)
+    r.Undo_EndBlock("Room Verb: send new tracks to the room", -1)
+    scan_tracks()
+    r.ShowConsoleMsg(string.format(
+      "LMS Room Verb: %d source(s) sending, %d folder child(ren) skipped%s\n",
+      placed, skipped,
+      over > 0 and string.format(", %d left out -- only %d slots exist",
+        over, BLUHM_SEND_SLOTS) or ""))
+  end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Re-walks the track list and gives any top-level track without a Bluhm Send one,\n"
+      .. "re-numbering the slots. Run it after adding tracks.")
+  end
+
+  -- How many sends exist, not how many the room can hear: the room's own
+  -- display counts live ring slots, and a send that is bypassed or sharing a
+  -- slot will show up here and not there.
+  local send_count = 0
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    if track ~= room and track_has_fx_type(track, "room_send") then
+      send_count = send_count + 1
+    end
+  end
+  r.ImGui_Spacing(ctx)
+  r.ImGui_TextDisabled(ctx, string.format(
+    "%d Bluhm Send(s) placed of %d slots", send_count, BLUHM_SEND_SLOTS))
+
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_SmallButton(ctx, "Strip All Sends") then
+    room_strip_all_sends()
+  end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Deletes every Bluhm Send in the project, including ones on folder children\n"
+      .. "that setup skips. Follow with Enable Room Verb for a clean numbering.")
+  end
+
+  -- A room that is not a return is the exact fault that made the first band
+  -- setup ring: on the master, or with a live dry path, every source reaches
+  -- it twice. Say so, and offer the one button that fixes it.
+  local wet_now = r.TrackFX_GetParam(room, fi, 15)
+  local band_now = math.floor(r.TrackFX_GetParam(room, fi, 21) + 0.5)
+  local off_bus = room ~= find_room_bus()
+  if off_bus or band_now ~= 1 or wet_now < 99.5 then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0xE6CC88FF)
+    r.ImGui_TextWrapped(ctx, off_bus
+      and ("This room is an insert on '" .. room_name .. "', not a return. Every source "
+           .. "reaches it twice that way — once dry through the mix and once through its "
+           .. "ring — which combs and rings.")
+      or "This room is not set up as a return: it wants Band mode at 100% wet, or the "
+         .. "dry path puts the sources in it a second time.")
+    r.ImGui_PopStyleColor(ctx)
+    if r.ImGui_Button(ctx, "Rebuild as send/return") then
+      room_verb_enable()
+      return
+    end
   end
 
   r.ImGui_Spacing(ctx)
@@ -3340,38 +3713,42 @@ local function draw_room_verb(ctx)
   -- Room shape
   if r.ImGui_CollapsingHeader(ctx, "Room Shape", r.ImGui_TreeNodeFlags_DefaultOpen()) then
     r.ImGui_SetNextItemWidth(ctx, 150)
-    local walls_val = math.floor(r.TrackFX_GetParam(master, fi, 0) + 0.5)
+    local walls_val = math.floor(r.TrackFX_GetParam(room, fi, 0) + 0.5)
     local wc, wn = r.ImGui_SliderInt(ctx, "Walls", walls_val, 3, 12)
-    if wc then r.TrackFX_SetParam(master, fi, 0, wn) end
+    if wc then r.TrackFX_SetParam(room, fi, 0, wn) end
 
+    -- JSFX params come back as the slider's own value, not 0..1 -- the same
+    -- thing the Bloody Glue slot collision turned on. These four read and
+    -- wrote them as if they were normalised, so Width showed 67 for a 5 m room
+    -- and dragging it set 0.23 m.
     r.ImGui_SetNextItemWidth(ctx, 150)
-    local width_val = r.TrackFX_GetParam(master, fi, 1) * (15 - 2) + 2
+    local width_val = r.TrackFX_GetParam(room, fi, 1)
     local rwc, rwn = r.ImGui_SliderDouble(ctx, "Width (m)", width_val, 2, 15, "%.1f")
-    if rwc then r.TrackFX_SetParam(master, fi, 1, (rwn - 2) / (15 - 2)) end
+    if rwc then r.TrackFX_SetParam(room, fi, 1, rwn) end
 
     r.ImGui_SameLine(ctx)
     r.ImGui_SetNextItemWidth(ctx, 150)
-    local depth_val = r.TrackFX_GetParam(master, fi, 2) * (15 - 2) + 2
+    local depth_val = r.TrackFX_GetParam(room, fi, 2)
     local rdc, rdn = r.ImGui_SliderDouble(ctx, "Depth (m)", depth_val, 2, 15, "%.1f")
-    if rdc then r.TrackFX_SetParam(master, fi, 2, (rdn - 2) / (15 - 2)) end
+    if rdc then r.TrackFX_SetParam(room, fi, 2, rdn) end
 
     r.ImGui_SetNextItemWidth(ctx, 150)
-    local height_val = r.TrackFX_GetParam(master, fi, 3) * (6 - 2) + 2
+    local height_val = r.TrackFX_GetParam(room, fi, 3)
     local rhc, rhn = r.ImGui_SliderDouble(ctx, "Height (m)", height_val, 2, 6, "%.1f")
-    if rhc then r.TrackFX_SetParam(master, fi, 3, (rhn - 2) / (6 - 2)) end
+    if rhc then r.TrackFX_SetParam(room, fi, 3, rhn) end
   end
 
   -- Materials
   if r.ImGui_CollapsingHeader(ctx, "Materials", r.ImGui_TreeNodeFlags_DefaultOpen()) then
-    local wall_mat = math.floor(r.TrackFX_GetParam(master, fi, 4) + 0.5)
-    local floor_mat = math.floor(r.TrackFX_GetParam(master, fi, 5) + 0.5)
-    local ceil_mat = math.floor(r.TrackFX_GetParam(master, fi, 6) + 0.5)
+    local wall_mat = math.floor(r.TrackFX_GetParam(room, fi, 4) + 0.5)
+    local floor_mat = math.floor(r.TrackFX_GetParam(room, fi, 5) + 0.5)
+    local ceil_mat = math.floor(r.TrackFX_GetParam(room, fi, 6) + 0.5)
 
     r.ImGui_SetNextItemWidth(ctx, 150)
     if r.ImGui_BeginCombo(ctx, "Walls##mat_walls", MAT_NAMES[wall_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == wall_mat) then
-          r.TrackFX_SetParam(master, fi, 4, mi)
+          r.TrackFX_SetParam(room, fi, 4, mi)
         end
       end
       r.ImGui_EndCombo(ctx)
@@ -3381,7 +3758,7 @@ local function draw_room_verb(ctx)
     if r.ImGui_BeginCombo(ctx, "Floor##mat_floor", MAT_NAMES[floor_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == floor_mat) then
-          r.TrackFX_SetParam(master, fi, 5, mi)
+          r.TrackFX_SetParam(room, fi, 5, mi)
         end
       end
       r.ImGui_EndCombo(ctx)
@@ -3391,7 +3768,7 @@ local function draw_room_verb(ctx)
     if r.ImGui_BeginCombo(ctx, "Ceiling##mat_ceil", MAT_NAMES[ceil_mat + 1] or "?") then
       for mi = 0, 7 do
         if r.ImGui_Selectable(ctx, MAT_NAMES[mi + 1], mi == ceil_mat) then
-          r.TrackFX_SetParam(master, fi, 6, mi)
+          r.TrackFX_SetParam(room, fi, 6, mi)
         end
       end
       r.ImGui_EndCombo(ctx)
@@ -3401,30 +3778,30 @@ local function draw_room_verb(ctx)
   -- Output
   if r.ImGui_CollapsingHeader(ctx, "Output", r.ImGui_TreeNodeFlags_DefaultOpen()) then
     r.ImGui_SetNextItemWidth(ctx, 200)
-    local tail_val = math.floor(r.TrackFX_GetParam(master, fi, 14) + 0.5)
+    local tail_val = math.floor(r.TrackFX_GetParam(room, fi, 14) + 0.5)
     local tc, tn = r.ImGui_SliderInt(ctx, "Reverb Tail %%", tail_val, 0, 100)
-    if tc then r.TrackFX_SetParam(master, fi, 14, tn) end
+    if tc then r.TrackFX_SetParam(room, fi, 14, tn) end
 
     r.ImGui_SetNextItemWidth(ctx, 200)
-    local mix_val = math.floor(r.TrackFX_GetParam(master, fi, 15) + 0.5)
+    local mix_val = math.floor(r.TrackFX_GetParam(room, fi, 15) + 0.5)
     local mc, mn = r.ImGui_SliderInt(ctx, "Wet Mix %%", mix_val, 0, 100)
-    if mc then r.TrackFX_SetParam(master, fi, 15, mn) end
+    if mc then r.TrackFX_SetParam(room, fi, 15, mn) end
 
     r.ImGui_SetNextItemWidth(ctx, 200)
-    local gain_val = r.TrackFX_GetParam(master, fi, 16) * (12 - (-12)) + (-12)
+    local gain_val = r.TrackFX_GetParam(room, fi, 16)
     local gc, gn = r.ImGui_SliderDouble(ctx, "Output Gain (dB)", gain_val, -12, 12, "%.1f")
-    if gc then r.TrackFX_SetParam(master, fi, 16, (gn - (-12)) / (12 - (-12))) end
+    if gc then r.TrackFX_SetParam(room, fi, 16, gn) end
   end
 
   -- Compressor
   if r.ImGui_CollapsingHeader(ctx, "Compressor") then
-    local comp_val = math.floor(r.TrackFX_GetParam(master, fi, 17) + 0.5)
+    local comp_val = math.floor(r.TrackFX_GetParam(room, fi, 17) + 0.5)
     local COMP_NAMES = {"Off", "LA2A", "1176", "Distressor"}
     r.ImGui_SetNextItemWidth(ctx, 150)
     if r.ImGui_BeginCombo(ctx, "Type##comp", COMP_NAMES[comp_val + 1] or "?") then
       for ci = 0, 3 do
         if r.ImGui_Selectable(ctx, COMP_NAMES[ci + 1], ci == comp_val) then
-          r.TrackFX_SetParam(master, fi, 17, ci)
+          r.TrackFX_SetParam(room, fi, 17, ci)
         end
       end
       r.ImGui_EndCombo(ctx)
@@ -3432,22 +3809,22 @@ local function draw_room_verb(ctx)
 
     if comp_val > 0 then
       r.ImGui_SetNextItemWidth(ctx, 200)
-      local amt_val = math.floor(r.TrackFX_GetParam(master, fi, 18) + 0.5)
+      local amt_val = math.floor(r.TrackFX_GetParam(room, fi, 18) + 0.5)
       local ac, an = r.ImGui_SliderInt(ctx, "Amount", amt_val, 0, 100)
-      if ac then r.TrackFX_SetParam(master, fi, 18, an) end
+      if ac then r.TrackFX_SetParam(room, fi, 18, an) end
 
       r.ImGui_SetNextItemWidth(ctx, 200)
-      local inp_val = r.TrackFX_GetParam(master, fi, 19) * (24 - (-12)) + (-12)
+      local inp_val = r.TrackFX_GetParam(room, fi, 19)
       local ic, inv = r.ImGui_SliderDouble(ctx, "Input (dB)", inp_val, -12, 24, "%.1f")
-      if ic then r.TrackFX_SetParam(master, fi, 19, (inv - (-12)) / (24 - (-12))) end
+      if ic then r.TrackFX_SetParam(room, fi, 19, inv) end
 
-      local ratio_val = math.floor(r.TrackFX_GetParam(master, fi, 20) + 0.5)
+      local ratio_val = math.floor(r.TrackFX_GetParam(room, fi, 20) + 0.5)
       local RATIO_NAMES = {"2:1", "4:1", "8:1", "20:1"}
       r.ImGui_SetNextItemWidth(ctx, 150)
       if r.ImGui_BeginCombo(ctx, "Ratio", RATIO_NAMES[ratio_val + 1] or "?") then
         for ri = 0, 3 do
           if r.ImGui_Selectable(ctx, RATIO_NAMES[ri + 1], ri == ratio_val) then
-            r.TrackFX_SetParam(master, fi, 20, ri)
+            r.TrackFX_SetParam(room, fi, 20, ri)
           end
         end
         r.ImGui_EndCombo(ctx)

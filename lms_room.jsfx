@@ -1,7 +1,7 @@
 desc:LMS - Black In Bluhm Special
 //tags: reverb room acoustics physical-model compressor
 //author: LMS
-//version: 0.2
+//version: 1.7
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
@@ -120,6 +120,11 @@ band_wr = buf_pos;       buf_pos += MAX_BAND;
 band_active = buf_pos;   buf_pos += MAX_BAND;
 band_hb = buf_pos;       buf_pos += MAX_BAND;
 
+// Source-ring consumer state (lms_core SECTION 15: snap, rpos, alive, last_hb).
+// It has to be allocated here like everything else -- left to itself it lands
+// on address 0, which is the head of delay_buf.
+srcring_state = buf_pos;  buf_pos += SRC_MAX_SLOTS * 4;
+
 // Allpass diffusers — model wall surface scattering (rough walls smear reflections)
 AP_LEN0 = 113; AP_LEN1 = 167; AP_LEN2 = 211; AP_LEN3 = 263;
 ap_buf0 = buf_pos; buf_pos += AP_LEN0;
@@ -158,7 +163,7 @@ fdn_lp0=0; fdn_lp1=0; fdn_lp2=0; fdn_lp3=0;
 sm_fdn_d0=0; sm_fdn_d1=0; sm_fdn_d2=0; sm_fdn_d3=0;
 
 // Source-ring consumer for Band mode (lms_core SECTION 15).
-srcring.lms_srcring_con_init();
+srcring.lms_srcring_con_init(srcring_state);
 
 // Room Juice: 4-band density read of the reverb feed. Off by default, and
 // when it is off the tracker never runs -- see @sample.
@@ -192,6 +197,8 @@ comp_sat = 1;
 comp_sat_inv = 1;
 gfx_gr_smooth = 1;
 sm_wet_norm = 1;
+band_norm = 1;
+sm_band_norm = 1;
 proc_end = TOTAL_SLOTS;  // process all on startup, will converge
 fade_count = 0;
 
@@ -798,6 +805,15 @@ drag_band = -1;
   // ---- Mode: Single vs Band ----
   room_mode = slider22;
 
+  // Build stamp. Which lms_core this plugin was COMPILED against is otherwise
+  // unknowable from outside: editing the include on disk changes nothing until
+  // something recompiles, and "did it reload" is exactly the question you
+  // cannot answer by looking. Publishing the two constants that govern the
+  // ring lets the manager show them, so a stale build is a fact on screen
+  // instead of a thing to assume.
+  gmem[G_ROOM_STATE + 1] = SRC_RING_SIZE;
+  gmem[G_ROOM_STATE + 2] = SRC_ALIVE_BLOCKS;
+
   // Band mode: advertise room + scan for sources
   // Single mode: stop heartbeat so DroneFX instances don't try to connect
   room_mode == 1 ? (
@@ -826,12 +842,29 @@ drag_band = -1;
       ) : (
         zero_band_refl(k);
       );
+
+      // Publish what the room itself thinks of this slot. gmem carries the
+      // publisher's side of the handshake, so from outside you can see a
+      // source publishing happily while the room ignores it and never know
+      // why. This is the room's own liveness countdown and verdict.
+      gmem[G_ROOM_STATE + 10 + k*8]     = srcring.alive[k];
+      gmem[G_ROOM_STATE + 10 + k*8 + 1] = band_active[k] > 0 ? 1 : 0;
+      gmem[G_ROOM_STATE + 10 + k*8 + 2] = srcring.rpos[k];
+
       k += 1;
     );
+
+    // wet_norm above is computed over ONE source's tap set, so every source
+    // that joins arrives at a level the normalisation does not know about --
+    // eight of them is eight times the energy it was scaled for, which is how
+    // a full band made this ring. Sources are uncorrelated, so their power
+    // sums and the correction is sqrt of the count.
+    band_norm = band_count > 0 ? 1.0 / sqrt(band_count) : 1.0;
   ) : (
     // Single mode: clear heartbeat, zero all band sources
     gmem[G_ROOM_STATE] = 0;
     band_count = 0;
+    band_norm = 1;
     k = 0;
     loop(MAX_BAND,
       band_active[k] > 0 ? zero_band_refl(k);
@@ -917,10 +950,13 @@ drag_band = -1;
     srcring.lms_srcring_advance();
   );
 
-  // Normalize wet signal energy to match dry
+  // Normalize wet signal energy to match dry, then again for how many sources
+  // are in the room. Both are smoothed: band_norm steps when a source joins or
+  // drops out, and an unsmoothed step there is an audible jump in the tail.
   sm_wet_norm = sm_wet_norm*smooth_coeff + wet_norm*sm_inv;
-  wet_l *= sm_wet_norm;
-  wet_r *= sm_wet_norm;
+  sm_band_norm = sm_band_norm*smooth_coeff + band_norm*sm_inv;
+  wet_l *= sm_wet_norm * sm_band_norm;
+  wet_r *= sm_wet_norm * sm_band_norm;
 
   // ---- Room Juice ----------------------------------------------------
   // Ported from The Space, where it was called Vibe. The tail damping is
@@ -1035,7 +1071,10 @@ drag_band = -1;
   spl0 = spl0*dry_g + wet_l*wet_g*out_gain;
   spl1 = spl1*dry_g + wet_r*wet_g*out_gain;
 
-@gfx 700 600
+// 700 tall, not 600: the control column now runs ROOM, MATERIALS, PLACEMENT,
+// COMPRESSOR, ROOM JUICE, OUTPUT, which is about 640 px of panels before the
+// header. At 600 the last panel fell off the bottom of the window.
+@gfx 700 700
 
 lms_gfx_setup(700);
 lms_gfx_background();
@@ -1307,7 +1346,7 @@ _old=slider7; slider7=draw_mat_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider7,"Ceil
 slider7!=_old ? slider_automate(2^6); cy+=bar_sp;
 cy+=floor(4*S);
 
-place_rows = room_mode == 0 ? 5 : 3;  // Single: mode+srcang+micang+pat+depth, Band: mode+micang+pat
+place_rows = room_mode == 0 ? 4 : 3;  // Single: mode+srcang+micang+pat, Band: mode+micang+pat
 lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+place_rows*bar_sp,"PLACEMENT");
 cy+=floor(26*S);
 strcpy(MS_BUF, "Single"); strcpy(MS_BUF+1, "Band");
@@ -1322,11 +1361,6 @@ slider13=floor(slider13+0.5); slider13!=_old ? slider_automate(2^12); cy+=bar_sp
 strcpy(MS_BUF, "Omni"); strcpy(MS_BUF+1, "Cardioid"); strcpy(MS_BUF+2, "Fig-8"); strcpy(MS_BUF+3, "Hyper");
 _old=slider14; slider14=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider14,3,"Mic Pat");
 slider14!=_old ? slider_automate(2^13); cy+=bar_sp;
-room_mode == 0 ? (
-  strcpy(MS_BUF, "1st Only"); strcpy(MS_BUF+1, "2nd Order"); strcpy(MS_BUF+2, "3rd Order");
-  _old=slider15; slider15=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,2,"Depth");
-  slider15!=_old ? slider_automate(2^14); cy+=bar_sp;
-);
 cy+=floor(4*S);
 
 lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+5*bar_sp,"COMPRESSOR");
@@ -1377,8 +1411,26 @@ abs(gr_db_show) > 0.05 ? (
 cy+=bar_sp;
 cy+=floor(4*S);
 
-lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+2*bar_sp,"OUTPUT");
+// ROOM JUICE had no control at all: both sliders were live in the DSP and
+// reachable only from REAPER's generic parameter list, so on the panel the
+// feature did not exist.
+lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+2*bar_sp,"ROOM JUICE");
 cy+=floor(26*S);
+strcpy(MS_BUF, "Off"); strcpy(MS_BUF+1, "Bright"); strcpy(MS_BUF+2, "Moody");
+_old=slider23; slider23=lms_draw_mode_sel(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider23,2,"Juice");
+slider23!=_old ? slider_automate(2^22); cy+=bar_sp;
+_old=slider24; slider24=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider24,0,100,"Amount",1);
+slider24=floor(slider24+0.5); slider24!=_old ? slider_automate(2^23); cy+=bar_sp;
+cy+=floor(4*S);
+
+lms_draw_panel(ctrl_x,cy,ctrl_w,floor(26*S)+3*bar_sp,"OUTPUT");
+cy+=floor(26*S);
+// Tail belongs here too. The only control that touched slider15 was a 3-way
+// "Depth" selector in PLACEMENT, left over from when this slider chose a
+// reflection order -- clicking it wrote 0, 1 or 2 into what is now Reverb
+// Tail %, which all but removes the tail.
+_old=slider15; slider15=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider15,0,100,"Tail %",1);
+slider15=floor(slider15+0.5); slider15!=_old ? slider_automate(2^14); cy+=bar_sp;
 _old=slider16; slider16=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider16,0,100,"Mix %",1);
 slider16=floor(slider16+0.5); slider16!=_old ? slider_automate(2^15); cy+=bar_sp;
 _old=slider17; slider17=lms_draw_bar(ctrl_x+pad,cy,ctrl_w-pad2,bar_h,slider17,-12,12,"Gain dB",1);

@@ -132,6 +132,14 @@
         <changelog>v7.5 &#8212; Power amp density tracker is now initialised. lms_pp_pa_proc, lms_se_pa_proc and lms_classd_pa_proc all read this.hd, but nothing ever initialised it, so its filters had zero coefficients and output silence: env_lo stayed 0 and the xfmr_sat &gt; 0.05 gate never opened. Transformer saturation and hysteresis were unreachable in every amp. Measured over a second of low E the gate fires 0 times out of 48,000 before and 47,976 after. THIS CHANGES HOW THE AMPS SOUND &#8212; low end thickens. Winding resonance was unaffected throughout. Also: lms_spring_init, lms_tape_echo_init and lms_lim_init take an optional explicit buffer base via _at() variants, since each hardcoded one and two instances in a plugin would shred each other; local memory bases are now documented alongside the gmem map; lms_lim_init no longer zeroes its buffer with a bare i, which in JSFX is a global and clobbered the host plugin&#39;s; and the duplicate density tracker in Section 10 is gone, verified character-identical to the canonical one before removal.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.6" author="LMS" time="2026-07-27T04:00:00Z">
+        <changelog>v7.6 &#8212; Source rings survive anticipative FX processing. REAPER renders each track ahead on its own thread by different amounts, so a satellite can run hundreds of milliseconds in front of the room reading it. Two constants were sized as though it could not: the ring held 8192 samples, 186 ms at 44.1k, less than the 200 ms REAPER renders ahead by default, so it wrapped and resynced; and a publisher was declared gone after 20 quiet blocks, 232 ms, while rendering ahead delivers heartbeats in bursts with longer gaps than that. Sources dropped in and out one at a time, taking their reflections with them, which is heard as a wobble. The ring is now 32768 samples (743 ms at 44.1k, 341 ms at 96k) and the liveness timeout 200 blocks. G_SRC_RINGS grows from 65536 to 262144; no other region moves.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
+      <version name="7.7" author="LMS" time="2026-07-27T05:30:00Z">
+        <changelog>v7.7 &#8212; The source-ring consumer had nowhere to keep its state. lms_srcring_con_init took no arguments and never assigned a base to any of its four per-slot arrays, and in EEL that is not an empty array, it is address 0: this.alive[k] means mem[this.alive + k], and an unassigned variable is 0. snap, rpos, alive and last_hb were therefore the same eight cells, overwriting each other every block, and lms_room bump allocates from 0 as well, so those cells are also the head of its delay line. Simulated over 400 blocks: the read position ended each block holding the writer&#39;s position instead of one block behind it, so the room read from a wandering point in the ring &#8212; chopped, repeating fragments &#8212; and a live source was declared dead on 12 blocks out of 400, which is heard as sources blinking in and out. With its own buffer: a steady one-block lag and no false deaths. con_init now takes a local_buf_base and needs SRC_MAX_SLOTS * 4 cells, the same pattern Section 14&#39;s bleed engine has always used, which is why that one never had this fault. Callers must pass a base.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -398,6 +406,10 @@
         <changelog>v6.0 &#8212; Renamed Bluhm Send and repointed at Black In Bluhm, The Space having been retired. Publishes dry mono into its slot&#39;s source ring instead of emitting on channels 3/4, so there is no REAPER send to wire up: add it to a track, pick a slot, done. The track passes through untouched, and the room applies distance, air and placement itself rather than having them baked in twice.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
       </version>
+      <version name="6.1" author="LMS" time="2026-07-27T02:00:00Z">
+        <changelog>v6.1 &#8212; Panel text catches up with what the plugin does. It still called itself SPACE SEND, still reported connecting to THE SPACE, which is retired, and still told you to route channels 3/4 to a bus &#8212; there has been nothing to route since it became a ring publisher. No DSP change.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room_send.jsfx</source>
+      </version>
     </reapack>
     <reapack name="lms_room.jsfx" type="effect" desc="LMS - Black In Bluhm — Material Room Reverb">
       <version name="1.0" author="LMS" time="2026-07-25T12:00:00Z">
@@ -418,6 +430,18 @@
       </version>
       <version name="1.4" author="LMS" time="2026-07-26T23:30:00Z">
         <changelog>v1.4 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.5" author="LMS" time="2026-07-27T02:00:00Z">
+        <changelog>v1.5 &#8212; Band mode is normalised for how many sources are in the room. wet_norm is computed over a single source's tap set, so each source that joined arrived at a level the normalisation did not account for: a full band delivered up to eight times the energy the room was scaled for, which is a large part of why it rang. The wet path is now scaled by the square root of the live source count &#8212; sources are uncorrelated, so their power sums &#8212; and the scaling is smoothed so a source joining or dropping out does not step the tail. Single mode is unchanged.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.6" author="LMS" time="2026-07-27T04:00:00Z">
+        <changelog>v1.6 &#8212; Room Juice has controls. Both its sliders were live in the DSP and drawn nowhere, so on the panel the feature did not exist &#8212; it was reachable only through REAPER&#39;s generic parameter list. A ROOM JUICE panel now carries Off/Bright/Moody and Amount. Reverb Tail gains a control too: the only thing that touched that slider was a leftover 3-way &quot;Depth&quot; selector in PLACEMENT, from when it chose a reflection order, and clicking it wrote 0, 1 or 2 into what is now Tail % &#8212; which all but removes the tail. Depth is gone and Tail % sits in OUTPUT with Mix and Gain. The window is 700 tall to fit the extra panel. Requires lms_core 7.6 for the source-ring sizing.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.7" author="LMS" time="2026-07-27T05:30:00Z">
+        <changelog>v1.7 &#8212; Allocates the source-ring consumer&#39;s state instead of letting it land on address 0, which is the head of delay_buf: see lms_core 7.7 for what that cost. Requires lms_core 7.7. Also publishes what it can see, so it can be read from outside: a build stamp at G_ROOM_STATE +1/+2 carrying the ring constants this plugin was compiled with, since editing an include changes nothing until something recompiles and there is otherwise no way to tell which build is running; and the room&#39;s own per-slot view at +10, its liveness countdown, verdict and read position. gmem only ever carried the publisher&#39;s half of the handshake, so a source could publish perfectly while the room ignored it with nothing to see.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
@@ -470,8 +494,8 @@
         <changelog>Core refactor: all shared DSP extracted to lms_core. Zero audible/visual change. -30% codebase.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
-      <version name="2.7" author="LMS" time="2026-04-21T18:00:00Z">
-        <changelog>v2.7 — Tuner removed. The built-in tuner strip has been stripped out (DSP calls, mute-gain, UI, and layout offset) in favor of a replacement tuner coming in a future release. Control panels now sit directly below the title bar where the tuner used to live. No amp DSP change.</changelog>
+      <version name="2.7" author="LMS" time="2026-07-27T05:30:00Z">
+        <changelog>v2.7 &#8212; Strip All Sends in the Room Verb tab: deletes every Bluhm Send in the project, including the ones on folder children that setup skips on purpose and therefore never renumbers. Those keep publishing into a slot that has since been handed to another track, and nothing in the normal flow clears them. Follow it with Enable Room Verb for a clean numbering. The gmem readout used to find the source-ring memory fault is not shipped &#8212; the plugins still publish both halves of the handshake, so it can be put back in an afternoon if a ring ever misbehaves again.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_frenchie_v2.jsfx</source>
       </version>
       <version name="2.8" author="LMS" time="2026-06-04T00:00:00Z">
@@ -2143,6 +2167,18 @@
       </version>
       <version name="2.4" author="LMS" time="2026-07-27T01:00:00Z">
         <changelog>v2.4 &#8212; Remove &quot;Prepare for Band Mode&quot;. It oscillated, for a topological reason rather than a coding one: Black In Bluhm sits on the master, so every source reached it twice &#8212; summed into the master mix on the dry path, and again individually through its ring on the wet path. Eight delayed copies against the original is comb filtering, and through a long FDN tail it rings. wet_norm also normalises for a single source, so eight arrive at up to eight times the intended level. Band mode wants the room on its own bus at 100% wet, which is a bigger change than a setup button. The diagnosis is kept in the source where the button was. The six plugin-visibility fixes from v2.3 are unaffected.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.5" author="LMS" time="2026-07-27T02:00:00Z">
+        <changelog>v2.5 &#8212; Room Verb builds the whole send/return in one click, which is the topology the removed band setup needed. Enable now makes a ROOM VERB bus, puts Black In Bluhm on it at 100% wet in Band mode, and places a Bluhm Send at the end of every top-level track's chain with a slot each. The tracks still go to the master, which is the direct sound; the sends publish into the rings, which is the room; and the bus has no audio routed into it, so nothing arrives twice. An existing room is moved rather than replaced, so a tuned room keeps its shape, and a room found on the master is reported as an insert with a button to rebuild it as a return. Disable removes the room, every send, and the bus if it is empty. &quot;Send New Tracks&quot; wires up tracks added later. Organize FX now sorts the whole chain instead of only moving the gate and RTW: generators, gate, pitch, pedals, amp, EQ and saturation, compression, reverb, RTW, then taps last &#8212; plugins sharing a stage keep the order you put them in, and non-LMS plugins are treated as post-amp tone. Also fixes Width, Depth, Height, Output Gain and Comp Input in the Room Verb tab, which read and wrote JSFX parameters as if they were normalised 0..1: a 5 m room displayed as 67 and dragging the slider set 0.23 m.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.6" author="LMS" time="2026-07-27T04:00:00Z">
+        <changelog>v2.6 &#8212; Room Verb also wires a real REAPER send from every source to the room bus, at -inf. It carries no audio and is not supposed to: the room hears the source ring, not the send. What it buys is order. REAPER&#39;s anticipative FX processing renders tracks ahead on separate threads by different amounts, and sources drifting that far from the bus is what made the finished room wobble &#8212; they timed out of the ring handshake one at a time and took their reflections with them. A receive makes the bus depend on its sources, so the routing graph keeps them together, and -inf means the dry path can never double the direct sound if the wet mix comes off 100%. Disable removes these sends along with everything else. Needs lms_core 7.6, which sizes the ring past the render-ahead.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.7" author="LMS" time="2026-07-27T05:30:00Z">
+        <changelog>v2.7 &#8212; Ring Diagnostics in the Room Verb tab. It reads the handshake table the sends and the room actually use and watches it change frame to frame: per slot, which track claims it, the publisher&#39;s heartbeat and write position with their deltas, the room&#39;s own liveness countdown and verdict, the lag between them, and how many times the slot has been seen dropping. Two track names on one slot is called out as a collision, a send on a folder child is called out as an orphan the setup skips and never renumbers, and the room&#39;s build stamp is shown so a stale compile is a fact on screen rather than an assumption. Strip All Sends clears every Bluhm Send including the ones setup skips. Built because the room reported a source count and nothing else, so &quot;a source keeps dropping&quot; had no way to become &quot;which one, and why&quot;.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>
