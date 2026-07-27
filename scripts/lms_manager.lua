@@ -1412,6 +1412,7 @@ end
 return {
   root = SCENE_ROOT, dir = SCENE_DIR,
   list = scene_list, save = scene_save, recall = scene_recall,
+  encode = json_encode, decode = json_decode,
   name_buf = "", msg = nil, msg_ok = true, files = nil,
 }
 end)()
@@ -1900,6 +1901,142 @@ local function db_get_param(slider_num)
   return 0
 end
 
+-- ============================================================================
+-- Kit layouts
+-- ============================================================================
+--
+-- A kit in DRUMBANGER is a folder: load kit 3 and the first sixteen samples of
+-- pool folder 4 land on the pads. A LAYOUT is the thing you actually build
+-- afterwards -- this snare from one folder, that kick from another, each with
+-- its own level, pan and tune. The plugin keeps that in PAD_POOL_IDX and
+-- serialises it with the project, so it has always died with the project.
+--
+-- Saving one needs two things the suite did not have. Reading the layout: the
+-- plugin now mirrors PAD_POOL_IDX to gmem[9200..9215], because local memory is
+-- invisible from here. And writing it back: gmem[414]/[415] assign one pad
+-- without rescanning the pool and without auditioning the hit.
+--
+-- The kit number goes in the file too, and recall sets it FIRST. That is what
+-- restores the pads a layout left alone -- a pad saved as -1 came from the kit,
+-- and there is no per-pad way to ask for that back; reloading the kit resets
+-- all sixteen, and the overrides then land on top.
+--
+-- One local, like SCENES. This file has six left before Lua's 200 cap.
+local KITS = (function()
+  local ROOT = r.GetResourcePath() .. "/Data"
+  local DIR = ROOT .. "/LMS Kits"
+  local POOL_MIRROR = 9200          -- G_DB_PAD_POOL in lms_drumbanger.jsfx
+  local NPADS = 16
+
+  local function list()
+    r.RecursiveCreateDirectory(DIR, 0)
+    local out, i = {}, 0
+    while true do
+      local f = r.EnumerateFiles(DIR, i)
+      if not f then break end
+      if f:lower():match("%.lmskit$") then out[#out + 1] = f end
+      i = i + 1
+    end
+    table.sort(out, function(a, b) return a:lower() < b:lower() end)
+    return out
+  end
+
+  local function capture()
+    local pads = {}
+    for p = 0, NPADS - 1 do
+      pads[#pads + 1] = {
+        pool  = math.floor(r.gmem_read(POOL_MIRROR + p) or -1),
+        vol   = db_get_param(10 + p),
+        pan   = db_get_param(30 + p),
+        pitch = db_get_param(50 + p),
+      }
+    end
+    return {
+      lms_version = "1.0",
+      created = os.date("%Y-%m-%dT%H:%M:%S"),
+      kit = math.floor(r.gmem_read(308) or 0),
+      pads = pads,
+    }
+  end
+
+  local M
+
+  local function save(name)
+    if not find_db_instance() then return false, "No DRUMBANGER instance found." end
+    r.RecursiveCreateDirectory(DIR, 0)
+    local path = DIR .. "/" .. name .. ".lmskit"
+    local fh = io.open(path, "w")
+    if not fh then return false, "Could not write " .. path end
+    fh:write(SCENES.encode(capture()), "\n")
+    fh:close()
+    return true, string.format("Saved layout \"%s\"", name)
+  end
+
+  -- Recall runs over several frames on purpose. Setting the kit reloads
+  -- sixteen samples off disk inside the plugin's @block, so the overrides have
+  -- to wait for that to finish or they land on pads that are about to be
+  -- reset. Then one assignment per frame, because gmem[414] carries a single
+  -- pad and is consumed by zeroing.
+  local function recall(filename)
+    if not find_db_instance() then return false, "No DRUMBANGER instance found." end
+    local fh = io.open(DIR .. "/" .. filename, "r")
+    if not fh then return false, "Could not open " .. filename end
+    local body = fh:read("*a")
+    fh:close()
+
+    local ok, cfg = pcall(SCENES.decode, body)
+    if not ok or type(cfg) ~= "table" or type(cfg.pads) ~= "table" then
+      return false, "Could not parse " .. filename
+    end
+
+    db_set_param(7, cfg.kit or 0)
+    M.pending = cfg
+    M.wait = 20
+    M.queue = {}
+    return true, string.format("Recalling \"%s\"...", filename:gsub("%.lmskit$", ""))
+  end
+
+  -- Driven once per frame from the defer loop, next to the step queue.
+  local function pump()
+    if M.pending then
+      M.wait = M.wait - 1
+      if M.wait <= 0 then
+        local cfg = M.pending
+        M.pending = nil
+        for i, pad in ipairs(cfg.pads) do
+          local p = i - 1
+          if p < NPADS then
+            db_set_param(10 + p, pad.vol or 1)
+            db_set_param(30 + p, pad.pan or 0)
+            db_set_param(50 + p, pad.pitch or 0)
+            -- -1 means the pad came from the kit, which the kit reload above
+            -- has already restored. Only overrides need sending.
+            if (pad.pool or -1) >= 0 then
+              M.queue[#M.queue + 1] = {p, math.floor(pad.pool)}
+            end
+          end
+        end
+        M.msg_ok, M.msg = true,
+          string.format("Recalled — %d pad override(s) loading", #M.queue)
+      end
+      return
+    end
+    if #M.queue > 0 and r.gmem_read(414) == 0 then
+      local job = table.remove(M.queue, 1)
+      r.gmem_write(415, job[2] + 1)
+      r.gmem_write(414, job[1] + 1)
+    end
+  end
+
+  M = {
+    dir = DIR, list = list, capture = capture, pool_mirror = POOL_MIRROR,
+    save = save, recall = recall, pump = pump,
+    name_buf = "", msg = nil, msg_ok = true, files = nil,
+    queue = {}, pending = nil, wait = 0,
+  }
+  return M
+end)()
+
 local function draw_drumbanger(ctx)
   local db_inst = find_db_instance()
   local alive = db_inst ~= nil and (db_state.heartbeat or 0) ~= 0
@@ -1955,6 +2092,54 @@ local function draw_drumbanger(ctx)
   end
   r.ImGui_SameLine(ctx)
   r.ImGui_TextDisabled(ctx, string.format("BPM: %.0f  Kit: %d", db_state.bpm or 120, math.floor(db_state.kit or 0) + 1))
+
+  -- Pad layouts. A kit is a folder; a layout is what you built on top of it,
+  -- and until now it only ever lived inside one project.
+  if r.ImGui_CollapsingHeader(ctx, "Pad Layouts##db_kits") then
+    r.ImGui_SetNextItemWidth(ctx, 140)
+    local kn_chg, kn_new
+    if r.ImGui_InputTextWithHint then
+      kn_chg, kn_new = r.ImGui_InputTextWithHint(ctx, "##kit_name", "layout name", KITS.name_buf)
+    else
+      kn_chg, kn_new = r.ImGui_InputText(ctx, "##kit_name", KITS.name_buf)
+    end
+    if kn_chg then KITS.name_buf = kn_new end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_Button(ctx, "Save Layout##db_ksave") then
+      local nm = (KITS.name_buf or ""):gsub("[^%w%-%_]", "_")
+      if nm == "" then nm = "layout" end
+      KITS.msg_ok, KITS.msg = KITS.save(nm)
+      KITS.files = nil
+    end
+    if r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_SetTooltip(ctx,
+        "Saves which pool sample sits on each of the 16 pads, each pad's\n" ..
+        "volume, pan and pitch, and the kit underneath them, to:\n" .. KITS.dir)
+    end
+
+    if KITS.files == nil then KITS.files = KITS.list() end
+    if #KITS.files == 0 then
+      r.ImGui_TextDisabled(ctx, "No layouts saved yet.")
+    else
+      for _, fname in ipairs(KITS.files) do
+        if r.ImGui_SmallButton(ctx, "Recall##kt_" .. fname) then
+          KITS.msg_ok, KITS.msg = KITS.recall(fname)
+        end
+        r.ImGui_SameLine(ctx)
+        r.ImGui_Text(ctx, (fname:gsub("%.lmskit$", "")))
+      end
+    end
+
+    -- Recall reloads the kit first and then sends one pad per frame, so it is
+    -- worth saying so rather than looking frozen for a second.
+    if #KITS.queue > 0 or KITS.pending then
+      r.ImGui_TextDisabled(ctx, string.format("loading... %d pad(s) to go", #KITS.queue))
+    elseif KITS.msg then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), KITS.msg_ok and 0x66DD88FF or 0xFF8866FF)
+      r.ImGui_TextWrapped(ctx, KITS.msg)
+      r.ImGui_PopStyleColor(ctx)
+    end
+  end
 
   r.ImGui_Separator(ctx)
 
@@ -5471,6 +5656,7 @@ local function loop()
   -- Process queued commands (one per frame each)
   flush_hm_cmd_queue()
   flush_db_step_queue()
+  KITS.pump()
   process_builder_queue()
   sync_song_markers()
 

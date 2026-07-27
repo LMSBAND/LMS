@@ -262,6 +262,13 @@ MAX_POOL_FOLDERS = 32;
 
 // Kit manifest metadata
 KIT_COUNT = 950;       // address: number of kits found in manifest (0-8)
+
+// GMEM, not local memory like everything around it. The pad->pool mirror the
+// manager reads to save a layout. Parked at the far end of G_DRUMBANGER_BUS
+// (0..10000): the command buses stop at 430, the manager's step-write batch
+// runs 431..942, and the sequencer mirror occupies 1000..9191, so 9200 is the
+// first genuinely clear ground with room to spare.
+G_DB_PAD_POOL = 9200;  // gmem[9200..9215]: pad_pool_idx[16], -1 = from kit
 // Kit display names in string slots 600-607
 
 // Pad link groups (Daddy/Bootlicker)
@@ -600,6 +607,7 @@ loaded_kit_num != slider7 ? load_kit_samples(slider7);
 // ---- Pool load request (GFX → block communication) ----
 pool_load_pad = -1;   // -1 = no request, 0-15 = pad to load into
 pool_load_idx = -1;   // pool manifest index to load
+pool_load_silent = 0; // 1 = skip the audition (manager recalling a layout)
 
 // ---- UI state ----
 // ui_selected_pad persists naturally (defaults to 0 on first load, survives @init)
@@ -1023,7 +1031,10 @@ slider7 != loaded_kit_num ? load_kit_samples(slider7);
 // ---- Pool sample load request from GFX ----
 pool_load_pad >= 0 ? (
   load_pad_from_pool(pool_load_pad, pool_load_idx);
-  trigger_pad(pool_load_pad, 100);
+  // Auditioning the pad is right when a human picked the sample. Recalling a
+  // saved layout sets all sixteen in a row, and sixteen hits in a second is a
+  // mess, so the manager's assign command asks for silence.
+  pool_load_silent ? pool_load_silent = 0 : trigger_pad(pool_load_pad, 100);
   pool_load_pad = -1;
 );
 
@@ -1758,6 +1769,27 @@ gmem[409] > 0 ? (
   gmem[409] = 0;
 );
 
+// ---- Assign a pool sample to a pad (gmem[414-415]) ----
+// 414: pad + 1, 415: pool index + 1. Both consumed by zeroing.
+//
+// The manager could already do this through the rescan path -- gmem[223] to
+// select a pad, then gmem[0]/[1]/[2] -- but that rescans the whole pool for
+// every pad, and gmem[0] is handled EARLIER in this block than gmem[223], so
+// a selection and a load issued in one frame would load into the previously
+// selected pad. Recalling a sixteen-pad layout wants neither. This sets the
+// same deferred request the GUI's own browser sets, silently, one per block.
+gmem[414] > 0 ? (
+  _mgr_apad = (gmem[414] | 0) - 1;
+  _mgr_aidx = (gmem[415] | 0) - 1;
+  _mgr_apad >= 0 && _mgr_apad < NUM_PADS &&
+    _mgr_aidx >= 0 && _mgr_aidx < pool_count ? (
+      pool_load_pad = _mgr_apad;
+      pool_load_idx = _mgr_aidx;
+      pool_load_silent = 1;
+  );
+  gmem[414] = 0; gmem[415] = 0;
+);
+
 // ---- Batch step write from manager (gmem[430-434]) ----
 // 430: count of steps to write (1-128), consumed by zeroing
 // 431+i*4: pattern, 432+i*4: step, 433+i*4: pad, 434+i*4: vel
@@ -1853,6 +1885,11 @@ _mgr_p = 0;
 loop(NUM_PADS,
   gmem[365 + _mgr_p] = slider(10 + _mgr_p);     // pad volume (0-1)
   gmem[381 + _mgr_p] = slider(30 + _mgr_p);     // pad pan (-1 to 1)
+  // Which pool sample each pad is playing, so the manager can SAVE a layout
+  // rather than only push one. PAD_POOL_IDX is local memory -- everything the
+  // manager knows has to be published, and this was the one piece that wasn't.
+  // -1 means the pad came from the loaded kit rather than a pool override.
+  gmem[G_DB_PAD_POOL + _mgr_p] = PAD_POOL_IDX[_mgr_p];
   _mgr_p += 1;
 );
 gmem[397] = PAT_DISPLAY_BAR[slider3];            // current display bar
