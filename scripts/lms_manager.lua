@@ -1901,32 +1901,72 @@ local function db_get_param(slider_num)
   return 0
 end
 
+-- Overlays
 -- ============================================================================
--- Kit layouts
--- ============================================================================
 --
--- A kit in DRUMBANGER is a folder: load kit 3 and the first sixteen samples of
--- pool folder 4 land on the pads. A LAYOUT is the thing you actually build
--- afterwards -- this snare from one folder, that kick from another, each with
--- its own level, pan and tune. The plugin keeps that in PAD_POOL_IDX and
--- serialises it with the project, so it has always died with the project.
+-- An overlay is sixteen pointers to specific samples, and it is the only thing
+-- the pads are ever built from. Kits are storage: folders under pool/ that keep
+-- samples organised and nothing more. Loading a kit is not an operation here,
+-- because a kit deciding what sits on the pads is exactly the dependency that
+-- made the old layouts fragile -- a pad that says "whatever kit 3 gave me" is
+-- a dangling reference, and it goes wrong quietly when the pool changes.
 --
--- Saving one needs two things the suite did not have. Reading the layout: the
--- plugin now mirrors PAD_POOL_IDX to gmem[9200..9215], because local memory is
--- invisible from here. And writing it back: gmem[414]/[415] assign one pad
--- without rescanning the pool and without auditioning the hit.
+-- What makes this durable is that pool/manifest.txt IS the index space. Line N
+-- of that file is pool index N, so an overlay stores the PATH -- Kit1-808/
+-- 01-kick-808.wav -- and resolves it to whatever index it occupies today.
+-- Import a folder, the manifest grows, every index after the insertion shifts,
+-- and the overlays still point at the same audio.
 --
--- The kit number goes in the file too, and recall sets it FIRST. That is what
--- restores the pads a layout left alone -- a pad saved as -1 came from the kit,
--- and there is no per-pad way to ask for that back; reloading the kit resets
--- all sixteen, and the overrides then land on top.
+-- Generated overlays are deterministic: one per pool folder, that folder's
+-- first sixteen entries in manifest order, which is the same set the plugin's
+-- own load_kit_samples() would have put up. So you start where a kit would
+-- have left you, and from there it is a file you can copy, rename or edit to
+-- pull from three folders at once.
 --
--- One local, like SCENES. This file has six left before Lua's 200 cap.
+-- One local, like SCENES. This file has five left under Lua's 200 cap.
 local KITS = (function()
   local ROOT = r.GetResourcePath() .. "/Data"
-  local DIR = ROOT .. "/LMS Kits"
-  local POOL_MIRROR = 9200          -- G_DB_PAD_POOL in lms_drumbanger.jsfx
+  local POOL = ROOT .. "/pool"
+  local DIR  = ROOT .. "/LMS Overlays"
+  local POOL_MIRROR = 9200        -- G_DB_PAD_POOL in lms_drumbanger.jsfx
   local NPADS = 16
+  local M
+
+  -- The manifest, verbatim and in order. Blank lines are skipped the same way
+  -- the plugin's scan_pool() skips them, so line numbers agree.
+  local function manifest()
+    local out = {}
+    local fh = io.open(POOL .. "/manifest.txt", "r")
+    if not fh then return out end
+    for line in fh:lines() do
+      local path = line:gsub("%s+$", "")   -- %s covers CR and LF
+      if path ~= "" then out[#out + 1] = path end
+    end
+    fh:close()
+    return out
+  end
+
+  local function index_of(man)
+    local m = {}
+    for i, path in ipairs(man) do
+      if m[path] == nil then m[path] = i - 1 end   -- 0-based, as the plugin counts
+    end
+    return m
+  end
+
+  -- Folders in the order they first appear, each with its entries. This is how
+  -- the plugin derives kits too: the folder is a prefix on the path.
+  local function folders(man)
+    local order, by = {}, {}
+    for _, path in ipairs(man) do
+      local f = path:match("^([^/]+)/")
+      if f then
+        if not by[f] then by[f] = {}; order[#order + 1] = f end
+        table.insert(by[f], path)
+      end
+    end
+    return order, by
+  end
 
   local function list()
     r.RecursiveCreateDirectory(DIR, 0)
@@ -1934,49 +1974,71 @@ local KITS = (function()
     while true do
       local f = r.EnumerateFiles(DIR, i)
       if not f then break end
-      if f:lower():match("%.lmskit$") then out[#out + 1] = f end
+      if f:lower():match("%.lmsov$") then out[#out + 1] = f end
       i = i + 1
     end
     table.sort(out, function(a, b) return a:lower() < b:lower() end)
     return out
   end
 
-  local function capture()
+  local function write(name, pads)
+    r.RecursiveCreateDirectory(DIR, 0)
+    local fh = io.open(DIR .. "/" .. name .. ".lmsov", "w")
+    if not fh then return false end
+    fh:write(SCENES.encode({
+      lms_version = "1.0",
+      created = os.date("%Y-%m-%dT%H:%M:%S"),
+      pads = pads,
+    }), string.char(10))   -- trailing newline, as lms_save.lua writes
+    fh:close()
+    return true
+  end
+
+  local function save(name)
+    if not find_db_instance() then return false, "No DRUMBANGER instance found." end
+    local man = manifest()
+    if #man == 0 then return false, "No pool/manifest.txt — run the rescan action." end
     local pads = {}
     for p = 0, NPADS - 1 do
+      local idx = math.floor(r.gmem_read(POOL_MIRROR + p) or -1)
       pads[#pads + 1] = {
-        pool  = math.floor(r.gmem_read(POOL_MIRROR + p) or -1),
+        path  = (idx >= 0 and man[idx + 1]) or "",
         vol   = db_get_param(10 + p),
         pan   = db_get_param(30 + p),
         pitch = db_get_param(50 + p),
       }
     end
-    return {
-      lms_version = "1.0",
-      created = os.date("%Y-%m-%dT%H:%M:%S"),
-      kit = math.floor(r.gmem_read(308) or 0),
-      pads = pads,
-    }
+    if not write(name, pads) then return false, "Could not write to " .. DIR end
+    return true, string.format("Saved overlay \"%s\"", name)
   end
 
-  local M
-
-  local function save(name)
-    if not find_db_instance() then return false, "No DRUMBANGER instance found." end
-    r.RecursiveCreateDirectory(DIR, 0)
-    local path = DIR .. "/" .. name .. ".lmskit"
-    local fh = io.open(path, "w")
-    if not fh then return false, "Could not write " .. path end
-    fh:write(SCENES.encode(capture()), "\n")
-    fh:close()
-    return true, string.format("Saved layout \"%s\"", name)
+  -- One overlay per pool folder, its first sixteen entries. Skips any that
+  -- already exists so it never overwrites something you edited.
+  local function generate()
+    local man = manifest()
+    if #man == 0 then return false, "No pool/manifest.txt — run the rescan action." end
+    local order, by = folders(man)
+    local made, skipped = 0, 0
+    for _, folder in ipairs(order) do
+      local name = folder:gsub("[^%w%-%_]", "_")
+      local exists = io.open(DIR .. "/" .. name .. ".lmsov", "r")
+      if exists then
+        exists:close()
+        skipped = skipped + 1
+      else
+        local pads = {}
+        for p = 1, NPADS do
+          pads[p] = {path = by[folder][p] or "", vol = 1, pan = 0, pitch = 0}
+        end
+        if write(name, pads) then made = made + 1 end
+      end
+    end
+    return true, string.format("%d overlay(s) generated, %d already there", made, skipped)
   end
 
-  -- Recall runs over several frames on purpose. Setting the kit reloads
-  -- sixteen samples off disk inside the plugin's @block, so the overrides have
-  -- to wait for that to finish or they land on pads that are about to be
-  -- reset. Then one assignment per frame, because gmem[414] carries a single
-  -- pad and is consumed by zeroing.
+  -- No kit to load and nothing to wait for: an overlay names its samples, so
+  -- recall is sixteen assignments. One per frame, because gmem[414] carries a
+  -- single pad and is consumed by zeroing.
   local function recall(filename)
     if not find_db_instance() then return false, "No DRUMBANGER instance found." end
     local fh = io.open(DIR .. "/" .. filename, "r")
@@ -1989,38 +2051,38 @@ local KITS = (function()
       return false, "Could not parse " .. filename
     end
 
-    db_set_param(7, cfg.kit or 0)
-    M.pending = cfg
-    M.wait = 20
+    local idx = index_of(manifest())
+    local lost = {}
     M.queue = {}
-    return true, string.format("Recalling \"%s\"...", filename:gsub("%.lmskit$", ""))
-  end
-
-  -- Driven once per frame from the defer loop, next to the step queue.
-  local function pump()
-    if M.pending then
-      M.wait = M.wait - 1
-      if M.wait <= 0 then
-        local cfg = M.pending
-        M.pending = nil
-        for i, pad in ipairs(cfg.pads) do
-          local p = i - 1
-          if p < NPADS then
-            db_set_param(10 + p, pad.vol or 1)
-            db_set_param(30 + p, pad.pan or 0)
-            db_set_param(50 + p, pad.pitch or 0)
-            -- -1 means the pad came from the kit, which the kit reload above
-            -- has already restored. Only overrides need sending.
-            if (pad.pool or -1) >= 0 then
-              M.queue[#M.queue + 1] = {p, math.floor(pad.pool)}
-            end
+    for i, pad in ipairs(cfg.pads) do
+      local p = i - 1
+      if p < NPADS then
+        db_set_param(10 + p, pad.vol or 1)
+        db_set_param(30 + p, pad.pan or 0)
+        db_set_param(50 + p, pad.pitch or 0)
+        local path = pad.path or ""
+        if path ~= "" then
+          local found = idx[path]
+          if found then
+            M.queue[#M.queue + 1] = {p, found}
+          else
+            lost[#lost + 1] = path
           end
         end
-        M.msg_ok, M.msg = true,
-          string.format("Recalled — %d pad override(s) loading", #M.queue)
       end
-      return
     end
+
+    local msg = string.format("%d pad(s) loading", #M.queue)
+    if #lost > 0 then
+      -- Named and not found: the sample was renamed, moved or deleted. Say so
+      -- rather than leaving a pad quietly holding whatever it had before.
+      return true, msg .. string.format(" — %d not in the pool: %s",
+        #lost, lost[1])
+    end
+    return true, msg
+  end
+
+  local function pump()
     if #M.queue > 0 and r.gmem_read(414) == 0 then
       local job = table.remove(M.queue, 1)
       r.gmem_write(415, job[2] + 1)
@@ -2029,10 +2091,9 @@ local KITS = (function()
   end
 
   M = {
-    dir = DIR, list = list, capture = capture, pool_mirror = POOL_MIRROR,
-    save = save, recall = recall, pump = pump,
-    name_buf = "", msg = nil, msg_ok = true, files = nil,
-    queue = {}, pending = nil, wait = 0,
+    dir = DIR, pool = POOL, list = list, save = save, recall = recall,
+    generate = generate, manifest = manifest, pump = pump,
+    name_buf = "", msg = nil, msg_ok = true, files = nil, queue = {},
   }
   return M
 end)()
@@ -2093,46 +2154,62 @@ local function draw_drumbanger(ctx)
   r.ImGui_SameLine(ctx)
   r.ImGui_TextDisabled(ctx, string.format("BPM: %.0f  Kit: %d", db_state.bpm or 120, math.floor(db_state.kit or 0) + 1))
 
-  -- Pad layouts. A kit is a folder; a layout is what you built on top of it,
-  -- and until now it only ever lived inside one project.
-  if r.ImGui_CollapsingHeader(ctx, "Pad Layouts##db_kits") then
+  -- Overlays are the only thing that puts samples on pads here. Kits are the
+  -- folders they draw from, and drawing from three at once is normal.
+  if r.ImGui_CollapsingHeader(ctx, "Overlays##db_kits") then
     r.ImGui_SetNextItemWidth(ctx, 140)
     local kn_chg, kn_new
     if r.ImGui_InputTextWithHint then
-      kn_chg, kn_new = r.ImGui_InputTextWithHint(ctx, "##kit_name", "layout name", KITS.name_buf)
+      kn_chg, kn_new = r.ImGui_InputTextWithHint(ctx, "##kit_name", "overlay name", KITS.name_buf)
     else
       kn_chg, kn_new = r.ImGui_InputText(ctx, "##kit_name", KITS.name_buf)
     end
     if kn_chg then KITS.name_buf = kn_new end
     r.ImGui_SameLine(ctx)
-    if r.ImGui_Button(ctx, "Save Layout##db_ksave") then
+    if r.ImGui_Button(ctx, "Save##db_ksave") then
       local nm = (KITS.name_buf or ""):gsub("[^%w%-%_]", "_")
-      if nm == "" then nm = "layout" end
+      if nm == "" then nm = "overlay" end
       KITS.msg_ok, KITS.msg = KITS.save(nm)
       KITS.files = nil
     end
     if r.ImGui_IsItemHovered(ctx) then
       r.ImGui_SetTooltip(ctx,
-        "Saves which pool sample sits on each of the 16 pads, each pad's\n" ..
-        "volume, pan and pitch, and the kit underneath them, to:\n" .. KITS.dir)
+        "Saves the sample PATH on each of the 16 pads, plus volume, pan and\n" ..
+        "pitch, to:\n" .. KITS.dir ..
+        "\n\nPaths, not indices — import a folder and these still point at the\n" ..
+        "same audio. Type an existing name to overwrite; type a new one to\n" ..
+        "save-as.")
+    end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_Button(ctx, "Generate from folders##db_kgen") then
+      KITS.msg_ok, KITS.msg = KITS.generate()
+      KITS.files = nil
+    end
+    if r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_SetTooltip(ctx,
+        "One overlay per folder in pool/, holding that folder's first 16\n" ..
+        "samples — the same set loading it as a kit would have given you.\n" ..
+        "Existing overlays are never overwritten, so this is safe to re-run\n" ..
+        "after importing a folder.")
     end
 
     if KITS.files == nil then KITS.files = KITS.list() end
     if #KITS.files == 0 then
-      r.ImGui_TextDisabled(ctx, "No layouts saved yet.")
+      r.ImGui_TextDisabled(ctx,
+        "No overlays yet — \"Generate from folders\" makes one per pool folder.")
     else
       for _, fname in ipairs(KITS.files) do
-        if r.ImGui_SmallButton(ctx, "Recall##kt_" .. fname) then
+        if r.ImGui_SmallButton(ctx, "Load##kt_" .. fname) then
           KITS.msg_ok, KITS.msg = KITS.recall(fname)
         end
         r.ImGui_SameLine(ctx)
-        r.ImGui_Text(ctx, (fname:gsub("%.lmskit$", "")))
+        r.ImGui_Text(ctx, (fname:gsub("%.lmsov$", "")))
       end
     end
 
-    -- Recall reloads the kit first and then sends one pad per frame, so it is
-    -- worth saying so rather than looking frozen for a second.
-    if #KITS.queue > 0 or KITS.pending then
+    -- Sixteen assignments go out one per frame, so say so rather than looking
+    -- frozen for half a second.
+    if #KITS.queue > 0 then
       r.ImGui_TextDisabled(ctx, string.format("loading... %d pad(s) to go", #KITS.queue))
     elseif KITS.msg then
       r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), KITS.msg_ok and 0x66DD88FF or 0xFF8866FF)
