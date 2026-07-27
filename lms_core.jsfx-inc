@@ -5387,6 +5387,12 @@ SRC_SLOT_SIZE  = 8;        // heartbeat, active, wpos, spare
 // still quick enough that a deleted send stops showing up.
 SRC_ALIVE_BLOCKS = 200;
 
+// How fast liveness drains while the write head is not moving: 25 a block, so
+// about 8 blocks from full. Long enough to ride out scheduling jitter between
+// two tracks, short enough that a dead source's last block does not sit there
+// looping as a held note.
+SRC_STALL_DRAIN = 25;
+
 function lms_srcring_pub_init(slot_id)
 (
   this.slot      = max(0, min(SRC_MAX_SLOTS - 1, slot_id));
@@ -5438,7 +5444,7 @@ function lms_srcring_pub_write(spl)
 // written last, so slots blinked in and out. Section 14 takes an explicit
 // local_buf_base for exactly this reason; this one now does too.
 //
-// Needs SRC_MAX_SLOTS * 4 cells.
+// Needs SRC_MAX_SLOTS * 5 cells.
 function lms_srcring_con_init(local_buf_base)
   local(k)
 (
@@ -5446,6 +5452,7 @@ function lms_srcring_con_init(local_buf_base)
   this.rpos    = local_buf_base + SRC_MAX_SLOTS;
   this.alive   = local_buf_base + SRC_MAX_SLOTS * 2;
   this.last_hb = local_buf_base + SRC_MAX_SLOTS * 3;
+  this.fresh   = local_buf_base + SRC_MAX_SLOTS * 4;
 
   this.rd_idx = 0;
   this.prev_n = 0;
@@ -5455,12 +5462,13 @@ function lms_srcring_con_init(local_buf_base)
     this.rpos[k] = 0;
     this.alive[k] = 0;
     this.last_hb[k] = -1;
+    this.fresh[k] = 0;
     k += 1;
   );
 );
 
 function lms_srcring_con_block()
-  local(k, sb, hb, avail)
+  local(k, sb, hb, avail, fresh)
 (
   this.rd_idx = 0;
   k = 0;
@@ -5469,12 +5477,35 @@ function lms_srcring_con_block()
     hb = gmem[sb];
     // A publisher that stops bumping its heartbeat has gone away: REAPER does
     // not tell us when an FX is removed, so the slot has to time out.
+    // A publisher that is not moving its write position is not publishing,
+    // whatever its heartbeat says. This is the signal that cannot lie: a live
+    // source writes samplesblock samples per block even when it is silent,
+    // because silence is zeros and it still writes them. A heartbeat only says
+    // the plugin's @block ran.
+    //
+    // It matters because of what a stalled publisher sounds like. The reader
+    // resyncs to one block behind the write head every block, so a write head
+    // that stopped means reading the same block over and over -- a ~20ms loop,
+    // which is a sustained tone, in the voice of whatever that source last
+    // played. Sources that stop being processed (muted, bypassed, deleted)
+    // held that tone for the whole liveness timeout, and lengthening that
+    // timeout from 20 blocks to 200 to cure the flicker made it ten times
+    // longer. Draining fast on a stalled write head kills it in about 8
+    // blocks, while still tolerating the scheduling jitter a single-block
+    // check would trip over.
+    fresh = gmem[sb + 2] != this.snap[k];
+    this.fresh[k] = fresh;
+
+    // The heartbeat only tops liveness up when the write head moved too --
+    // otherwise a publisher whose @block runs while its @sample does not would
+    // be refilled every block and never die.
     hb != this.last_hb[k] ? (
       this.last_hb[k] = hb;
-      this.alive[k] = SRC_ALIVE_BLOCKS;
+      fresh ? this.alive[k] = SRC_ALIVE_BLOCKS;
     ) : (
       this.alive[k] > 0 ? this.alive[k] -= 1;
     );
+    !fresh ? this.alive[k] = max(0, this.alive[k] - SRC_STALL_DRAIN);
 
     // Advance our own read pointer by what we actually consumed last block,
     // instead of deriving the read position from the writer every time.
@@ -5518,9 +5549,15 @@ function lms_srcring_active(slot_id)
 function lms_srcring_read(slot_id)
   local(rp)
 (
-  rp = this.rpos[slot_id] + this.rd_idx;
-  rp >= SRC_RING_SIZE ? rp -= SRC_RING_SIZE;
-  gmem[G_SRC_RINGS + slot_id * SRC_RING_SIZE + rp];
+  // Nothing new arrived this block, so there is nothing to play. Reading
+  // anyway means re-reading the block already played -- a loop the length of
+  // one buffer, which is a held tone rather than a dropout, and far more
+  // noticeable than the silence it replaced.
+  this.fresh[slot_id] ? (
+    rp = this.rpos[slot_id] + this.rd_idx;
+    rp >= SRC_RING_SIZE ? rp -= SRC_RING_SIZE;
+    gmem[G_SRC_RINGS + slot_id * SRC_RING_SIZE + rp];
+  ) : 0;
 );
 
 function lms_srcring_advance()

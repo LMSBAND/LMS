@@ -140,6 +140,10 @@
         <changelog>v7.7 &#8212; The source-ring consumer had nowhere to keep its state. lms_srcring_con_init took no arguments and never assigned a base to any of its four per-slot arrays, and in EEL that is not an empty array, it is address 0: this.alive[k] means mem[this.alive + k], and an unassigned variable is 0. snap, rpos, alive and last_hb were therefore the same eight cells, overwriting each other every block, and lms_room bump allocates from 0 as well, so those cells are also the head of its delay line. Simulated over 400 blocks: the read position ended each block holding the writer&#39;s position instead of one block behind it, so the room read from a wandering point in the ring &#8212; chopped, repeating fragments &#8212; and a live source was declared dead on 12 blocks out of 400, which is heard as sources blinking in and out. With its own buffer: a steady one-block lag and no false deaths. con_init now takes a local_buf_base and needs SRC_MAX_SLOTS * 4 cells, the same pattern Section 14&#39;s bleed engine has always used, which is why that one never had this fault. Callers must pass a base.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="7.8" author="LMS" time="2026-07-27T09:00:00Z">
+        <changelog>v7.8 &#8212; A source that stops publishing goes quiet instead of holding a note. Liveness was decided by the publisher&#39;s heartbeat, which only says its @block ran; the write position is the signal that cannot lie, because a live source writes a block of samples every block even when it is silent. A stalled write head meant the reader resynced to the same block every block and read it over and over &#8212; a 20ms loop, which is a sustained tone in the voice of whatever that source last played, not a dropout. Raising the liveness timeout to 200 blocks in 7.6 made it last ten times longer. Liveness now drains fast when the write head is not moving, and a slot with nothing new to read returns silence rather than replaying the block it already played. Simulated over 200 blocks after a source stalls: 120+ blocks of replayed audio before, 0 after.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -446,6 +450,10 @@
       </version>
       <version name="1.8" author="LMS" time="2026-07-27T07:00:00Z">
         <changelog>v1.8 &#8212; Band sources can be moved from outside. The room still owns where a source stands: it clamps into the polygon, recomputes the reflections and serialises the result, so a mover proposes a position at the slot&#39;s request cell and the room applies it. The request is consumed and zeroed when it lands, so the last word wins during a drag and a stale cell cannot pull the source back a block later. A metre coordinate inside the room is never 0, which is what makes 0 a safe &quot;nothing pending&quot;. Lets the manager&#39;s room plan place the band directly instead of sending you to the plugin window.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
+      </version>
+      <version name="1.9" author="LMS" time="2026-07-27T09:00:00Z">
+        <changelog>v1.9 &#8212; A source that leaves the room takes its delay line with it. band_wr only advances while a slot is active, so a dropped source&#39;s buffer kept its last 32768 samples indefinitely, and the taps read behind the write head &#8212; so the moment that slot came back the room played out audio from whenever it left, as held notes from an instrument that was not playing. The buffer, its write head and its level are cleared on the way out. Requires lms_core 7.8, which fixes the other half of the same symptom.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_room.jsfx</source>
       </version>
     </reapack>
@@ -2187,6 +2195,10 @@
       </version>
       <version name="2.8" author="LMS" time="2026-07-27T07:00:00Z">
         <changelog>v2.8 &#8212; Drag the band around the room plan. Each source has a hit target on the plan; dragging one proposes a position to the room, which clamps and applies it, so the placement that used to mean opening the plugin window happens where you are already looking. Requires lms_room 1.8. The hit targets are placed after the canvas is reserved so nothing below shifts, and the position is held inside the room while dragging &#8212; the room would clamp a wilder value itself, but then the dot fights the cursor, which reads as the drag being broken.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
+      <version name="2.9" author="LMS" time="2026-07-27T09:00:00Z">
+        <changelog>v2.9 &#8212; The ordering sends carry no MIDI. They exist to make the routing graph order two tracks and nothing else, and REAPER&#39;s default includes MIDI, which quietly copied every source&#39;s notes onto the room bus. Also drops the level rail under the room plan: the halo on each source dot already carries how loud it is arriving, so the bar beside it was the same reading twice. What remains is only what the plan cannot show &#8212; a slot that exists but is not being heard, and a slot two sends are fighting over.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
     </reapack>

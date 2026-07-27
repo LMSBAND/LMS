@@ -1,7 +1,7 @@
 desc:LMS - Black In Bluhm Special
 //tags: reverb room acoustics physical-model compressor
 //author: LMS
-//version: 1.8
+//version: 1.9
 //license: GPL-3.0
 filename:0,shakebot_logo.png
 
@@ -127,7 +127,7 @@ band_env = buf_pos;      buf_pos += MAX_BAND;
 // Source-ring consumer state (lms_core SECTION 15: snap, rpos, alive, last_hb).
 // It has to be allocated here like everything else -- left to itself it lands
 // on address 0, which is the head of delay_buf.
-srcring_state = buf_pos;  buf_pos += SRC_MAX_SLOTS * 4;
+srcring_state = buf_pos;  buf_pos += SRC_MAX_SLOTS * 5;
 
 // Allpass diffusers — model wall surface scattering (rough walls smear reflections)
 AP_LEN0 = 113; AP_LEN1 = 167; AP_LEN2 = 211; AP_LEN3 = 263;
@@ -856,7 +856,19 @@ drag_band = -1;
         gmem[G_ROOM_STATE + 10 + k*8 + 7] = 0;
       );
 
+      was_active = band_active[k];
       band_active[k] = srcring.lms_srcring_active(k) ? 20 : 0;
+
+      // A source that leaves takes its delay line with it. band_wr only
+      // advances while a slot is active, so the buffer holds that source's
+      // last 32768 samples indefinitely -- and the taps read BEHIND the write
+      // head, so the moment the slot came back the room played out audio from
+      // whenever it left. Held notes from an instrument that was not playing.
+      was_active > 0 && band_active[k] == 0 ? (
+        memset(band_delay + k * DELAY_BUF_SIZE, 0, DELAY_BUF_SIZE);
+        band_wr[k] = 0;
+        band_env[k] = 0;
+      );
       band_active[k] > 0 ? (
         band_count += 1;
         bpx = band_pos[k*2]; bpy = band_pos[k*2+1];

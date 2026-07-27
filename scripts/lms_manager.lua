@@ -3423,6 +3423,10 @@ local function ensure_order_send(track, bus)
   local si = r.CreateTrackSend(track, bus)
   if si and si >= 0 then
     r.SetTrackSendInfo_Value(track, 0, si, "D_VOL", 0)  -- -inf: ordering only
+    -- And no MIDI. This send exists to make the routing graph order two
+    -- tracks; REAPER's default includes MIDI, which would quietly copy a
+    -- source's notes onto the room bus for no reason at all.
+    r.SetTrackSendInfo_Value(track, 0, si, "I_MIDIFLAGS", 31)
     return true
   end
   return false
@@ -4039,42 +4043,25 @@ local function draw_room_verb(ctx)
   end
   r.ImGui_Spacing(ctx)
 
-  -- The rail. One row per slot that exists, whether or not the room hears it:
-  -- a source that has fallen out is exactly what you want to see, and hiding
-  -- the row would make it look like it was never there.
-  local rail_w = math.max(240, r.ImGui_GetContentRegionAvail(ctx))
+  -- No level rail: the halo on each dot already carries how loud a source is
+  -- arriving, and a bar beside it was the same reading twice. What is left is
+  -- what the plan cannot show -- a slot that exists but is not being heard,
+  -- and a slot two sends are fighting over.
   for s = 1, ROOM_SLOTS do
     local sl = st.slots[s]
     local o = owners[s]
-    if o or sl.active > 0.5 then
-      local live = sl.active > 0.5
-      local col = (o and o.color) or room_slot_color(s)
-      local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
-      r.ImGui_DrawList_AddCircleFilled(dl, cx + 5 * ui_scale, cy + 8 * ui_scale,
-        4 * ui_scale, live and col or 0x3A3A42FF)
-      r.ImGui_Dummy(ctx, 14 * ui_scale, 16 * ui_scale)
-      r.ImGui_SameLine(ctx)
-
-      local name = o and o.name or string.format("slot %d", s)
-      if #name > 14 then name = name:sub(1, 13) .. "…" end
-      if live then
-        -- Same form the metering page uses, rather than math.log's base
-        -- argument, so the two pages compute dB identically.
-        local db = 20 * math.log(math.max(sl.env, 1e-7)) / math.log(10)
-        meter_bar(ctx, name, db_to_frac(db, -48),
-          db > -95 and string.format("%.1f dB", db) or "silent",
-          col, rail_w - 20 * ui_scale, 10 * ui_scale)
-      else
-        meter_bar(ctx, name, 0, "not heard", 0x3A3A42FF,
-          rail_w - 20 * ui_scale, 10 * ui_scale)
-      end
-
-      if o and o.extra then
-        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), STATUS_BAD)
-        r.ImGui_Text(ctx, string.format(
-          "    slot %d is claimed by %d sends — they write one ring over each other", s, o.extra + 1))
-        r.ImGui_PopStyleColor(ctx)
-      end
+    if o and sl.active <= 0.5 then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0xE6CC88FF)
+      r.ImGui_Text(ctx, string.format("%s is on slot %d and the room cannot hear it",
+        o.name, s))
+      r.ImGui_PopStyleColor(ctx)
+    end
+    if o and o.extra then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), STATUS_BAD)
+      r.ImGui_Text(ctx, string.format(
+        "slot %d is claimed by %d sends — they write one ring over each other",
+        s, o.extra + 1))
+      r.ImGui_PopStyleColor(ctx)
     end
   end
 
