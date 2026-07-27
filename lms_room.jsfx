@@ -119,6 +119,10 @@ band_wr = buf_pos;       buf_pos += MAX_BAND;
 // Band active flags + heartbeat tracking
 band_active = buf_pos;   buf_pos += MAX_BAND;
 band_hb = buf_pos;       buf_pos += MAX_BAND;
+// Per-source level, for anything drawing the room from outside. A peak
+// follower rather than an RMS: it is read at frame rate by a UI, and a peak
+// that decays is what reads as "this one is playing".
+band_env = buf_pos;      buf_pos += MAX_BAND;
 
 // Source-ring consumer state (lms_core SECTION 15: snap, rpos, alive, last_hb).
 // It has to be allocated here like everything else -- left to itself it lands
@@ -144,6 +148,7 @@ memset(tap_lp, 0, TOTAL_SLOTS);
 memset(gfx_hits, 0, MAX_WALLS * 2);
 memset(band_delay, 0, MAX_BAND * DELAY_BUF_SIZE);
 memset(band_refl, 0, BAND_TOTAL * REFL_STRIDE);
+memset(band_env, 0, MAX_BAND);
 memset(band_sm_delay, 0, BAND_TOTAL);
 memset(band_sm_lo_l, 0, BAND_TOTAL);
 memset(band_sm_lo_r, 0, BAND_TOTAL);
@@ -637,6 +642,7 @@ function compute_band_reflections(src_idx)
 out_hp.lms_bq_init();
 out_hp.lms_bq_set_hp(30, 0.707);
 smooth_coeff = exp(-1 / (srate * 0.030));  // 30ms
+env_rel = 1.0 - exp(-1 / (srate * 0.250)); // 250ms, per-source peak release
 sm_inv = 1.0 - smooth_coeff;
 // Lo/hi crossover at 1kHz for frequency-dependent absorption
 xover_coeff = exp(-TWO_PI * 1000.0 / srate);
@@ -814,6 +820,16 @@ drag_band = -1;
   gmem[G_ROOM_STATE + 1] = SRC_RING_SIZE;
   gmem[G_ROOM_STATE + 2] = SRC_ALIVE_BLOCKS;
 
+  // What the room is, as it computes it: the decay it derived from the volume
+  // and the materials, and how many sources it can actually hear.
+  gmem[G_ROOM_STATE + 3] = computed_rt60;
+  gmem[G_ROOM_STATE + 4] = band_count;
+  gmem[G_ROOM_STATE + 5] = slider2;   // width  m
+  gmem[G_ROOM_STATE + 6] = slider3;   // depth  m
+  gmem[G_ROOM_STATE + 7] = slider1;   // walls
+  gmem[G_ROOM_STATE + 8] = slider11;  // mic x
+  gmem[G_ROOM_STATE + 9] = slider12;  // mic y
+
   // Band mode: advertise room + scan for sources
   // Single mode: stop heartbeat so DroneFX instances don't try to connect
   room_mode == 1 ? (
@@ -841,6 +857,7 @@ drag_band = -1;
         compute_band_reflections(k);
       ) : (
         zero_band_refl(k);
+        band_env[k] = 0;   // nothing there: the meter should read empty, not hold
       );
 
       // Publish what the room itself thinks of this slot. gmem carries the
@@ -850,6 +867,11 @@ drag_band = -1;
       gmem[G_ROOM_STATE + 10 + k*8]     = srcring.alive[k];
       gmem[G_ROOM_STATE + 10 + k*8 + 1] = band_active[k] > 0 ? 1 : 0;
       gmem[G_ROOM_STATE + 10 + k*8 + 2] = srcring.rpos[k];
+      // Where this source stands and how loud it is, so the room can be drawn
+      // truthfully from outside instead of guessed at.
+      gmem[G_ROOM_STATE + 10 + k*8 + 3] = band_env[k];
+      gmem[G_ROOM_STATE + 10 + k*8 + 4] = band_pos[k*2];
+      gmem[G_ROOM_STATE + 10 + k*8 + 5] = band_pos[k*2 + 1];
 
       k += 1;
     );
@@ -912,6 +934,10 @@ drag_band = -1;
     loop(MAX_BAND,
       band_active[k] ? (
         band_in = srcring.lms_srcring_read(k);
+
+        // Peak follower per source. ~250 ms release at any rate, so what the
+        // room sees arriving is legible to an eye rather than a sample clock.
+        band_env[k] = max(abs(band_in), band_env[k] - band_env[k] * env_rel);
 
         bd = band_delay + k * DELAY_BUF_SIZE;
         bw = band_wr[k];

@@ -3594,8 +3594,171 @@ local function room_strip_all_sends()
   r.PreventUIRefresh(-1)
   r.Undo_EndBlock("Room Verb: strip every Bluhm Send", -1)
   scan_tracks()
-  r.ShowConsoleMsg(string.format("LMS Room Verb: removed %d Bluhm Send(s) everywhere
-", removed))
+  r.ShowConsoleMsg(string.format("LMS Room Verb: removed %d Bluhm Send(s) everywhere\n", removed))
+end
+
+-- ---- The room, drawn ----
+--
+-- Same vocabulary as the Metering tab: SURFACE for the field, GRID for the
+-- metre lines, INK for anything you read, and colour reserved for identity --
+-- here each source's own track colour, so the dot standing in the room and the
+-- row in the rail below are recognisably the same band member.
+--
+-- Everything drawn is read from the room itself at G_ROOM_STATE rather than
+-- inferred: its geometry, where it has placed each source, how loud that
+-- source is arriving, and whether it can hear that slot at all. A plan drawn
+-- from the manager's own assumptions would keep looking right while the room
+-- disagreed, which is the failure mode this whole session was spent on.
+
+local ROOM_STATE = 800000
+local ROOM_SLOTS = 8
+
+local function room_read_state()
+  local st = {
+    rt60  = r.gmem_read(ROOM_STATE + 3) or 0,
+    count = r.gmem_read(ROOM_STATE + 4) or 0,
+    w     = r.gmem_read(ROOM_STATE + 5) or 0,
+    d     = r.gmem_read(ROOM_STATE + 6) or 0,
+    walls = r.gmem_read(ROOM_STATE + 7) or 4,
+    mic_x = r.gmem_read(ROOM_STATE + 8) or 0,
+    mic_y = r.gmem_read(ROOM_STATE + 9) or 0,
+    slots = {},
+  }
+  for s = 1, ROOM_SLOTS do
+    local b = ROOM_STATE + 10 + (s - 1) * 8
+    st.slots[s] = {
+      alive  = r.gmem_read(b) or 0,
+      active = r.gmem_read(b + 1) or 0,
+      env    = r.gmem_read(b + 3) or 0,
+      x      = r.gmem_read(b + 4) or 0,
+      y      = r.gmem_read(b + 5) or 0,
+    }
+  end
+  return st
+end
+
+-- Who holds each slot, and in what colour. A track with no custom colour falls
+-- back to a stepped hue so identity still holds -- the dot and the row match
+-- either way.
+local function room_slot_owners()
+  local owners = {}
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    for fi = 0, r.TrackFX_GetCount(track) - 1 do
+      local _, fx_name = r.TrackFX_GetFXName(track, fi)
+      local lms_name, override = extract_lms_name(fx_name)
+      local tid = override or (lms_name and JSFX_TO_TYPE[lms_name])
+      if tid == "room_send" or fx_name:lower():find("bluhm send", 1, true) then
+        local slot = math.floor(r.TrackFX_GetParam(track, fi, 0) + 0.5)
+        local _, tname = r.GetTrackName(track)
+        local col
+        local native = r.GetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR") or 0
+        if native ~= 0 then
+          local cr, cg, cb = r.ColorFromNative(math.floor(native) & 0xFFFFFF)
+          col = (cr << 24) | (cg << 16) | (cb << 8) | 0xFF
+        end
+        if owners[slot] then
+          owners[slot].extra = (owners[slot].extra or 0) + 1
+        else
+          owners[slot] = {name = tname, color = col, track = track}
+        end
+      end
+    end
+  end
+  return owners
+end
+
+local function room_slot_color(s)
+  local t = (s - 1) / math.max(1, ROOM_SLOTS - 1)
+  local r8 = math.floor(0x4A + t * 0x70)
+  local g8 = math.floor(0x9A - t * 0x20)
+  local b8 = math.floor(0xC8 - t * 0x40)
+  return (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF
+end
+
+local function with_alpha(color, a)
+  return (color & 0xFFFFFF00) | (a & 0xFF)
+end
+
+local function draw_room_plan(ctx, st, owners)
+  local dl = r.ImGui_GetWindowDrawList(ctx)
+  local x0, y0 = r.ImGui_GetCursorScreenPos(ctx)
+  local avail = r.ImGui_GetContentRegionAvail(ctx)
+  local w = math.max(240, avail)
+  local h = math.max(170, math.min(300, avail * 0.5))
+
+  r.ImGui_DrawList_AddRectFilled(dl, x0, y0, x0 + w, y0 + h, SURFACE, 4)
+
+  local rw = math.max(1, st.w)
+  local rd = math.max(1, st.d)
+  local pad = 28 * ui_scale
+  local px = math.min((w - pad * 2) / rw, (h - pad * 2) / rd)
+  local ox = x0 + (w - rw * px) * 0.5
+  local oy = y0 + (h - rd * px) * 0.5
+
+  -- One line per metre. The grid IS the scale, so no axis labels are needed.
+  for m = 0, math.floor(rw) do
+    local gx = ox + m * px
+    r.ImGui_DrawList_AddLine(dl, gx, oy, gx, oy + rd * px, GRID, 1)
+  end
+  for m = 0, math.floor(rd) do
+    local gy = oy + m * px
+    r.ImGui_DrawList_AddLine(dl, ox, gy, ox + rw * px, gy, GRID, 1)
+  end
+
+  -- The walls the room actually builds: a rectangle at four, otherwise an
+  -- n-gon inscribed in the same width and depth. See build_polygon in lms_room.
+  local nw = math.max(3, math.floor(st.walls + 0.5))
+  local WALL = 0x9DA0AAFF
+  if nw == 4 then
+    r.ImGui_DrawList_AddRect(dl, ox, oy, ox + rw * px, oy + rd * px, WALL, 0, 0, 2)
+  else
+    local cx, cy = ox + rw * px * 0.5, oy + rd * px * 0.5
+    local rx, ry = rw * px * 0.5, rd * px * 0.5
+    for i = 0, nw - 1 do
+      local a1 = (i / nw) * 2 * math.pi
+      local a2 = ((i + 1) / nw) * 2 * math.pi
+      r.ImGui_DrawList_AddLine(dl,
+        cx + rx * math.cos(a1), cy + ry * math.sin(a1),
+        cx + rx * math.cos(a2), cy + ry * math.sin(a2), WALL, 2)
+    end
+  end
+
+  -- The mic: a hollow diamond, the one mark in the room that is not a source.
+  -- Drawn from lines rather than AddQuad, which nothing else in this file
+  -- uses -- an unproven call in a defer loop takes the whole window down.
+  local mx, my = ox + st.mic_x * px, oy + st.mic_y * px
+  local mr = 7 * ui_scale
+  r.ImGui_DrawList_AddLine(dl, mx, my - mr, mx + mr, my, INK, 2)
+  r.ImGui_DrawList_AddLine(dl, mx + mr, my, mx, my + mr, INK, 2)
+  r.ImGui_DrawList_AddLine(dl, mx, my + mr, mx - mr, my, INK, 2)
+  r.ImGui_DrawList_AddLine(dl, mx - mr, my, mx, my - mr, INK, 2)
+  r.ImGui_DrawList_AddText(dl, mx + mr + 3 * ui_scale, my - 6 * ui_scale, INK_DIM, "MIC")
+
+  for s = 1, ROOM_SLOTS do
+    local sl = st.slots[s]
+    local o = owners[s]
+    local live = sl.active > 0.5
+    if o or live then
+      local sx, sy = ox + sl.x * px, oy + sl.y * px
+      local col = (o and o.color) or room_slot_color(s)
+      -- Level is a halo, not a bar: the room lighting up where someone plays.
+      local lvl = math.min(1, sl.env * 3)
+      if live and lvl > 0.02 then
+        r.ImGui_DrawList_AddCircleFilled(dl, sx, sy,
+          (6 + 18 * lvl) * ui_scale, with_alpha(col, 0x2E))
+      end
+      r.ImGui_DrawList_AddCircleFilled(dl, sx, sy, 5 * ui_scale,
+        live and col or 0x3A3A42FF)
+      if not live then
+        r.ImGui_DrawList_AddCircle(dl, sx, sy, 5 * ui_scale, INK_FAINT, 0, 1)
+      end
+      r.ImGui_DrawList_AddText(dl, sx + 9 * ui_scale, sy - 6 * ui_scale,
+        live and INK or INK_FAINT, o and o.name or string.format("slot %d", s))
+    end
+  end
+
+  r.ImGui_Dummy(ctx, w, h)
 end
 
 local function draw_room_verb(ctx)
@@ -3606,11 +3769,6 @@ local function draw_room_verb(ctx)
     local _, n = r.GetTrackName(room)
     room_name = n
   end
-
-  r.ImGui_Text(ctx, alive
-    and ("Black In Bluhm ONLINE — " .. room_name)
-    or "Black In Bluhm OFFLINE")
-  r.ImGui_Spacing(ctx)
 
   if not alive then
     r.ImGui_TextWrapped(ctx,
@@ -3661,20 +3819,6 @@ local function draw_room_verb(ctx)
       .. "re-numbering the slots. Run it after adding tracks.")
   end
 
-  -- How many sends exist, not how many the room can hear: the room's own
-  -- display counts live ring slots, and a send that is bypassed or sharing a
-  -- slot will show up here and not there.
-  local send_count = 0
-  for ti = 0, r.CountTracks(0) - 1 do
-    local track = r.GetTrack(0, ti)
-    if track ~= room and track_has_fx_type(track, "room_send") then
-      send_count = send_count + 1
-    end
-  end
-  r.ImGui_Spacing(ctx)
-  r.ImGui_TextDisabled(ctx, string.format(
-    "%d Bluhm Send(s) placed of %d slots", send_count, BLUHM_SEND_SLOTS))
-
   r.ImGui_SameLine(ctx)
   if r.ImGui_SmallButton(ctx, "Strip All Sends") then
     room_strip_all_sends()
@@ -3683,6 +3827,88 @@ local function draw_room_verb(ctx)
     r.ImGui_SetTooltip(ctx,
       "Deletes every Bluhm Send in the project, including ones on folder children\n"
       .. "that setup skips. Follow with Enable Room Verb for a clean numbering.")
+  end
+
+  local st = room_read_state()
+  local owners = room_slot_owners()
+
+  -- How many sends exist, against how many the room can actually hear. The two
+  -- are different numbers and the gap is the interesting part: a send that is
+  -- bypassed, orphaned on a folder child, or sharing a slot counts here and
+  -- not there.
+  local send_count = 0
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    if track ~= room and track_has_fx_type(track, "room_send") then
+      send_count = send_count + 1
+    end
+  end
+
+  r.ImGui_Spacing(ctx)
+  local dl = r.ImGui_GetWindowDrawList(ctx)
+  local hx, hy = r.ImGui_GetCursorScreenPos(ctx)
+  local heard = math.floor(st.count + 0.5)
+  local all_heard = heard >= send_count and send_count > 0
+  r.ImGui_DrawList_AddCircleFilled(dl, hx + 5 * ui_scale, hy + 8 * ui_scale, 4 * ui_scale,
+    all_heard and 0x44AA66FF or (heard > 0 and 0xE6CC88FF or STATUS_BAD))
+  r.ImGui_Dummy(ctx, 14 * ui_scale, 16 * ui_scale)
+  r.ImGui_SameLine(ctx)
+  r.ImGui_Text(ctx, string.format("%s  ·  %d of %d send%s in the room",
+    room_name, heard, send_count, send_count == 1 and "" or "s"))
+  if st.rt60 > 0 then
+    r.ImGui_SameLine(ctx)
+    r.ImGui_TextDisabled(ctx, string.format("·  RT60 %.2f s  ·  %.1f × %.1f m  ·  %d walls",
+      st.rt60, st.w, st.d, math.floor(st.walls + 0.5)))
+  end
+
+  r.ImGui_Spacing(ctx)
+  if st.w > 0 then
+    draw_room_plan(ctx, st, owners)
+  else
+    -- Nothing to draw from. Drawing a default room here would be inventing
+    -- one, and a plausible wrong picture is worse than none.
+    r.ImGui_TextDisabled(ctx,
+      "The room is not reporting its geometry — restart REAPER so it recompiles.")
+  end
+  r.ImGui_Spacing(ctx)
+
+  -- The rail. One row per slot that exists, whether or not the room hears it:
+  -- a source that has fallen out is exactly what you want to see, and hiding
+  -- the row would make it look like it was never there.
+  local rail_w = math.max(240, r.ImGui_GetContentRegionAvail(ctx))
+  for s = 1, ROOM_SLOTS do
+    local sl = st.slots[s]
+    local o = owners[s]
+    if o or sl.active > 0.5 then
+      local live = sl.active > 0.5
+      local col = (o and o.color) or room_slot_color(s)
+      local cx, cy = r.ImGui_GetCursorScreenPos(ctx)
+      r.ImGui_DrawList_AddCircleFilled(dl, cx + 5 * ui_scale, cy + 8 * ui_scale,
+        4 * ui_scale, live and col or 0x3A3A42FF)
+      r.ImGui_Dummy(ctx, 14 * ui_scale, 16 * ui_scale)
+      r.ImGui_SameLine(ctx)
+
+      local name = o and o.name or string.format("slot %d", s)
+      if #name > 14 then name = name:sub(1, 13) .. "…" end
+      if live then
+        -- Same form the metering page uses, rather than math.log's base
+        -- argument, so the two pages compute dB identically.
+        local db = 20 * math.log(math.max(sl.env, 1e-7)) / math.log(10)
+        meter_bar(ctx, name, db_to_frac(db, -48),
+          db > -95 and string.format("%.1f dB", db) or "silent",
+          col, rail_w - 20 * ui_scale, 10 * ui_scale)
+      else
+        meter_bar(ctx, name, 0, "not heard", 0x3A3A42FF,
+          rail_w - 20 * ui_scale, 10 * ui_scale)
+      end
+
+      if o and o.extra then
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), STATUS_BAD)
+        r.ImGui_Text(ctx, string.format(
+          "    slot %d is claimed by %d sends — they write one ring over each other", s, o.extra + 1))
+        r.ImGui_PopStyleColor(ctx)
+      end
+    end
   end
 
   -- A room that is not a return is the exact fault that made the first band
