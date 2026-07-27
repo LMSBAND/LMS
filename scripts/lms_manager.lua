@@ -1121,6 +1121,11 @@ local ov_last_sel = nil
 -- rather than written fresh. The two sides have to agree on the format exactly
 -- or the standalone actions quietly stop reading what this tab writes.
 
+-- Wrapped in a function so its internals are that function's locals, not the
+-- main chunk's. Lua caps a function at 200 locals and this file sits close to
+-- it; twelve more at the top level put the whole window over the edge and it
+-- would not load at all. One local out here, everything else inside.
+local SCENES = (function()
 local SCENE_ROOT = r.GetResourcePath() .. "/Data"
 local SCENE_DIR  = SCENE_ROOT .. "/LMS Scenes"
 
@@ -1404,9 +1409,12 @@ local function scene_recall(dir, filename)
   return true, msg
 end
 
-local scene_name_buf = ""
-local scene_msg, scene_msg_ok = nil, true
-local scene_files = nil
+return {
+  root = SCENE_ROOT, dir = SCENE_DIR,
+  list = scene_list, save = scene_save, recall = scene_recall,
+  name_buf = "", msg = nil, msg_ok = true, files = nil,
+}
+end)()
 
 local function draw_overview(ctx)
   -- Whole-project actions. These live here rather than buried in Broadcast and
@@ -1431,29 +1439,29 @@ local function draw_overview(ctx)
   -- defer loop down rather than losing a placeholder.
   local sn_chg, sn_new
   if r.ImGui_InputTextWithHint then
-    sn_chg, sn_new = r.ImGui_InputTextWithHint(ctx, "##scene_name", "scene name", scene_name_buf)
+    sn_chg, sn_new = r.ImGui_InputTextWithHint(ctx, "##scene_name", "scene name", SCENES.name_buf)
   else
-    sn_chg, sn_new = r.ImGui_InputText(ctx, "##scene_name", scene_name_buf)
+    sn_chg, sn_new = r.ImGui_InputText(ctx, "##scene_name", SCENES.name_buf)
   end
-  if sn_chg then scene_name_buf = sn_new end
+  if sn_chg then SCENES.name_buf = sn_new end
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Save Scene##ov_scene") then
     -- Sanitised the same way the standalone action does it, so a name typed
     -- here and a name typed there land on the same file.
-    local nm = (scene_name_buf or ""):gsub("[^%w%-%_]", "_")
+    local nm = (SCENES.name_buf or ""):gsub("[^%w%-%_]", "_")
     if nm == "" then nm = "scene" end
-    scene_msg_ok, scene_msg = scene_save(nm)
-    scene_files = nil
+    SCENES.msg_ok, SCENES.msg = SCENES.save(nm)
+    SCENES.files = nil
   end
   if r.ImGui_IsItemHovered(ctx) then
     r.ImGui_SetTooltip(ctx,
       "Saves track names, volume/pan/mute/solo, folder depth, colour and\n" ..
-      "every plugin with all its parameters to:\n" .. SCENE_DIR ..
+      "every plugin with all its parameters to:\n" .. SCENES.dir ..
       "\n\nRecall it into any project from the Track Setup tab.")
   end
-  if scene_msg then
-    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), scene_msg_ok and 0x66DD88FF or 0xFF8866FF)
-    r.ImGui_TextWrapped(ctx, scene_msg)
+  if SCENES.msg then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), SCENES.msg_ok and 0x66DD88FF or 0xFF8866FF)
+    r.ImGui_TextWrapped(ctx, SCENES.msg)
     r.ImGui_PopStyleColor(ctx)
   end
   if r.ImGui_IsItemHovered(ctx) then
@@ -4311,16 +4319,16 @@ local function draw_track_setup(ctx)
   -- plugins for it again, and this is the tab you come to when a project is
   -- empty. Saving is over on Overview, where the track list is.
   if r.ImGui_CollapsingHeader(ctx, "Recall Scene##ts_scenes") then
-    if scene_files == nil then scene_files = scene_list() end
+    if SCENES.files == nil then SCENES.files = SCENES.list() end
 
-    if #scene_files == 0 then
+    if #SCENES.files == 0 then
       r.ImGui_TextDisabled(ctx, "No scenes yet — save one from the Overview tab.")
     else
-      for _, sc in ipairs(scene_files) do
+      for _, sc in ipairs(SCENES.files) do
         local fname = sc.file
         local label = fname:gsub("%.lms$", "")
         if r.ImGui_SmallButton(ctx, "Recall##sc_" .. fname) then
-          scene_msg_ok, scene_msg = scene_recall(sc.dir, fname)
+          SCENES.msg_ok, SCENES.msg = SCENES.recall(sc.dir, fname)
         end
         r.ImGui_SameLine(ctx)
         r.ImGui_Text(ctx, label)
@@ -4339,21 +4347,21 @@ local function draw_track_setup(ctx)
     end
 
     r.ImGui_Spacing(ctx)
-    if r.ImGui_SmallButton(ctx, "Refresh##ts_scan") then scene_files = nil end
+    if r.ImGui_SmallButton(ctx, "Refresh##ts_scan") then SCENES.files = nil end
     r.ImGui_SameLine(ctx)
     if r.ImGui_SmallButton(ctx, "Open Folder##ts_open") then
-      r.RecursiveCreateDirectory(SCENE_DIR, 0)
+      r.RecursiveCreateDirectory(SCENES.dir, 0)
       -- CF_ShellExecute is SWS; without it, say where the folder is instead of
       -- failing silently on a stock install.
       if r.CF_ShellExecute then
-        r.CF_ShellExecute(SCENE_DIR)
+        r.CF_ShellExecute(SCENES.dir)
       else
-        scene_msg_ok, scene_msg = true, SCENE_DIR
+        SCENES.msg_ok, SCENES.msg = true, SCENES.dir
       end
     end
-    if scene_msg then
-      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), scene_msg_ok and 0x66DD88FF or 0xFF8866FF)
-      r.ImGui_TextWrapped(ctx, scene_msg)
+    if SCENES.msg then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), SCENES.msg_ok and 0x66DD88FF or 0xFF8866FF)
+      r.ImGui_TextWrapped(ctx, SCENES.msg)
       r.ImGui_PopStyleColor(ctx)
     end
     r.ImGui_Separator(ctx)
