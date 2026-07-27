@@ -1968,13 +1968,29 @@ function lms_draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
     gfx_x = bx + bw - floor(40 * S); gfx_y = by + floor((bh - F_SMALL) / 2);
     gfx_drawnumber(val, val == floor(val) ? 0 : 1);
   );
-  mouse_cap & 1 ? (
+  // The bar the drag STARTED on keeps the drag. Without this, every bar the
+  // cursor crosses while the button is held snaps to the pointer: drag Gain
+  // down a panel, slip onto Bass, and Bass jumps with it. The sixteen plugins
+  // carrying their own draw_bar all fixed this locally with a capture latch;
+  // the copy in here never got it, which is why the twelve amps, Room and
+  // Piece of Shit -- the thirteen that call THIS function -- still have it.
+  //
+  // last_cap belongs to the caller: every plugin that draws bars already ends
+  // its @gfx with last_cap = mouse_cap, and several use this same edge idiom
+  // for their own widgets. lms_bar_cap_on is what makes the latch safe from a
+  // cold start -- EEL2 globals begin at 0, so testing the coordinates alone
+  // would hand an un-clicked bar at (0,0) every drag on the panel.
+  !(mouse_cap & 1) ? lms_bar_cap_on = 0;
+  (mouse_cap & 1) && !(last_cap & 1) &&
     mouse_x >= bx && mouse_x <= bx + bw &&
     mouse_y >= by && mouse_y <= by + bh ? (
+      lms_bar_cap_on = 1; lms_bar_cap_x = bx; lms_bar_cap_y = by;
+  );
+  (mouse_cap & 1) && lms_bar_cap_on &&
+    lms_bar_cap_x == bx && lms_bar_cap_y == by ? (
       new_norm = (mouse_x - bx) / bw;
       new_norm = max(0, min(1, new_norm));
       val = vmin + new_norm * (vmax - vmin);
-    );
   );
   val;
 );
