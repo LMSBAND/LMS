@@ -1101,6 +1101,313 @@ end
 local ov_open = {}
 local ov_last_sel = nil
 
+-- ============================================================================
+-- Scenes
+-- ============================================================================
+--
+-- The file format is lms_save.lua's, unchanged, so the standalone Save/Load
+-- actions and this window read each other's scenes. Two things are different.
+--
+-- One: a home. lms_save writes beside the project, which is precisely where a
+-- brand-new project cannot find it -- you would have to go digging through some
+-- old session's folder to recall a layout. These live in the resource Data
+-- folder instead, the same place DRUMBANGER resolves its pool against, so an
+-- empty project sees every scene ever saved.
+--
+-- Two: the track colour. Everything else lms_save already carried -- names,
+-- vol/pan/mute/solo, folder depth, and every plugin with every parameter.
+--
+-- The encoder and parser below are lifted from lms_save.lua and lms_load.lua
+-- rather than written fresh. The two sides have to agree on the format exactly
+-- or the standalone actions quietly stop reading what this tab writes.
+
+local SCENE_ROOT = r.GetResourcePath() .. "/Data"
+local SCENE_DIR  = SCENE_ROOT .. "/LMS Scenes"
+
+local function json_encode(val, indent)
+  indent = indent or 0
+  local t = type(val)
+  if t == "nil" then return "null" end
+  if t == "boolean" then return val and "true" or "false" end
+  if t == "number" then
+    if val ~= val then return "null" end
+    return string.format("%.6g", val)
+  end
+  if t == "string" then
+    val = val:gsub('\\', '\\\\'):gsub('"', '\\"')
+    val = val:gsub('\n', '\\n'):gsub('\r', '\\r'):gsub('\t', '\\t')
+    return '"' .. val .. '"'
+  end
+  if t == "table" then
+    local is_array, max_n = true, 0
+    for k in pairs(val) do
+      if type(k) ~= "number" or k ~= math.floor(k) or k < 1 then is_array = false break end
+      if k > max_n then max_n = k end
+    end
+    if is_array and max_n ~= #val then is_array = false end
+    local pad = string.rep("  ", indent + 1)
+    local close_pad = string.rep("  ", indent)
+    local parts = {}
+    if is_array then
+      if #val == 0 then return "[]" end
+      for _, v in ipairs(val) do parts[#parts + 1] = pad .. json_encode(v, indent + 1) end
+      return "[\n" .. table.concat(parts, ",\n") .. "\n" .. close_pad .. "]"
+    end
+    local keys = {}
+    for k in pairs(val) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+      parts[#parts + 1] = pad .. json_encode(tostring(k)) .. ": " .. json_encode(val[k], indent + 1)
+    end
+    return "{\n" .. table.concat(parts, ",\n") .. "\n" .. close_pad .. "}"
+  end
+  return "null"
+end
+
+local function json_decode(s)
+  local skip_ws = function(i)
+    while i <= #s and s:sub(i, i):match("%s") do i = i + 1 end
+    return i
+  end
+  local parse_value
+  local function parse_string(i)
+    i = i + 1
+    local buf = {}
+    while i <= #s do
+      local c = s:sub(i, i)
+      if c == '"' then return table.concat(buf), i + 1 end
+      if c == '\\' then
+        i = i + 1
+        local e = s:sub(i, i)
+        buf[#buf + 1] = (e == 'n' and '\n') or (e == 'r' and '\r')
+                     or (e == 't' and '\t') or e
+      else
+        buf[#buf + 1] = c
+      end
+      i = i + 1
+    end
+    error("unterminated string")
+  end
+  local function parse_array(i)
+    i = skip_ws(i + 1)
+    local arr = {}
+    if s:sub(i, i) == ']' then return arr, i + 1 end
+    while true do
+      local v; v, i = parse_value(i)
+      arr[#arr + 1] = v
+      i = skip_ws(i)
+      local c = s:sub(i, i)
+      if c == ']' then return arr, i + 1 end
+      if c ~= ',' then error("expected , or ] at " .. i) end
+      i = skip_ws(i + 1)
+    end
+  end
+  local function parse_object(i)
+    i = skip_ws(i + 1)
+    local obj = {}
+    if s:sub(i, i) == '}' then return obj, i + 1 end
+    while true do
+      i = skip_ws(i)
+      local k; k, i = parse_string(i)
+      i = skip_ws(i)
+      if s:sub(i, i) ~= ':' then error("expected : at " .. i) end
+      local v; v, i = parse_value(i + 1)
+      obj[k] = v
+      i = skip_ws(i)
+      local c = s:sub(i, i)
+      if c == '}' then return obj, i + 1 end
+      if c ~= ',' then error("expected , or } at " .. i) end
+      i = i + 1
+    end
+  end
+  parse_value = function(i)
+    i = skip_ws(i)
+    local c = s:sub(i, i)
+    if c == '"' then return parse_string(i) end
+    if c == '{' then return parse_object(i) end
+    if c == '[' then return parse_array(i) end
+    if c == 't' then return true, i + 4 end
+    if c == 'f' then return false, i + 5 end
+    if c == 'n' then return nil, i + 4 end
+    local num = s:match("^-?%d+%.?%d*[eE]?[+-]?%d*", i)
+    if not num then error("unexpected character at " .. i .. ": " .. c) end
+    return tonumber(num), i + #num
+  end
+  local v = parse_value(1)
+  return v
+end
+
+-- Two folders, on purpose. The ReaPack ships BLEEP_BOOP, DEMO_TIME and
+-- YOUR_BAND as data packages, which land loose in Data/ -- so listing only a
+-- subfolder would hide the three scenes that come with the suite. Saving still
+-- goes to the subfolder, where a scene named BLEEP_BOOP cannot overwrite a
+-- file ReaPack believes it owns and will replace on the next update.
+local function scene_list()
+  r.RecursiveCreateDirectory(SCENE_DIR, 0)
+  local out, seen = {}, {}
+  for _, dir in ipairs({SCENE_DIR, SCENE_ROOT}) do
+    local i = 0
+    while true do
+      local f = r.EnumerateFiles(dir, i)
+      if not f then break end
+      if f:lower():match("%.lms$") and not seen[f:lower()] then
+        seen[f:lower()] = true
+        out[#out + 1] = {file = f, dir = dir, shipped = (dir == SCENE_ROOT)}
+      end
+      i = i + 1
+    end
+  end
+  table.sort(out, function(a, b) return a.file:lower() < b.file:lower() end)
+  return out
+end
+
+-- Every track named, same rule the standalone action enforces: a scene of
+-- "Track 7" tells you nothing, and recall matches on the name.
+local function scene_unnamed_tracks()
+  local bad = {}
+  for i = 0, r.CountTracks(0) - 1 do
+    local _, name = r.GetTrackName(r.GetTrack(0, i))
+    if not name or name == "" or name:match("^Track %d+$") then
+      bad[#bad + 1] = i + 1
+    end
+  end
+  return bad
+end
+
+local function scene_save(name)
+  local n = r.CountTracks(0)
+  if n == 0 then return false, "No tracks to save." end
+  local bad = scene_unnamed_tracks()
+  if #bad > 0 then
+    return false, "Name every track first — unnamed: " ..
+      table.concat(bad, ", ", 1, math.min(#bad, 8)) ..
+      (#bad > 8 and (" and %d more"):format(#bad - 8) or "")
+  end
+
+  local scene = {
+    lms_version = "1.0",
+    created = os.date("%Y-%m-%dT%H:%M:%S"),
+    session_name = name,
+    tracks = {},
+  }
+  for i = 0, n - 1 do
+    local track = r.GetTrack(0, i)
+    local _, tname = r.GetTrackName(track)
+    local td = {
+      name         = tname,
+      volume       = r.GetMediaTrackInfo_Value(track, "D_VOL"),
+      pan          = r.GetMediaTrackInfo_Value(track, "D_PAN"),
+      mute         = r.GetMediaTrackInfo_Value(track, "B_MUTE") ~= 0,
+      solo         = r.GetMediaTrackInfo_Value(track, "I_SOLO") ~= 0,
+      folder_depth = r.GetMediaTrackInfo_Value(track, "I_FOLDERDEPTH"),
+      color        = r.GetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR"),
+      fx           = {},
+    }
+    for fi = 0, r.TrackFX_GetCount(track) - 1 do
+      local _, fx_name = r.TrackFX_GetFXName(track, fi, "")
+      local params = {}
+      for pi = 0, r.TrackFX_GetNumParams(track, fi) - 1 do
+        params[#params + 1] = r.TrackFX_GetParam(track, fi, pi)
+      end
+      td.fx[#td.fx + 1] = {name = fx_name, params = params}
+    end
+    scene.tracks[#scene.tracks + 1] = td
+  end
+
+  r.RecursiveCreateDirectory(SCENE_DIR, 0)
+  local path = SCENE_DIR .. "/" .. name .. ".lms"
+  local fh = io.open(path, "w")
+  if not fh then return false, "Could not write " .. path end
+  fh:write(json_encode(scene), "\n")
+  fh:close()
+  return true, string.format("Saved %d tracks as \"%s\"", n, name)
+end
+
+-- Recall matches on track name: what exists is updated in place, what is
+-- missing is created. So this drops a whole rig into an empty project, and
+-- re-run on a project that already has some of it, it fills in the rest
+-- instead of duplicating what is there.
+local function scene_recall(dir, filename)
+  local fh = io.open(dir .. "/" .. filename, "r")
+  if not fh then return false, "Could not open " .. filename end
+  local body = fh:read("*a")
+  fh:close()
+
+  local ok, scene = pcall(json_decode, body)
+  if not ok or type(scene) ~= "table" or type(scene.tracks) ~= "table" then
+    return false, "Could not parse " .. filename .. ": " .. tostring(scene)
+  end
+
+  local by_name = {}
+  for i = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, i)
+    local _, nm = r.GetTrackName(track)
+    if nm and nm ~= "" then by_name[nm] = track end
+  end
+
+  r.Undo_BeginBlock()
+  r.PreventUIRefresh(1)
+
+  local created, updated, missing_fx = 0, 0, {}
+  for _, td in ipairs(scene.tracks) do
+    local track = td.name and by_name[td.name]
+    if track then
+      updated = updated + 1
+    else
+      local idx = r.CountTracks(0)
+      r.InsertTrackAtIndex(idx, true)
+      track = r.GetTrack(0, idx)
+      r.GetSetMediaTrackInfo_String(track, "P_NAME", td.name or "LMS Track", true)
+      created = created + 1
+    end
+
+    r.SetMediaTrackInfo_Value(track, "D_VOL", td.volume or 1.0)
+    r.SetMediaTrackInfo_Value(track, "D_PAN", td.pan or 0.0)
+    r.SetMediaTrackInfo_Value(track, "B_MUTE", td.mute and 1 or 0)
+    r.SetMediaTrackInfo_Value(track, "I_SOLO", td.solo and 1 or 0)
+    if td.folder_depth then
+      r.SetMediaTrackInfo_Value(track, "I_FOLDERDEPTH", td.folder_depth)
+    end
+    -- 0 means the track never had a custom colour; forcing it would paint
+    -- every recalled track black.
+    if td.color and td.color ~= 0 then
+      r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", td.color)
+    end
+
+    for fi = r.TrackFX_GetCount(track) - 1, 0, -1 do
+      r.TrackFX_Delete(track, fi)
+    end
+    for _, fx in ipairs(td.fx or {}) do
+      local fi = r.TrackFX_AddByName(track, fx.name, false, -1)
+      if fi >= 0 then
+        r.TrackFX_Show(track, fi, 2)
+        for pi, v in ipairs(fx.params or {}) do
+          r.TrackFX_SetParam(track, fi, pi - 1, v)
+        end
+      else
+        missing_fx[#missing_fx + 1] = fx.name
+      end
+    end
+  end
+
+  r.PreventUIRefresh(-1)
+  r.Undo_EndBlock("LMS: recall scene " .. filename, -1)
+  r.TrackList_AdjustWindows(false)
+  r.UpdateArrange()
+  scan_tracks()
+
+  local msg = string.format("%d created, %d updated", created, updated)
+  if #missing_fx > 0 then
+    msg = msg .. string.format(" — %d plugin(s) not found: %s",
+      #missing_fx, missing_fx[1])
+  end
+  return true, msg
+end
+
+local scene_name_buf = ""
+local scene_msg, scene_msg_ok = nil, true
+local scene_files = nil
+
 local function draw_overview(ctx)
   -- Whole-project actions. These live here rather than buried in Broadcast and
   -- Track Setup because they all operate on the track list this tab shows.
@@ -1112,6 +1419,42 @@ local function draw_overview(ctx)
   r.ImGui_SameLine(ctx)
   if r.ImGui_Button(ctx, "Organize all FX") then
     organize_all_tracks()
+  end
+  r.ImGui_SameLine(ctx)
+
+  -- Save the shape of the project: names, faders, folders, colours and every
+  -- plugin with every parameter. Recall lives in Track Setup, where you are
+  -- already building a rig.
+  r.ImGui_SetNextItemWidth(ctx, 140)
+  -- Guarded the way the sequence-strip modifiers are: this is the only
+  -- InputTextWithHint in the file, and a call that is not there takes the
+  -- defer loop down rather than losing a placeholder.
+  local sn_chg, sn_new
+  if r.ImGui_InputTextWithHint then
+    sn_chg, sn_new = r.ImGui_InputTextWithHint(ctx, "##scene_name", "scene name", scene_name_buf)
+  else
+    sn_chg, sn_new = r.ImGui_InputText(ctx, "##scene_name", scene_name_buf)
+  end
+  if sn_chg then scene_name_buf = sn_new end
+  r.ImGui_SameLine(ctx)
+  if r.ImGui_Button(ctx, "Save Scene##ov_scene") then
+    -- Sanitised the same way the standalone action does it, so a name typed
+    -- here and a name typed there land on the same file.
+    local nm = (scene_name_buf or ""):gsub("[^%w%-%_]", "_")
+    if nm == "" then nm = "scene" end
+    scene_msg_ok, scene_msg = scene_save(nm)
+    scene_files = nil
+  end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Saves track names, volume/pan/mute/solo, folder depth, colour and\n" ..
+      "every plugin with all its parameters to:\n" .. SCENE_DIR ..
+      "\n\nRecall it into any project from the Track Setup tab.")
+  end
+  if scene_msg then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), scene_msg_ok and 0x66DD88FF or 0xFF8866FF)
+    r.ImGui_TextWrapped(ctx, scene_msg)
+    r.ImGui_PopStyleColor(ctx)
   end
   if r.ImGui_IsItemHovered(ctx) then
     r.ImGui_SetTooltip(ctx,
@@ -3964,6 +4307,58 @@ local function setup_selection_in_chain_order()
 end
 
 local function draw_track_setup(ctx)
+  -- Scenes first: recalling a whole rig you already built beats picking the
+  -- plugins for it again, and this is the tab you come to when a project is
+  -- empty. Saving is over on Overview, where the track list is.
+  if r.ImGui_CollapsingHeader(ctx, "Recall Scene##ts_scenes") then
+    if scene_files == nil then scene_files = scene_list() end
+
+    if #scene_files == 0 then
+      r.ImGui_TextDisabled(ctx, "No scenes yet — save one from the Overview tab.")
+    else
+      for _, sc in ipairs(scene_files) do
+        local fname = sc.file
+        local label = fname:gsub("%.lms$", "")
+        if r.ImGui_SmallButton(ctx, "Recall##sc_" .. fname) then
+          scene_msg_ok, scene_msg = scene_recall(sc.dir, fname)
+        end
+        r.ImGui_SameLine(ctx)
+        r.ImGui_Text(ctx, label)
+        if sc.shipped then
+          r.ImGui_SameLine(ctx)
+          r.ImGui_TextDisabled(ctx, "(shipped)")
+        end
+        if r.ImGui_IsItemHovered(ctx) then
+          r.ImGui_SetTooltip(ctx,
+            "Tracks are matched by name: what already exists is updated in\n" ..
+            "place, what is missing gets created. Re-running on a project that\n" ..
+            "has some of the rig fills in the rest instead of duplicating it.\n\n" ..
+            sc.dir .. "/" .. fname)
+        end
+      end
+    end
+
+    r.ImGui_Spacing(ctx)
+    if r.ImGui_SmallButton(ctx, "Refresh##ts_scan") then scene_files = nil end
+    r.ImGui_SameLine(ctx)
+    if r.ImGui_SmallButton(ctx, "Open Folder##ts_open") then
+      r.RecursiveCreateDirectory(SCENE_DIR, 0)
+      -- CF_ShellExecute is SWS; without it, say where the folder is instead of
+      -- failing silently on a stock install.
+      if r.CF_ShellExecute then
+        r.CF_ShellExecute(SCENE_DIR)
+      else
+        scene_msg_ok, scene_msg = true, SCENE_DIR
+      end
+    end
+    if scene_msg then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), scene_msg_ok and 0x66DD88FF or 0xFF8866FF)
+      r.ImGui_TextWrapped(ctx, scene_msg)
+      r.ImGui_PopStyleColor(ctx)
+    end
+    r.ImGui_Separator(ctx)
+  end
+
   r.ImGui_Text(ctx, "Select plugins, then add to existing track or create new.")
   r.ImGui_Separator(ctx)
 
