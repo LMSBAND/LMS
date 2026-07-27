@@ -70,6 +70,14 @@ local TYPE_REGISTRY = {
   -- would put two sends on one ring, which is the exact fault they cause. Zero
   -- makes both a no-op instead of a footgun.
   ["room_send"] = {name = "Bluhm Send", cat = "reverb", sliders = 0, jsfx = "lms_room_send.jsfx"},
+
+  -- Drone Voice was in every other table -- DISPLAY_TO_TYPE, JSFX_TO_TYPE,
+  -- FX_ORDER -- and the Harmony tab spawns it, but it had no registry entry,
+  -- so it drew as its lookup key in the no-category grey and never appeared in
+  -- Track Setup. Same sliders = 0 reasoning as Bluhm Send: parameter 0 is the
+  -- slot this voice occupies, and follow or steal copying that would put two
+  -- voices on one slot.
+  [34] = {name = "Drone Voice", cat = "seq", sliders = 0, jsfx = "lms_drone_voice.jsfx"},
 }
 
 local DISPLAY_TO_TYPE = {
@@ -608,13 +616,20 @@ local function update_drones()
 
       if not r.ValidatePtr(inst.track, "MediaTrack*") then goto drone_update_next end
 
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 0, slot)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 1, ds.role)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 2, ds.oct)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 3, ds.vel)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 4, ds.arp_rate)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 5, ds.arp_dir)
-      r.TrackFX_SetParam(inst.track, inst.fx_idx, 6, ds.harm_off)
+      -- Write only what differs, the way copy_params already does. These ran
+      -- unconditionally every frame -- seven writes per voice per frame -- and
+      -- the cost that matters is not CPU: a parameter under an armed write or
+      -- touch automation lane records a point on every write, so the manager
+      -- would lay down a continuous envelope for as long as it was open. The
+      -- read keeps the manager authoritative, so a value changed in the plugin
+      -- is still corrected; it just is not rewritten when it already agrees.
+      local want = {slot, ds.role, ds.oct, ds.vel, ds.arp_rate, ds.arp_dir, ds.harm_off}
+      for pi = 1, #want do
+        local target = want[pi]
+        if r.TrackFX_GetParam(inst.track, inst.fx_idx, pi - 1) ~= target then
+          r.TrackFX_SetParam(inst.track, inst.fx_idx, pi - 1, target)
+        end
+      end
 
       local gbase = 961100 + slot * 20
       local chord = {}
@@ -1132,23 +1147,25 @@ local function draw_overview(ctx)
       end
     end
 
+    -- These two read the header itself, which is still the last item whether
+    -- or not it is expanded -- so they belong outside the open check. Inside
+    -- it, a collapsed track was inert: no right-click menu, no double-click
+    -- rename, for no reason anyone could see.
+    if r.ImGui_IsItemClicked(ctx, 1) and tidx >= 0 then
+      send_fx_src_track = tinfo.track
+      send_fx_src_tidx = tidx
+      send_fx_src_name = tinfo.track_name
+      r.ImGui_OpenPopup(ctx, "##send_fx_popup")
+    end
+
+    if r.ImGui_IsItemHovered(ctx) and r.ImGui_IsMouseDoubleClicked(ctx, 0) and tidx >= 0 then
+      rename_track = tinfo.track
+      rename_track_idx = tidx
+      rename_buf = tinfo.track_name
+      rename_focus = true
+    end
+
     if hdr_open then
-
-      -- Right-click track header → send FX menu
-      if r.ImGui_IsItemClicked(ctx, 1) and tidx >= 0 then
-        send_fx_src_track = tinfo.track
-        send_fx_src_tidx = tidx
-        send_fx_src_name = tinfo.track_name
-        r.ImGui_OpenPopup(ctx, "##send_fx_popup")
-      end
-
-      -- Rename: double-click the header to start renaming
-      if r.ImGui_IsItemHovered(ctx) and r.ImGui_IsMouseDoubleClicked(ctx, 0) and tidx >= 0 then
-        rename_track = tinfo.track
-        rename_track_idx = tidx
-        rename_buf = tinfo.track_name
-        rename_focus = true
-      end
 
       -- Show rename input if this track is being renamed
       if rename_track_idx == tidx then
@@ -3249,6 +3266,30 @@ local setup_track_count = 1
 
 local CAT_ORDER_SETUP = {"amp", "mix", "comp", "gate", "fx", "reverb", "pitch", "drum", "synth", "seq"}
 
+-- The selected plugins, in the order they belong in a chain rather than the
+-- order pairs() happens to walk a hash table in. Building a track used to hand
+-- you an arbitrary chain that you then had to run Organize over -- which is
+-- the same lesson as sorted_keys one tab away: if the order of a table read is
+-- visible to the user, it has to be sorted, because pairs() will not do it.
+local function setup_selection_in_chain_order()
+  local picked = {}
+  for type_id, info in pairs(TYPE_REGISTRY) do
+    if setup_selected[type_id] and info.jsfx then
+      picked[#picked + 1] = {
+        type_id = type_id,
+        jsfx = info.jsfx,
+        rank = FX_ORDER[type_id] or FX_ORDER_UNKNOWN,
+        name = info.name,
+      }
+    end
+  end
+  table.sort(picked, function(a, b)
+    if a.rank ~= b.rank then return a.rank < b.rank end
+    return a.name < b.name          -- stable for plugins sharing a stage
+  end)
+  return picked
+end
+
 local function draw_track_setup(ctx)
   r.ImGui_Text(ctx, "Select plugins, then add to existing track or create new.")
   r.ImGui_Separator(ctx)
@@ -3323,10 +3364,8 @@ local function draw_track_setup(ctx)
       local c = TRACK_COLORS[(color_idx % #TRACK_COLORS) + 1]
       color_idx = color_idx + 1
       r.SetMediaTrackInfo_Value(track, "I_CUSTOMCOLOR", r.ColorToNative(c[1], c[2], c[3]) | 0x1000000)
-      for type_id, info in pairs(TYPE_REGISTRY) do
-        if setup_selected[type_id] and info.jsfx then
-          add_lms_fx(track, info.jsfx)
-        end
+      for _, pick in ipairs(setup_selection_in_chain_order()) do
+        add_lms_fx(track, pick.jsfx)
       end
     end
     scan_tracks()
@@ -3342,10 +3381,8 @@ local function draw_track_setup(ctx)
       local track = r.GetTrack(0, ti)
       local _, tname = r.GetTrackName(track)
       if r.ImGui_SmallButton(ctx, string.format("T%d: %s##setup_add_%d", ti + 1, tname, ti)) then
-        for type_id, info in pairs(TYPE_REGISTRY) do
-          if setup_selected[type_id] and info.jsfx then
-            add_lms_fx(track, info.jsfx)
-          end
+        for _, pick in ipairs(setup_selection_in_chain_order()) do
+          add_lms_fx(track, pick.jsfx)
         end
         scan_tracks()
       end
@@ -3973,7 +4010,10 @@ local function draw_room_verb(ctx)
   if r.ImGui_Button(ctx, "Send New Tracks") then
     r.Undo_BeginBlock()
     r.PreventUIRefresh(1)
-    local placed, skipped, over, cleaned = room_place_sends(room)
+    -- The bus, not the track the room happens to be on: they are the same
+    -- once it is a proper return, and different in exactly the legacy case
+    -- the banner above is warning about.
+    local placed, skipped, over, cleaned = room_place_sends(find_room_bus() or room)
     r.PreventUIRefresh(-1)
     r.Undo_EndBlock("Room Verb: send new tracks to the room", -1)
     scan_tracks()
@@ -4326,6 +4366,21 @@ local function loop()
   if now - last_time > SCAN_INTERVAL then
     scan_tracks()
     last_time = now
+  end
+
+  -- A track deleted in REAPER leaves every instance pointing at it dangling,
+  -- and the scan is only once a second -- so without this there is up to a
+  -- full second of drawing through freed pointers, which is a crash rather
+  -- than a glitch. Checking here costs one ValidatePtr per instance a frame
+  -- and makes every consumer below safe without each of them remembering to.
+  -- A dead pointer means the track list moved under us, so the honest response
+  -- is to rescan rather than to patch the list up.
+  for _, inst in ipairs(instances) do
+    if not r.ValidatePtr(inst.track, "MediaTrack*") then
+      scan_tracks()
+      last_time = now
+      break
+    end
   end
 
   -- Apply follow relationships every frame
