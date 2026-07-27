@@ -83,9 +83,11 @@ local DISPLAY_TO_TYPE = {
   ["bottom feeder"]        = 24,
   ["nightmare"]            = 25,
   ["tomas teknik"]         = 28,
+  ["tomasteknik"]          = 28,   -- desc says "TOMASTEKNIK", no space
   ["trsob"]                = 15,
   ["twins"]                = 16,
   ["oj95"]                 = 26,
+  ["oj 95"]                = 26,   -- desc says "OJ 95", with the space
   ["faker"]                = 23,
   ["lil stinker"]          = 29,
   ["nuug420"]              = 33,
@@ -95,12 +97,16 @@ local DISPLAY_TO_TYPE = {
   ["pitch detector"]       = 22,
   ["piece of shit"]        = 32,
   ["traumatizer"]          = 5,
+  ["kitty kats"]           = 5,    -- desc is "Kitty Kats Big Krush"
   ["passive eq"]           = 6,
+  ["peq4u"]                = 6,    -- desc is "PEQ4U"
   ["tube sat"]             = 7,
   ["henge on crack"]       = 9,
   ["henge"]                = 8,
   ["reverb"]               = 27,
   ["black in bluhm"]       = 36,
+  ["bluhm send"]           = "room_send",
+  ["bloody glue"]          = "bloody_glue",
 }
 
 local JSFX_TO_TYPE = {
@@ -3270,6 +3276,59 @@ local function room_verb_disable()
   scan_tracks()
 end
 
+-- Band mode needs a Bluhm Send on every source, each holding its own slot.
+-- Doing that by hand is eight inserts and eight slot numbers you have to keep
+-- straight, which is the kind of setup nobody does twice.
+--
+-- Folder children are skipped on purpose. A folder is already a submix, so its
+-- parent carries the whole group's audio; sending the children as well would
+-- put the same signal in the room several times over, once per member and
+-- again for the bus. Only tracks with no parent get a send -- a folder parent
+-- stands for its group, a plain top-level track stands for itself.
+local BLUHM_SEND_SLOTS = 8
+
+local function room_prepare_band()
+  local room_track = r.GetMasterTrack(0)
+  local placed, skipped_children, over = 0, 0, 0
+
+  r.Undo_BeginBlock()
+  r.PreventUIRefresh(1)
+
+  for ti = 0, r.CountTracks(0) - 1 do
+    local track = r.GetTrack(0, ti)
+    if r.GetParentTrack(track) then
+      skipped_children = skipped_children + 1
+    elseif track ~= room_track then
+      local has, fx = track_has_fx_type(track, "room_send")
+      if not has then
+        if placed >= BLUHM_SEND_SLOTS then
+          over = over + 1
+        else
+          fx = add_lms_fx(track, "lms_room_send.jsfx")
+        end
+      end
+      if fx and fx >= 0 and placed < BLUHM_SEND_SLOTS then
+        -- slider1 is Slot, 1-based in the UI, so param 0 takes placed + 1
+        r.TrackFX_SetParam(track, fx, 0, placed + 1)
+        placed = placed + 1
+      end
+    end
+  end
+
+  -- Put the room itself into Band mode: slider22, so param index 21.
+  local _, room_fi = find_room_on_master()
+  if room_fi then r.TrackFX_SetParam(r.GetMasterTrack(0), room_fi, 21, 1) end
+
+  r.PreventUIRefresh(-1)
+  r.Undo_EndBlock("Room Verb: prepare for band mode", -1)
+  scan_tracks()
+
+  r.ShowConsoleMsg(string.format(
+    "LMS Room Verb: %d source(s) sending, %d folder child(ren) skipped (their parent carries them)%s\n",
+    placed, skipped_children,
+    over > 0 and string.format(", %d track(s) left out -- only %d slots exist", over, BLUHM_SEND_SLOTS) or ""))
+end
+
 local function draw_room_verb(ctx)
   local master, fi = find_room_on_master()
   local alive = fi ~= nil
@@ -3289,6 +3348,17 @@ local function draw_room_verb(ctx)
   end
 
   room_verb_enabled = true
+
+  if r.ImGui_Button(ctx, "Prepare for Band Mode") then
+    room_prepare_band()
+  end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Puts a Bluhm Send on every top-level track, assigns each a slot, and switches "
+      .. "the room to Band mode.\nFolder children are skipped -- the folder parent already "
+      .. "carries their audio, so sending both would put the group in the room twice.")
+  end
+  r.ImGui_SameLine(ctx)
 
   if r.ImGui_Button(ctx, "Disable / Remove") then
     room_verb_disable()

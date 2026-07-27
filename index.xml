@@ -2137,6 +2137,10 @@
         <changelog>v2.2 &#8212; Black In Bluhm gained two sliders (Room Juice), so its parameter count is corrected from 22 to 24 &#8212; follow and steal copy by count and would have missed them.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="2.3" author="LMS" time="2026-07-27T00:30:00Z">
+        <changelog>v2.3 &#8212; Fix six plugins being invisible in the manager. It identifies a plugin by looking for a lookup-table key inside the name REAPER displays, and six descs contained no key: OJ 95 (desc has a space, the key did not), TOMASTEKNIK (the reverse), PEQ4U and Kitty Kats Big Krush (desc bears no relation to the key), Bluhm Send (renamed, key never added) and Bloody Glue (never had one). They could not be seen in the Overview, followed, or stolen from &#8212; and an amp swapped to OJ 95 appeared to vanish. Added tools/name_audit.py so a desc rename cannot silently drop a plugin out again. Room Verb also gains &quot;Prepare for Band Mode&quot;: a Bluhm Send on every top-level track with slots assigned, and the room switched to Band. Folder children are skipped, since the folder parent already carries their audio and sending both would put the group in the room twice.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">
