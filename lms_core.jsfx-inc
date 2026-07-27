@@ -65,7 +65,7 @@
 //  touching anything here.
 //
 //  @gmem G_DRUMBANGER_BUS  start=0        size=10000   owner=lms_drumbanger.jsfx -- pad+transport state, and the sequencer mirror at 1000..9191. Read by drum_trigger, lil_stinker, nuug420, and the manager.
-//  @gmem G_BROADCAST       start=100000   size=622592  owner=lms_core.jsfx-inc -- follow/steal slots, G_BC_BASE + type_id*16384, 32 instances of 512. Only lms_smart_gate still uses it.
+//  @gmem G_GATE_PEERS      start=100000   size=16384   owner=lms_core.jsfx-inc -- peer slots, 32 instances of 512. Only lms_smart_gate uses these, for drum-mode threshold, phase offset and mode. Was G_BROADCAST at 622592, addressed by type_id; 116384..799999 is free now.
 //  @gmem G_ROOM_STATE      start=800000   size=100     owner=lms_room.jsfx -- room heartbeat at +0, build stamp (compiled SRC_RING_SIZE, SRC_ALIVE_BLOCKS) at +1/+2, then 8 band slots of 8 from +10 holding the room's own view of each source ring: liveness countdown, active verdict, read position. The band slots have NO writer: see the note under G_ROOM_SEND. NOTE: local CAB_TABLE_BASE is also 800000; different space, no conflict, easy to misread.
 //  @gmem G_ROOM_SEND       start=900000   size=1000    owner=lms_room_send.jsfx -- satellite handshake: master heartbeat at +0, slot claims from +10, per-slot control from +80. Audio does NOT travel here; Space Send passes it on channels 3/4 for a REAPER send to carry. lms_the_space was the master and is retired, so nothing writes +0 today and Space Send finds no room to talk to.
 //  @gmem G_PITCH_BUS       start=950000   size=100     owner=lms_pitch_detector.jsfx -- detected pitch, confidence, density. Written by faker too.
@@ -90,10 +90,11 @@
 //    LMS_TAPE_ECHO_DEFAULT_BUF 200000  .. 250000
 //    LMS_LIM_DEFAULT_BUF       900000  .. 900000 + 2*srate*0.001
 //
-//  HAZARD, for whoever adds the next plugin type: G_BROADCAST is sized for
-//  type_id up to 37, because the slot address is G_BC_BASE + type_id*16384. A
-//  type_id of 50 would land at 919200 -- inside G_ROOM_SEND. If the registry
-//  ever needs a type beyond 37, move the broadcast region, do not widen it.
+//  No type_id ceiling any more. It used to be 37: peer slots were addressed as
+//  G_BC_BASE + type_id*16384, so registering a 38th plugin type would have run
+//  off the end of the region and a 50th would have landed inside G_ROOM_SEND.
+//  Nothing here scales with type_id now -- a region is declared for the plugin
+//  that needs one, and the id is only a stamp inside the slot.
 // ============================================================================
 
 @init
@@ -4045,14 +4046,34 @@ function lms_tuner_draw(tx, ty, tw, th, S, lc)
 // Then write your own params:
 //   gmem[bc.bc_my_pbase + N] = sliderX;
 
-function lms_bc_init(type_id, param_count)
+// Peer slots for plugins that talk to their own other instances. Smart Gate is
+// the only one left: its drum mode needs each gate to see the others'
+// thresholds, phase offsets and modes, which is real cross-instance data and
+// not something the manager can carry.
+//
+// The address used to be 100000 + type_id * 16384, which reserved a private
+// 16k region for all 38 possible type ids whether they used one or not: 622,592
+// addresses for a single consumer, and a ceiling, because type 38 would have
+// landed past the end of the declared region and type 42 inside G_ROOM_STATE.
+// Registering one more plugin was going to break something far away.
+//
+// The base is the caller's business now. One region, sized for the instances
+// that actually exist, and the type id is just a stamp in the slot so peers can
+// tell each other apart.
+G_GATE_PEERS = 100000;
+
+function lms_bc_init(type_id, param_count, region_base)
 (
-  this.G_BC_BASE = 100000;
   this.BC_SLOT_SIZE = 512;
   this.BC_MAX_INST = 32;
   this.BC_MY_TYPE = type_id;
   this.BC_PARAM_COUNT = param_count;
-  this.G_BC_MY_REGION = this.G_BC_BASE + type_id * 16384;
+  // Assigned from the constant first, then overridden. Written as a ternary
+  // this reads as a runtime expression and gmem_audit can no longer tell where
+  // the region is -- it went from 2 unresolvable accesses to 58, which is 56
+  // accesses nothing checks. A default a tool can see is worth the extra line.
+  this.G_BC_MY_REGION = G_GATE_PEERS;
+  region_base > 0 ? this.G_BC_MY_REGION = region_base;
 
   this.bc_my_slot = -1;
   this.bc_following = 0;

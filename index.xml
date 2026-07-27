@@ -148,6 +148,10 @@
         <changelog>v7.9 &#8212; The gmem map documents the harmony map&#39;s new layout and the region its pattern mirror moved into. No address used by lms_core itself changed.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
       </version>
+      <version name="8.0" author="LMS" time="2026-07-27T13:00:00Z">
+        <changelog>v8.0 &#8212; The peer-slot region no longer scales with type_id, and the type ceiling is gone with it. lms_bc_init addressed its slots as 100000 + type_id * 16384, reserving a private 16k region for every possible plugin type whether it used one or not: 622,592 addresses standing reserved for a single consumer, Smart Gate, which needs one region of 16,384. It was also a trap. Type 38 would have started 1 cell past the end of the declared region and type 42 would have landed inside G_ROOM_STATE, so registering one more plugin type was going to corrupt something far away with nothing to connect the two. lms_bc_init now takes the region base from its caller, the same shape Section 14 and Section 15 use, and the type id is only a stamp inside the slot so peers can tell each other apart. G_BROADCAST becomes G_GATE_PEERS at 16,384 cells; 606,208 addresses are freed and 116384..799999 is empty. A caller that passes no base still gets the gate region rather than addressing cell 0, and the default is assigned from the constant rather than written as a ternary, because a ternary reads as a runtime value and gmem_audit could then resolve none of the 58 accesses through it.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_core.jsfx-inc</source>
+      </version>
     </reapack>
     <reapack name="lms_reverb.jsfx" type="effect" desc="Density Reverb — Harmonic Room Physics">
       <version name="1.0" author="LMS" time="2026-03-16T00:00:00Z">
@@ -1034,6 +1038,10 @@
       </version>
       <version name="2.6" author="LMS" time="2026-07-26T23:30:00Z">
         <changelog>v2.6 &#8212; Uses the canonical density tracker in lms_core; the Section 10 duplicate it called has been removed. Requires lms_core 7.5 or later.</changelog>
+        <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
+      </version>
+      <version name="2.7" author="LMS" time="2026-07-27T13:00:00Z">
+        <changelog>v2.7 &#8212; Passes its own peer-slot region to lms_bc_init, which no longer derives one from the plugin&#39;s type id. Requires lms_core 8.0. The drum-mode peer data &#8212; each gate seeing the others&#39; thresholds, phase offsets and modes &#8212; is unchanged; only where it lives has moved, from 444064 to 100000.</changelog>
         <source>https://raw.githubusercontent.com/LMSBAND/LMS/master/lms_smart_gate.jsfx</source>
       </version>
     </reapack>

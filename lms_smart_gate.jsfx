@@ -39,7 +39,7 @@ slider15:100<0,100,1>-Mix (%)
 @init
 
   // Multi-mic coordination needs slot identity and region constants
-  bc.lms_bc_init(21, 16);
+  bc.lms_bc_init(21, 16, G_GATE_PEERS);   // peer slots; see lms_core SECTION on lms_bc_*
 
   // Density tracker (4-band spectral analysis from lms_core.jsfx-inc)
   hd.lms_hd_init(250, 2000, 5000);
