@@ -2066,6 +2066,35 @@ function lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label) (
   val;
 );
 
+// ---- Label + value, no interaction ----
+//
+// Not a mode selector despite the name it used to carry in Henge, Lil Stinker
+// and NUUG 420 -- it takes a value STRING, has no vmax, and nothing to click.
+// Three identical copies of it lived under the name draw_mode_sel, next to
+// seven genuinely different functions of that name, which is why it is called
+// what it does now.
+function lms_draw_value_row(mx, my, label, value_str) (
+  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
+  gfx_setfont(1, "Arial", F_SMALL);
+  gfx_x = mx; gfx_y = my;
+  gfx_drawstr(label);
+  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
+  gfx_setfont(1, "Arial", F_LABEL);
+  gfx_drawstr("  ");
+  gfx_drawstr(value_str);
+);
+
+// ---- draw_mode_sel with the options passed inline ----
+//
+// Same selector as above, for callers that would rather hand over the strings
+// than fill MS_BUF themselves. EEL2 has no varargs, so the arity is in the
+// name -- five options here because that is what Tube Sat needs.
+function lms_draw_mode_sel5(mx, my, mw, mh, val, vmax, label, v0, v1, v2, v3, v4) (
+  strcpy(MS_BUF, v0); strcpy(MS_BUF + 1, v1); strcpy(MS_BUF + 2, v2);
+  strcpy(MS_BUF + 3, v3); strcpy(MS_BUF + 4, v4);
+  lms_draw_mode_sel(mx, my, mw, mh, val, vmax, label);
+);
+
 // ---- NOTICE overlay ----
 function lms_gfx_notice() (
   gfx_r = 0.05; gfx_g = 0.05; gfx_b = 0.05; gfx_a = 0.95;

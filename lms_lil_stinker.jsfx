@@ -2439,17 +2439,6 @@ function draw_toggle(tx, ty, is_on, label) (
 // ============================================================================
 //  HELPER: draw_mode_sel
 // ============================================================================
-function draw_mode_sel(mx, my, label, value_str) (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = mx; gfx_y = my;
-  gfx_drawstr(label);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_drawstr("  ");
-  gfx_drawstr(value_str);
-);
-
 // ============================================================================
 //  LAYOUT CONSTANTS
 // ============================================================================
@@ -2885,9 +2874,9 @@ cy = row2_y + floor(28 * S);
 inner_w = md_pw - pad * 2;
 
 // Drive character selector
-md_char == 0 ? draw_mode_sel(md_px + pad, cy, "CHAR:", "WARM")
-: md_char == 1 ? draw_mode_sel(md_px + pad, cy, "CHAR:", "GRIT")
-: draw_mode_sel(md_px + pad, cy, "CHAR:", "GROWL");
+md_char == 0 ? lms_draw_value_row(md_px + pad, cy, "CHAR:", "WARM")
+: md_char == 1 ? lms_draw_value_row(md_px + pad, cy, "CHAR:", "GRIT")
+: lms_draw_value_row(md_px + pad, cy, "CHAR:", "GROWL");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= md_px + pad && mouse_x <= md_px + pad + floor(140 * S) &&
@@ -2917,12 +2906,12 @@ cy = row2_y + floor(28 * S);
 inner_w = lfo_pw - pad * 2;
 
 // LFO shape
-lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
-: lfo_shape == 1 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "TRI")
-: lfo_shape == 2 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SAW")
-: lfo_shape == 3 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SQR")
-: lfo_shape == 4 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "S&H")
-: draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "RND");
+lfo_shape == 0 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SINE")
+: lfo_shape == 1 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "TRI")
+: lfo_shape == 2 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SAW")
+: lfo_shape == 3 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SQR")
+: lfo_shape == 4 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "S&H")
+: lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "RND");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= lfo_px + pad && mouse_x <= lfo_px + pad + floor(140 * S) &&

@@ -410,17 +410,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_mode_sel — clickable mode selector display
 // ============================================================================
-function draw_mode_sel(mx, my, label, value_str) (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = mx; gfx_y = my;
-  gfx_drawstr(label);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_drawstr("  ");
-  gfx_drawstr(value_str);
-);
-
 // ============================================================================
 //  TITLE BAR
 // ============================================================================
@@ -562,13 +551,13 @@ inner_w = col_w - pad * 2;
 cy = ctrl_top + 26;
 
 // Mode selector (click to cycle through 7 options)
-mode == 0 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 1")
-: mode == 1 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 2")
-: mode == 2 ? draw_mode_sel(left_x + pad, cy, "MODE:", "Head 3")
-: mode == 3 ? draw_mode_sel(left_x + pad, cy, "MODE:", "1+2")
-: mode == 4 ? draw_mode_sel(left_x + pad, cy, "MODE:", "1+3")
-: mode == 5 ? draw_mode_sel(left_x + pad, cy, "MODE:", "2+3")
-: draw_mode_sel(left_x + pad, cy, "MODE:", "All");
+mode == 0 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "Head 1")
+: mode == 1 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "Head 2")
+: mode == 2 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "Head 3")
+: mode == 3 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "1+2")
+: mode == 4 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "1+3")
+: mode == 5 ? lms_draw_value_row(left_x + pad, cy, "MODE:", "2+3")
+: lms_draw_value_row(left_x + pad, cy, "MODE:", "All");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= left_x + pad && mouse_x <= left_x + pad + inner_w &&

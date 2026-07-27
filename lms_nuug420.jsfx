@@ -1520,17 +1520,6 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 // ============================================================================
 //  HELPER: clickable mode selector
 // ============================================================================
-function draw_mode_sel(mx, my, label, value_str) (
-  gfx_r = COL_DIM_R; gfx_g = COL_DIM_G; gfx_b = COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = mx; gfx_y = my;
-  gfx_drawstr(label);
-  gfx_r = COL_ACCENT_R; gfx_g = COL_ACCENT_G; gfx_b = COL_ACCENT_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_drawstr("  ");
-  gfx_drawstr(value_str);
-);
-
 // ============================================================================
 //  LAYOUT CONSTANTS
 // ============================================================================
@@ -1753,10 +1742,10 @@ slider18 = draw_bar(flt_x + pad, cy, inner_w, bar_h, slider18, 0, 100, "ENV AMT"
 cy += bar_sp + floor(4 * S);
 
 // Filter mode
-filt_mode == 0 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 24dB")
-: filt_mode == 1 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "LP 12dB")
-: filt_mode == 2 ? draw_mode_sel(flt_x + pad, cy, "MODE:", "HP 24dB")
-: draw_mode_sel(flt_x + pad, cy, "MODE:", "BP 12dB");
+filt_mode == 0 ? lms_draw_value_row(flt_x + pad, cy, "MODE:", "LP 24dB")
+: filt_mode == 1 ? lms_draw_value_row(flt_x + pad, cy, "MODE:", "LP 12dB")
+: filt_mode == 2 ? lms_draw_value_row(flt_x + pad, cy, "MODE:", "HP 24dB")
+: lms_draw_value_row(flt_x + pad, cy, "MODE:", "BP 12dB");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= flt_x + pad && mouse_x <= flt_x + pad + floor(140 * S) &&
@@ -1874,12 +1863,12 @@ cy = row2_y + floor(28 * S);
 inner_w = lfo_pw - pad * 2;
 
 // LFO shape
-lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
-: lfo_shape == 1 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "TRI")
-: lfo_shape == 2 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SAW")
-: lfo_shape == 3 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SQR")
-: lfo_shape == 4 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "S&H")
-: draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "RND");
+lfo_shape == 0 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SINE")
+: lfo_shape == 1 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "TRI")
+: lfo_shape == 2 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SAW")
+: lfo_shape == 3 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "SQR")
+: lfo_shape == 4 ? lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "S&H")
+: lms_draw_value_row(lfo_px + pad, cy, "SHAPE:", "RND");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= lfo_px + pad && mouse_x <= lfo_px + pad + floor(140 * S) &&
@@ -1920,10 +1909,10 @@ cy = row2_y + floor(28 * S);
 inner_w = fx_pw - pad * 2;
 
 // Drive mode
-drive_type == 0 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "OFF")
-: drive_type == 1 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "WARM")
-: drive_type == 2 ? draw_mode_sel(fx_px + pad, cy, "DRIVE:", "HOT")
-: draw_mode_sel(fx_px + pad, cy, "DRIVE:", "FUZZ");
+drive_type == 0 ? lms_draw_value_row(fx_px + pad, cy, "DRIVE:", "OFF")
+: drive_type == 1 ? lms_draw_value_row(fx_px + pad, cy, "DRIVE:", "WARM")
+: drive_type == 2 ? lms_draw_value_row(fx_px + pad, cy, "DRIVE:", "HOT")
+: lms_draw_value_row(fx_px + pad, cy, "DRIVE:", "FUZZ");
 
 (mouse_cap & 1) && !(last_cap & 1) &&
   mouse_x >= fx_px + pad && mouse_x <= fx_px + pad + floor(140 * S) &&
