@@ -2141,6 +2141,10 @@
         <changelog>v2.3 &#8212; Fix six plugins being invisible in the manager. It identifies a plugin by looking for a lookup-table key inside the name REAPER displays, and six descs contained no key: OJ 95 (desc has a space, the key did not), TOMASTEKNIK (the reverse), PEQ4U and Kitty Kats Big Krush (desc bears no relation to the key), Bluhm Send (renamed, key never added) and Bloody Glue (never had one). They could not be seen in the Overview, followed, or stolen from &#8212; and an amp swapped to OJ 95 appeared to vanish. Added tools/name_audit.py so a desc rename cannot silently drop a plugin out again. Room Verb also gains &quot;Prepare for Band Mode&quot;: a Bluhm Send on every top-level track with slots assigned, and the room switched to Band. Folder children are skipped, since the folder parent already carries their audio and sending both would put the group in the room twice.</changelog>
         <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
       </version>
+      <version name="2.4" author="LMS" time="2026-07-27T01:00:00Z">
+        <changelog>v2.4 &#8212; Remove &quot;Prepare for Band Mode&quot;. It oscillated, for a topological reason rather than a coding one: Black In Bluhm sits on the master, so every source reached it twice &#8212; summed into the master mix on the dry path, and again individually through its ring on the wet path. Eight delayed copies against the original is comb filtering, and through a long FDN tail it rings. wet_norm also normalises for a single source, so eight arrive at up to eight times the intended level. Band mode wants the room on its own bus at 100% wet, which is a bigger change than a setup button. The diagnosis is kept in the source where the button was. The six plugin-visibility fixes from v2.3 are unaffected.</changelog>
+        <source main="main">https://raw.githubusercontent.com/LMSBAND/LMS/master/scripts/lms_manager.lua</source>
+      </version>
     </reapack>
   </category>
   <category name="LMS/Presets">

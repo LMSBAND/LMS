@@ -3276,58 +3276,33 @@ local function room_verb_disable()
   scan_tracks()
 end
 
--- Band mode needs a Bluhm Send on every source, each holding its own slot.
--- Doing that by hand is eight inserts and eight slot numbers you have to keep
--- straight, which is the kind of setup nobody does twice.
+-- BAND MODE SETUP -- removed, needs a different topology first.
 --
--- Folder children are skipped on purpose. A folder is already a submix, so its
--- parent carries the whole group's audio; sending the children as well would
--- put the same signal in the room several times over, once per member and
--- again for the bus. Only tracks with no parent get a send -- a folder parent
--- stands for its group, a plain top-level track stands for itself.
-local BLUHM_SEND_SLOTS = 8
-
-local function room_prepare_band()
-  local room_track = r.GetMasterTrack(0)
-  local placed, skipped_children, over = 0, 0, 0
-
-  r.Undo_BeginBlock()
-  r.PreventUIRefresh(1)
-
-  for ti = 0, r.CountTracks(0) - 1 do
-    local track = r.GetTrack(0, ti)
-    if r.GetParentTrack(track) then
-      skipped_children = skipped_children + 1
-    elseif track ~= room_track then
-      local has, fx = track_has_fx_type(track, "room_send")
-      if not has then
-        if placed >= BLUHM_SEND_SLOTS then
-          over = over + 1
-        else
-          fx = add_lms_fx(track, "lms_room_send.jsfx")
-        end
-      end
-      if fx and fx >= 0 and placed < BLUHM_SEND_SLOTS then
-        -- slider1 is Slot, 1-based in the UI, so param 0 takes placed + 1
-        r.TrackFX_SetParam(track, fx, 0, placed + 1)
-        placed = placed + 1
-      end
-    end
-  end
-
-  -- Put the room itself into Band mode: slider22, so param index 21.
-  local _, room_fi = find_room_on_master()
-  if room_fi then r.TrackFX_SetParam(r.GetMasterTrack(0), room_fi, 21, 1) end
-
-  r.PreventUIRefresh(-1)
-  r.Undo_EndBlock("Room Verb: prepare for band mode", -1)
-  scan_tracks()
-
-  r.ShowConsoleMsg(string.format(
-    "LMS Room Verb: %d source(s) sending, %d folder child(ren) skipped (their parent carries them)%s\n",
-    placed, skipped_children,
-    over > 0 and string.format(", %d track(s) left out -- only %d slots exist", over, BLUHM_SEND_SLOTS) or ""))
-end
+-- The button here put a Bluhm Send on every top-level track and switched
+-- Black In Bluhm to Band mode. It oscillated, and the cause is topological
+-- rather than a coding mistake:
+--
+--   1. The room sits on the MASTER, so every source reaches it twice: once
+--      summed into the master mix on the dry path, and once individually
+--      through its ring on the wet path. Eight delayed copies of a signal
+--      summed against the original is comb filtering, and through an FDN
+--      with a long tail it rings.
+--
+--   2. wet_norm in lms_room is computed over the SINGLE-source tap set
+--      (SLOT_CEIL + 1 slots), so with eight band sources up to eight times
+--      the energy arrives while the normalisation still assumes one.
+--
+-- A band in a room is a send/return, so the room cannot live on the master:
+--   - room on its OWN bus, no direct input, 100% wet
+--   - sources go to the master as usual, which is the direct sound
+--   - sources also publish to rings, which is the room sound
+--
+-- So the setup wants to create a dedicated bus and move the room onto it,
+-- zero the dry path in Band mode, and scale wet_norm by band_count.
+--
+-- The folder rule was right and worth keeping: only tracks with no parent
+-- get a send, because a folder parent already carries its children's audio
+-- and sending both would put the group in the room twice over.
 
 local function draw_room_verb(ctx)
   local master, fi = find_room_on_master()
@@ -3348,17 +3323,6 @@ local function draw_room_verb(ctx)
   end
 
   room_verb_enabled = true
-
-  if r.ImGui_Button(ctx, "Prepare for Band Mode") then
-    room_prepare_band()
-  end
-  if r.ImGui_IsItemHovered(ctx) then
-    r.ImGui_SetTooltip(ctx,
-      "Puts a Bluhm Send on every top-level track, assigns each a slot, and switches "
-      .. "the room to Band mode.\nFolder children are skipped -- the folder parent already "
-      .. "carries their audio, so sending both would put the group in the room twice.")
-  end
-  r.ImGui_SameLine(ctx)
 
   if r.ImGui_Button(ctx, "Disable / Remove") then
     room_verb_disable()
