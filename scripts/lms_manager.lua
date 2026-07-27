@@ -2316,17 +2316,226 @@ local function hm_get_param(slider_num)
   return 0
 end
 
+-- ---- The song, as a range of beats ----
+--
+-- Everything the plugin plays is a function of REAPER's beat_position. The
+-- song wraps forever from beat 0 (lms_harmony_map.jsfx:876) and a pattern
+-- cycles inside its own length (:946). So a section of the song IS a stretch
+-- of the timeline, and holding one is REAPER's own repeat over that stretch.
+-- Nothing below re-implements looping -- it works out where the loop points go
+-- and then asks the transport for the loop, exactly as the toolbar does.
+--
+-- The arithmetic mirrors the plugin's expansion at :847-873, including the
+-- parts that look like accidents and are not: a sequence entry whose part
+-- index is out of range contributes nothing at all (:849), and the expansion
+-- stops at MAX_SONG_SEQ slots counting each repeat separately, so a long song
+-- is cut short there by the plugin and has to be cut short here too.
+local HM_MAX_SONG_SEQ = 64      -- MAX_SONG_SEQ, jsfx:108
+local HM_PAT_STRUCT = 975000    -- COND_PAT_STRUCT: 16 patterns, stride 80
+local HM_NAV_GRACE = 2.0
+
+local hm_hold = {active = false, s = 0, e = 0}
+local hm_nav = nil
+
+-- Quarter notes in one measure: the same number the plugin computes as
+-- ts_num * 4 / ts_denom (jsfx:825), measured as the QN distance between two
+-- consecutive measure starts. Taken this way rather than from
+-- GetProjectTimeSignature2, which reports no denominator at all -- in 6/8 its
+-- numerator alone says 6 beats to the bar against the plugin's 3.
+local function hm_beats_per_measure()
+  local t0 = r.TimeMap2_beatsToTime(0, 0, 0)
+  local t1 = r.TimeMap2_beatsToTime(0, 0, 1)
+  local qn = r.TimeMap2_timeToQN(0, t1) - r.TimeMap2_timeToQN(0, t0)
+  if qn and qn > 0 and qn <= 64 then return qn end
+  return 4
+end
+
+-- One pass of a pattern, in beats. The plugin sums the per-step BAR counts
+-- (jsfx:856) -- a step can be several bars long -- and multiplies by the
+-- measure. Steps and bars are broadcast per pattern: [0] = steps, [1..32] =
+-- bars per step. The old marker code took every step to be one bar, so any
+-- pattern with a long step drew regions that drifted out of time with what
+-- was actually playing.
+local function hm_pattern_beats(pat, bpm)
+  local num_pats = math.floor(hm_state.num_pats or 0)
+  -- Only patterns below num_pats are broadcast (jsfx:811). A part pointing
+  -- past the last one plays a pattern the plugin never initialised, which its
+  -- own max(1, ...) floors turn into a single empty bar. Same answer here.
+  if pat < 0 or pat > 15 or (num_pats > 0 and pat >= num_pats) then return bpm end
+  local base = HM_PAT_STRUCT + pat * 80
+  local nsteps = math.floor(r.gmem_read(base) or 0)
+  if nsteps < 1 then return bpm end
+  if nsteps > 32 then nsteps = 32 end
+  local bars = 0
+  for s = 0, nsteps - 1 do
+    local b = math.floor(r.gmem_read(base + 1 + s) or 0)
+    bars = bars + (b < 1 and 1 or b)
+  end
+  return bars * bpm
+end
+
+-- The song laid out on the timeline: one entry per sequence block, holding the
+-- beat it starts on and how long it runs with its repeats folded in. A block
+-- is the unit -- Verse x4 is one section, not four.
+local function hm_song_timeline()
+  local seq_len = math.floor(hm_state.song_seq_len or 0)
+  local num_parts = math.floor(hm_state.song_num_parts or 0)
+  if seq_len < 1 or num_parts < 1 then return nil end
+
+  local bpm = hm_beats_per_measure()
+  local pat_len = {}
+  local tl = {entries = {}, total = 0, bpm = bpm, truncated = false}
+  local expanded = 0
+
+  for si = 0, seq_len - 1 do
+    local part_idx = math.floor(hm_state.seq[si] or 0)
+    local p = hm_state.parts[part_idx]
+    if p and part_idx >= 0 and part_idx < num_parts then
+      local pat = math.floor(p.pat or 0)
+      local reps = math.max(1, math.floor(p.rep or 1))
+      local room = HM_MAX_SONG_SEQ - expanded
+      if room <= 0 then
+        tl.truncated = true
+        break
+      end
+      if reps > room then
+        reps = room
+        tl.truncated = true
+      end
+      if pat_len[pat] == nil then pat_len[pat] = hm_pattern_beats(pat, bpm) end
+      local one = pat_len[pat]
+      expanded = expanded + reps
+      tl.entries[#tl.entries + 1] = {
+        seq = si, part = part_idx, pat = pat, reps = reps,
+        start_beat = tl.total, len = one * reps, one = one,
+      }
+      tl.total = tl.total + one * reps
+    end
+  end
+
+  if #tl.entries == 0 or tl.total <= 0 then return nil end
+  return tl
+end
+
+-- Where we are, in beats: what you hear when it is rolling, the edit cursor
+-- when it is not.
+local function hm_now_beat()
+  local t = ((r.GetPlayState() & 1) == 1) and r.GetPlayPosition() or r.GetCursorPosition()
+  return r.TimeMap2_timeToQN(0, t)
+end
+
+-- The section `step` blocks away from the one we are in (0 = this one), as a
+-- beat range. The song repeats forever, so which PASS we are in matters: the
+-- range returned stays in the pass the playhead is already in rather than
+-- yanking it back to the top of the project.
+local function hm_song_nav(step)
+  local tl = hm_song_timeline()
+  if not tl then return nil end
+  local n = #tl.entries
+
+  local beat = hm_now_beat()
+  local cycle = math.max(0, math.floor(beat / tl.total))
+  local within = beat - cycle * tl.total
+  local idx = 1
+  for i = 1, n do
+    if within >= tl.entries[i].start_beat then idx = i end
+  end
+
+  -- Repeated presses of Next have to step, not stall. The play cursor takes a
+  -- moment to arrive -- a whole bar, if seek-on-measure-boundary is set -- so
+  -- for a short grace after a jump, navigate from where we SENT the playhead
+  -- rather than from where it still is. Once it lands, or once the grace runs
+  -- out, this reads the same as the live position again.
+  if hm_nav and (r.time_precise() - hm_nav.t) < HM_NAV_GRACE
+     and not (beat >= hm_nav.s and beat < hm_nav.e) then
+    idx, cycle = hm_nav.idx, hm_nav.cycle
+  end
+
+  idx = idx + step
+  while idx < 1 do idx = idx + n end
+  while idx > n do idx = idx - n end
+
+  local ent = tl.entries[idx]
+  local s = cycle * tl.total + ent.start_beat
+  return s, s + ent.len, ent, idx, n, tl, cycle
+end
+
+-- What "the chunk playing right now" is. With a song, the section under the
+-- playhead: playback follows the sequence, not the pattern selected for
+-- editing (jsfx:836), so there is nothing else it could honestly mean. With no
+-- song, one cycle of the current pattern -- those cycles run from beat 0
+-- forever (jsfx:946), so this picks the one we are in, not the first.
+local function hm_pattern_range()
+  if hm_song_timeline() then return hm_song_nav(0) end
+  local bpm = hm_beats_per_measure()
+  local len = hm_pattern_beats(math.floor(hm_state.current_pat or 0), bpm)
+  if len <= 0 then return nil end
+  local beat = hm_now_beat()
+  local cyc = math.max(0, math.floor(beat / len))
+  return cyc * len, cyc * len + len
+end
+
+-- Held means REAPER is genuinely looping the range we set. Read back rather
+-- than trusted to a flag, so switching repeat off in REAPER un-lights the
+-- button instead of leaving it lying.
+local function hm_hold_live()
+  if not hm_hold.active then return false end
+  if r.GetSetRepeat(-1) ~= 1 then return false end
+  local s, e = r.GetSet_LoopTimeRange(false, true, 0, 0, false)
+  return math.abs(s - hm_hold.s) < 1e-6 and math.abs(e - hm_hold.e) < 1e-6
+end
+
+local function hm_release_hold()
+  r.GetSetRepeat(0)
+  hm_hold.active = false
+end
+
+-- Set the loop the way the transport already does it: time selection, loop
+-- points, repeat, seek, roll. `engage` is what separates holding a section
+-- from merely travelling to one -- Prev/Next pass whatever hold state is
+-- already live, so navigating while held drags the loop along with you.
+local function hm_apply_loop(sb, eb, engage, nav)
+  if not sb or not eb or eb <= sb then return end
+  local st = r.TimeMap2_QNToTime(0, sb)
+  local et = r.TimeMap2_QNToTime(0, eb)
+  -- Both, because loop points and time selection are only the same thing
+  -- while the project has them linked.
+  r.GetSet_LoopTimeRange(true, false, st, et, false)
+  r.GetSet_LoopTimeRange(true, true, st, et, false)
+  if engage then
+    r.GetSetRepeat(1)
+    hm_hold.active, hm_hold.s, hm_hold.e = true, st, et
+  end
+  if nav then
+    hm_nav = {idx = nav.idx, cycle = nav.cycle, s = sb, e = eb, t = r.time_precise()}
+  else
+    hm_nav = nil
+  end
+  -- Travel only if there is somewhere to travel to. Prev/Next always land
+  -- somewhere else, so they always move; pressing Hold three bars into a
+  -- chorus should latch the loop where you stand rather than snapping back to
+  -- its downbeat, and the repeat brings you round to it a moment later anyway.
+  local now = hm_now_beat()
+  if not (now >= sb and now < eb) then
+    r.SetEditCurPos(st, true, true)
+  end
+  if (r.GetPlayState() & 1) == 0 then r.OnPlayButton() end
+  r.UpdateArrange()
+end
+
+-- Travel a section. Whether the loop comes with you is decided by whether you
+-- are already holding one, read before the range moves.
+local function hm_jump_section(step)
+  local s, e, _, idx, _, _, cyc = hm_song_nav(step)
+  if s then hm_apply_loop(s, e, hm_hold_live(), {idx = idx, cycle = cyc}) end
+end
+
 local function sync_song_markers()
   if not hm_markers_dirty then return end
   hm_markers_dirty = false
 
-  local song_num_parts = math.max(1, hm_state.song_num_parts or 1)
-  local song_seq_len = math.max(0, hm_state.song_seq_len or 0)
-  if song_seq_len == 0 then return end
-
-  -- Get tempo info for bar calculation
-  local bpm, bpi = r.GetProjectTimeSignature2(0)
-  local beats_per_bar = bpi > 0 and bpi or 4
+  local tl = hm_song_timeline()
+  if not tl then return end
 
   -- Delete existing LMS markers (identified by name prefix)
   local num_markers = r.CountProjectMarkers(0)
@@ -2341,28 +2550,15 @@ local function sync_song_markers()
     r.DeleteProjectMarker(0, to_delete[i], true)
   end
 
-  -- Build markers from sequence
-  local beat_pos = 0
-  for si = 0, song_seq_len - 1 do
-    local part_idx = hm_state.seq[si] or 0
-    local p = hm_state.parts[part_idx]
-    if not p then break end
+  -- Build one region per section, off the same timeline the loop buttons use,
+  -- so a region boundary and a section change are the same instant.
+  for _, ent in ipairs(tl.entries) do
+    local p = hm_state.parts[ent.part]
+    local cat = math.max(0, math.min(4, math.floor(p.cat or 0)))
+    local num = math.max(1, math.floor(p.num or 1))
 
-    local cat = math.max(0, math.min(4, p.cat))
-    local num = math.max(1, p.num)
-    local pat = p.pat
-    local rep = math.max(1, p.rep)
-
-    -- Get pattern steps from broadcast
-    local pat_steps = math.floor(r.gmem_read(975000 + pat * 80))
-    if pat_steps < 1 then pat_steps = 4 end
-
-    -- Duration in beats: steps × bars_per_step × beats_per_bar × repeats
-    -- Each step = 1 bar by default (bar duration from pattern)
-    local total_beats = pat_steps * beats_per_bar * rep
-
-    local start_time = r.TimeMap2_beatsToTime(0, beat_pos)
-    local end_time = r.TimeMap2_beatsToTime(0, beat_pos + total_beats)
+    local start_time = r.TimeMap2_QNToTime(0, ent.start_beat)
+    local end_time = r.TimeMap2_QNToTime(0, ent.start_beat + ent.len)
 
     local marker_name = string.format("LMS: %s %d", PART_NAMES[cat + 1], num)
     local color = ({
@@ -2374,7 +2570,6 @@ local function sync_song_markers()
     })[cat + 1]
 
     r.AddProjectMarker2(0, true, start_time, end_time, marker_name, -1, color)
-    beat_pos = beat_pos + total_beats
   end
 
   r.UpdateArrange()
@@ -2606,14 +2801,44 @@ local function draw_harmony(ctx)
   local transport = math.floor(hm_state.transport or 0)
   local current_pat = math.floor(hm_state.current_pat or 0)
 
-  -- Transport
-  if transport == 1 then
+  -- Transport. This drives REAPER, not the plugin. lms_harmony_map.jsfx sets
+  -- transport_playing = (play_state & 1) at the top of every @block (:831) and
+  -- the gmem[960098] toggle this used to write is handled ~390 lines LATER in
+  -- that same block (:1220) -- so the flip lasted one block and was overwritten
+  -- by the host, while an all_notes_off() went out on the way past. It was a
+  -- stutter, never a transport. The plugin follows the host, so ask the host.
+  local host_playing = (r.GetPlayState() & 1) == 1
+  if host_playing then
     r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF)
   end
-  if r.ImGui_Button(ctx, transport == 1 and "STOP##hm_transport" or "PLAY##hm_transport") then
-    r.gmem_write(960098, 1)
+  if r.ImGui_Button(ctx, host_playing and "STOP##hm_transport" or "PLAY##hm_transport") then
+    if host_playing then r.OnStopButton() else r.OnPlayButton() end
   end
-  if transport == 1 then r.ImGui_PopStyleColor(ctx) end
+  if host_playing then r.ImGui_PopStyleColor(ctx) end
+  r.ImGui_SameLine(ctx)
+
+  -- Pattern Hold: REAPER's repeat over the chunk that is playing. With a song
+  -- built, that chunk is the section under the playhead -- the same range the
+  -- Hold down in Song Structure gives you, and the same latch, so the two
+  -- light together. Without a song, one cycle of the current pattern.
+  local held = hm_hold_live()
+  if held then
+    r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0xCC8833FF)
+  end
+  if r.ImGui_Button(ctx, held and "HOLDING##hm_hold" or "Pattern Hold##hm_hold") then
+    if held then
+      hm_release_hold()
+    else
+      local s, e, _, idx, _, _, cyc = hm_pattern_range()
+      hm_apply_loop(s, e, true, idx and {idx = idx, cycle = cyc} or nil)
+    end
+  end
+  if held then r.ImGui_PopStyleColor(ctx) end
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_SetTooltip(ctx,
+      "Loop the chunk playing now, using REAPER's own repeat and time selection.\n" ..
+      "Click again to release: repeat goes off and playback runs on.")
+  end
   r.ImGui_SameLine(ctx)
 
   -- Key selector
@@ -2883,6 +3108,67 @@ local function draw_harmony(ctx)
       end
     end
     r.ImGui_EndPopup(ctx)
+  end
+
+  -- === SECTION TRANSPORT ===
+  --
+  -- Prev / Hold / Next over the song's own sections. A section is one block of
+  -- the sequence with its repeats folded in -- Verse x4 is one 4x-long loop,
+  -- not four presses -- which is the unit the strip below draws and the unit
+  -- the ear hears.
+  --
+  -- Hold here and Pattern Hold up in the transport row are the same latch on
+  -- the same range while a song exists; two places to reach it, one state.
+  if sm_active then
+    local nav_s, nav_e, nav_ent, nav_idx, nav_n, nav_tl = hm_song_nav(0)
+    if nav_s then
+      local sec_held = hm_hold_live()
+
+      if r.ImGui_Button(ctx, "|< Prev##hm_secprev") then hm_jump_section(-1) end
+      r.ImGui_SameLine(ctx)
+
+      if sec_held then
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0xCC8833FF)
+      end
+      if r.ImGui_Button(ctx, sec_held and "HOLDING##hm_sechold" or "Hold##hm_sechold") then
+        if sec_held then
+          hm_release_hold()
+        else
+          local s, e, _, idx, _, _, cyc = hm_song_nav(0)
+          hm_apply_loop(s, e, true, {idx = idx, cycle = cyc})
+        end
+      end
+      if sec_held then r.ImGui_PopStyleColor(ctx) end
+      r.ImGui_SameLine(ctx)
+
+      if r.ImGui_Button(ctx, "Next >|##hm_secnext") then hm_jump_section(1) end
+      r.ImGui_SameLine(ctx)
+
+      local np = hm_state.parts[nav_ent.part]
+      local ncat = math.max(0, math.min(4, math.floor(np and np.cat or 0)))
+      local nbars = nav_tl.bpm > 0 and (nav_ent.len / nav_tl.bpm) or 0
+      r.ImGui_TextDisabled(ctx, string.format("%s %d  ·  %d/%d  ·  %g bars",
+        PART_NAMES[ncat + 1], math.max(1, math.floor(np and np.num or 1)),
+        nav_idx, nav_n, math.floor(nbars * 100 + 0.5) / 100))
+      if r.ImGui_IsItemHovered(ctx) then
+        r.ImGui_SetTooltip(ctx, string.format(
+          "Section %d of %d — pattern %d x%d repeat%s\n" ..
+          "Prev/Next move the time selection and the playhead; while holding,\n" ..
+          "the loop travels with you.",
+          nav_idx, nav_n, nav_ent.pat + 1, nav_ent.reps,
+          nav_ent.reps == 1 and "" or "s"))
+      end
+
+      -- The plugin expands repeats into 64 slots and stops (jsfx:861). Past
+      -- that the song simply ends early, so say so rather than letting the
+      -- sections quietly disagree with what plays.
+      if nav_tl.truncated then
+        r.ImGui_SameLine(ctx)
+        r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Text(), 0xFFAA44FF)
+        r.ImGui_Text(ctx, "(truncated at 64)")
+        r.ImGui_PopStyleColor(ctx)
+      end
+    end
   end
 
   -- The song structure, editable. The plugin has accepted every one of these
