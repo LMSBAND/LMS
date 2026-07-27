@@ -2292,7 +2292,10 @@ local function draw_drumbanger(ctx)
     local pad_playing = db_state.pads[p] and db_state.pads[p].playing or 0
     local is_selected = (p == db_edit_pad)
 
-    local brightness = math.max(vel / 127, pad_playing > 0 and 0.3 or 0)
+    -- Velocity is the LAST trigger and stays latched at it, so taking the max
+    -- of the two lit a pad on first hit and left it lit forever. Playing is the
+    -- live flag; velocity only decides how bright it goes while it lasts.
+    local brightness = pad_playing > 0 and math.max(0.3, vel / 127) or 0
     local g = math.floor(brightness * 200)
     local bg = (0xFF000000) + (g * 256) + (math.floor(g * 0.5) * 65536) + 0xFF
     r.ImGui_DrawList_AddRectFilled(draw_list, x, y, x + pad_size, y + pad_size, bg)
