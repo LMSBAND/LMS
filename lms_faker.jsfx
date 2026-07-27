@@ -666,22 +666,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
   val;
 );
 
-function draw_panel(px, py, pw, ph, title) (
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
 // Note name helper — draws note name from MIDI note number
 function draw_note_name(nx, ny, midi_int) (
   nc = midi_int % 12;
@@ -754,7 +738,7 @@ gfx_drawstr("THE FAKER");
 // ============================================================================
 c1x = margin;
 corr_panel_h = floor(152 * S);
-draw_panel(c1x, body_y, col_w, corr_panel_h, "CORRECTION");
+lms_draw_panel(c1x, body_y, col_w, corr_panel_h, "CORRECTION");
 cy = body_y + floor(26 * S);
 
 _old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, 0, 100, "Speed", 1);
@@ -781,7 +765,7 @@ slider5 != _old ? slider_automate(2^4);
 // ============================================================================
 det_panel_y = body_y + corr_panel_h + gap;
 det_panel_h = floor(132 * S);
-draw_panel(c1x, det_panel_y, col_w, det_panel_h, "DETECTION");
+lms_draw_panel(c1x, det_panel_y, col_w, det_panel_h, "DETECTION");
 cy = det_panel_y + floor(26 * S);
 
 _old = slider6; slider6 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider6, 0.05, 0.50, "Sensitivity", 1);
@@ -832,7 +816,7 @@ left_panel_h = corr_panel_h + gap + det_panel_h;
 pd_x = margin + col_w + gap;
 pd_w = gfx_w - pd_x - margin;
 pd_h = left_panel_h;
-draw_panel(pd_x, body_y, pd_w, pd_h, "PITCH");
+lms_draw_panel(pd_x, body_y, pd_w, pd_h, "PITCH");
 
 // Detection is internal — always alive
 det_alive = (input_env > 0.0001);
@@ -1028,7 +1012,7 @@ pt_edit_handled = 0;  // reset per-frame flag
 pt_panel_y = body_y + left_panel_h + gap;
 pt_panel_w = gfx_w - margin * 2;
 pt_panel_h = floor(80 * S);
-draw_panel(margin, pt_panel_y, pt_panel_w, pt_panel_h, "PITCH TENDENCIES");
+lms_draw_panel(margin, pt_panel_y, pt_panel_w, pt_panel_h, "PITCH TENDENCIES");
 
 // ---- Compute display values (direct, no smoothing) ----
 pt_di = 0;

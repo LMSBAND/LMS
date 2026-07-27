@@ -407,33 +407,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_panel — section panel with header bar
 // ============================================================================
-function draw_panel(px, py, pw, ph, title) (
-  // Panel body
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-
-  // Header bar
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-
-  // Header bottom accent
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-
-  // Panel border
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1);
-  gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph);
-  gfx_rect(px, py + ph - 1, pw, 1);
-
-  // Title text
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
 // ============================================================================
 //  HELPER: draw_mode_sel — clickable mode selector display
 // ============================================================================
@@ -584,7 +557,7 @@ right_x = margin + col_w + gap;
 panel_h = 148;
 
 // ---- LEFT PANEL: DELAY ----
-draw_panel(left_x, ctrl_top, col_w, panel_h, "DELAY");
+lms_draw_panel(left_x, ctrl_top, col_w, panel_h, "DELAY");
 inner_w = col_w - pad * 2;
 cy = ctrl_top + 26;
 
@@ -618,7 +591,7 @@ _old = slider10; slider10 = draw_bar(left_x + pad, cy, inner_w, bar_h, slider10,
 slider10 != _old ? slider_automate(2^9);
 
 // ---- RIGHT PANEL: CHARACTER ----
-draw_panel(right_x, ctrl_top, col_w, panel_h, "CHARACTER");
+lms_draw_panel(right_x, ctrl_top, col_w, panel_h, "CHARACTER");
 inner_w = col_w - pad * 2;
 cy = ctrl_top + 26;
 

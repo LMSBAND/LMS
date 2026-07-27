@@ -676,46 +676,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
   val;
 );
 
-function draw_panel(px, py, pw, ph, title) (
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
-function draw_toggle(tx, ty, is_on, label) (
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
-  is_on ? (
-    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  ) : (
-    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  );
-  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
-  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
-  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
-  gfx_drawstr(label);
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
-    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
-      is_on = 1 - is_on;
-  );
-  is_on;
-);
-
 function draw_mode_sel(mx, my, mw, mh, val, vmax, label, v0, v1) (
   gfx_r = COL_BAR_BG_R; gfx_g = COL_BAR_BG_G; gfx_b = COL_BAR_BG_B;
   gfx_rect(mx, my, mw, mh);
@@ -787,7 +747,7 @@ gfx_drawstr("Harmonic Room Physics");
 //  COLUMN 1: ROOM
 // ============================================================================
 room_h = floor(148 * S);
-draw_panel(c1x, body_y, col_w, room_h, "ROOM");
+lms_draw_panel(c1x, body_y, col_w, room_h, "ROOM");
 cy = body_y + floor(26 * S);
 
 // Preset selector (click to cycle)
@@ -846,7 +806,7 @@ slider5 != _old ? slider_automate(2^4);
 //  COLUMN 2: CHARACTER
 // ============================================================================
 char_h = floor(120 * S);
-draw_panel(c2x, body_y, col_w, char_h, "CHARACTER");
+lms_draw_panel(c2x, body_y, col_w, char_h, "CHARACTER");
 cy = body_y + floor(26 * S);
 
 _old = slider6; slider6 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider6, 0, 100, "Diffusion", 1);
@@ -868,7 +828,7 @@ slider10 != _old ? slider_automate(2^9);
 //  COLUMN 3: OUTPUT + ROOM PHYSICS MONITOR
 // ============================================================================
 out_h = floor(68 * S);
-draw_panel(c3x, body_y, col_w, out_h, "OUTPUT");
+lms_draw_panel(c3x, body_y, col_w, out_h, "OUTPUT");
 cy = body_y + floor(26 * S);
 
 _old = slider9; slider9 = draw_bar(c3x + pad, cy, col_w - pad2, bar_h, slider9, 0, 100, "Mix", 1);
@@ -881,7 +841,7 @@ slider11 != _old ? slider_automate(2^10);
 // --- ROOM PHYSICS DENSITY MONITOR ---
 density_y = body_y + out_h + gap;
 density_h = floor(100 * S);
-draw_panel(c3x, density_y, col_w, density_h, "ROOM PHYSICS");
+lms_draw_panel(c3x, density_y, col_w, density_h, "ROOM PHYSICS");
 
 dy = density_y + floor(26 * S);
 d_bar_w = floor(55 * S);

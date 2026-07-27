@@ -220,49 +220,9 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_panel
 // ============================================================================
-function draw_panel(px, py, pw, ph, title) (
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
 // ============================================================================
 //  HELPER: draw_toggle
 // ============================================================================
-function draw_toggle(tx, ty, is_on, label) (
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
-  is_on ? (
-    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  ) : (
-    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  );
-  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
-  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
-  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
-  gfx_drawstr(label);
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
-    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
-      is_on = 1 - is_on;
-  );
-  is_on;
-);
-
 // ============================================================================
 //  HELPER: draw_mode_sel — clickable mode selector (up to 4 options)
 // ============================================================================
@@ -371,7 +331,7 @@ gfx_drawstr("KITTY KATS BIG KRUSH");
 //  COLUMN 1: INPUT / COMPRESSION
 // ============================================================================
 c1x = margin;
-draw_panel(c1x, body_y, col_w, floor(178 * S), "INPUT / COMPRESSION");
+lms_draw_panel(c1x, body_y, col_w, floor(178 * S), "INPUT / COMPRESSION");
 cy = body_y + floor(26 * S);
 _old = slider1; slider1 = draw_bar(c1x + pad, cy, col_w - pad2, bar_h, slider1, -12, 24, "Input dB", 1);
 slider1 != _old ? slider_automate(2^0);
@@ -413,12 +373,12 @@ gr_w > 0 ? (
 //  COLUMN 2: CHARACTER
 // ============================================================================
 c2x = margin + col_w + gap;
-draw_panel(c2x, body_y, col_w, floor(178 * S), "CHARACTER");
+lms_draw_panel(c2x, body_y, col_w, floor(178 * S), "CHARACTER");
 cy = body_y + floor(26 * S);
 _old = slider6; slider6 = draw_mode_sel(c2x + pad, cy, col_w - pad2, bar_h, slider6, 2, "Dist", "Off", "Tape", "Tube", "");
 slider6 != _old ? slider_automate(2^5);
 cy += bar_sp;
-_old = slider7; slider7 = draw_toggle(c2x + pad2, cy + floor(2 * S), slider7, "HP Sidechain");
+_old = slider7; slider7 = lms_draw_toggle(c2x + pad2, cy + floor(2 * S), slider7, "HP Sidechain");
 slider7 != _old ? slider_automate(2^6);
 cy += bar_sp;
 _old = slider8; slider8 = draw_bar(c2x + pad, cy, col_w - pad2, bar_h, slider8, 60, 400, "SC Hz", 1);

@@ -2357,22 +2357,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_panel
 // ============================================================================
-function draw_panel(px, py, pw, ph, title) (
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
 // ============================================================================
 //  HELPER: draw_wave_sel (4 waveforms: Saw, Square, Triangle, Pulse)
 // ============================================================================
@@ -2743,7 +2727,7 @@ pad = floor(8 * S);
 
 // ---- OSCILLATORS ----
 osc_x = margin; osc_w = col_w;
-draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
+lms_draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
 
 cy = body_y + floor(28 * S);
 inner_w = osc_w - pad * 2;
@@ -2788,7 +2772,7 @@ slider10 = draw_bar(osc_x + pad, cy, inner_w, bar_h, slider10, 0, 100, "PW", 1);
 // ---- FILTER ----
 flt_x = osc_x + osc_w + gap;
 flt_w = col_w;
-draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
+lms_draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
 
 cy = body_y + floor(28 * S);
 inner_w = flt_w - pad * 2;
@@ -2823,7 +2807,7 @@ slider23 = draw_bar(flt_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inn
 // ---- AMP + SCOPE ----
 amp_x = flt_x + flt_w + gap;
 amp_w = gfx_w - amp_x - margin;
-draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
+lms_draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
 
 cy = body_y + floor(28 * S);
 inner_w = amp_w - pad * 2;
@@ -2881,7 +2865,7 @@ col2_w = floor((gfx_w - margin * 2 - gap * 3) / 4);
 
 // ---- SUB ----
 sub_px = margin; sub_pw = col2_w;
-draw_panel(sub_px, row2_y, sub_pw, row2_h, "SUB OSC");
+lms_draw_panel(sub_px, row2_y, sub_pw, row2_h, "SUB OSC");
 
 cy = row2_y + floor(28 * S);
 inner_w = sub_pw - pad * 2;
@@ -2895,7 +2879,7 @@ slider12 = draw_bar(sub_px + pad, cy, inner_w, bar_h, slider12, 0, 100, "SUB LVL
 // ---- MULTIDRIVE ----
 md_px = sub_px + sub_pw + gap;
 md_pw = col2_w;
-draw_panel(md_px, row2_y, md_pw, row2_h, "MULTIDRIVE");
+lms_draw_panel(md_px, row2_y, md_pw, row2_h, "MULTIDRIVE");
 
 cy = row2_y + floor(28 * S);
 inner_w = md_pw - pad * 2;
@@ -2927,7 +2911,7 @@ md_amount > 0 ? (
 // ---- LFO ----
 lfo_px = md_px + md_pw + gap;
 lfo_pw = col2_w;
-draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
+lms_draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
 
 cy = row2_y + floor(28 * S);
 inner_w = lfo_pw - pad * 2;
@@ -2971,7 +2955,7 @@ gfx_circle(lfo_dot_x, cy + floor(3 * S), floor(4 * S), 1);
 // ---- PERFORM ----
 perf_px = lfo_px + lfo_pw + gap;
 perf_pw = gfx_w - perf_px - margin;
-draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
+lms_draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
 
 cy = row2_y + floor(28 * S);
 inner_w = perf_pw - pad * 2;

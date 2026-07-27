@@ -708,46 +708,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
   val;
 );
 
-function draw_panel(px, py, pw, ph, title) (
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1); gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph); gfx_rect(px, py + ph - 1, pw, 1);
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
-function draw_toggle(tx, ty, is_on, label) (
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
-  is_on ? (
-    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  ) : (
-    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  );
-  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
-  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
-  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
-  gfx_drawstr(label);
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
-    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
-      is_on = 1 - is_on;
-  );
-  is_on;
-);
-
 // ============================================================================
 //  LAYOUT
 // ============================================================================
@@ -790,7 +750,7 @@ gfx_drawstr("Density-Aware Noise Gate");
 //  LEFT COLUMN: CONTROLS
 // ============================================================================
 ctrl_h = mode == 1 ? floor(310 * S) : floor(265 * S);
-draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
+lms_draw_panel(c1x, body_y, col_w, ctrl_h, "CONTROLS");
 cy = body_y + floor(26 * S);
 
 // Input Gain
@@ -1113,7 +1073,7 @@ mode == 1 ? (
 
 // --- GATE METER ---
 gate_meter_h = floor(60 * S);
-draw_panel(c2x, body_y, col_w, gate_meter_h, "GATE");
+lms_draw_panel(c2x, body_y, col_w, gate_meter_h, "GATE");
 
 meter_x = c2x + pad;
 meter_y = body_y + floor(26 * S);
@@ -1176,7 +1136,7 @@ gfx_rect(meter_x, meter_y, meter_w, meter_h, 0);
 // --- DENSITY STATE ---
 density_panel_y = body_y + gate_meter_h + gap;
 density_panel_h = floor(80 * S);
-draw_panel(c2x, density_panel_y, col_w, density_panel_h, "DENSITY");
+lms_draw_panel(c2x, density_panel_y, col_w, density_panel_h, "DENSITY");
 
 dy = density_panel_y + floor(26 * S);
 d_bar_w = floor(60 * S);
@@ -1247,7 +1207,7 @@ gfx_drawstr("%");
 // --- SIDECHAIN ENVELOPE METER (mini) ---
 sc_meter_y = density_panel_y + density_panel_h + gap;
 sc_meter_h = floor(28 * S);
-draw_panel(c2x, sc_meter_y, col_w, sc_meter_h + floor(22 * S), "SIDECHAIN");
+lms_draw_panel(c2x, sc_meter_y, col_w, sc_meter_h + floor(22 * S), "SIDECHAIN");
 gfx_r = 0.08; gfx_g = 0.08; gfx_b = 0.10;
 gfx_rect(c2x + pad, sc_meter_y + floor(22 * S), col_w - pad2, sc_meter_h);
 // Envelope bar
@@ -1272,7 +1232,7 @@ mode == 1 ? (
   peer_panel_y = sc_meter_y + sc_meter_h + floor(22 * S) + gap;
   peer_rows = max(1, gfx_peer_count);
   peer_panel_h = floor(22 * S) + peer_rows * floor(16 * S) + floor(8 * S);
-  draw_panel(c2x, peer_panel_y, col_w, peer_panel_h, "DRUM PEERS");
+  lms_draw_panel(c2x, peer_panel_y, col_w, peer_panel_h, "DRUM PEERS");
 
   py = peer_panel_y + floor(26 * S);
   gfx_setfont(1, "Arial", F_TINY);

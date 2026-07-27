@@ -1441,33 +1441,6 @@ function draw_bar(bx, by, bw, bh, val, vmin, vmax, label, show_val) (
 // ============================================================================
 //  HELPER: draw_panel — section panel with header bar
 // ============================================================================
-function draw_panel(px, py, pw, ph, title) (
-  // Panel body
-  gfx_r = COL_PANEL_R; gfx_g = COL_PANEL_G; gfx_b = COL_PANEL_B;
-  gfx_rect(px, py, pw, ph);
-
-  // Header bar
-  gfx_r = COL_PANEL_HI_R; gfx_g = COL_PANEL_HI_G; gfx_b = COL_PANEL_HI_B;
-  gfx_rect(px, py, pw, floor(22 * S));
-
-  // Header bottom accent
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_rect(px, py + floor(22 * S), pw, 1);
-
-  // Panel border
-  gfx_r = COL_BORDER_R * 0.7; gfx_g = COL_BORDER_G * 0.7; gfx_b = COL_BORDER_B * 0.7;
-  gfx_rect(px, py, pw, 1);
-  gfx_rect(px, py, 1, ph);
-  gfx_rect(px + pw - 1, py, 1, ph);
-  gfx_rect(px, py + ph - 1, pw, 1);
-
-  // Title text
-  gfx_r = COL_SEC_R; gfx_g = COL_SEC_G; gfx_b = COL_SEC_B;
-  gfx_setfont(1, "Arial", F_LABEL);
-  gfx_x = px + floor(8 * S); gfx_y = py + floor(4 * S);
-  gfx_drawstr(title);
-);
-
 // ============================================================================
 //  HELPER: wave_sel — draw waveform shape icon + click to cycle
 // ============================================================================
@@ -1544,35 +1517,6 @@ function draw_wave_sel(wx, wy, ww, wh, wave_val, max_waves) (
 // ============================================================================
 //  HELPER: toggle button
 // ============================================================================
-function draw_toggle(tx, ty, is_on, label) (
-  // Outer ring
-  gfx_r = COL_BORDER_R; gfx_g = COL_BORDER_G; gfx_b = COL_BORDER_B;
-  gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(7 * S), 0);
-  // Inner fill
-  is_on ? (
-    gfx_r = COL_GREEN_R; gfx_g = COL_GREEN_G; gfx_b = COL_GREEN_B;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  ) : (
-    gfx_r = 0.15; gfx_g = 0.15; gfx_b = 0.18;
-    gfx_circle(tx + floor(8 * S), ty + floor(8 * S), floor(5 * S), 1);
-  );
-  // Label
-  gfx_r = is_on ? COL_TEXT_R : COL_DIM_R;
-  gfx_g = is_on ? COL_TEXT_G : COL_DIM_G;
-  gfx_b = is_on ? COL_TEXT_B : COL_DIM_B;
-  gfx_setfont(1, "Arial", F_SMALL);
-  gfx_x = tx + floor(20 * S); gfx_y = ty + floor(1 * S);
-  gfx_drawstr(label);
-
-  // Click
-  (mouse_cap & 1) && !(last_cap & 1) &&
-    mouse_x >= tx && mouse_x <= tx + floor(80 * S) &&
-    mouse_y >= ty && mouse_y <= ty + floor(16 * S) ? (
-      is_on = 1 - is_on;
-  );
-  is_on;
-);
-
 // ============================================================================
 //  HELPER: clickable mode selector
 // ============================================================================
@@ -1750,7 +1694,7 @@ row1_h = floor(210 * S);
 
 // ---- OSCILLATORS ----
 osc_x = margin; osc_w = col_w;
-draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
+lms_draw_panel(osc_x, body_y, osc_w, row1_h, "OSCILLATORS");
 
 cy = body_y + floor(28 * S);
 pad = floor(8 * S);
@@ -1796,7 +1740,7 @@ slider8 = draw_bar(osc_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inne
 // ---- FILTER ----
 flt_x = osc_x + osc_w + gap;
 flt_w = col_w;
-draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
+lms_draw_panel(flt_x, body_y, flt_w, row1_h, "FILTER");
 
 cy = body_y + floor(28 * S);
 inner_w = flt_w - pad * 2;
@@ -1842,7 +1786,7 @@ slider22 = draw_bar(flt_x + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inn
 // ---- AMP + SCOPE ----
 amp_x = flt_x + flt_w + gap;
 amp_w = gfx_w - amp_x - margin;
-draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
+lms_draw_panel(amp_x, body_y, amp_w, row1_h, "AMP / OUTPUT");
 
 cy = body_y + floor(28 * S);
 inner_w = amp_w - pad * 2;
@@ -1904,12 +1848,12 @@ col2_w = floor((gfx_w - margin * 2 - gap * 3) / 4);
 
 // ---- SUB / UNISON ----
 sub_x = margin; sub_w = col2_w;
-draw_panel(sub_x, row2_y, sub_w, row2_h, "SUB / UNISON");
+lms_draw_panel(sub_x, row2_y, sub_w, row2_h, "SUB / UNISON");
 
 cy = row2_y + floor(28 * S);
 inner_w = sub_w - pad * 2;
 
-slider10 = draw_toggle(sub_x + pad, cy, slider10, "SUB OSC");
+slider10 = lms_draw_toggle(sub_x + pad, cy, slider10, "SUB OSC");
 sub_on = slider10;
 cy += floor(22 * S);
 
@@ -1924,7 +1868,7 @@ slider14 = draw_bar(sub_x + pad, cy, inner_w, bar_h, slider14, 0, 100, "DETUNE",
 // ---- LFO ----
 lfo_px = sub_x + sub_w + gap;
 lfo_pw = col2_w;
-draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
+lms_draw_panel(lfo_px, row2_y, lfo_pw, row2_h, "LFO");
 
 cy = row2_y + floor(28 * S);
 inner_w = lfo_pw - pad * 2;
@@ -1944,7 +1888,7 @@ lfo_shape == 0 ? draw_mode_sel(lfo_px + pad, cy, "SHAPE:", "SINE")
     lfo_shape = slider27;
 );
 // LFO Sync toggle (right side of SHAPE line)
-slider29 = draw_toggle(lfo_px + pad + inner_w - floor(60 * S), cy, slider29, "SYNC");
+slider29 = lms_draw_toggle(lfo_px + pad + inner_w - floor(60 * S), cy, slider29, "SYNC");
 lfo_sync = slider29;
 cy += bar_sp;
 
@@ -1970,7 +1914,7 @@ gfx_circle(lfo_dot_x, cy + floor(3 * S), floor(4 * S), 1);
 // ---- EFFECTS ----
 fx_px = lfo_px + lfo_pw + gap;
 fx_pw = col2_w;
-draw_panel(fx_px, row2_y, fx_pw, row2_h, "EFFECTS");
+lms_draw_panel(fx_px, row2_y, fx_pw, row2_h, "EFFECTS");
 
 cy = row2_y + floor(28 * S);
 inner_w = fx_pw - pad * 2;
@@ -1993,7 +1937,7 @@ slider39 = draw_bar(fx_px + pad, cy, inner_w, bar_h, slider39, 0, 100, "DRIVE", 
 cy += bar_sp + floor(4 * S);
 
 // Chorus
-slider40 = draw_toggle(fx_px + pad, cy, slider40, "CHORUS");
+slider40 = lms_draw_toggle(fx_px + pad, cy, slider40, "CHORUS");
 chorus_on = slider40;
 chr_half = floor((inner_w - floor(80 * S)) / 2) - 1;
 slider41 = draw_bar(fx_px + pad + floor(80 * S), cy, chr_half, bar_h, slider41, 0, 100, "DPTH", 1);
@@ -2001,7 +1945,7 @@ slider42 = draw_bar(fx_px + pad + floor(80 * S) + chr_half + floor(2 * S), cy, c
 cy += floor(22 * S);
 
 // Delay
-slider43 = draw_toggle(fx_px + pad, cy, slider43, "DELAY");
+slider43 = lms_draw_toggle(fx_px + pad, cy, slider43, "DELAY");
 delay_on = slider43;
 slider44 = draw_bar(fx_px + pad + floor(80 * S), cy, inner_w - floor(80 * S), bar_h, slider44, 1, 1000, "TIME", 1);
 cy += floor(22 * S);
@@ -2012,12 +1956,12 @@ slider46 = draw_bar(fx_px + pad + floor(inner_w/2) + floor(2 * S), cy, floor(inn
 // ---- PERFORM ----
 perf_px = fx_px + fx_pw + gap;
 perf_pw = gfx_w - perf_px - margin;
-draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
+lms_draw_panel(perf_px, row2_y, perf_pw, row2_h, "PERFORM");
 
 cy = row2_y + floor(28 * S);
 inner_w = perf_pw - pad * 2;
 
-slider35 = draw_toggle(perf_px + pad, cy, slider35, "GLIDE");
+slider35 = lms_draw_toggle(perf_px + pad, cy, slider35, "GLIDE");
 glide_on = slider35;
 slider34 = draw_bar(perf_px + pad + floor(80 * S), cy, inner_w - floor(80 * S), bar_h, slider34, 0, 1000, "ms", 1);
 cy += floor(24 * S);
