@@ -25,8 +25,32 @@ end
 -- ============================================================================
 
 local NOTE_NAMES = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"}
-local QUALITY_NAMES = {"maj","min","7","maj7","min7","dim","aug","sus4","sus2",
-                       "add9","m9","9","6","m6","dim7","m7b5"}
+-- Quality numbering is the PLUGIN's, derived from its own get_triad() and
+-- seventh logic in lms_harmony_map.jsfx, not a list invented over here. The
+-- two had drifted apart from index 2 on: this table said 2 was "7", 3 "maj7",
+-- 4 "min7", 7 "sus4", 8 "sus2", while the plugin builds maj7, min7, dom7,
+-- dim7 and m7b5. So every seventh chord in the grid wore the wrong name, and
+-- pressing "7" asked for a maj7.
+--
+-- 1-based Lua table over 0-based plugin indices, hence the +1 at the call.
+local QUALITY_NAMES = {
+  "maj",   -- 0  major triad
+  "min",   -- 1  minor triad
+  "maj7",  -- 2  major third + major seventh
+  "min7",  -- 3  minor third + minor seventh
+  "7",     -- 4  major third + minor seventh: the dominant
+  "dim",   -- 5
+  "aug",   -- 6
+  "dim7",  -- 7
+  "m7b5",  -- 8
+  "9",     -- 9
+  "sus4",  -- 10
+  "add9",  -- 11
+  "m9",    -- 12
+  "7alt",  -- 13  dominant-based; the plugin names no more than this
+  "maj9",  -- 14
+  "7#9",   -- 15
+}
 
 local TYPE_REGISTRY = {
   [4]  = {name = "RTW Channel Strip", cat = "mix",    sliders = 35, jsfx = "lms_rtw.jsfx"},
@@ -253,6 +277,30 @@ local function add_lms_fx(track, filename)
     "  If the plugin is installed, restart REAPER -- it scans the Effects\n" ..
     "  folder on launch and cannot insert a JSFX it has not scanned yet.\n")
   return -1
+end
+
+-- ---- Palette ----
+--
+-- Ink. Values, labels and axes wear text colors, never a series color -- the
+-- colored mark beside them is what carries identity.
+--
+-- These were declared down in the Metering section, which was fine while
+-- metering was the only page drawing with them. The Room Verb plan and the
+-- Harmony connection map use them too, and a file-level local is not in scope
+-- for a function defined ABOVE it -- the name silently resolves to a global,
+-- which is nil, and the first draw call fails with "number expected, got nil".
+-- Shared vocabulary belongs above everything that speaks it.
+local INK        = 0xE6E6E6FF
+local INK_DIM    = 0x9A9A9AFF
+local INK_FAINT  = 0x5A5A5AFF
+local GRID       = 0x2E2E2EFF
+local SURFACE    = 0x14141AFF
+local STATUS_BAD = 0xD03B3BFF   -- reserved: only ever means over-ceiling
+
+-- Same colour at a different alpha: for halos, spokes and other marks that
+-- must not compete with the thing they belong to.
+local function with_alpha(color, a)
+  return (color & 0xFFFFFF00) | (a & 0xFF)
 end
 
 local CAT_COLORS = {
@@ -576,7 +624,7 @@ local function read_harmony_state()
   hm_state.seq_drum = {}
   for i = 0, 63 do
     hm_state.seq[i] = math.floor(r.gmem_read(960240 + i))
-    hm_state.seq_drum[i] = math.floor(r.gmem_read(960240 + 64 + i))
+    hm_state.seq_drum[i] = math.floor(r.gmem_read(960500 + i))
   end
   -- Part octaves
   hm_state.oct = {}
@@ -2306,7 +2354,7 @@ local function sync_song_markers()
     local rep = math.max(1, p.rep)
 
     -- Get pattern steps from broadcast
-    local pat_steps = math.floor(r.gmem_read(960400 + pat * 80))
+    local pat_steps = math.floor(r.gmem_read(975000 + pat * 80))
     if pat_steps < 1 then pat_steps = 4 end
 
     -- Duration in beats: steps × bars_per_step × beats_per_bar × repeats
@@ -2330,6 +2378,182 @@ local function sync_song_markers()
   end
 
   r.UpdateArrange()
+end
+
+-- ---- Key theory, mirroring the plugin ----
+--
+-- These are build_diatonic() from lms_harmony_map.jsfx, read off its own
+-- tables: scale degrees and the quality each degree carries, major and minor.
+-- Quality numbers are the plugin's. Kept in step with it by construction --
+-- if a degree's quality ever changes there, it changes here.
+--
+--   major:  I maj   ii min   iii min   IV maj   V maj   vi min   vii dim
+--   minor:  i min   ii dim   III maj   iv min   v min   VI maj   VII maj
+local DIA_STEPS_MAJOR = {0, 2, 4, 5, 7, 9, 11}
+local DIA_QUALS_MAJOR = {0, 1, 1, 0, 0, 1, 5}
+local DIA_STEPS_MINOR = {0, 2, 3, 5, 7, 8, 10}
+local DIA_QUALS_MINOR = {1, 5, 0, 1, 1, 0, 0}
+local ROMAN = {"I", "ii", "iii", "IV", "V", "vi", "vii"}
+local ROMAN_MINOR = {"i", "ii", "III", "iv", "v", "VI", "VII"}
+
+-- Which degree of the key this note is, or nil if it is outside it.
+local function diatonic_degree(note, key_root, key_mode)
+  local steps = (key_mode == 1) and DIA_STEPS_MINOR or DIA_STEPS_MAJOR
+  local rel = (note - key_root) % 12
+  for i = 1, 7 do
+    if steps[i] == rel then return i end
+  end
+  return nil
+end
+
+-- The chord this root wants, given the key. In the key: that degree's own
+-- quality. Out of it: a dominant seventh -- the tritone. A chromatic root is
+-- almost always passing through, as a secondary dominant or a tritone sub,
+-- and both of those are dominant sevenths.
+local function default_quality_for(note, key_root, key_mode)
+  local degree = diatonic_degree(note, key_root, key_mode)
+  if not degree then return 4 end        -- 4 = dom7 in the plugin's numbering
+  local quals = (key_mode == 1) and DIA_QUALS_MINOR or DIA_QUALS_MAJOR
+  return quals[degree]
+end
+
+-- ---- The connection map, drawn ----
+--
+-- The plugin computes what the current chord can move to and by what relation:
+-- the diatonic chords in the inner ring, dominants and tritone subs in the
+-- middle, diminished and augmented bridges outside. That is real theory, it is
+-- already written, and it was visible only inside the plugin window. This
+-- reads its published map rather than working any of it out again -- the
+-- quality table drifted apart exactly that way.
+--
+-- Colour carries the RELATION, which is the one thing a chord name cannot tell
+-- you on its own. Everything you read is INK, as on the metering page.
+local HM_CONN = 960600
+
+local CONN_KIND = {
+  [1] = {name = "shares notes",   color = 0x5FA8D3FF},
+  [2] = {name = "in the key",     color = 0x4A7FA5FF},
+  [3] = {name = "dominant pull",  color = 0xD8A13AFF},
+  [4] = {name = "tritone sub",    color = 0xA86BC7FF},
+  [5] = {name = "dim bridge",     color = 0x6E8A8AFF},
+  [6] = {name = "aug bridge",     color = 0x8A6E8AFF},
+}
+
+local function read_conn_map()
+  local n = math.floor(r.gmem_read(HM_CONN) or 0)
+  local src = {
+    root = math.floor(r.gmem_read(HM_CONN + 1) or 0),
+    qual = math.floor(r.gmem_read(HM_CONN + 2) or 0),
+  }
+  local list = {}
+  for i = 0, math.min(n, 24) - 1 do
+    local b = HM_CONN + 10 + i * 4
+    local root = math.floor(r.gmem_read(b) or 0)
+    local qual = math.floor(r.gmem_read(b + 1) or 0)
+    if root >= 0 and root < 12 then
+      list[#list + 1] = {
+        root = root,
+        qual = qual,
+        kind = math.floor(r.gmem_read(b + 2) or 0),
+        ring = math.floor(r.gmem_read(b + 3) or 0),
+      }
+    end
+  end
+  return src, list
+end
+
+local function chord_label(root, qual)
+  return NOTE_NAMES[(root % 12) + 1] .. (QUALITY_NAMES[(qual % 16) + 1] or "")
+end
+
+-- Returns the chord clicked, or nil.
+local function draw_conn_graph(ctx, src, list, src_desc)
+  local dl = r.ImGui_GetWindowDrawList(ctx)
+  local x0, y0 = r.ImGui_GetCursorScreenPos(ctx)
+  local w = math.max(320, r.ImGui_GetContentRegionAvail(ctx))
+  local h = 340 * ui_scale
+
+  r.ImGui_DrawList_AddRectFilled(dl, x0, y0, x0 + w, y0 + h, SURFACE, 4)
+  local cx, cy = x0 + w * 0.5, y0 + h * 0.5
+  local unit = math.min(w, h) * 0.5 - 26 * ui_scale
+  -- Spaced so the labels on the tightest ring clear each other: at 0.42 the
+  -- inner seven sat 47px apart with 44px labels, which reads as one smear.
+  local radii = {unit * 0.52, unit * 0.78, unit}
+
+  -- Ring guides, faint: they are scaffolding, not data.
+  for _, rad in ipairs(radii) do
+    r.ImGui_DrawList_AddCircle(dl, cx, cy, rad, GRID, 64, 1)
+  end
+
+  -- Group by ring so each orbit spaces itself out.
+  local by_ring = {[0] = {}, [1] = {}, [2] = {}}
+  for _, c in ipairs(list) do
+    local ring = math.max(0, math.min(2, c.ring))
+    by_ring[ring][#by_ring[ring] + 1] = c
+  end
+
+  local clicked = nil
+  local nodes = {}
+  for ring = 0, 2 do
+    local group = by_ring[ring]
+    local count = #group
+    for i, c in ipairs(group) do
+      -- Start each ring at a different angle, so nodes do not line up into
+      -- spokes and read as related when they are not.
+      local a = (i - 1) / count * math.pi * 2 - math.pi * 0.5 + ring * 0.35
+      local rad = radii[ring + 1]
+      nodes[#nodes + 1] = {
+        c = c, x = cx + math.cos(a) * rad, y = cy + math.sin(a) * rad,
+      }
+    end
+  end
+
+  -- Spokes first, so the nodes sit on top of them.
+  for _, nd in ipairs(nodes) do
+    local kind = CONN_KIND[nd.c.kind] or CONN_KIND[2]
+    r.ImGui_DrawList_AddLine(dl, cx, cy, nd.x, nd.y, with_alpha(kind.color, 0x40), 1)
+  end
+
+  -- The chord everything is measured from.
+  r.ImGui_DrawList_AddCircleFilled(dl, cx, cy, 22 * ui_scale, 0x2A2A34FF)
+  r.ImGui_DrawList_AddCircle(dl, cx, cy, 22 * ui_scale, INK_DIM, 32, 2)
+  local slabel = chord_label(src.root, src.qual)
+  local sw = r.ImGui_CalcTextSize(ctx, slabel)
+  r.ImGui_DrawList_AddText(dl, cx - sw * 0.5, cy - 6 * ui_scale, INK, slabel)
+
+  -- The centre is the one node you cannot click, which makes it the one that
+  -- most needs to say what it is: everything around it is what can follow it.
+  local cr = 22 * ui_scale
+  r.ImGui_SetCursorScreenPos(ctx, cx - cr, cy - cr)
+  r.ImGui_InvisibleButton(ctx, "##conn_centre", cr * 2, cr * 2)
+  if r.ImGui_IsItemHovered(ctx) then
+    r.ImGui_DrawList_AddCircle(dl, cx, cy, cr + 3 * ui_scale, INK, 32, 2)
+    r.ImGui_SetTooltip(ctx, src_desc or "PREVIOUS chord")
+  end
+
+  for _, nd in ipairs(nodes) do
+    local kind = CONN_KIND[nd.c.kind] or CONN_KIND[2]
+    local label = chord_label(nd.c.root, nd.c.qual)
+    local tw = r.ImGui_CalcTextSize(ctx, label)
+    local pad = 6 * ui_scale
+    local bw, bh = tw + pad * 2, 17 * ui_scale
+    local bx, by = nd.x - bw * 0.5, nd.y - bh * 0.5
+
+    r.ImGui_DrawList_AddRectFilled(dl, bx, by, bx + bw, by + bh, with_alpha(kind.color, 0xCC), 4)
+    r.ImGui_DrawList_AddText(dl, bx + pad, by + 2 * ui_scale, 0x101014FF, label)
+
+    r.ImGui_SetCursorScreenPos(ctx, bx, by)
+    r.ImGui_InvisibleButton(ctx, string.format("##conn_%d_%d", nd.c.root, nd.c.qual), bw, bh)
+    if r.ImGui_IsItemClicked(ctx) then clicked = nd.c end
+    if r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_DrawList_AddRect(dl, bx - 2, by - 2, bx + bw + 2, by + bh + 2, INK, 4, 0, 2)
+      r.ImGui_SetTooltip(ctx, label .. "  —  " .. kind.name)
+    end
+  end
+
+  r.ImGui_SetCursorScreenPos(ctx, x0, y0 + h)
+  r.ImGui_Dummy(ctx, w, 2)
+  return clicked
 end
 
 local function draw_harmony(ctx)
@@ -2479,6 +2703,10 @@ local function draw_harmony(ctx)
     r.ImGui_SetCursorScreenPos(ctx, x, y)
     if r.ImGui_InvisibleButton(ctx, "##hmcell_" .. i, cell_w, cell_h) then
       hm_edit_step = i
+      -- One selection, not two. The plugin computes its suggestion map from
+      -- its own Edit Bar, so selecting a step here moves that too -- otherwise
+      -- the graph below answers for a step you are not looking at.
+      hm_set_param(7, i + 1)
     end
     if r.ImGui_IsItemClicked(ctx, 1) and is_filled then
       r.gmem_write(960097, i + 1)
@@ -2494,6 +2722,35 @@ local function draw_harmony(ctx)
   r.ImGui_Text(ctx, string.format("Step %d:", hm_edit_step + 1))
   r.ImGui_SameLine(ctx)
 
+  -- The suggestion map, from the plugin's own theory. This is the primary way
+  -- to move: it answers "what can follow this chord", which the twelve roots
+  -- below cannot. They stay for when you already know what you want.
+  local conn_src, conn_list = read_conn_map()
+  if #conn_list > 0 then
+    -- What the centre actually is: the chord before this step, or the key's
+    -- own chord when that step is empty -- which is what the plugin falls back
+    -- to. Saying "previous" when it is really the tonic would be a small lie
+    -- in the one place you look to get your bearings.
+    local prev_step = hm_edit_step > 0 and (hm_edit_step - 1) or 0
+    local prev_chord = hm_state.chords[prev_step]
+    local prev_filled = prev_chord and prev_chord.root >= 0 and prev_chord.root < 12
+    local src_desc = prev_filled
+      and string.format("PREVIOUS chord — step %d\nEverything around it is what can follow it.", prev_step + 1)
+      or string.format("The key, %s %s\nStep %d is empty, so there is no previous chord to lead from.",
+          NOTE_NAMES[key_root + 1], key_mode == 1 and "minor" or "major", prev_step + 1)
+
+    local picked = draw_conn_graph(ctx, conn_src, conn_list, src_desc)
+    if picked then
+      r.gmem_write(960091, hm_edit_step)
+      r.gmem_write(960092, picked.qual + 1)
+      r.gmem_write(960090, picked.root + 1)
+    end
+    r.ImGui_TextDisabled(ctx,
+      "suggestions from " .. chord_label(conn_src.root, conn_src.qual)
+      .. " — click one to put it on step " .. (hm_edit_step + 1))
+    r.ImGui_Spacing(ctx)
+  end
+
   -- Root + Quality combined editor
   -- Clicking a root sets the chord immediately (defaults to maj if step was empty)
   -- Clicking a quality changes quality of the existing chord
@@ -2502,32 +2759,64 @@ local function draw_harmony(ctx)
   local cur_qual = cur_chord and cur_chord.qual or 0
   local is_filled_step = cur_root >= 0 and cur_root < 12
 
+  if r.ImGui_CollapsingHeader(ctx, "Set by hand##hm_manual") then
   for n = 0, 11 do
     if n > 0 then r.ImGui_SameLine(ctx) end
     local is_active = (cur_root == n)
-    if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
-    if r.ImGui_SmallButton(ctx, NOTE_NAMES[n + 1] .. "##hmroot" .. n) then
-      -- Set root
-      r.gmem_write(960091, hm_edit_step)
-      r.gmem_write(960090, n + 1)
-      -- If step was empty, also set quality to maj
-      if not is_filled_step then
-        r.gmem_write(960091, hm_edit_step)
-        r.gmem_write(960092, 1)  -- maj = 0+1
-      end
+    local degree = diatonic_degree(n, key_root, key_mode)
+    local want_qual = default_quality_for(n, key_root, key_mode)
+
+    if is_active then
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF)
+    elseif degree then
+      -- In the key: worth reaching for, so it does not look like the other
+      -- five. Roman numeral rather than a colour code, since that is the
+      -- thing a player is already thinking in.
+      r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x3A4A66FF)
     end
-    if is_active then r.ImGui_PopStyleColor(ctx) end
+
+    -- PushID, not "##" in the label: "C#" .. "##hmroot1" reads as C###hmroot1,
+    -- and ImGui ends a label at the first "##" -- which lands inside the note
+    -- name. Every sharp lost its sharp and showed as a natural.
+    r.ImGui_PushID(ctx, "hmroot" .. n)
+    if r.ImGui_SmallButton(ctx, NOTE_NAMES[n + 1]) then
+      -- Root and quality together, in one command: the chord you asked for
+      -- arrives in one click rather than needing a quality press to become
+      -- real. In the key you get that degree's own chord; out of it you get a
+      -- dominant seventh, which is the tritone a passing chord is usually
+      -- reaching for.
+      r.gmem_write(960091, hm_edit_step)
+      r.gmem_write(960092, want_qual + 1)
+      r.gmem_write(960090, n + 1)
+    end
+    r.ImGui_PopID(ctx)
+
+    if r.ImGui_IsItemHovered(ctx) then
+      r.ImGui_SetTooltip(ctx, degree
+        and (((key_mode == 1) and ROMAN_MINOR or ROMAN)[degree] .. " of " .. NOTE_NAMES[key_root + 1]
+             .. (key_mode == 1 and " minor" or " major")
+             .. "  ->  " .. NOTE_NAMES[n + 1] .. QUALITY_NAMES[want_qual + 1])
+        or ("out of key  ->  " .. NOTE_NAMES[n + 1] .. "7, a passing dominant"))
+    end
+    if is_active or degree then r.ImGui_PopStyleColor(ctx) end
   end
 
   -- Quality buttons
-  local qual_labels = {"maj", "min", "7", "maj7", "min7", "dim", "aug", "sus4", "sus2"}
+  -- {label, plugin quality index}. Ordered by how often you reach for them,
+  -- not by their numbering. sus2 is absent on purpose: every index in the
+  -- plugin is claimed by another chord, so its sus2 branch cannot be reached.
+  local qual_choices = {
+    {"maj", 0}, {"min", 1}, {"7", 4}, {"maj7", 2}, {"min7", 3},
+    {"dim", 5}, {"aug", 6}, {"dim7", 7}, {"m7b5", 8}, {"sus4", 10},
+  }
   r.ImGui_Text(ctx, "Quality:")
   r.ImGui_SameLine(ctx)
-  for q = 0, #qual_labels - 1 do
-    if q > 0 then r.ImGui_SameLine(ctx) end
+  for qi = 1, #qual_choices do
+    if qi > 1 then r.ImGui_SameLine(ctx) end
+    local label, q = qual_choices[qi][1], qual_choices[qi][2]
     local is_active = is_filled_step and cur_qual == q
     if is_active then r.ImGui_PushStyleColor(ctx, r.ImGui_Col_Button(), 0x44AA44FF) end
-    if r.ImGui_SmallButton(ctx, qual_labels[q + 1] .. "##hmqual" .. q) then
+    if r.ImGui_SmallButton(ctx, label .. "##hmqual" .. q) then
       r.gmem_write(960091, hm_edit_step)
       r.gmem_write(960092, q + 1)
       -- If step had no root yet, default to the current key root
@@ -2540,9 +2829,12 @@ local function draw_harmony(ctx)
     if is_active then r.ImGui_PopStyleColor(ctx) end
   end
 
-  -- Clear step button
-  local cur_chord = hm_state.chords[hm_edit_step]
-  if cur_chord and cur_chord.root >= 0 and cur_chord.root < 12 then
+  end  -- "Set by hand"
+
+  -- Clear stays out in the open: it is not a manual alternative to anything,
+  -- it is how you undo a chord you did not want.
+  local cur_chord2 = hm_state.chords[hm_edit_step]
+  if cur_chord2 and cur_chord2.root >= 0 and cur_chord2.root < 12 then
     if r.ImGui_SmallButton(ctx, "Clear Step##hmclr") then
       r.gmem_write(960097, hm_edit_step + 1)
     end
@@ -2593,8 +2885,10 @@ local function draw_harmony(ctx)
     r.ImGui_EndPopup(ctx)
   end
 
-  -- Parts table (read-only — edit in Harmony Map plugin)
-  if r.ImGui_BeginTable(ctx, "hm_parts", 7, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
+  -- Parts and sequence are read-only here, so they fold away: they were taking
+  -- the height the chord work needs, to show something you cannot act on.
+  local song_open = r.ImGui_CollapsingHeader(ctx, "Song parts & sequence##hm_song")
+  if song_open and r.ImGui_BeginTable(ctx, "hm_parts", 7, r.ImGui_TableFlags_Borders() | r.ImGui_TableFlags_RowBg() | r.ImGui_TableFlags_SizingFixedFit()) then
     r.ImGui_TableSetupColumn(ctx, "#", 0, 20)
     r.ImGui_TableSetupColumn(ctx, "Type", 0, 65)
     r.ImGui_TableSetupColumn(ctx, "N", 0, 25)
@@ -2645,9 +2939,12 @@ local function draw_harmony(ctx)
     end
     r.ImGui_EndTable(ctx)
   end
-  r.ImGui_TextDisabled(ctx, "Open Harmony Map plugin to edit parts & sequence")
+  if song_open then
+    r.ImGui_TextDisabled(ctx, "Open Harmony Map plugin to edit parts & sequence")
+  end
 
   -- Song sequence strip (read-only)
+  if song_open then
   r.ImGui_Spacing(ctx)
   r.ImGui_Text(ctx, "Sequence:")
   if song_seq_len == 0 then
@@ -2688,6 +2985,8 @@ local function draw_harmony(ctx)
   end
 
   -- === CONSUMERS ===
+  end  -- "Song parts & sequence"
+
   r.ImGui_Spacing(ctx)
   r.ImGui_Separator(ctx)
   r.ImGui_Text(ctx, "Listeners:")
@@ -2887,14 +3186,7 @@ end
 
 -- ---- Metering Tab ----
 
--- Ink. Values, labels and axes wear text colors, never a series color -- the
--- colored mark beside them is what carries identity.
-local INK        = 0xE6E6E6FF
-local INK_DIM    = 0x9A9A9AFF
-local INK_FAINT  = 0x5A5A5AFF
-local GRID       = 0x2E2E2EFF
-local SURFACE    = 0x14141AFF
-local STATUS_BAD = 0xD03B3BFF   -- reserved: only ever means over-ceiling
+-- Ink and surfaces live at the top of the file; see the palette there.
 
 -- Frequency is an ORDERED dimension, so the spectrum gets one hue stepped
 -- light to dark, not the rainbow a spectrum analyzer usually reaches for --
@@ -3812,10 +4104,6 @@ local function room_slot_color(s)
   local g8 = math.floor(0x9A - t * 0x20)
   local b8 = math.floor(0xC8 - t * 0x40)
   return (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF
-end
-
-local function with_alpha(color, a)
-  return (color & 0xFFFFFF00) | (a & 0xFF)
 end
 
 local function draw_room_plan(ctx, st, owners, room, fi)

@@ -114,8 +114,21 @@ song_cur_seq = -1;  // currently playing sequence index (runtime)
 G_COND_BUS       = 960100;  // broadcast base
 COND_PARTS     = 960110;  // song parts mirror (16×8 = 128)
 COND_SEQ       = 960240;  // song sequence mirror (64)
+// The drum mirror used to be written at COND_SEQ + 64, which is 960304 -- and
+// 64 cells from there runs through COND_OCT at 960310 and straight across the
+// song command bus at 960330. It was overwriting the octave mirror every
+// block, and writing drum numbers into the command opcode: a sequence long
+// enough to reach entry 26 was feeding gmem[960330], where 9 means factory
+// reset. Given its own space now, clear of both.
+COND_SEQ_DRUM  = 960500;  // song sequence drum mirror (64)
+G_HM_CONN      = 960600;  // connection map mirror: count, source chord, 24 x 4
 COND_OCT       = 960310;  // song part octave mirror (16)
-COND_PAT_STRUCT = 960400; // pattern structure (16×80 = 1280)
+// 16 x 80 = 1280 cells, which does not fit in what is left of G_HARMONY_BUS
+// -- from 960400 it ran to 961679, past the end of the region at 960999 and
+// 320 cells deep into G_DRONE_BUS at 961100. From pattern 9 on, this broadcast
+// was writing pattern step counts over the notes the drone voices read, every
+// block. Its own region now, with room.
+COND_PAT_STRUCT = 975000; // pattern structure (16×80 = 1280), region G_HM_PAT_STRUCT
 
 // ============================================================================
 //  UNDO SYSTEM  (Ctrl+Z / Ctrl+Y)
@@ -279,6 +292,72 @@ function build_diatonic(key_root, mode) local(i) (
     DIATONIC[12]= (key_root+7)%12;DIATONIC[13]= 1; DIATONIC[14]= 4;  // v min
     DIATONIC[15]= (key_root+8)%12;DIATONIC[16]= 0; DIATONIC[17]= 5;  // VI maj
     DIATONIC[18]= (key_root+10)%12;DIATONIC[19]=0; DIATONIC[20]= 6;  // VII maj
+  );
+);
+
+// ---- Key changes: transpose, and re-fit to the diatonic ----
+//
+// Both of these were written inline in the click handlers, so they existed
+// only for someone clicking the plugin's own header. The manager's key and
+// mode commands moved the slider and nothing else, which meant changing key
+// from the manager left every chord where it was: the same control, two
+// behaviours, depending on which window you used. They are functions now, and
+// both paths call them.
+//
+// Working copy AND every bank pattern, because a key belongs to the song, not
+// to whichever pattern happens to be loaded.
+
+function hm_transpose_all(delta) local(si, kp, kb, ki) (
+  delta = (delta + 12) % 12;
+  delta != 0 ? (
+    si = 0;
+    loop(32,
+      CHORD_FILLED[si] ? CHORD_SLOTS[si*2] = (CHORD_SLOTS[si*2] + delta) % 12;
+      si += 1;
+    );
+    kp = 0;
+    loop(num_pats,
+      kp != current_pat ? (
+        kb = PAT_BASE + kp * PAT_SIZE;
+        ki = 0;
+        loop(32,
+          (kb+PO_FILLED)[ki] ? (kb+PO_SLOTS)[ki*2] = ((kb+PO_SLOTS)[ki*2] + delta) % 12;
+          ki += 1;
+        );
+      );
+      kp += 1;
+    );
+  );
+);
+
+// Give every filled chord the quality its root has in the current diatonic.
+// A chord whose root is not in the key keeps what it has -- it was put there
+// on purpose, and re-fitting would be the one edit nobody asked for.
+function hm_refit_all() local(si, sr, di, kp, kb, ki, kr) (
+  si = 0;
+  loop(32,
+    CHORD_FILLED[si] ? (
+      sr = CHORD_SLOTS[si*2];
+      di = 0;
+      loop(7, DIATONIC[di*3] == sr ? CHORD_SLOTS[si*2+1] = DIATONIC[di*3+1]; di += 1);
+    );
+    si += 1;
+  );
+  kp = 0;
+  loop(num_pats,
+    kp != current_pat ? (
+      kb = PAT_BASE + kp * PAT_SIZE;
+      ki = 0;
+      loop(32,
+        (kb+PO_FILLED)[ki] ? (
+          kr = (kb+PO_SLOTS)[ki*2];
+          di = 0;
+          loop(7, DIATONIC[di*3] == kr ? (kb+PO_SLOTS)[ki*2+1] = DIATONIC[di*3+1]; di += 1);
+        );
+        ki += 1;
+      );
+    );
+    kp += 1;
   );
 );
 
@@ -724,7 +803,7 @@ gmem[G_COND_BUS + 7] = song_cur_seq >= 0 ? SONG_SEQ_SRC[song_cur_seq] : -1;
 
 _ci = 0; loop(MAX_SONG_PARTS * SONG_PART_SIZE, gmem[COND_PARTS + _ci] = SONG_PARTS[_ci]; _ci += 1);
 _ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + _ci] = SONG_SEQ[_ci]; _ci += 1);
-_ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ + 64 + _ci] = SONG_SEQ_DRUM[_ci]; _ci += 1);
+_ci = 0; loop(MAX_SONG_SEQ, gmem[COND_SEQ_DRUM + _ci] = SONG_SEQ_DRUM[_ci]; _ci += 1);
 _ci = 0; loop(MAX_SONG_PARTS, gmem[COND_OCT + _ci] = SONG_PART_OCT[_ci]; _ci += 1);
 
 pat_save(current_pat);
@@ -1016,9 +1095,31 @@ conn_dirty ? (
     _mq = CHORD_SLOTS[_prev_step * 2 + 1];
     compute_connections(_mr, _mq);
   ) : (
-    compute_connections(slider1, slider2 == 0 ? 0 : 1);
+    _mr = slider1; _mq = slider2 == 0 ? 0 : 1;
+    compute_connections(_mr, _mq);
   );
   conn_dirty = 0;
+);
+
+// ---- Publish the connection map ----
+// The map is this plugin's own theory -- what each chord can move to, and by
+// what relation -- and it was only ever drawn in this window. Published, any
+// other view can show the same suggestions rather than reimplementing them and
+// drifting, which is what happened to the quality table.
+//
+//   G_HM_CONN + 0        count
+//           + 1, + 2     the chord the suggestions are FROM
+//           + 10 + i*4   root, quality, type, ring
+gmem[G_HM_CONN] = conn_count;
+gmem[G_HM_CONN + 1] = _mr;
+gmem[G_HM_CONN + 2] = _mq;
+_pci = 0;
+loop(min(conn_count, 24),
+  gmem[G_HM_CONN + 10 + _pci*4]     = CONN_MAP[_pci*3];
+  gmem[G_HM_CONN + 10 + _pci*4 + 1] = CONN_MAP[_pci*3 + 1];
+  gmem[G_HM_CONN + 10 + _pci*4 + 2] = CONN_MAP[_pci*3 + 2];
+  gmem[G_HM_CONN + 10 + _pci*4 + 3] = CONN_RING[_pci];
+  _pci += 1;
 );
 
 // ---- Manager command bus (gmem[960090-960099], consumed-by-zeroing) ----
@@ -1033,11 +1134,18 @@ conn_dirty ? (
 // 960098: transport toggle (1=start/stop)
 // 960099: set key mode (0=major, 1=minor)
 
-gmem[960090] > 0 || gmem[960090] == 0 && gmem[960092] > 0 ? (
+gmem[960090] > 0 || gmem[960092] > 0 ? (
+  // The step argument is read ONCE, here, and released only when both
+  // handlers below have had it. The root handler used to zero 960091 as it
+  // finished, so a root and a quality sent together -- which is what filling
+  // an empty step does -- put the root on the intended step and the quality on
+  // step 1.
+  _hm_step_arg = gmem[960091] | 0;
+
   // Check for root set (960090 written last as trigger, but 0=C is valid)
   // Use 960090 = root+1 (1-12) so 0 = "no command"
   gmem[960090] > 0 ? (
-    _hm_step = gmem[960091] | 0;
+    _hm_step = _hm_step_arg;
     _hm_root = (gmem[960090] | 0) - 1;
     _hm_step >= 0 && _hm_step < 32 && _hm_root >= 0 && _hm_root < 12 ? (
       CHORD_SLOTS[_hm_step * 2] = _hm_root;
@@ -1046,11 +1154,10 @@ gmem[960090] > 0 || gmem[960090] == 0 && gmem[960092] > 0 ? (
       pat_save(current_pat);
     );
     gmem[960090] = 0;
-    gmem[960091] = 0;
   );
   // Quality set (960092 = quality+1, 1-indexed)
   gmem[960092] > 0 ? (
-    _hm_step = gmem[960091] | 0;
+    _hm_step = _hm_step_arg;
     _hm_qual = (gmem[960092] | 0) - 1;
     _hm_step >= 0 && _hm_step < 32 ? (
       CHORD_SLOTS[_hm_step * 2 + 1] = _hm_qual;
@@ -1060,6 +1167,7 @@ gmem[960090] > 0 || gmem[960090] == 0 && gmem[960092] > 0 ? (
     );
     gmem[960092] = 0;
   );
+  gmem[960091] = 0;
 );
 gmem[960093] > 0 ? (
   _hm_ns = gmem[960093] | 0;
@@ -1073,7 +1181,12 @@ gmem[960093] > 0 ? (
 gmem[960094] > 0 ? (
   _hm_kr = (gmem[960094] | 0) - 1;
   _hm_kr >= 0 && _hm_kr < 12 ? (
+    // Transpose, exactly as the header arrows do. This used to move the
+    // slider alone, so a key change from the manager renamed the key and left
+    // every chord behind -- one control with two behaviours.
+    hm_transpose_all(_hm_kr - slider1);
     slider1 = _hm_kr;
+    build_diatonic(slider1, slider2);
     sliderchange(slider1);
     conn_dirty = 1;
   );
@@ -1113,6 +1226,8 @@ gmem[960099] > 0 ? (
   _hm_mode = (gmem[960099] | 0) - 1;
   _hm_mode >= 0 && _hm_mode <= 1 ? (
     slider2 = _hm_mode;
+    build_diatonic(slider1, slider2);
+    hm_refit_all();
     sliderchange(slider2);
     conn_dirty = 1;
   );
@@ -1548,15 +1663,8 @@ gfx_drawstr("Oct");
   mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
     _old_key = slider1;
     slider1 = (slider1 + 11) % 12;
-    _kd = (slider1 - _old_key + 12) % 12;
-    _si = 0; loop(32, CHORD_FILLED[_si] ? CHORD_SLOTS[_si*2] = (CHORD_SLOTS[_si*2] + _kd) % 12; _si += 1;);
-    _kp = 0; loop(num_pats,
-      _kp != current_pat ? (
-        _kb = PAT_BASE + _kp * PAT_SIZE;
-        _ki = 0; loop(32, (_kb+PO_FILLED)[_ki] ? (_kb+PO_SLOTS)[_ki*2] = ((_kb+PO_SLOTS)[_ki*2] + _kd) % 12; _ki+=1);
-      );
-      _kp += 1;
-    );
+    hm_transpose_all(slider1 - _old_key);
+    build_diatonic(slider1, slider2);
     sliderchange(slider1); conn_dirty = 1;
   );
   // > arrow: root up — transpose working copy + all bank patterns
@@ -1564,15 +1672,8 @@ gfx_drawstr("Oct");
   mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
     _old_key = slider1;
     slider1 = (slider1 + 1) % 12;
-    _kd = (slider1 - _old_key + 12) % 12;
-    _si = 0; loop(32, CHORD_FILLED[_si] ? CHORD_SLOTS[_si*2] = (CHORD_SLOTS[_si*2] + _kd) % 12; _si += 1;);
-    _kp = 0; loop(num_pats,
-      _kp != current_pat ? (
-        _kb = PAT_BASE + _kp * PAT_SIZE;
-        _ki = 0; loop(32, (_kb+PO_FILLED)[_ki] ? (_kb+PO_SLOTS)[_ki*2] = ((_kb+PO_SLOTS)[_ki*2] + _kd) % 12; _ki+=1);
-      );
-      _kp += 1;
-    );
+    hm_transpose_all(slider1 - _old_key);
+    build_diatonic(slider1, slider2);
     sliderchange(slider1); conn_dirty = 1;
   );
   // mode toggle — remap working copy + all bank patterns to new diatonic
@@ -1580,28 +1681,7 @@ gfx_drawstr("Oct");
   mouse_y >= _kc_y && mouse_y < _kc_y + _kc_h ? (
     slider2 = slider2 == 0 ? 1 : 0;
     build_diatonic(slider1, slider2);
-    // remap working copy
-    _si = 0; loop(32,
-      CHORD_FILLED[_si] ? (
-        _sr = CHORD_SLOTS[_si*2]; _di = 0;
-        loop(7, DIATONIC[_di*3] == _sr ? CHORD_SLOTS[_si*2+1] = DIATONIC[_di*3+1]; _di+=1);
-      );
-      _si += 1;
-    );
-    // remap all other bank patterns
-    _kp = 0; loop(num_pats,
-      _kp != current_pat ? (
-        _kb = PAT_BASE + _kp * PAT_SIZE;
-        _ki = 0; loop(32,
-          (_kb+PO_FILLED)[_ki] ? (
-            _sr = (_kb+PO_SLOTS)[_ki*2]; _di = 0;
-            loop(7, DIATONIC[_di*3] == _sr ? (_kb+PO_SLOTS)[_ki*2+1] = DIATONIC[_di*3+1]; _di+=1);
-          );
-          _ki += 1;
-        );
-      );
-      _kp += 1;
-    );
+    hm_refit_all();
     sliderchange(slider2); conn_dirty = 1;
   );
   // Octave [-] button
