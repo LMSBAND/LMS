@@ -1182,6 +1182,7 @@ notice_show = 0;
 //  POLYBLEP ANTIALIASING
 // ============================================================================
 
+// @cite valimaki-huovilainen-2007 -- polyBLEP discontinuity correction
 function polyblep(t, dt) (
   t < dt ? (
     t = t / dt;
@@ -2194,6 +2195,7 @@ mod_cutoff = smooth_cutoff_m;
 kfc = mod_cutoff / srate;
 kf = mod_cutoff / (srate * 2);
 kfc2 = kfc * kfc;
+// @cite stilson-smith-1996 -- ladder cutoff/resonance compensation polynomials
 kfcr = 1.8730 * kfc * kfc2 + 0.4955 * kfc2 - 0.6490 * kfc + 0.9988;
 kacr = -3.9364 * kfc2 + 1.8409 * kfc + 0.9968;
 tune = (1.0 - exp(-2 * $pi * kfcr * kf)) * vt;
@@ -2203,6 +2205,7 @@ input_l = mix_out;
 loop(2,
   inp = input_l - res_scaled * ladder_amf_m;
   filt_overload > 0 ? ( inp = inp * (1 + filt_overload * 3); );
+  // @cite huovilainen-2004 -- per-stage tanh nonlinearity, 2x oversampled
   MEM_LADDER[0] += tune * (lms_fast_tanh(inp * s0) - lms_fast_tanh(MEM_LADDER[0] * s0));
   MEM_LADDER[1] += tune * (lms_fast_tanh(MEM_LADDER[0] * s1) - lms_fast_tanh(MEM_LADDER[1] * s1));
   MEM_LADDER[2] += tune * (lms_fast_tanh(MEM_LADDER[1] * s2) - lms_fast_tanh(MEM_LADDER[2] * s2));

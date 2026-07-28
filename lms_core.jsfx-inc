@@ -152,6 +152,7 @@ function lms_lin2db(lin)
 // floating-point noise but not small enough to trigger fallback — this manifests
 // as hiss on note decay tails. The crossfade blends smoothly between ADAA and
 // fallback, eliminating both the hard-switch artifact and the noisy-division zone.
+// @cite parker-zavalishin-lebivic-2016 -- antiderivative antialiasing
 function lms_adaa_eval(x_now, x_prev, Fx_now, Fx_prev, f_mid)
   local(dx, adx, adaa_out, blend)
 (
@@ -213,6 +214,7 @@ function lms_bq_set_hp(freq, q)
 );
 
 // Lowpass
+// @cite rbj-cookbook -- biquad coefficient formulae
 function lms_bq_set_lp(freq, q)
   local(w0, cs, sn, alpha, a0_inv)
 (
@@ -1680,6 +1682,7 @@ function lms_interp_cubic(buf, pos, bmax)
 // ============================================================================
 //  SECTION 8: Spring Reverb Allpass (stateless, buffer-based)
 //
+// @cite schroeder-1962 -- allpass diffusion chain
 //  Single allpass unit for spring reverb / diffusion networks.
 //  Caller manages buffer position advancement.
 //
@@ -4804,6 +4807,7 @@ function lms_flanger_proc(x, depth, feedback, manual)
 );
 
 // ------------------------------------------------------------
+// @cite jot-chaigne-1991 -- feedback delay network with unitary mixing
 // lms_hall — FDN hall reverb (EHX Holy Grail Hall mode)
 //   4 delay lines (1499, 1693, 1951, 2237 samples) + Householder mixing.
 //   Caller allocates fdn_buf (4 * line_len) and pre_buf (power-of-2).

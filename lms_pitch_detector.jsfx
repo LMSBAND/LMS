@@ -20,6 +20,7 @@ slider8:100<20,500,1>-Min Note (ms)
   // ============================================================
   // DSP INIT
   // ============================================================
+  // @cite decheveigne-kawahara-2002 -- YIN f0 estimator
   // YIN pitch detector — buffers start at memory address 5000
   pd.lms_yin_init(5000, 80);
 
