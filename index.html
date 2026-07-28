@@ -4,44 +4,44 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0a0a0c">
+<meta name="theme-color" content="#0a0a0a">
 <title>LMS Plugin Suite</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Space+Grotesk:wght@300;400;500;700&family=Outfit:wght@200;300;400;700;900&family=IBM+Plex+Mono:wght@400;600;700&family=Instrument+Serif&display=swap');
 
   html {
-    background: #0a0a0c !important;
+    background: #0a0a0a !important;
     color-scheme: dark;
   }
 
   :root {
-    --bg: #0a0a0c;
-    --bg2: #0e0e12;
-    --bg3: #141418;
-    --evil-red: #ff2244;
-    --evil-glow: #ff224433;
-    --evil-dark: #1a0508;
-    --good-green: #4de88a;
-    --good-glow: #4de88a33;
-    --good-dark: #051a0c;
-    --orange: #f07a2e;
-    --orange-glow: #f07a2e33;
-    --blue: #4a8aff;
-    --dim: #444450;
-    --dimmer: #2a2a32;
-    --text: #d8d8dd;
-    --text-dim: #888890;
-    --money: #44dd66;
-    --amber: #f59e0b;
-    --amber-dim: #f59e0b33;
-    --da-surface: #08080f;
-    --da-border: #1a1a25;
-    --da-text-dim: #666;
-    --da-text-dead: #333;
-    --da-green: #22c55e;
-    --da-red: #ef4444;
-    --da-blue: #3b82f6;
-    --da-purple: #a78bfa;
+    --bg: #0a0a0a;
+    --bg2: #0e0e0e;
+    --bg3: #141414;
+    --evil-red: #5a5a5a;
+    --evil-glow: #5a5a5a33;
+    --evil-dark: #0d0d0d;
+    --good-green: #ededed;
+    --good-glow: #ededed33;
+    --good-dark: #171717;
+    --orange: #b0b0b0;
+    --orange-glow: #b0b0b033;
+    --blue: #858585;
+    --dim: #454545;
+    --dimmer: #2b2b2b;
+    --text: #d8d8d8;
+    --text-dim: #898989;
+    --money: #dcdcdc;
+    --amber: #e6e6e6;
+    --amber-dim: #e6e6e633;
+    --da-surface: #090909;
+    --da-border: #1b1b1b;
+    --da-text-dim: #666666;
+    --da-text-dead: #333333;
+    --da-green: #c8c8c8;
+    --da-red: #6e6e6e;
+    --da-blue: #838383;
+    --da-purple: #9a9a9a;
     --da-mono: 'IBM Plex Mono', monospace;
     --da-serif: 'Instrument Serif', serif;
   }
@@ -49,8 +49,8 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a0c !important;
-    color: #d8d8dd;
+    background: #0a0a0a !important;
+    color: #d8d8d8;
     font-family: 'Outfit', sans-serif;
     overflow-x: hidden;
   }
@@ -138,7 +138,7 @@
 
   .side.evil {
     background: linear-gradient(135deg, var(--evil-dark) 0%, var(--bg) 100%);
-    border-right: 1px solid #1f0810;
+    border-right: 1px solid #0d0d0d;
   }
 
   .side.good {
@@ -166,8 +166,8 @@
     display: inline-block;
   }
 
-  .side.evil .dot { background: var(--evil-red); box-shadow: 0 0 10px var(--evil-red); }
-  .side.good .dot { background: var(--good-green); box-shadow: 0 0 10px var(--good-green); }
+  .side.evil .dot { background: var(--evil-red); box-shadow: none; }
+  .side.good .dot { background: var(--good-green); box-shadow: none; }
 
   .section-title {
     font-family: 'Outfit', sans-serif;
@@ -198,7 +198,7 @@
 
   .flow-node {
     padding: 0.75rem 1rem;
-    border-radius: 6px;
+    border-radius: 0px;
     position: relative;
     border: 1px solid;
     transition: all 0.3s ease;
@@ -221,17 +221,17 @@
   }
 
   .side.evil .flow-node {
-    border-color: #2a1015;
-    background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
-    color: #cc8888;
+    border-color: #161616;
+    background: linear-gradient(135deg, #0b0b0b 0%, #080808 100%);
+    color: #969696;
   }
 
   .side.evil .flow-node .node-name { color: var(--evil-red); }
 
   .side.good .flow-node {
-    border-color: #0a2a15;
-    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
-    color: #88cc99;
+    border-color: #222222;
+    background: linear-gradient(135deg, #111111 0%, #0b0b0b 100%);
+    color: #bababa;
   }
 
   .side.good .flow-node .node-name { color: var(--good-green); }
@@ -253,8 +253,8 @@
     transform: translateX(-50%);
   }
 
-  .side.evil .flow-arrow::before { background: #2a1015; }
-  .side.good .flow-arrow::before { background: #0a2a15; }
+  .side.evil .flow-arrow::before { background: #161616; }
+  .side.good .flow-arrow::before { background: #222222; }
 
   .flow-arrow span {
     font-size: 0.6rem;
@@ -263,17 +263,17 @@
     z-index: 1;
   }
 
-  .side.evil .flow-arrow span { color: #661122; background: var(--bg); }
-  .side.good .flow-arrow span { color: #116633; background: var(--bg); }
+  .side.evil .flow-arrow span { color: #242424; background: var(--bg); }
+  .side.good .flow-arrow span { color: #505050; background: var(--bg); }
 
   /* Money/toll nodes */
   .flow-node.toll {
-    border-color: #4a3000;
-    background: linear-gradient(135deg, #1a1200 0%, #0d0a00 100%);
+    border-color: #323232;
+    background: linear-gradient(135deg, #121212 0%, #0a0a0a 100%);
   }
 
-  .flow-node.toll .node-name { color: #ffaa00; }
-  .flow-node.toll .node-detail { color: #aa8833; }
+  .flow-node.toll .node-name { color: #b0b0b0; }
+  .flow-node.toll .node-detail { color: #898989; }
 
   .flow-node.toll::after {
     content: '$';
@@ -282,7 +282,7 @@
     top: 50%;
     transform: translateY(-50%);
     font-size: 1.2rem;
-    color: #ffaa0044;
+    color: #b0b0b044;
     font-weight: 800;
   }
 
@@ -290,11 +290,11 @@
   .flow-node.gmem {
     border-color: var(--orange);
     border-style: dashed;
-    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+    background: linear-gradient(135deg, #111111 0%, #0a0a0a 100%);
   }
 
   .flow-node.gmem .node-name { color: var(--orange); }
-  .flow-node.gmem .node-detail { color: #cc8844; }
+  .flow-node.gmem .node-detail { color: #929292; }
 
   /* ============================================ */
   /* DIVIDER */
@@ -335,14 +335,14 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1px;
-    background: #1a1a1f;
+    background: #1a1a1a;
     margin: 0;
   }
 
   .stat {
     padding: 2.5rem 2rem;
     text-align: center;
-    background: #0a0a0c;
+    background: #0a0a0a;
   }
 
   .stat .number {
@@ -353,9 +353,9 @@
     margin-bottom: 0.5rem;
   }
 
-  .stat .number.evil { color: #ff2244; text-shadow: 0 0 20px #ff224444; }
-  .stat .number.good { color: #4de88a; text-shadow: 0 0 20px #4de88a44; }
-  .stat .number.orange { color: #f07a2e; text-shadow: 0 0 20px #f07a2e44; }
+  .stat .number.evil { color: #535353; text-shadow: 0 0 20px #53535344; }
+  .stat .number.good { color: #c0c0c0; text-shadow: 0 0 20px #c0c0c044; }
+  .stat .number.orange { color: #8e8e8e; text-shadow: 0 0 20px #8e8e8e44; }
 
   .stat .label {
     font-size: 0.8rem;
@@ -395,7 +395,7 @@
   .bus-diagram {
     background: var(--bg2);
     border: 1px solid var(--dimmer);
-    border-radius: 8px;
+    border-radius: 0px;
     padding: 2rem;
     margin-bottom: 3rem;
     position: relative;
@@ -430,7 +430,7 @@
   .bus-track-box {
     width: 70px;
     height: 50px;
-    border-radius: 4px;
+    border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -448,38 +448,38 @@
   }
 
   .bus-diagram.evil .bus-track-box {
-    border: 1px solid #2a1015;
-    background: #150810;
-    color: #cc8888;
+    border: 1px solid #161616;
+    background: #0b0b0b;
+    color: #969696;
   }
 
   .bus-diagram.evil .bus-track-box.send {
-    border-color: #4a3000;
-    background: #1a1200;
-    color: #ddaa44;
+    border-color: #323232;
+    background: #121212;
+    color: #adadad;
   }
 
   .bus-diagram.evil .bus-track-box.master {
-    border-color: #661122;
-    background: #2a0810;
+    border-color: #242424;
+    background: #101010;
     color: var(--evil-red);
   }
 
   .bus-diagram.good .bus-track-box {
-    border: 1px solid #0a2a15;
-    background: #081508;
-    color: #88cc99;
+    border: 1px solid #222222;
+    background: #111111;
+    color: #bababa;
   }
 
   .bus-diagram.good .bus-track-box.gmem-node {
     border: 1px dashed var(--orange);
-    background: #1a0f05;
+    background: #111111;
     color: var(--orange);
   }
 
   .bus-diagram.good .bus-track-box.master {
-    border-color: #116633;
-    background: #082a10;
+    border-color: #505050;
+    background: #212121;
     color: var(--good-green);
   }
 
@@ -498,20 +498,20 @@
     display: inline-block;
     padding: 0.2rem 0.6rem;
     margin: 0.15rem;
-    border-radius: 3px;
+    border-radius: 2px;
     font-size: 0.55rem;
   }
 
   .bus-diagram.evil .route {
-    background: #1a0810;
-    border: 1px solid #2a1015;
-    color: #aa6666;
+    background: #0c0c0c;
+    border: 1px solid #161616;
+    color: #747474;
   }
 
   .bus-diagram.good .route {
-    background: #0a1508;
-    border: 1px solid #0a2a15;
-    color: #66aa77;
+    background: #121212;
+    border: 1px solid #222222;
+    color: #989898;
   }
 
   .bus-diagram.good .route.gmem-route {
@@ -530,7 +530,7 @@
     opacity: 0.45;
   }
   .evil-cables path { fill: none; stroke-linecap: round; }
-  .evil-cables circle { fill: #1a0808; stroke-width: 1.5; }
+  .evil-cables circle { fill: #0c0c0c; stroke-width: 1.5; }
 
   .bus-diagram.evil .bus-tracks { position: relative; z-index: 1; }
   .bus-diagram.evil .bus-connections { position: relative; z-index: 1; }
@@ -540,8 +540,8 @@
   .cable-jack {
     width: 7px; height: 7px;
     border-radius: 50%;
-    border: 1.5px solid #773333;
-    background: #1a0808;
+    border: 1.5px solid #414141;
+    background: #0c0c0c;
     position: absolute;
   }
   .cable-jack.bot { bottom: -4px; left: 50%; transform: translateX(-50%); }
@@ -554,8 +554,8 @@
     display: inline-block;
     width: 10px; height: 10px;
     border-radius: 50%;
-    border: 1px solid #553333;
-    background: radial-gradient(circle at 35% 35%, #332020, #0a0505);
+    border: 1px solid #3a3a3a;
+    background: radial-gradient(circle at 35% 35%, #242424, #060606);
     vertical-align: middle;
     margin: 0 3px;
     position: relative;
@@ -564,7 +564,7 @@
     content: '';
     position: absolute;
     width: 2px; height: 4px;
-    background: #664444;
+    background: #4b4b4b;
     top: 2px; left: 50%;
     transform: translateX(-50%) rotate(-30deg);
     border-radius: 1px;
@@ -576,14 +576,14 @@
     background: linear-gradient(90deg, transparent 5%, var(--good-green) 30%, var(--good-green) 70%, transparent 95%);
     margin: 1.2rem 0 0.5rem;
     border-radius: 2px;
-    box-shadow: 0 0 12px rgba(34,197,94,0.25), 0 0 4px rgba(34,197,94,0.4);
+    box-shadow: none;
     position: relative;
   }
   .data-bus-label {
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.5rem;
-    color: rgba(34,197,94,0.5);
+    color: rgba(155,155,155,0.5);
     letter-spacing: 0.2em;
     margin-bottom: 0.5rem;
   }
@@ -594,15 +594,15 @@
     margin: 0 auto;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(to bottom, rgba(34,197,94,0.35), rgba(34,197,94,0.08));
+    background: linear-gradient(to bottom, rgba(155,155,155,0.35), rgba(155,155,155,0.08));
   }
   .data-line::after {
     content: '';
     position: absolute;
     width: 3px; height: 3px;
     border-radius: 50%;
-    background: #44ffaa;
-    box-shadow: 0 0 6px rgba(68,255,170,0.8);
+    background: #d1d1d1;
+    box-shadow: none;
     left: -1px;
     animation: data-pulse 1.8s ease-in-out infinite;
   }
@@ -661,9 +661,9 @@
     color: var(--orange);
     padding: 1rem 2rem;
     border: 1px dashed var(--orange);
-    border-radius: 6px;
+    border-radius: 0px;
     display: inline-block;
-    background: #1a0f0522;
+    background: #11111122;
     letter-spacing: 0.02em;
     word-break: break-all;
   }
@@ -726,7 +726,7 @@
 
   .da-mode-btn {
     padding: 8px 20px;
-    border-radius: 6px;
+    border-radius: 0px;
     border: 2px solid var(--da-text-dead);
     background: transparent;
     color: var(--da-text-dim);
@@ -744,9 +744,9 @@
   }
 
   .da-mode-btn.da-active-trad {
-    border-color: #555;
+    border-color: #555555;
     background: #55555520;
-    color: #888;
+    color: #888888;
   }
 
   .da-demo-layout {
@@ -760,8 +760,8 @@
   .da-strum-area {
     width: 60px;
     height: 300px;
-    border-radius: 10px;
-    background: linear-gradient(180deg, #0a0a14, #12101a 50%, #1a1018);
+    border-radius: 0px;
+    background: linear-gradient(180deg, #0b0b0b, #111111 50%, #131313);
     border: 1px solid var(--da-border);
     position: relative;
     cursor: pointer;
@@ -787,7 +787,7 @@
     position: absolute;
     top: 0; bottom: 0;
     width: 1px;
-    background: rgba(200,160,80,0.12);
+    background: rgba(163,163,163,0.12);
     transition: background 0.2s;
   }
 
@@ -808,7 +808,7 @@
     text-align: center;
     font-family: var(--da-mono);
     font-size: 7px;
-    color: #444;
+    color: #444444;
     pointer-events: none;
   }
 
@@ -824,14 +824,14 @@
   .da-tube {
     width: 44px;
     height: 60px;
-    border-radius: 11px 11px 5px 5px;
-    border: 1px solid #333;
+    border-radius: 0px 11px 5px 5px;
+    border: 1px solid #333333;
     position: relative;
     overflow: hidden;
     transition: box-shadow 0.08s;
   }
 
-  .da-tube.da-trad { border-color: #222; }
+  .da-tube.da-trad { border-color: #222222; }
 
   .da-tube-filament {
     position: absolute;
@@ -867,7 +867,7 @@
   .da-tube-pin {
     width: 2px;
     height: 4px;
-    background: #555;
+    background: #555555;
     border-radius: 0 0 1px 1px;
   }
 
@@ -881,13 +881,13 @@
 
   .da-matrix-wrap {
     border: 1px solid var(--da-border);
-    border-radius: 8px;
+    border-radius: 0px;
     padding: 6px;
     background: var(--da-surface);
   }
 
   .da-matrix-wrap.da-lms-mode {
-    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    box-shadow: none;
   }
 
   .da-matrix-grid {
@@ -941,15 +941,15 @@
 
   .da-meter-bar {
     height: 5px;
-    background: #111118;
-    border-radius: 3px;
+    background: #121212;
+    border-radius: 2px;
     overflow: hidden;
-    border: 1px solid #222;
+    border: 1px solid #222222;
   }
 
   .da-meter-fill {
     height: 100%;
-    border-radius: 3px;
+    border-radius: 2px;
     transition: width 0.08s;
   }
 
@@ -968,8 +968,8 @@
   .da-output-bar {
     width: 40px;
     height: 300px;
-    border-radius: 8px;
-    background: #0a0a14;
+    border-radius: 0px;
+    background: #0b0b0b;
     border: 1px solid var(--da-border);
     position: relative;
     overflow: hidden;
@@ -980,7 +980,7 @@
     bottom: 0;
     left: 4px;
     right: 4px;
-    border-radius: 4px 4px 0 0;
+    border-radius: 2px 4px 0 0;
     transition: height 0.06s;
   }
 
@@ -1008,15 +1008,15 @@
     max-width: 420px;
     margin: 20px auto 0;
     padding: 14px 16px;
-    border-radius: 8px;
-    background: #0c0c14;
+    border-radius: 0px;
+    background: #0d0d0d;
     border: 1px solid var(--amber-dim);
     transition: all 0.3s;
   }
 
   .da-miller-box.da-trad {
-    background: #111;
-    border-color: #222;
+    background: #111111;
+    border-color: #222222;
   }
 
   .da-miller-box h3 {
@@ -1030,7 +1030,7 @@
   .da-miller-box p {
     font-size: 11px;
     line-height: 1.6;
-    color: #999;
+    color: #999999;
   }
 
   .da-miller-box .da-highlight { color: var(--amber); }
@@ -1041,8 +1041,8 @@
   .da-miller-callout {
     margin-top: 8px;
     padding: 8px 12px;
-    border-radius: 5px;
-    background: rgba(245,158,11,0.06);
+    border-radius: 2px;
+    background: rgba(166,166,166,0.06);
     border: 1px solid var(--amber-dim);
     font-family: var(--da-mono);
     font-size: 10px;
@@ -1053,8 +1053,8 @@
 
   .da-miller-callout.da-dead {
     background: rgba(100,100,100,0.06);
-    border-color: #333;
-    color: #555;
+    border-color: #333333;
+    color: #555555;
   }
 
   /* === DA ARCHITECTURE COMPARISON === */
@@ -1076,16 +1076,16 @@
 
   .da-compare-col {
     padding: 20px;
-    border-radius: 10px;
+    border-radius: 0px;
   }
 
   .da-compare-col.da-trad-col {
-    background: #111;
-    border: 1px solid #222;
+    background: #111111;
+    border: 1px solid #222222;
   }
 
   .da-compare-col.da-lms-col {
-    background: #0c0c14;
+    background: #0d0d0d;
     border: 1px solid var(--amber-dim);
   }
 
@@ -1097,12 +1097,12 @@
     text-transform: uppercase;
   }
 
-  .da-compare-col.da-trad-col h3 { color: #666; }
+  .da-compare-col.da-trad-col h3 { color: #666666; }
   .da-compare-col.da-lms-col h3 { color: var(--amber); }
 
   .da-stage-box {
     padding: 8px 10px;
-    border-radius: 4px;
+    border-radius: 2px;
     margin-bottom: 6px;
     font-size: 11px;
   }
@@ -1110,13 +1110,13 @@
   .da-stage-box.da-trad {
     background: #1a1a1a;
     border: 1px solid #2a2a2a;
-    color: #777;
+    color: #777777;
   }
 
   .da-stage-box.da-lms {
-    background: rgba(245,158,11,0.05);
-    border: 1px solid rgba(245,158,11,0.15);
-    color: #bbb;
+    background: rgba(166,166,166,0.05);
+    border: 1px solid rgba(166,166,166,0.15);
+    color: #bbbbbb;
   }
 
   .da-stage-box .da-stage-name {
@@ -1126,16 +1126,16 @@
     letter-spacing: 0.5px;
   }
 
-  .da-stage-box.da-trad .da-stage-name { color: #888; }
+  .da-stage-box.da-trad .da-stage-name { color: #888888; }
   .da-stage-box.da-lms .da-stage-name { color: var(--amber); }
 
   .da-stage-box .da-stage-sub {
     font-size: 10px;
     margin-top: 2px;
-    color: #555;
+    color: #555555;
   }
 
-  .da-stage-box.da-lms .da-stage-sub { color: #888; }
+  .da-stage-box.da-lms .da-stage-sub { color: #888888; }
 
   .da-stage-arrow {
     text-align: center;
@@ -1143,7 +1143,7 @@
     font-size: 14px;
   }
 
-  .da-stage-arrow.da-trad { color: #333; }
+  .da-stage-arrow.da-trad { color: #333333; }
   .da-stage-arrow.da-lms { color: var(--amber-dim); }
 
   .da-checklist {
@@ -1162,19 +1162,19 @@
   }
 
   .da-check-item.da-off {
-    color: #444;
+    color: #444444;
     text-decoration: line-through;
   }
 
   .da-check-item.da-off::before {
     content: '\2717';
-    color: #663333;
+    color: #3e3e3e;
     font-size: 11px;
     text-decoration: none;
   }
 
   .da-check-item.da-on {
-    color: #aaa;
+    color: #aaaaaa;
   }
 
   .da-check-item.da-on::before {
@@ -1188,16 +1188,16 @@
     max-width: 500px;
     margin: 2.5rem auto;
     padding: 20px 24px;
-    border-radius: 8px;
-    background: #1e1510;
-    border: 1px solid #332a1a;
+    border-radius: 0px;
+    background: #171717;
+    border: 1px solid #2b2b2b;
     text-align: center;
   }
 
   .da-quote-box p {
     font-family: var(--da-serif);
     font-size: 16px;
-    color: #aa9977;
+    color: #9a9a9a;
     line-height: 1.6;
     font-style: italic;
   }
@@ -1205,7 +1205,7 @@
   .da-quote-box .da-attr {
     font-family: var(--da-mono);
     font-size: 10px;
-    color: #665544;
+    color: #575757;
     margin-top: 10px;
   }
 
@@ -1218,8 +1218,8 @@
 
   .da-donut-box {
     padding: 24px;
-    border-radius: 10px;
-    background: #0c0c14;
+    border-radius: 0px;
+    background: #0d0d0d;
     border: 1px solid var(--amber-dim);
   }
 
@@ -1235,14 +1235,14 @@
   .da-donut-box .da-donut-attr {
     font-family: var(--da-mono);
     font-size: 10px;
-    color: #665544;
+    color: #575757;
     text-align: center;
     margin-bottom: 20px;
   }
 
   .da-donut-box .da-donut-text {
     font-size: 13px;
-    color: #999;
+    color: #999999;
     line-height: 1.7;
   }
 
@@ -1253,9 +1253,9 @@
   .da-donut-comparison {
     margin-top: 16px;
     padding: 12px 16px;
-    border-radius: 6px;
-    background: #1a1510;
-    border: 1px solid #332a1a;
+    border-radius: 0px;
+    background: #161616;
+    border: 1px solid #2b2b2b;
     display: flex;
     gap: 20px;
     justify-content: center;
@@ -1276,13 +1276,13 @@
 
   .da-donut-side-text {
     font-size: 12px;
-    color: #888;
+    color: #888888;
   }
 
   .da-donut-footer {
     font-family: var(--da-mono);
     font-size: 10px;
-    color: #444;
+    color: #444444;
     text-align: center;
     margin-top: 12px;
   }
@@ -1296,14 +1296,14 @@
 
   .da-future-box {
     padding: 24px;
-    border-radius: 10px;
-    background: #0c0c14;
+    border-radius: 0px;
+    background: #0d0d0d;
     border: 1px solid var(--da-border);
   }
 
   .da-future-box .da-future-text {
     font-size: 13px;
-    color: #999;
+    color: #999999;
     line-height: 1.8;
   }
 
@@ -1320,9 +1320,9 @@
 
   .da-future-stat {
     padding: 10px;
-    border-radius: 6px;
-    background: #111;
-    border: 1px solid #222;
+    border-radius: 0px;
+    background: #111111;
+    border: 1px solid #222222;
     text-align: center;
   }
 
@@ -1334,7 +1334,7 @@
 
   .da-future-stat-label {
     font-size: 10px;
-    color: #666;
+    color: #666666;
     margin-top: 2px;
   }
 
@@ -1347,7 +1347,7 @@
 
   .da-suite-desc {
     font-size: 13px;
-    color: #888;
+    color: #888888;
     text-align: center;
     margin-bottom: 24px;
     line-height: 1.5;
@@ -1362,7 +1362,7 @@
 
   .da-suite-card {
     padding: 16px;
-    border-radius: 8px;
+    border-radius: 0px;
     background: var(--bg2);
     border: 1px solid var(--dimmer);
   }
@@ -1385,12 +1385,12 @@
   .da-suite-item {
     margin-bottom: 6px;
     font-size: 12px;
-    color: #ccc;
+    color: #cccccc;
     line-height: 1.5;
   }
 
   .da-suite-item strong {
-    color: #eee;
+    color: #eeeeee;
     font-weight: 600;
   }
 
@@ -1401,7 +1401,7 @@
 
   .da-suite-footer {
     font-size: 10px;
-    color: #555;
+    color: #555555;
     margin-top: 8px;
     font-family: var(--da-mono);
   }
@@ -1426,22 +1426,22 @@
     font-weight: 800;
     font-size: 0.85rem;
     letter-spacing: 0.15em;
-    color: #0a0a0f;
+    color: #0a0a0a;
     background: var(--good-green);
     border: none;
-    border-radius: 6px;
+    border-radius: 0px;
     padding: 0.8rem 2.5rem;
     margin-top: 1.2rem;
     cursor: pointer;
     transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
     text-transform: uppercase;
-    box-shadow: 0 0 20px rgba(77,232,138,0.25);
+    box-shadow: none;
   }
 
   .tldr-toggle:hover {
-    background: #5fffa0;
+    background: #d6d6d6;
     transform: translateY(-1px);
-    box-shadow: 0 0 30px rgba(77,232,138,0.4);
+    box-shadow: none;
   }
 
   .tldr-toggle:active {
@@ -1478,7 +1478,7 @@
     letter-spacing: 0.3em;
     color: var(--good-green);
     border: 1px solid var(--good-green);
-    border-radius: 4px;
+    border-radius: 2px;
     padding: 0.3rem 1rem;
     margin-bottom: 1rem;
   }
@@ -1509,7 +1509,7 @@
   .tldr-step {
     background: var(--bg2);
     border: 1px solid var(--dimmer);
-    border-radius: 8px;
+    border-radius: 0px;
     padding: 1.2rem 1.4rem;
     position: relative;
     transition: border-color 0.2s;
@@ -1532,8 +1532,8 @@
     font-size: 1.1rem;
     color: var(--good-green);
     background: var(--good-dark);
-    border: 1px solid #224422;
-    border-radius: 6px;
+    border: 1px solid #3a3a3a;
+    border-radius: 0px;
     width: 2rem;
     height: 2rem;
     display: flex;
@@ -1546,7 +1546,7 @@
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: 0.85rem;
-    color: #eee;
+    color: #eeeeee;
     letter-spacing: 0.02em;
   }
 
@@ -1564,16 +1564,16 @@
   }
 
   .tldr-step-body a:hover {
-    color: #fff;
-    border-color: #fff;
+    color: #ffffff;
+    border-color: #ffffff;
   }
 
   .tldr-step-body code {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.75rem;
-    background: #1a1a22;
-    border: 1px solid #2a2a34;
-    border-radius: 3px;
+    background: #1b1b1b;
+    border: 1px solid #2b2b2b;
+    border-radius: 2px;
     padding: 0.15rem 0.4rem;
     color: var(--orange);
     word-break: break-all;
@@ -1596,9 +1596,9 @@
   .tldr-url-box {
     margin-top: 0.75rem;
     padding: 0.6rem 0.8rem;
-    background: #0a1a0a;
+    background: #151515;
     border: 1px dashed var(--good-green);
-    border-radius: 5px;
+    border-radius: 2px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     color: var(--good-green);
@@ -1610,7 +1610,7 @@
   }
 
   .tldr-url-box:hover {
-    background: #0f220f;
+    background: #1d1d1d;
   }
 
   .tldr-warn {
@@ -1619,9 +1619,9 @@
     gap: 0.5rem;
     margin-top: 0.5rem;
     padding: 0.5rem 0.7rem;
-    background: rgba(245,158,11,0.06);
-    border: 1px solid rgba(245,158,11,0.15);
-    border-radius: 4px;
+    background: rgba(166,166,166,0.06);
+    border: 1px solid rgba(166,166,166,0.15);
+    border-radius: 2px;
     font-size: 0.75rem;
     color: var(--amber);
     line-height: 1.5;
@@ -1706,7 +1706,7 @@
   .logo-section img {
     max-width: min(1200px, 80vw);
     height: auto;
-    border-radius: 12px;
+    border-radius: 0px;
   }
 
   /* ============================================ */
@@ -1748,7 +1748,7 @@
   .gmem-graphic {
     background: var(--bg2);
     border: 1px solid var(--dimmer);
-    border-radius: 12px;
+    border-radius: 0px;
     padding: clamp(1.5rem, 3vw, 2.5rem);
     position: relative;
     overflow: hidden;
@@ -1773,7 +1773,7 @@
 
   .gmem-toggle-btn {
     padding: 6px 16px;
-    border-radius: 5px;
+    border-radius: 2px;
     border: 2px solid var(--dimmer);
     background: transparent;
     color: var(--dim);
@@ -1791,17 +1791,17 @@
   }
 
   .gmem-toggle-btn.active-trad {
-    border-color: #555;
+    border-color: #555555;
     background: #55555520;
-    color: #888;
+    color: #888888;
   }
 
   .gmem-bus-bar {
     margin: 0 auto 1.5rem;
     padding: 10px 20px;
     border: 2px dashed var(--orange);
-    border-radius: 6px;
-    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+    border-radius: 0px;
+    background: linear-gradient(135deg, #111111 0%, #0a0a0a 100%);
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
@@ -1811,21 +1811,21 @@
   }
 
   .gmem-bus-bar.trad-mode {
-    border-color: #333;
+    border-color: #333333;
     border-style: solid;
-    background: #111;
-    color: #555;
+    background: #111111;
+    color: #555555;
   }
 
   .gmem-bus-bar .gmem-bus-sub {
     font-size: 0.6rem;
     font-weight: 400;
-    color: #886a40;
+    color: #6d6d6d;
     margin-top: 4px;
   }
 
   .gmem-bus-bar.trad-mode .gmem-bus-sub {
-    color: #444;
+    color: #444444;
   }
 
   .gmem-plugins-row {
@@ -1839,7 +1839,7 @@
   .gmem-plugin-box {
     width: 100px;
     padding: 10px 6px;
-    border-radius: 6px;
+    border-radius: 0px;
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.6rem;
@@ -1851,25 +1851,25 @@
 
   .gmem-plugin-box.lms-mode {
     border: 1px dashed var(--orange);
-    background: linear-gradient(135deg, #1a0f05 0%, #0d0a06 100%);
+    background: linear-gradient(135deg, #111111 0%, #0a0a0a 100%);
     color: var(--orange);
   }
 
   .gmem-plugin-box.lms-mode:hover {
-    background: #1a1508;
-    box-shadow: 0 0 15px rgba(240,122,46,0.2);
+    background: #151515;
+    box-shadow: none;
   }
 
   .gmem-plugin-box.lms-mode.selected {
     border-color: var(--amber);
-    box-shadow: 0 0 20px rgba(245,158,11,0.3);
-    background: #1a1508;
+    box-shadow: none;
+    background: #151515;
   }
 
   .gmem-plugin-box.trad-mode {
     border: 1px solid #2a2a2a;
-    background: #111;
-    color: #666;
+    background: #111111;
+    color: #666666;
   }
 
   .gmem-plugin-sub {
@@ -1879,8 +1879,8 @@
     line-height: 1.3;
   }
 
-  .gmem-plugin-box.lms-mode .gmem-plugin-sub { color: #886a40; }
-  .gmem-plugin-box.trad-mode .gmem-plugin-sub { color: #444; }
+  .gmem-plugin-box.lms-mode .gmem-plugin-sub { color: #6d6d6d; }
+  .gmem-plugin-box.trad-mode .gmem-plugin-sub { color: #444444; }
 
   .gmem-data-line {
     position: absolute;
@@ -1893,25 +1893,25 @@
   }
 
   .gmem-plugin-box.lms-mode .gmem-data-line { background: var(--orange); }
-  .gmem-plugin-box.trad-mode .gmem-data-line { background: #333; }
+  .gmem-plugin-box.trad-mode .gmem-data-line { background: #333333; }
 
   .gmem-detail-box {
     margin-top: 1rem;
     padding: 14px 16px;
-    border-radius: 8px;
-    background: #0c0c14;
+    border-radius: 0px;
+    background: #0d0d0d;
     border: 1px solid var(--amber-dim);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    color: #999;
+    color: #999999;
     line-height: 1.6;
     transition: all 0.3s;
     min-height: 60px;
   }
 
   .gmem-detail-box.trad-mode {
-    background: #111;
-    border-color: #222;
+    background: #111111;
+    border-color: #222222;
   }
 
   .gmem-detail-box h4 {
@@ -1922,33 +1922,33 @@
   }
 
   .gmem-detail-box.lms-mode-detail h4 { color: var(--amber); }
-  .gmem-detail-box.trad-mode h4 { color: #555; }
+  .gmem-detail-box.trad-mode h4 { color: #555555; }
 
   .gmem-rw-tag {
     display: inline-block;
     padding: 1px 6px;
-    border-radius: 3px;
+    border-radius: 2px;
     font-size: 9px;
     font-weight: 700;
     margin-right: 4px;
   }
 
   .gmem-rw-tag.writes {
-    background: rgba(77,232,138,0.1);
-    border: 1px solid rgba(77,232,138,0.3);
+    background: rgba(192,192,192,0.1);
+    border: 1px solid rgba(192,192,192,0.3);
     color: var(--good-green);
   }
 
   .gmem-rw-tag.reads {
-    background: rgba(59,130,246,0.1);
-    border: 1px solid rgba(59,130,246,0.3);
+    background: rgba(123,123,123,0.1);
+    border: 1px solid rgba(123,123,123,0.3);
     color: var(--da-blue);
   }
 
   .gmem-spaghetti {
     text-align: center;
     padding: 16px;
-    color: #555;
+    color: #555555;
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     line-height: 2;
@@ -1958,10 +1958,10 @@
     display: inline-block;
     padding: 2px 8px;
     margin: 2px;
-    background: #1a0810;
-    border: 1px solid #2a1015;
-    border-radius: 3px;
-    color: #aa6666;
+    background: #0c0c0c;
+    border: 1px solid #161616;
+    border-radius: 2px;
+    color: #747474;
     font-size: 9px;
   }
 
@@ -1971,7 +1971,7 @@
     height: 6px;
     border-radius: 50%;
     background: var(--orange);
-    box-shadow: 0 0 8px rgba(240,122,46,0.5);
+    box-shadow: none;
     animation: gmemPulse 1.5s ease-in-out infinite;
   }
 
@@ -1984,7 +1984,7 @@
     text-align: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: #444;
+    color: #444444;
     margin-top: 1rem;
   }
 
@@ -1995,10 +1995,10 @@
     max-width: 600px;
     margin: 2rem auto;
     padding: 2rem;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
+    border-radius: 0px;
+    background: linear-gradient(135deg, #111111 0%, #0b0b0b 100%);
     border: 2px solid var(--good-green);
-    box-shadow: 0 0 30px rgba(77,232,138,0.1);
+    box-shadow: none;
     text-align: center;
   }
 
@@ -2007,7 +2007,7 @@
     font-weight: 800;
     font-size: clamp(2.5rem, 5vw, 4rem);
     color: var(--good-green);
-    text-shadow: 0 0 30px rgba(77,232,138,0.4);
+    text-shadow: 0 0 30px rgba(192,192,192,0.4);
     line-height: 1;
   }
 
@@ -2015,13 +2015,13 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #d8d8dd;
+    color: #d8d8d8;
     margin: 0.75rem 0 0.5rem;
   }
 
   .amp-perf-card .amp-perf-detail {
     font-size: 0.8rem;
-    color: #888890;
+    color: #898989;
     font-weight: 300;
     line-height: 1.5;
   }
@@ -2036,9 +2036,9 @@
 
   .amp-perf-card .amp-perf-stat {
     padding: 0.75rem 1.2rem;
-    border-radius: 6px;
-    background: #0a220a;
-    border: 1px solid #224422;
+    border-radius: 0px;
+    background: #1b1b1b;
+    border: 1px solid #3a3a3a;
     text-align: center;
   }
 
@@ -2051,7 +2051,7 @@
 
   .amp-perf-card .amp-perf-stat-lbl {
     font-size: 0.65rem;
-    color: #448844;
+    color: #757575;
     margin-top: 2px;
   }
 
@@ -2066,7 +2066,7 @@
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     background: 
-      radial-gradient(ellipse at 20% 30%, #0a1a3022 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 30%, #18181822 0%, transparent 50%),
       radial-gradient(ellipse at 80% 70%, var(--good-glow) 0%, transparent 40%);
     pointer-events: none;
   }
@@ -2087,7 +2087,7 @@
     color: var(--orange);
     border: 1px solid var(--orange);
     padding: 0.4rem 1.2rem;
-    border-radius: 100px;
+    border-radius: 0px;
     margin-bottom: 2rem;
   }
 
@@ -2149,14 +2149,14 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     padding: 0.5rem 0.75rem;
-    border-radius: 4px;
+    border-radius: 2px;
     line-height: 1.4;
   }
 
   .tt-item.bad {
-    background: linear-gradient(135deg, #1a0810 0%, #0d0608 100%);
-    border: 1px solid #2a1015;
-    color: #cc8888;
+    background: linear-gradient(135deg, #0c0c0c 0%, #080808 100%);
+    border: 1px solid #161616;
+    color: #969696;
   }
 
   .tt-item.bad::before {
@@ -2166,9 +2166,9 @@
   }
 
   .tt-item.good-item {
-    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
-    border: 1px solid #0a2a15;
-    color: #88cc99;
+    background: linear-gradient(135deg, #111111 0%, #0b0b0b 100%);
+    border: 1px solid #222222;
+    color: #bababa;
   }
 
   .tt-item.good-item::before {
@@ -2221,12 +2221,12 @@
     font-family: 'JetBrains Mono', monospace;
     font-weight: 800;
     font-size: clamp(1.5rem, 3vw, 2.5rem);
-    color: #d8d8dd;
+    color: #d8d8d8;
     margin-bottom: 1rem;
   }
 
   .core-subtitle {
-    color: #888890;
+    color: #898989;
     font-weight: 300;
     font-size: 1rem;
     max-width: 700px;
@@ -2235,9 +2235,9 @@
   }
 
   .core-diagram {
-    background: #0e0e12;
-    border: 1px solid #2a2a32;
-    border-radius: 8px;
+    background: #0e0e0e;
+    border: 1px solid #2b2b2b;
+    border-radius: 0px;
     padding: clamp(1.5rem, 3vw, 2.5rem);
     text-align: center;
   }
@@ -2250,8 +2250,8 @@
     margin-bottom: 1.5rem;
   }
 
-  .evil-label { color: #ff2244; }
-  .good-label { color: #4de88a; }
+  .evil-label { color: #535353; }
+  .good-label { color: #c0c0c0; }
 
   .core-grid {
     display: grid;
@@ -2261,19 +2261,19 @@
   }
 
   .core-plugin-box {
-    border-radius: 6px;
+    border-radius: 0px;
     padding: 1rem;
     text-align: center;
   }
 
   .old-box {
-    background: linear-gradient(135deg, #150810 0%, #0d0608 100%);
-    border: 1px solid #2a1015;
+    background: linear-gradient(135deg, #0b0b0b 0%, #080808 100%);
+    border: 1px solid #161616;
   }
 
   .new-box {
-    background: linear-gradient(135deg, #081508 0%, #060d08 100%);
-    border: 1px solid #0a2a15;
+    background: linear-gradient(135deg, #111111 0%, #0b0b0b 100%);
+    border: 1px solid #222222;
   }
 
   .core-plugin-name {
@@ -2283,27 +2283,27 @@
     margin-bottom: 0.5rem;
   }
 
-  .old-box .core-plugin-name { color: #ff2244; }
-  .new-name { color: #4de88a !important; }
+  .old-box .core-plugin-name { color: #535353; }
+  .new-name { color: #c0c0c0 !important; }
 
   .core-alg {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: #aa6666;
+    color: #747474;
     padding: 0.25rem 0.5rem;
     margin: 0.2rem 0;
-    background: #1a0810;
-    border: 1px solid #331020;
-    border-radius: 3px;
+    background: #0c0c0c;
+    border: 1px solid #191919;
+    border-radius: 2px;
   }
 
-  .version-bad { color: #ff6644; }
-  .version-ok { color: #888866; }
+  .version-bad { color: #848484; }
+  .version-ok { color: #868686; }
 
   .core-footprint {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.6rem;
-    color: #664444;
+    color: #4b4b4b;
     margin-top: 0.75rem;
   }
 
@@ -2312,33 +2312,33 @@
     font-size: 0.75rem;
     font-weight: 700;
     padding: 0.75rem 1.5rem;
-    border-radius: 4px;
+    border-radius: 2px;
     display: inline-block;
   }
 
   .bad-verdict {
-    color: #ff6644;
-    background: #1a0a00;
-    border: 1px solid #ff224444;
+    color: #848484;
+    background: #0d0d0d;
+    border: 1px solid #53535344;
   }
 
   .good-verdict {
-    color: #4de88a;
-    background: #051a0c;
-    border: 1px solid #4de88a44;
+    color: #c0c0c0;
+    background: #151515;
+    border: 1px solid #c0c0c044;
   }
 
   .core-thin-desc {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: #448844;
+    color: #757575;
   }
 
   /* The Core Box */
   .the-core {
-    border: 2px dashed #f07a2e;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #0d1508 0%, #0a0d06 100%);
+    border: 2px dashed #8e8e8e;
+    border-radius: 0px;
+    background: linear-gradient(135deg, #121212 0%, #0c0c0c 100%);
     padding: 1.5rem;
     margin-bottom: 0;
   }
@@ -2347,14 +2347,14 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: clamp(1rem, 2vw, 1.3rem);
     font-weight: 800;
-    color: #f07a2e;
+    color: #8e8e8e;
     margin-bottom: 0.25rem;
   }
 
   .the-core-subtitle {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: #886a40;
+    color: #6d6d6d;
     letter-spacing: 0.1em;
     margin-bottom: 1rem;
   }
@@ -2371,17 +2371,17 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7rem;
     font-weight: 700;
-    color: #ccaa55;
+    color: #ababab;
     padding: 0.35rem 0.75rem;
-    background: #1a1505;
-    border: 1px solid #4a3a15;
-    border-radius: 3px;
+    background: #151515;
+    border: 1px solid #3b3b3b;
+    border-radius: 2px;
   }
 
   .the-core-community {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
-    color: #888866;
+    color: #868686;
     line-height: 1.6;
   }
 
@@ -2397,7 +2397,7 @@
   .core-line {
     width: 2px;
     height: 100%;
-    background: linear-gradient(to bottom, #4de88a88, #4de88a22);
+    background: linear-gradient(to bottom, #c0c0c088, #c0c0c022);
   }
 
   /* ============================================ */
@@ -2421,14 +2421,14 @@
   }
 
   .perf-card {
-    background: #0e0e12;
-    border: 1px solid #0a2a15;
-    border-radius: 8px;
+    background: #0e0e0e;
+    border: 1px solid #222222;
+    border-radius: 0px;
     padding: 1.5rem 1rem;
   }
 
   .stress-card {
-    border-color: #4a3000;
+    border-color: #323232;
   }
 
   .perf-number {
@@ -2444,13 +2444,13 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
     font-weight: 700;
-    color: #d8d8dd;
+    color: #d8d8d8;
     margin-bottom: 0.5rem;
   }
 
   .perf-detail {
     font-size: 0.75rem;
-    color: #888890;
+    color: #898989;
     font-weight: 300;
     line-height: 1.4;
   }
@@ -2459,7 +2459,7 @@
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: clamp(0.9rem, 2vw, 1.1rem);
-    color: #d8d8dd;
+    color: #d8d8d8;
     line-height: 1.8;
     margin-top: 1rem;
   }
@@ -2474,9 +2474,9 @@
   <div class="tldr-header">
     <div class="tldr-badge">TLDR</div>
     <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
-    <div style="color:#8a8f98;font-size:0.8rem;line-height:1.5;max-width:640px;margin:0.75rem auto;font-style:italic;">LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.</div>
+    <div style="color:#8f8f8f;font-size:0.8rem;line-height:1.5;max-width:640px;margin:0.75rem auto;font-style:italic;">LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.</div>
     <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
-    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#9660;</span></button>
+    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#71717100;</span></button>
   </div>
 
   <div class="tldr-body" id="tldr-body">
@@ -2703,6 +2703,168 @@
   </p>
 </section>
 
+<!-- ============================================ -->
+<!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
+<!-- ============================================ -->
+<div class="da-section-label">THE LMS SUITE</div>
+
+<div class="da-suite-wrap">
+  <div class="da-suite-desc">
+    All open source. All JSFX. All zero latency. All interconnected via shared memory.<br>
+    Install from ReaPack in one click. Works everywhere REAPER runs — including Linux.
+  </div>
+
+  <div class="da-suite-grid">
+    <!-- DENSITY-AWARE AMP SIMS -->
+    <div class="da-suite-card" style="border-color:var(--amber-dim);">
+      <div class="da-suite-card-header da-amber">AMP SIMS (12)</div>
+      <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Dual American Clean (AB763 preamp, cathode follower, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
+      <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— British Crunch (bright cap, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
+      <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— 5W Class A (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— All-Tube Bass (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
+      <div class="da-suite-item"><strong>Ol Reliable v2</strong> <span class="da-suite-item-desc">— EL84 Class A (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
+      <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— High-Gain Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
+      <div class="da-suite-item"><strong>OJ 95 v2</strong> <span class="da-suite-item-desc">— this is one killer amp (Clean/Dirty channels, EL34 push-pull)</span></div>
+      <div class="da-suite-item"><strong>Bottom Feeder v2</strong> <span class="da-suite-item-desc">— Tweed Bass (Normal/Bright channels, 6L6 push-pull)</span></div>
+      <div class="da-suite-item"><strong>Area 50/51 v2</strong> <span class="da-suite-item-desc">— the tone is out there... (cold-biased 6L6, Clean/Lead channels, resonance/presence controls, noise gate)</span></div>
+      <div class="da-suite-item"><strong>The Fucking Nightmare v2</strong> <span class="da-suite-item-desc">— Hybrid Bass (Warm/Aggressive channels)</span></div>
+      <div class="da-suite-item"><strong>TOMASTEKNIK v2</strong> <span class="da-suite-item-desc">— All-Tube Bass + OD (Swedish hardcore bass rig, Blindside tribute)</span></div>
+      <div class="da-suite-item"><strong>The Piece of Shit</strong> <span class="da-suite-item-desc">— 5" Solid State Practice Amp (the one that sounds like a bee in a tin can — but density-aware)</span></div>
+      <div class="da-suite-footer">11 density-aware tube amps + 1 solid-state practice amp. All shared DSP in lms_core: triode / power amp / density tracker / spring + tremolo + tape echo / cab sim / GUI</div>
+    </div>
+
+    <!-- INSTRUMENTS -->
+    <div class="da-suite-card" style="border-color:rgba(155,155,155,0.25);">
+      <div class="da-suite-card-header da-green">INSTRUMENTS (7)</div>
+      <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Analog mono synth (24dB ladder filter, 3 oscillators, unison, chorus, delay)</span></div>
+      <div class="da-suite-item"><strong>Lil Stinker</strong> <span class="da-suite-item-desc">— Analog mono/poly synth (ladder filter, Multidrive, 74 presets, 8-voice poly)</span></div>
+      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (MIDI output, manager-integrated, per-pad routing, sample overlays that survive the pool changing)</span></div>
+      <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
+      <div class="da-suite-item"><strong>Drone Voice</strong> <span class="da-suite-item-desc">— MIDI generator for synth roles (Bass/Chords/Arp/Harmony/Power, follows Harmony Map chords, glide/portamento)</span></div>
+      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, labeled parts, song sequence, per-section modifiers, chord broadcast, section transport that loops any part from REAPER's own repeat)</span></div>
+      <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
+      <div class="da-suite-footer">All interconnected via gmem bus — Drone Voice reads Harmony Map chords in real time</div>
+    </div>
+
+    <!-- CHANNEL TOOLS -->
+    <div class="da-suite-card" style="border-color:rgba(153,153,153,0.25);">
+      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (7)</div>
+      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— SSL-grade channel strip (4-band EQ, LPF/HPF, VCA comp w/ sidechain HPF + auto-release + parallel mix, spring &amp; room reverb, pre/post routing)</span></div>
+      <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
+      <div class="da-suite-item"><strong>Silver Sixty Nine</strong> <span class="da-suite-item-desc">— Density-aware LA-2A opto compressor (program-dependent attack/release)</span></div>
+      <div class="da-suite-item"><strong>Smart Gate</strong> <span class="da-suite-item-desc">— Density-aware noise gate (single + drum mode with cross-mic phase correction)</span></div>
+      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation (5 modes)</span></div>
+      <div class="da-suite-item"><strong>Mega Increasinator</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
+      <div class="da-suite-item"><strong>Pitch Detector</strong> <span class="da-suite-item-desc">— Monophonic YIN pitch tracker (MIDI output, shared pitch bus)</span></div>
+      <div class="da-suite-footer">Density-aware dynamics across the board</div>
+    </div>
+
+    <!-- EFFECTS -->
+    <div class="da-suite-card" style="border-color:rgba(123,123,123,0.25);">
+      <div class="da-suite-card-header da-blue">EFFECTS (6)</div>
+      <div class="da-suite-item"><strong>Satan's Little Helper</strong> <span class="da-suite-item-desc">— 10-pedal board (DOA666, HWI, Black Mass, The Elephant, Pipeworks, Unholy Bowl, Marmot, 12 Stepper, Green Sin, Judgement Day). Section-based signal flow: DIST / MOD / DELAY / REVERB / EQ. Dual FET comps in/out.</span></div>
+      <div class="da-suite-item"><strong>Black In Bluhm</strong> <span class="da-suite-item-desc">— Material room reverb (real-time ray tracing, N-gon geometry, 8 wall materials, draggable mic/source, up to 3rd-order reflections, single + 8-band source modes, built-in compressor, Room Juice character control)</span></div>
+      <div class="da-suite-item"><strong>Density Reverb</strong> <span class="da-suite-item-desc">— 8-line FDN algorithmic reverb (8 presets, density-aware harmonic saturation, modal filtering)</span></div>
+      <div class="da-suite-item"><strong>Henge</strong> <span class="da-suite-item-desc">— Tape delay (wow/flutter/spring reverb)</span></div>
+      <div class="da-suite-item"><strong>Henge On Crack</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
+      <div class="da-suite-item"><strong>The Faker</strong> <span class="da-suite-item-desc">— Real-time pitch correction (YIN detection, vibrato preserve, scale snap)</span></div>
+      <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
+    </div>
+
+    <!-- SESSION SCRIPTS -->
+    <div class="da-suite-card" style="border-color:rgba(142,142,142,0.25);">
+      <div class="da-suite-card-header da-orange">CONTROL PLANE &amp; SCRIPTS — LUA (5)</div>
+      <div class="da-suite-item"><strong>LMS Plugin Manager</strong> <span class="da-suite-item-desc">— Central ReaImGui control plane. Follow/steal, overview, scenes (save a whole rig and recall it into any project), DrumBanger pads and overlays, Harmony Map editing and section transport, room plan, drone voice setup, track builder. The brain of the suite.</span></div>
+      <div class="da-suite-item"><strong>lms_setup.lua</strong> <span class="da-suite-item-desc">— One-time suite setup (gmem namespace, pool directory)</span></div>
+      <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
+      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one project to another (smart track mapping)</span></div>
+      <div class="da-suite-footer">All plugins are pure audio processors — follow/steal managed by the Plugin Manager</div>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATE NOTICE -->
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 27, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>Install and play.</strong> The pack now ships its own drum samples &mdash; Kit1-808 and Kit2-LoFi install straight into the pool, so REAPER + ReaPack + LMS is the whole setup. No hunting, no repair script.
+    <br><br>
+    <strong>Harmony Map &mdash; section transport.</strong> Pattern Hold, and Prev / Hold / Next over the song's own sections. A section is one sequence block with its repeats, and holding one loops it using REAPER's repeat and time selection &mdash; hold, then Next through the arrangement to audition it. Song regions now line up exactly with what plays; the PLAY button drives the host instead of stuttering the plugin.
+    <br><br>
+    <strong>Scenes.</strong> Save a project's whole shape &mdash; track names, faders, folders, colours, and every plugin with every parameter &mdash; and recall it into any project. Tracks match by name, so it fills in what is missing rather than duplicating what is there.
+    <br><br>
+    <strong>DRUMBANGER overlays.</strong> Sixteen pads, sixteen named samples, pulled from as many folders as you like. Kits go back to being folders that keep samples organised instead of deciding what you hear. Overlays store paths rather than positions, so importing a folder cannot silently rearrange a kit you built. Per-pad sample picker in the manager.
+    <br><br>
+    <strong>Black In Bluhm</strong> absorbs The Space, whose Vibe lives on as Room Juice. <strong>Core 8.0</strong> &mdash; 4,700 lines of duplication removed across the suite; one palette, one set of widgets, one window chrome. Dragging a slider in any amp no longer drags its neighbours. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 25, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>Black In Bluhm v1.0</strong> &mdash; material room reverb joins the suite. Real-time ray tracing with N-gon room geometry, 8 wall materials (concrete, wood, drywall, glass, brick, carpet, curtain, foam), draggable mic/source positions, up to 3rd-order reflections, single + 8-band source modes, built-in compressor (LA2A/1176/Distressor). Fix mic/source positions resetting on project reload. <strong>DrumBanger v3.1</strong> &mdash; chop mode (CHOP/2, CHOP/4) now persists on project reload. <strong>Core 7.0</strong> &mdash; mode selector refactored (12 params &rarr; 7 using string buffer). <strong>LMS Plugin Manager v1.1</strong> &mdash; shakebot logo in header. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 20, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>LMS Plugin Manager</strong> &mdash; new central ReaImGui control plane. Follow/steal handled entirely by the manager &mdash; all 28 plugins stripped of broadcast code, now pure audio processors (-2,258 lines). Overview tab, DrumBanger controls, Harmony Map display, track builder, drone voice setup. <strong>Drone Voice v1.0</strong> &mdash; new gmem-driven MIDI generator. 5 roles (Bass/Chords/Arp/Harmony/Power), follows Harmony Map chords in real time, glide/portamento via note overlap, settings persist with project via JSFX sliders. <strong>DrumBanger</strong> &mdash; manager integration, per-pad routing (34-ch output), MIDI output, route-aware stereo muting, room drum type. <strong>Smart Gate</strong> &mdash; phase calibration fix, mutual exclusion display, room mic type. <strong>The Faker</strong> &mdash; YIN buffer overflow fix at high sample rates, harmony map follow mode. <strong>The Piece of Shit</strong> &mdash; 5" solid-state practice amp, now in the suite. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JUNE 27, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>Transformer hysteresis</strong> &mdash; B-H loop model on all 10 tube amp output transformers. Even harmonics on signal reversals, subtle compression on chord stabs, bloom on power chords. Width scaled per amp (small Champ OT saturates most, big SVT least). <strong>Miller LP rewrite</strong> &mdash; filter now opens to 15&ndash;18kHz at clean for sparkle and closes only at max density, with 150ms smoother to prevent sweep artifacts. <strong>Gain-scaled tone stack recovery</strong> &mdash; gain knob at zero now gives true clean headroom through PI and PA. <strong>Ol' Reliable v2.9</strong> &mdash; bright switch, tone stack on all channels. <strong>OJ95 v2.0</strong> &mdash; fix Mark II PA state reset. <strong>Silver69 v1.4 + Mega Increasinator v1.5</strong> &mdash; LR4 crossover for frequency-targeted compression/limiting. <strong>DrumBanger v2.0</strong> &mdash; swing fixed to 8th-note shuffle. <strong>Core 6.8</strong>. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JUNE 4, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>OJ 95 v1.9</strong> &mdash; Plexi/Mark II switchable voicing and jumped channel mode (run Clean + Dirty in parallel). <strong>Ol' Reliable v2.8</strong> &mdash; Jumped channel mode (Normal + Top Boost in parallel). <strong>Speaker Breakup slider</strong> &mdash; all 11 amps now have a 0&ndash;100% speaker breakup intensity control. <strong>Satan's Little Helper v1.2</strong> &mdash; Golden Calf (Klon Centaur) pedal added; slider automation fix. <strong>Removed from ReaPack</strong>: Harmony Map, Density Sequencer, and DroneMIDI2 &mdash; pulled for further development, will return when ready. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MAY 6, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>New tuner</strong> &mdash; built into Satan's Little Helper. YIN autocorrelation pitch detection, huge note name with octave, color-zoned cents meter with needle, frequency readout, IN-TUNE LED, click-to-toggle MUTE for silent stage tuning. <strong>Drop-tuning ready</strong> &mdash; detection range covers every drop tuning down to drop A (55Hz). PWR button keeps it off by default; flick it on to engage. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">APRIL 21, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>Satan's Little Helper v1.0</strong> &mdash; new 10-pedal board. DOA666, HARDWARE INCOMPATIBLE, BLACK MASS, THE ELEPHANT, PIPEWORKS, UNHOLY BOWL, MARMOT, 12 STEPPER, and two newcomers: <strong>GREEN SIN</strong> (TS-808 Tube Screamer) and <strong>JUDGEMENT DAY</strong> (parametric EQ with Punk / Jazz / Metal / Flat voicings that auto-set the knobs). Section-based signal flow: DIST &rarr; MOD &rarr; DELAY &rarr; REVERB &rarr; EQ. Dual FET comps on the input and output.
+    <strong>Area 50/51 v2.8</strong> &mdash; clean channel rebuilt. Cold clipper bypassed on Clean (the 5150's lead-only stage was smearing clean tones), power-amp crossover deadzone disabled on Clean (fixes the digital fall-apart on quiet tails). Lead untouched.
+    <strong>All 11 amps</strong> &mdash; built-in tuner removed. A replacement tuner is on the way. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.08);border:1px solid rgba(155,155,155,0.25);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">APRIL 5, 2026</div>
+  <div style="color:#c4c4c4;font-size:0.95rem;line-height:1.6;">
+    <strong>Harmony Map v2.3</strong> &mdash; Song Mode: 16 patterns, labeled parts (Verse/Chorus/Bridge/Intro/Outro), song sequence with drag-and-drop reorder, per-section modifiers (key, mode, velocity, arp, octave). Conductor/Player multi-instance system. Undo/redo. <strong>Now controls DrumBanger</strong> &mdash; assign a drum pattern (D1&ndash;D8) to each song section, DrumBanger follows automatically. <strong>DrumBanger v1.9</strong> &mdash; Follow Harmony Map toggle, fixed pattern switch timing. <strong>Save/Load/Steal</strong> &mdash; folder structure preserved. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.04);border:1px solid rgba(155,155,155,0.15);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.6);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 18, 2026</div>
+  <div style="color:#999999;font-size:0.95rem;line-height:1.6;">
+    <strong>Harmony Map v1.0</strong> — New plugin: timeline-locked chord sequencer based on the mathematics of harmony. Circle-of-fifths navigation with diatonic highlighting, dominant resolution arrows, relative/parallel connections. Variable-width steps, subdivisions, per-step modifiers (SUS, 7th, b7, 9th, 6th, inversions). 8-pattern bank with arrangement mode &mdash; a step sequencer of step sequencers. Outputs MIDI synced to REAPER transport. <strong>DroneMIDI2 v1.5</strong> &mdash; Chord progressions, arpeggiator, extended voicings. All free. All open source.
+  </div>
+</div>
+
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(155,155,155,0.04);border:1px solid rgba(155,155,155,0.15);border-radius: 0px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(155,155,155,0.6);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 16, 2026</div>
+  <div style="color:#999999;font-size:0.95rem;line-height:1.6;">
+    <strong>RTW v7.0</strong> — SSL-grade channel strip upgrade. Added LPF, DC blocker after saturation, sidechain HPF on compressor (no more bass pumping), SSL-style dual-time-constant auto-release, compressor makeup gain, parallel compression mix, and built-in spring &amp; room reverb with dark/neutral/bright tone and pre/post compressor routing. <strong>NUUG 420</strong> — Fixed presets and randomizer not firing from the GUI. <strong>Density Reverb</strong> — Added to ReaPack (8-line FDN, 8 presets, density-aware harmonic saturation). All free. All open source.
+  </div>
+</div>
+
 <!-- Quote transition -->
 <div class="da-quote-box">
   <p>"Why does every single digital amp always sound like shit and play like shit clean? Then you plug into a real one and it's like... ahhhhhh."</p>
@@ -2722,7 +2884,7 @@
     </div>
     <div class="da-donut-attr">— Mitch Hedberg, on receipts</div>
     <div class="da-donut-text">
-      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#cc6666">infer</strong>
+      Every traditional audio plugin watches its <em>output</em> and tries to <strong style="color:#7c7c7c">infer</strong>
       what the input just did. The compressor sees a peak and guesses a transient happened.
       The gate sees silence and guesses the note ended. The de-esser sees sibilance and guesses
       the vocalist hit an S.
@@ -2738,12 +2900,12 @@
     </div>
     <div class="da-donut-comparison">
       <div class="da-donut-side">
-        <div class="da-donut-side-label" style="color:#cc6666">EVERYONE ELSE</div>
+        <div class="da-donut-side-label" style="color:#7c7c7c">EVERYONE ELSE</div>
         <div class="da-donut-side-text">Signal → Process → Measure output → Guess what happened → React</div>
       </div>
       <div class="da-donut-side">
         <div class="da-donut-side-label" style="color:var(--da-green)">LMS</div>
-        <div class="da-donut-side-text" style="color:#ccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
+        <div class="da-donut-side-text" style="color:#cccccc">Signal → Process (measurement IS the process) → Already know → Already responded</div>
       </div>
     </div>
     <div class="da-donut-footer">
@@ -2771,34 +2933,34 @@
     <!-- SVG cable tangle -->
     <svg class="evil-cables" viewBox="0 0 800 220" preserveAspectRatio="none">
       <!-- main cable runs — tangled, overlapping -->
-      <path d="M60,45 C60,120 180,80 240,160 S380,200 520,170" stroke="#773333" stroke-width="2"/>
-      <path d="M160,50 C200,130 120,160 300,180 S500,130 680,170" stroke="#884422" stroke-width="1.8"/>
-      <path d="M260,42 C280,100 160,140 400,120 S580,180 700,150" stroke="#663322" stroke-width="1.5"/>
-      <path d="M360,48 C340,110 480,90 520,160 S600,180 680,165" stroke="#774433" stroke-width="2"/>
-      <path d="M60,50 C100,140 280,100 360,170 S460,200 680,170" stroke="#553322" stroke-width="1.2" stroke-dasharray="4,3"/>
-      <path d="M460,45 C440,100 560,80 600,130 S660,160 700,155" stroke="#885533" stroke-width="1.8"/>
-      <path d="M560,48 C520,90 620,70 640,120 S680,150 700,160" stroke="#664433" stroke-width="1.5"/>
-      <path d="M160,48 C200,90 100,130 240,150 S340,180 360,170" stroke="#773322" stroke-width="1.3"/>
-      <path d="M60,42 C140,100 80,140 440,130 S600,190 700,165" stroke="#552222" stroke-width="1" stroke-dasharray="6,4"/>
-      <path d="M260,50 C300,80 240,120 500,110 S620,160 640,165" stroke="#884444" stroke-width="1.6"/>
-      <path d="M460,42 C420,80 500,100 400,150 S340,180 520,175" stroke="#663333" stroke-width="1.2"/>
-      <path d="M360,45 C380,70 320,100 200,140 S100,170 160,180" stroke="#774422" stroke-width="1.4" stroke-dasharray="3,5"/>
+      <path d="M60,45 C60,120 180,80 240,160 S380,200 520,170" stroke="#414141" stroke-width="2"/>
+      <path d="M160,50 C200,130 120,160 300,180 S500,130 680,170" stroke="#505050" stroke-width="1.8"/>
+      <path d="M260,42 C280,100 160,140 400,120 S580,180 700,150" stroke="#3d3d3d" stroke-width="1.5"/>
+      <path d="M360,48 C340,110 480,90 520,160 S600,180 680,165" stroke="#4e4e4e" stroke-width="2"/>
+      <path d="M60,50 C100,140 280,100 360,170 S460,200 680,170" stroke="#393939" stroke-width="1.2" stroke-dasharray="4,3"/>
+      <path d="M460,45 C440,100 560,80 600,130 S660,160 700,155" stroke="#5d5d5d" stroke-width="1.8"/>
+      <path d="M560,48 C520,90 620,70 640,120 S680,150 700,160" stroke="#4a4a4a" stroke-width="1.5"/>
+      <path d="M160,48 C200,90 100,130 240,150 S340,180 360,170" stroke="#404040" stroke-width="1.3"/>
+      <path d="M60,42 C140,100 80,140 440,130 S600,190 700,165" stroke="#2d2d2d" stroke-width="1" stroke-dasharray="6,4"/>
+      <path d="M260,50 C300,80 240,120 500,110 S620,160 640,165" stroke="#525252" stroke-width="1.6"/>
+      <path d="M460,42 C420,80 500,100 400,150 S340,180 520,175" stroke="#3e3e3e" stroke-width="1.2"/>
+      <path d="M360,45 C380,70 320,100 200,140 S100,170 160,180" stroke="#4c4c4c" stroke-width="1.4" stroke-dasharray="3,5"/>
       <!-- connector knobs at cable endpoints -->
-      <circle cx="60" cy="45" r="3.5" stroke="#883333"/><circle cx="60" cy="50" r="3.5" stroke="#883333"/>
-      <circle cx="160" cy="50" r="3.5" stroke="#884422"/><circle cx="160" cy="48" r="3.5" stroke="#773322"/>
-      <circle cx="260" cy="42" r="3.5" stroke="#663322"/><circle cx="260" cy="50" r="3.5" stroke="#884444"/>
-      <circle cx="360" cy="48" r="3.5" stroke="#774433"/><circle cx="360" cy="45" r="3.5" stroke="#774422"/>
-      <circle cx="460" cy="45" r="3.5" stroke="#885533"/><circle cx="460" cy="42" r="3.5" stroke="#663333"/>
-      <circle cx="560" cy="48" r="3.5" stroke="#664433"/>
-      <circle cx="680" cy="170" r="4" stroke="#993333"/><circle cx="700" cy="155" r="4" stroke="#993333"/>
-      <circle cx="700" cy="160" r="4" stroke="#993333"/><circle cx="700" cy="165" r="4" stroke="#993333"/>
+      <circle cx="60" cy="45" r="3.5" stroke="#454545"/><circle cx="60" cy="50" r="3.5" stroke="#454545"/>
+      <circle cx="160" cy="50" r="3.5" stroke="#505050"/><circle cx="160" cy="48" r="3.5" stroke="#404040"/>
+      <circle cx="260" cy="42" r="3.5" stroke="#3d3d3d"/><circle cx="260" cy="50" r="3.5" stroke="#525252"/>
+      <circle cx="360" cy="48" r="3.5" stroke="#4e4e4e"/><circle cx="360" cy="45" r="3.5" stroke="#4c4c4c"/>
+      <circle cx="460" cy="45" r="3.5" stroke="#5d5d5d"/><circle cx="460" cy="42" r="3.5" stroke="#3e3e3e"/>
+      <circle cx="560" cy="48" r="3.5" stroke="#4a4a4a"/>
+      <circle cx="680" cy="170" r="4" stroke="#494949"/><circle cx="700" cy="155" r="4" stroke="#494949"/>
+      <circle cx="700" cy="160" r="4" stroke="#494949"/><circle cx="700" cy="165" r="4" stroke="#494949"/>
       <!-- junction knobs — places where cables cross -->
-      <circle cx="300" cy="140" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
-      <circle cx="400" cy="120" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
-      <circle cx="520" cy="160" r="5" fill="#1a0808" stroke="#664444" stroke-width="1.5"/>
-      <circle cx="200" cy="130" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
-      <circle cx="500" cy="130" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
-      <circle cx="600" cy="170" r="4" fill="#1a0808" stroke="#553333" stroke-width="1"/>
+      <circle cx="300" cy="140" r="5" fill="#0c0c0c" stroke="#4b4b4b" stroke-width="1.5"/>
+      <circle cx="400" cy="120" r="5" fill="#0c0c0c" stroke="#4b4b4b" stroke-width="1.5"/>
+      <circle cx="520" cy="160" r="5" fill="#0c0c0c" stroke="#4b4b4b" stroke-width="1.5"/>
+      <circle cx="200" cy="130" r="4" fill="#0c0c0c" stroke="#3a3a3a" stroke-width="1"/>
+      <circle cx="500" cy="130" r="4" fill="#0c0c0c" stroke="#3a3a3a" stroke-width="1"/>
+      <circle cx="600" cy="170" r="4" fill="#0c0c0c" stroke="#3a3a3a" stroke-width="1"/>
     </svg>
     <h3>TRADITIONAL: 6 TRACKS, SIDECHAIN + REVERB SEND</h3>
     <div class="bus-tracks">
@@ -2811,7 +2973,7 @@
         <div class="bus-track-label">Track 2</div>
       </div>
       <div class="bus-track">
-        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#886644">SC IN←T1</span><span class="cable-jack bot"></span><span class="cable-jack lt"></span></div>
+        <div class="bus-track-box">BASS<br><span style="font-size:0.45rem;color:#6b6b6b">SC IN←T1</span><span class="cable-jack bot"></span><span class="cable-jack lt"></span></div>
         <div class="bus-track-label">Track 3</div>
       </div>
       <div class="bus-track">
@@ -2851,7 +3013,7 @@
       <span class="route">Aux1 → Master</span><span class="cable-knob"></span>
       <span class="route">Aux2 → Master</span>
       <br>
-      <span style="color:#664444;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
+      <span style="color:#4b4b4b;font-size:0.55rem;">12 manual routing connections. Each one configured separately in the I/O matrix.</span>
     </div>
   </div>
 
@@ -2902,7 +3064,7 @@
       <span class="route">Pattern change → ALL tracks update</span>
       <span class="route">Sidechain via gmem[] — no audio routing</span>
       <br>
-      <span style="color:#448844;font-size:0.55rem;">0 manual routing connections. Drop plugin. Select pad. Done.</span>
+      <span style="color:#757575;font-size:0.55rem;">0 manual routing connections. Drop plugin. Select pad. Done.</span>
     </div>
   </div>
 </section>
@@ -2921,7 +3083,7 @@
   <div class="da-demo-layout">
     <!-- Strum area -->
     <div style="display:flex;flex-direction:column;align-items:center">
-      <div class="da-strum-label">&#8595; DRAG TO PLAY &#8595;</div>
+      <div class="da-strum-label">&#65656555; DRAG TO PLAY &#65656555;</div>
       <div class="da-strum-area" id="da-strum-area">
         <div class="da-strum-string" style="left:20%"></div>
         <div class="da-strum-string" style="left:35%"></div>
@@ -2980,13 +3142,13 @@
     <div class="da-compare-col da-trad-col">
       <h3>Every Other Amp Sim</h3>
       <div class="da-stage-box da-trad"><span class="da-stage-name">INPUT</span><div class="da-stage-sub">Wire. No physics.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-arrow da-trad">&#65656555;</div>
       <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 1</span><div class="da-stage-sub">tanh(x × gain) — static curve</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-arrow da-trad">&#65656555;</div>
       <div class="da-stage-box da-trad"><span class="da-stage-name">FIXED FILTER</span><div class="da-stage-sub">LP @ 8000 Hz — set once, never changes</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-arrow da-trad">&#65656555;</div>
       <div class="da-stage-box da-trad"><span class="da-stage-name">GAIN STAGE 2</span><div class="da-stage-sub">Same function. Doesn't know Stage 1 exists.</div></div>
-      <div class="da-stage-arrow da-trad">&#8595;</div>
+      <div class="da-stage-arrow da-trad">&#65656555;</div>
       <div class="da-stage-box da-trad"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">No shared power supply. Cab is a WAV sticker.</div></div>
       <div class="da-checklist">
         <div class="da-check-item da-off">Inter-stage awareness</div>
@@ -2998,28 +3160,28 @@
         <div class="da-check-item da-off">Harmonic analysis</div>
         <div class="da-check-item da-off">Adaptive clipping</div>
       </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#1a0a0a;border:1px solid #442222">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#cc4444;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+      <div style="margin-top:14px;padding:12px;border-radius: 0px;background:#0d0d0d;border:1px solid #292929">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#616161;letter-spacing:1px;margin-bottom:8px">CPU WASTE — COMPENSATING FOR BAD ARCHITECTURE</div>
+        <div style="font-size:10px;color:#888888;line-height:1.6;margin-bottom:8px">
           Since the stages can't talk to each other, they brute-force their way to "good enough":
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">4–8×</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
+            <div style="background:#292929;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#7c7c7c;white-space:nowrap;flex-shrink:0">4–8×</div>
+            <div style="font-size:9px;color:#777777;line-height:1.4"><strong style="color:#999999">Oversampling</strong> — running at 176–352kHz to suppress aliasing that smart architecture would prevent</div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">1000+</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
+            <div style="background:#292929;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#7c7c7c;white-space:nowrap;flex-shrink:0">1000+</div>
+            <div style="font-size:9px;color:#777777;line-height:1.4"><strong style="color:#999999">IR convolution taps</strong> — thousands of multiply-adds per sample because they can't model a speaker with 5 biquads</div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#442222;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#cc6666;white-space:nowrap;flex-shrink:0">LSTM</div>
-            <div style="font-size:9px;color:#777;line-height:1.4"><strong style="color:#999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
+            <div style="background:#292929;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#7c7c7c;white-space:nowrap;flex-shrink:0">LSTM</div>
+            <div style="font-size:9px;color:#777777;line-height:1.4"><strong style="color:#999999">Neural net per sample</strong> — NAM/ToneX run full matrix math 44,100 times/sec to approximate what envelope followers do</div>
           </div>
         </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#220a0a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#cc4444;font-weight:700">5–15% CPU per track</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#664444;margin-top:2px">1 instance = freeze your other tracks</div>
+        <div style="margin-top:10px;padding:8px;border-radius: 2px;background:#0f0f0f;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#616161;font-weight:700">5–15% CPU per track</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#4b4b4b;margin-top:2px">1 instance = freeze your other tracks</div>
         </div>
       </div>
     </div>
@@ -3028,13 +3190,13 @@
     <div class="da-compare-col da-lms-col">
       <h3>LMS Density-Aware</h3>
       <div class="da-stage-box da-lms"><span class="da-stage-name">INPUT STAGE</span><div class="da-stage-sub">Grid physics: loading, bias shift, conduction</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-arrow da-lms">&#65656555;</div>
       <div class="da-stage-box da-lms"><span class="da-stage-name">V1 + DENSITY TRACKER</span><div class="da-stage-sub">4-band harmonic analysis → shapes clipping, Miller, drive</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-arrow da-lms">&#65656555;</div>
       <div class="da-stage-box da-lms"><span class="da-stage-name">DYNAMIC MILLER LP</span><div class="da-stage-sub">5kHz–8.5kHz — follows density in real time</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-arrow da-lms">&#65656555;</div>
       <div class="da-stage-box da-lms"><span class="da-stage-name">V2 + DENSITY TRACKER</span><div class="da-stage-sub">Sees V1's output. Its own harmonic view.</div></div>
-      <div class="da-stage-arrow da-lms">&#8595;</div>
+      <div class="da-stage-arrow da-lms">&#65656555;</div>
       <div class="da-stage-box da-lms"><span class="da-stage-name">TONE → POWER → CAB</span><div class="da-stage-sub">Shared B+ rail. Power amp density-aware.</div></div>
       <div class="da-checklist">
         <div class="da-check-item da-on">Inter-stage awareness</div>
@@ -3046,28 +3208,28 @@
         <div class="da-check-item da-on">Harmonic analysis</div>
         <div class="da-check-item da-on">Adaptive clipping</div>
       </div>
-      <div style="margin-top:14px;padding:12px;border-radius:6px;background:#0a1a0a;border:1px solid #224422">
-        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
-        <div style="font-size:10px;color:#888;line-height:1.6;margin-bottom:8px">
+      <div style="margin-top:14px;padding:12px;border-radius: 0px;background:#151515;border:1px solid #3a3a3a">
+        <div style="font-family:var(--da-mono);font-size:9px;font-weight:700;color:#9b9b9b;letter-spacing:1px;margin-bottom:8px">CPU EFFICIENCY — INTELLIGENCE OVER HORSEPOWER</div>
+        <div style="font-size:10px;color:#888888;line-height:1.6;margin-bottom:8px">
           When stages know what the others are doing, you don't need brute force:
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">1×</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
+            <div style="background:#3a3a3a;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#a8a8a8;white-space:nowrap;flex-shrink:0">1×</div>
+            <div style="font-size:9px;color:#888888;line-height:1.4"><strong style="color:#aaaaaa">No oversampling</strong> — density-aware filtering prevents the aliasing before it happens</div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">5 bq</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
+            <div style="background:#3a3a3a;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#a8a8a8;white-space:nowrap;flex-shrink:0">5 bq</div>
+            <div style="font-size:9px;color:#888888;line-height:1.4"><strong style="color:#aaaaaa">Biquad cab model</strong> — 5 filters modeled from speaker physics, ~30 ops vs thousands</div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:6px">
-            <div style="background:#224422;border-radius:3px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#44cc66;white-space:nowrap;flex-shrink:0">~10</div>
-            <div style="font-size:9px;color:#888;line-height:1.4"><strong style="color:#aaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
+            <div style="background:#3a3a3a;border-radius: 2px;padding:2px 6px;font-family:var(--da-mono);font-size:9px;color:#a8a8a8;white-space:nowrap;flex-shrink:0">~10</div>
+            <div style="font-size:9px;color:#888888;line-height:1.4"><strong style="color:#aaaaaa">Ops for density tracking</strong> — envelope followers and ratios. The math that makes it all work costs almost nothing.</div>
           </div>
         </div>
-        <div style="margin-top:10px;padding:8px;border-radius:4px;background:#0a220a;text-align:center">
-          <div style="font-family:var(--da-mono);font-size:11px;color:#22c55e;font-weight:700">2.5% CPU for 16 tracks</div>
-          <div style="font-family:var(--da-mono);font-size:9px;color:#447744;margin-top:2px">the whole session, not one plugin</div>
+        <div style="margin-top:10px;padding:8px;border-radius: 2px;background:#1b1b1b;text-align:center">
+          <div style="font-family:var(--da-mono);font-size:11px;color:#9b9b9b;font-weight:700">2.5% CPU for 16 tracks</div>
+          <div style="font-family:var(--da-mono);font-size:9px;color:#686868;margin-top:2px">the whole session, not one plugin</div>
         </div>
       </div>
     </div>
@@ -3078,7 +3240,7 @@
 <!-- WORKFLOW COMPARISONS (COLLAPSIBLE) -->
 <!-- ============================================ -->
 <div class="collapsible-header" onclick="toggleSection('workflow-comparisons')">
-  WORKFLOW COMPARISONS — SEE THE DETAILS <span class="collapse-arrow" id="arrow-workflow-comparisons">&#9654;</span>
+  WORKFLOW COMPARISONS — SEE THE DETAILS <span class="collapse-arrow" id="arrow-workflow-comparisons">&#70707044;</span>
 </div>
 <div class="collapsible-body" id="workflow-comparisons">
 
@@ -3342,8 +3504,8 @@
 <!-- ============================================ -->
 <section class="core-section">
   <div class="core-inner">
-    <div class="tt-badge" style="border-color:#f07a2e;color:#f07a2e;">SHARED DSP KERNEL</div>
-    <h2 class="core-title">One Core. <span style="color:#f07a2e;">Every Plugin.</span></h2>
+    <div class="tt-badge" style="border-color:#8e8e8e;color:#8e8e8e;">SHARED DSP KERNEL</div>
+    <h2 class="core-title">One Core. <span style="color:#8e8e8e;">Every Plugin.</span></h2>
     <p class="core-subtitle">
       Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
       LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
@@ -3536,7 +3698,7 @@
 <!-- FREE MEMORY AND TIME TRAVEL (COLLAPSIBLE) -->
 <!-- ============================================ -->
 <div class="collapsible-header" onclick="toggleSection('free-mem-section')">
-  FREE MEMORY AND TIME TRAVEL <span class="collapse-arrow" id="arrow-free-mem-section">&#9654;</span>
+  FREE MEMORY AND TIME TRAVEL <span class="collapse-arrow" id="arrow-free-mem-section">&#70707044;</span>
 </div>
 <div class="collapsible-body" id="free-mem-section">
 
@@ -3595,35 +3757,35 @@
 <!-- ============================================ -->
 <section class="perf-section">
   <div class="perf-inner">
-    <div class="tt-badge" style="border-color:#4de88a;color:#4de88a;">REAL WORLD PROOF</div>
-    <h2 class="core-title">Don't Take Our Word For It. <span style="color:#4de88a;">Look at the Numbers.</span></h2>
+    <div class="tt-badge" style="border-color:#c0c0c0;color:#c0c0c0;">REAL WORLD PROOF</div>
+    <h2 class="core-title">Don't Take Our Word For It. <span style="color:#c0c0c0;">Look at the Numbers.</span></h2>
     
     <div class="perf-cards">
       <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">62</div>
+        <div class="perf-number" style="color:#c0c0c0;">62</div>
         <div class="perf-label">Live FX plugins</div>
         <div class="perf-detail">Fully active channel strips, delays, compressors. Not bypassed. Not frozen.</div>
       </div>
       <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">5%</div>
+        <div class="perf-number" style="color:#c0c0c0;">5%</div>
         <div class="perf-label">Total FX CPU</div>
         <div class="perf-detail">The computer is barely awake.</div>
       </div>
       <div class="perf-card">
-        <div class="perf-number" style="color:#4de88a;">755 MB</div>
+        <div class="perf-number" style="color:#c0c0c0;">755 MB</div>
         <div class="perf-label">Total RAM usage</div>
         <div class="perf-detail">Full session including the operating system. One Kontakt patch uses more.</div>
       </div>
       <div class="perf-card stress-card">
-        <div class="perf-number" style="color:#f07a2e;">256</div>
+        <div class="perf-number" style="color:#8e8e8e;">256</div>
         <div class="perf-label">Stress test: plugins running</div>
         <div class="perf-detail">60 tracks. It took 256 live effects to crack 20% CPU. On a 2017 Mac.</div>
       </div>
     </div>
 
     <div class="perf-punchline">
-      Each LMS plugin costs approximately <span style="color:#4de88a;">0.08% CPU</span>.<br>
-      <span style="color:#888890;">One instance of Serum uses 5–15%. You do the math.</span>
+      Each LMS plugin costs approximately <span style="color:#c0c0c0;">0.08% CPU</span>.<br>
+      <span style="color:#898989;">One instance of Serum uses 5–15%. You do the math.</span>
     </div>
   </div>
 </section>
@@ -3694,7 +3856,7 @@
         <div class="node-detail">iLok, NI Service Center, Pace — running in background 24/7</div>
       </div>
       <div class="flow-arrow"><span>▼ total</span></div>
-      <div class="flow-node" style="border-color:#661122;background:#2a0810;">
+      <div class="flow-node" style="border-color:#242424;background:#101010;">
         <div class="node-name" style="color:var(--evil-red);font-size:1.2rem;">4–16 GB</div>
         <div class="node-detail">For a medium session. Heavy sessions swap to disk. Fans spin. Beach ball.</div>
       </div>
@@ -3731,7 +3893,7 @@
         <div class="node-detail">~64KB. Numbers in memory. The entire inter-plugin mesh.</div>
       </div>
       <div class="flow-arrow"><span>▼ total</span></div>
-      <div class="flow-node" style="border-color:#116633;background:#082a10;">
+      <div class="flow-node" style="border-color:#505050;background:#212121;">
         <div class="node-name" style="color:var(--good-green);font-size:1.2rem;">~100 MB</div>
         <div class="node-detail">Full session. Drum machine + sequencer + 4 synth tracks + FX + master. On a 2017 Mac.</div>
       </div>
@@ -3798,168 +3960,6 @@
 </div>
 
 </div><!-- /free-mem-section -->
-
-<!-- ============================================ -->
-<!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
-<!-- ============================================ -->
-<div class="da-section-label">THE LMS SUITE</div>
-
-<div class="da-suite-wrap">
-  <div class="da-suite-desc">
-    All open source. All JSFX. All zero latency. All interconnected via shared memory.<br>
-    Install from ReaPack in one click. Works everywhere REAPER runs — including Linux.
-  </div>
-
-  <div class="da-suite-grid">
-    <!-- DENSITY-AWARE AMP SIMS -->
-    <div class="da-suite-card" style="border-color:var(--amber-dim);">
-      <div class="da-suite-card-header da-amber">AMP SIMS (12)</div>
-      <div class="da-suite-item"><strong>The Twins v2</strong> <span class="da-suite-item-desc">— Dual American Clean (AB763 preamp, cathode follower, 12AT7 LTP PI, switchable 6L6GC/6V6GT power amp, switchable silicon/tube rectifier)</span></div>
-      <div class="da-suite-item"><strong>Punk Idol v2</strong> <span class="da-suite-item-desc">— British Crunch (bright cap, 12AX7 LTP PI, EL34 push-pull, presence in NFB loop)</span></div>
-      <div class="da-suite-item"><strong>The Frenchie v2</strong> <span class="da-suite-item-desc">— 5W Class A (single-ended 6V6, 5Y3 tube rectifier, transformer saturation, tremolo)</span></div>
-      <div class="da-suite-item"><strong>The Fridge v2</strong> <span class="da-suite-item-desc">— All-Tube Bass (dual channel, 6550 push-pull, transformer saturation, ultra-linear OT)</span></div>
-      <div class="da-suite-item"><strong>Ol Reliable v2</strong> <span class="da-suite-item-desc">— EL84 Class A (EF86 pentode + Top Boost 12AX7, cathodyne PI, EL84 push-pull, tremolo)</span></div>
-      <div class="da-suite-item"><strong>The TRSOB v2</strong> <span class="da-suite-item-desc">— High-Gain Rectifier (Clean/Vintage/Modern channels, dual rectifier, 5-band EQ, 6L6 push-pull)</span></div>
-      <div class="da-suite-item"><strong>OJ 95 v2</strong> <span class="da-suite-item-desc">— this is one killer amp (Clean/Dirty channels, EL34 push-pull)</span></div>
-      <div class="da-suite-item"><strong>Bottom Feeder v2</strong> <span class="da-suite-item-desc">— Tweed Bass (Normal/Bright channels, 6L6 push-pull)</span></div>
-      <div class="da-suite-item"><strong>Area 50/51 v2</strong> <span class="da-suite-item-desc">— the tone is out there... (cold-biased 6L6, Clean/Lead channels, resonance/presence controls, noise gate)</span></div>
-      <div class="da-suite-item"><strong>The Fucking Nightmare v2</strong> <span class="da-suite-item-desc">— Hybrid Bass (Warm/Aggressive channels)</span></div>
-      <div class="da-suite-item"><strong>TOMASTEKNIK v2</strong> <span class="da-suite-item-desc">— All-Tube Bass + OD (Swedish hardcore bass rig, Blindside tribute)</span></div>
-      <div class="da-suite-item"><strong>The Piece of Shit</strong> <span class="da-suite-item-desc">— 5" Solid State Practice Amp (the one that sounds like a bee in a tin can — but density-aware)</span></div>
-      <div class="da-suite-footer">11 density-aware tube amps + 1 solid-state practice amp. All shared DSP in lms_core: triode / power amp / density tracker / spring + tremolo + tape echo / cab sim / GUI</div>
-    </div>
-
-    <!-- INSTRUMENTS -->
-    <div class="da-suite-card" style="border-color:rgba(34,197,94,0.25);">
-      <div class="da-suite-card-header da-green">INSTRUMENTS (7)</div>
-      <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Analog mono synth (24dB ladder filter, 3 oscillators, unison, chorus, delay)</span></div>
-      <div class="da-suite-item"><strong>Lil Stinker</strong> <span class="da-suite-item-desc">— Analog mono/poly synth (ladder filter, Multidrive, 74 presets, 8-voice poly)</span></div>
-      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (MIDI output, manager-integrated, per-pad routing, sample overlays that survive the pool changing)</span></div>
-      <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
-      <div class="da-suite-item"><strong>Drone Voice</strong> <span class="da-suite-item-desc">— MIDI generator for synth roles (Bass/Chords/Arp/Harmony/Power, follows Harmony Map chords, glide/portamento)</span></div>
-      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, labeled parts, song sequence, per-section modifiers, chord broadcast, section transport that loops any part from REAPER's own repeat)</span></div>
-      <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
-      <div class="da-suite-footer">All interconnected via gmem bus — Drone Voice reads Harmony Map chords in real time</div>
-    </div>
-
-    <!-- CHANNEL TOOLS -->
-    <div class="da-suite-card" style="border-color:rgba(167,139,250,0.25);">
-      <div class="da-suite-card-header da-purple">CHANNEL TOOLS (7)</div>
-      <div class="da-suite-item"><strong>RTW (Reinvents The Wheel)</strong> <span class="da-suite-item-desc">— SSL-grade channel strip (4-band EQ, LPF/HPF, VCA comp w/ sidechain HPF + auto-release + parallel mix, spring &amp; room reverb, pre/post routing)</span></div>
-      <div class="da-suite-item"><strong>KITTY KATS Big Krush</strong> <span class="da-suite-item-desc">— Distressor-style compressor/crusher</span></div>
-      <div class="da-suite-item"><strong>Silver Sixty Nine</strong> <span class="da-suite-item-desc">— Density-aware LA-2A opto compressor (program-dependent attack/release)</span></div>
-      <div class="da-suite-item"><strong>Smart Gate</strong> <span class="da-suite-item-desc">— Density-aware noise gate (single + drum mode with cross-mic phase correction)</span></div>
-      <div class="da-suite-item"><strong>Tube Saturator</strong> <span class="da-suite-item-desc">— Tube/tape/transistor saturation (5 modes)</span></div>
-      <div class="da-suite-item"><strong>Mega Increasinator</strong> <span class="da-suite-item-desc">— Predictive mastering limiter (gmem-aware, artifact-free)</span></div>
-      <div class="da-suite-item"><strong>Pitch Detector</strong> <span class="da-suite-item-desc">— Monophonic YIN pitch tracker (MIDI output, shared pitch bus)</span></div>
-      <div class="da-suite-footer">Density-aware dynamics across the board</div>
-    </div>
-
-    <!-- EFFECTS -->
-    <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
-      <div class="da-suite-card-header da-blue">EFFECTS (6)</div>
-      <div class="da-suite-item"><strong>Satan's Little Helper</strong> <span class="da-suite-item-desc">— 10-pedal board (DOA666, HWI, Black Mass, The Elephant, Pipeworks, Unholy Bowl, Marmot, 12 Stepper, Green Sin, Judgement Day). Section-based signal flow: DIST / MOD / DELAY / REVERB / EQ. Dual FET comps in/out.</span></div>
-      <div class="da-suite-item"><strong>Black In Bluhm</strong> <span class="da-suite-item-desc">— Material room reverb (real-time ray tracing, N-gon geometry, 8 wall materials, draggable mic/source, up to 3rd-order reflections, single + 8-band source modes, built-in compressor, Room Juice character control)</span></div>
-      <div class="da-suite-item"><strong>Density Reverb</strong> <span class="da-suite-item-desc">— 8-line FDN algorithmic reverb (8 presets, density-aware harmonic saturation, modal filtering)</span></div>
-      <div class="da-suite-item"><strong>Henge</strong> <span class="da-suite-item-desc">— Tape delay (wow/flutter/spring reverb)</span></div>
-      <div class="da-suite-item"><strong>Henge On Crack</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
-      <div class="da-suite-item"><strong>The Faker</strong> <span class="da-suite-item-desc">— Real-time pitch correction (YIN detection, vibrato preserve, scale snap)</span></div>
-      <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
-    </div>
-
-    <!-- SESSION SCRIPTS -->
-    <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
-      <div class="da-suite-card-header da-orange">CONTROL PLANE &amp; SCRIPTS — LUA (5)</div>
-      <div class="da-suite-item"><strong>LMS Plugin Manager</strong> <span class="da-suite-item-desc">— Central ReaImGui control plane. Follow/steal, overview, scenes (save a whole rig and recall it into any project), DrumBanger pads and overlays, Harmony Map editing and section transport, room plan, drone voice setup, track builder. The brain of the suite.</span></div>
-      <div class="da-suite-item"><strong>lms_setup.lua</strong> <span class="da-suite-item-desc">— One-time suite setup (gmem namespace, pool directory)</span></div>
-      <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
-      <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
-      <div class="da-suite-item"><strong>lms_steal.lua</strong> <span class="da-suite-item-desc">— Steal settings from one project to another (smart track mapping)</span></div>
-      <div class="da-suite-footer">All plugins are pure audio processors — follow/steal managed by the Plugin Manager</div>
-    </div>
-  </div>
-</div>
-
-<!-- UPDATE NOTICE -->
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 27, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>Install and play.</strong> The pack now ships its own drum samples &mdash; Kit1-808 and Kit2-LoFi install straight into the pool, so REAPER + ReaPack + LMS is the whole setup. No hunting, no repair script.
-    <br><br>
-    <strong>Harmony Map &mdash; section transport.</strong> Pattern Hold, and Prev / Hold / Next over the song's own sections. A section is one sequence block with its repeats, and holding one loops it using REAPER's repeat and time selection &mdash; hold, then Next through the arrangement to audition it. Song regions now line up exactly with what plays; the PLAY button drives the host instead of stuttering the plugin.
-    <br><br>
-    <strong>Scenes.</strong> Save a project's whole shape &mdash; track names, faders, folders, colours, and every plugin with every parameter &mdash; and recall it into any project. Tracks match by name, so it fills in what is missing rather than duplicating what is there.
-    <br><br>
-    <strong>DRUMBANGER overlays.</strong> Sixteen pads, sixteen named samples, pulled from as many folders as you like. Kits go back to being folders that keep samples organised instead of deciding what you hear. Overlays store paths rather than positions, so importing a folder cannot silently rearrange a kit you built. Per-pad sample picker in the manager.
-    <br><br>
-    <strong>Black In Bluhm</strong> absorbs The Space, whose Vibe lives on as Room Juice. <strong>Core 8.0</strong> &mdash; 4,700 lines of duplication removed across the suite; one palette, one set of widgets, one window chrome. Dragging a slider in any amp no longer drags its neighbours. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 25, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>Black In Bluhm v1.0</strong> &mdash; material room reverb joins the suite. Real-time ray tracing with N-gon room geometry, 8 wall materials (concrete, wood, drywall, glass, brick, carpet, curtain, foam), draggable mic/source positions, up to 3rd-order reflections, single + 8-band source modes, built-in compressor (LA2A/1176/Distressor). Fix mic/source positions resetting on project reload. <strong>DrumBanger v3.1</strong> &mdash; chop mode (CHOP/2, CHOP/4) now persists on project reload. <strong>Core 7.0</strong> &mdash; mode selector refactored (12 params &rarr; 7 using string buffer). <strong>LMS Plugin Manager v1.1</strong> &mdash; shakebot logo in header. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 20, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>LMS Plugin Manager</strong> &mdash; new central ReaImGui control plane. Follow/steal handled entirely by the manager &mdash; all 28 plugins stripped of broadcast code, now pure audio processors (-2,258 lines). Overview tab, DrumBanger controls, Harmony Map display, track builder, drone voice setup. <strong>Drone Voice v1.0</strong> &mdash; new gmem-driven MIDI generator. 5 roles (Bass/Chords/Arp/Harmony/Power), follows Harmony Map chords in real time, glide/portamento via note overlap, settings persist with project via JSFX sliders. <strong>DrumBanger</strong> &mdash; manager integration, per-pad routing (34-ch output), MIDI output, route-aware stereo muting, room drum type. <strong>Smart Gate</strong> &mdash; phase calibration fix, mutual exclusion display, room mic type. <strong>The Faker</strong> &mdash; YIN buffer overflow fix at high sample rates, harmony map follow mode. <strong>The Piece of Shit</strong> &mdash; 5" solid-state practice amp, now in the suite. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JUNE 27, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>Transformer hysteresis</strong> &mdash; B-H loop model on all 10 tube amp output transformers. Even harmonics on signal reversals, subtle compression on chord stabs, bloom on power chords. Width scaled per amp (small Champ OT saturates most, big SVT least). <strong>Miller LP rewrite</strong> &mdash; filter now opens to 15&ndash;18kHz at clean for sparkle and closes only at max density, with 150ms smoother to prevent sweep artifacts. <strong>Gain-scaled tone stack recovery</strong> &mdash; gain knob at zero now gives true clean headroom through PI and PA. <strong>Ol' Reliable v2.9</strong> &mdash; bright switch, tone stack on all channels. <strong>OJ95 v2.0</strong> &mdash; fix Mark II PA state reset. <strong>Silver69 v1.4 + Mega Increasinator v1.5</strong> &mdash; LR4 crossover for frequency-targeted compression/limiting. <strong>DrumBanger v2.0</strong> &mdash; swing fixed to 8th-note shuffle. <strong>Core 6.8</strong>. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JUNE 4, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>OJ 95 v1.9</strong> &mdash; Plexi/Mark II switchable voicing and jumped channel mode (run Clean + Dirty in parallel). <strong>Ol' Reliable v2.8</strong> &mdash; Jumped channel mode (Normal + Top Boost in parallel). <strong>Speaker Breakup slider</strong> &mdash; all 11 amps now have a 0&ndash;100% speaker breakup intensity control. <strong>Satan's Little Helper v1.2</strong> &mdash; Golden Calf (Klon Centaur) pedal added; slider automation fix. <strong>Removed from ReaPack</strong>: Harmony Map, Density Sequencer, and DroneMIDI2 &mdash; pulled for further development, will return when ready. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">MAY 6, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>New tuner</strong> &mdash; built into Satan's Little Helper. YIN autocorrelation pitch detection, huge note name with octave, color-zoned cents meter with needle, frequency readout, IN-TUNE LED, click-to-toggle MUTE for silent stage tuning. <strong>Drop-tuning ready</strong> &mdash; detection range covers every drop tuning down to drop A (55Hz). PWR button keeps it off by default; flick it on to engage. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">APRIL 21, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>Satan's Little Helper v1.0</strong> &mdash; new 10-pedal board. DOA666, HARDWARE INCOMPATIBLE, BLACK MASS, THE ELEPHANT, PIPEWORKS, UNHOLY BOWL, MARMOT, 12 STEPPER, and two newcomers: <strong>GREEN SIN</strong> (TS-808 Tube Screamer) and <strong>JUDGEMENT DAY</strong> (parametric EQ with Punk / Jazz / Metal / Flat voicings that auto-set the knobs). Section-based signal flow: DIST &rarr; MOD &rarr; DELAY &rarr; REVERB &rarr; EQ. Dual FET comps on the input and output.
-    <strong>Area 50/51 v2.8</strong> &mdash; clean channel rebuilt. Cold clipper bypassed on Clean (the 5150's lead-only stage was smearing clean tones), power-amp crossover deadzone disabled on Clean (fixes the digital fall-apart on quiet tails). Lead untouched.
-    <strong>All 11 amps</strong> &mdash; built-in tuner removed. A replacement tuner is on the way. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">APRIL 5, 2026</div>
-  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
-    <strong>Harmony Map v2.3</strong> &mdash; Song Mode: 16 patterns, labeled parts (Verse/Chorus/Bridge/Intro/Outro), song sequence with drag-and-drop reorder, per-section modifiers (key, mode, velocity, arp, octave). Conductor/Player multi-instance system. Undo/redo. <strong>Now controls DrumBanger</strong> &mdash; assign a drum pattern (D1&ndash;D8) to each song section, DrumBanger follows automatically. <strong>DrumBanger v1.9</strong> &mdash; Follow Harmony Map toggle, fixed pattern switch timing. <strong>Save/Load/Steal</strong> &mdash; folder structure preserved. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.15);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.6);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 18, 2026</div>
-  <div style="color:#999;font-size:0.95rem;line-height:1.6;">
-    <strong>Harmony Map v1.0</strong> — New plugin: timeline-locked chord sequencer based on the mathematics of harmony. Circle-of-fifths navigation with diatonic highlighting, dominant resolution arrows, relative/parallel connections. Variable-width steps, subdivisions, per-step modifiers (SUS, 7th, b7, 9th, 6th, inversions). 8-pattern bank with arrangement mode &mdash; a step sequencer of step sequencers. Outputs MIDI synced to REAPER transport. <strong>DroneMIDI2 v1.5</strong> &mdash; Chord progressions, arpeggiator, extended voicings. All free. All open source.
-  </div>
-</div>
-
-<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.15);border-radius:8px;text-align:center;">
-  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.6);letter-spacing:0.05em;margin-bottom:0.5rem;">MARCH 16, 2026</div>
-  <div style="color:#999;font-size:0.95rem;line-height:1.6;">
-    <strong>RTW v7.0</strong> — SSL-grade channel strip upgrade. Added LPF, DC blocker after saturation, sidechain HPF on compressor (no more bass pumping), SSL-style dual-time-constant auto-release, compressor makeup gain, parallel compression mix, and built-in spring &amp; room reverb with dark/neutral/bright tone and pre/post compressor routing. <strong>NUUG 420</strong> — Fixed presets and randomizer not firing from the GUI. <strong>Density Reverb</strong> — Added to ReaPack (8-line FDN, 8 presets, density-aware harmonic saturation). All free. All open source.
-  </div>
-</div>
 
 <!-- ============================================ -->
 <!-- EXISTING: FINALE -->
@@ -4140,8 +4140,8 @@ function daSetMode(m) {
     document.getElementById('da-miller-callout').textContent = 'The Miller LP follows the density \u2014 it doesn\'t sweep on its own. The signal tells the filter where to be.';
   } else {
     document.getElementById('da-miller-title').textContent = "WHAT'S NOT HAPPENING";
-    document.getElementById('da-miller-title').style.color = '#555';
-    document.getElementById('da-miller-text').innerHTML = 'Same input, same stages. But the Miller LP is stuck at 8000 Hz. The tubes all glow the same dim gray because they don\'t know what frequency they\'re clipping. The matrix is dead because nobody\'s tracking anything. No density feedback. No dynamic coupling. No shared power supply response. Each stage processes in a vacuum. <span style="color:#554433;display:block;margin-top:6px;font-style:italic">This is what $150\u2013$400 amp sims do.</span>';
+    document.getElementById('da-miller-title').style.color = '#555555';
+    document.getElementById('da-miller-text').innerHTML = 'Same input, same stages. But the Miller LP is stuck at 8000 Hz. The tubes all glow the same dim gray because they don\'t know what frequency they\'re clipping. The matrix is dead because nobody\'s tracking anything. No density feedback. No dynamic coupling. No shared power supply response. Each stage processes in a vacuum. <span style="color:#464646;display:block;margin-top:6px;font-style:italic">This is what $150\u2013$400 amp sims do.</span>';
     document.getElementById('da-miller-callout').className = 'da-miller-callout da-dead';
     document.getElementById('da-miller-callout').textContent = 'Fixed at 8000 Hz. Doesn\'t care if you\'re whispering or shredding.';
   }
@@ -4149,10 +4149,10 @@ function daSetMode(m) {
 
 // === ANIMATION ===
 const daBandColors = [
-  [30, 80, 220],
-  [220, 160, 30],
-  [220, 60, 30],
-  [180, 40, 220],
+  [110, 110, 110],
+  [235, 235, 235],
+  [175, 175, 175],
+  [80, 80, 80],
 ];
 
 const daTubeColorsLMS = [
@@ -4229,7 +4229,7 @@ function daAnimate() {
     const plate = document.getElementById(`da-tube-plate-${i}`);
     const lbl = document.getElementById(`da-tube-lbl-${i}`);
 
-    tube.style.background = `radial-gradient(ellipse at 50% 60%, rgba(${r},${gn},${b},${0.05 + g * 0.5}), transparent 70%), linear-gradient(180deg, #0a0a12, #050508)`;
+    tube.style.background = `radial-gradient(ellipse at 50% 60%, rgba(${r},${gn},${b},${0.05 + g * 0.5}), transparent 70%), linear-gradient(180deg, #0b0b0b, #050505)`;
     if (daMode === 'lms') {
       tube.style.boxShadow = `0 0 ${4 + g * 28}px rgba(${r},${gn},${b},${g * 0.7}), 0 0 ${2 + g * 14}px rgba(${r},${gn},${b},${g * 0.4})`;
     } else {
@@ -4238,7 +4238,7 @@ function daAnimate() {
     tube.className = daMode === 'lms' ? 'da-tube' : 'da-tube da-trad';
     fil.style.background = `radial-gradient(circle, rgba(${Math.min(255, r + 80)},${Math.min(255, gn + 40)},${Math.min(255, b + 20)},${0.15 + g * 0.7}), transparent 70%)`;
     plate.style.border = `1px solid rgba(255,255,255,${0.03 + g * 0.08})`;
-    lbl.style.color = daMode === 'lms' ? `rgba(${r},${gn},${b},${0.4 + g * 0.6})` : '#444';
+    lbl.style.color = daMode === 'lms' ? `rgba(${r},${gn},${b},${0.4 + g * 0.6})` : '#444444';
   }
 
   // Update matrix
@@ -4271,30 +4271,30 @@ function daAnimate() {
       const [r, g, b] = daBandColors[i];
       lbl.style.color = `rgba(${r},${g},${b},0.7)`;
     } else {
-      lbl.style.color = '#333';
+      lbl.style.color = '#333333';
     }
   }
 
   // Meters
   const isLMS = daMode === 'lms';
-  const mColor = isLMS ? 'var(--amber)' : '#444';
+  const mColor = isLMS ? 'var(--amber)' : '#444444';
 
   daSetMeter('miller-freq', daMillerFreq, 8500, Math.round(daMillerFreq), ' Hz', mColor, daMillerFreq < 6000);
   daSetMeter('miller-q', daMillerQ, 1, daMillerQ.toFixed(2), '', mColor, false);
-  daSetMeter('grid-cond', daGridCond, 0.5, daGridCond.toFixed(2), '', isLMS ? 'var(--da-red)' : '#444', daGridCond < 0.2);
-  daSetMeter('drive', daDriveBoost, 1.5, daDriveBoost.toFixed(2), '\u00d7', isLMS ? 'var(--da-green)' : '#444', false);
-  daSetMeter('bplus', daBplus, 100, Math.round(daBplus), '%', isLMS ? 'var(--da-purple)' : '#444', daBplus < 85);
+  daSetMeter('grid-cond', daGridCond, 0.5, daGridCond.toFixed(2), '', isLMS ? 'var(--da-red)' : '#444444', daGridCond < 0.2);
+  daSetMeter('drive', daDriveBoost, 1.5, daDriveBoost.toFixed(2), '\u00d7', isLMS ? 'var(--da-green)' : '#444444', false);
+  daSetMeter('bplus', daBplus, 100, Math.round(daBplus), '%', isLMS ? 'var(--da-purple)' : '#444444', daBplus < 85);
 
   // Output
   const outFill = document.getElementById('da-output-fill');
   const outVal = document.getElementById('da-output-value');
   outFill.style.height = (daSignalOut * 100) + '%';
   if (daMode === 'lms') {
-    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#ef4444' : daSignalOut > 0.5 ? '#f59e0b' : '#22c55e'}, transparent)`;
-    outVal.style.color = '#ccc';
+    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#686868' : daSignalOut > 0.5 ? '#a6a6a6' : '#9b9b9b'}, transparent)`;
+    outVal.style.color = '#cccccc';
   } else {
-    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#888' : '#555'}, #33333322)`;
-    outVal.style.color = '#666';
+    outFill.style.background = `linear-gradient(180deg, ${daSignalOut > 0.8 ? '#888888' : '#555555'}, #33333322)`;
+    outVal.style.color = '#666666';
   }
   outVal.textContent = Math.round(daSignalOut * 100);
 
@@ -4306,9 +4306,9 @@ function daSetMeter(id, value, max, display, unit, color, warning) {
   const val = document.getElementById(`da-mv-${id}`);
   const pct = Math.min(100, (value / max) * 100);
   fill.style.width = pct + '%';
-  fill.style.background = daMode === 'lms' ? (warning ? `linear-gradient(90deg, ${color}, var(--da-red))` : color) : '#333';
+  fill.style.background = daMode === 'lms' ? (warning ? `linear-gradient(90deg, ${color}, var(--da-red))` : color) : '#333333';
   val.textContent = display + unit;
-  val.style.color = daMode === 'lms' ? color : '#444';
+  val.style.color = daMode === 'lms' ? color : '#444444';
 }
 
 // === BOOT ===
