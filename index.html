@@ -2511,6 +2511,7 @@
   <button class="lms-tab" role="tab" id="tabbtn-demo" aria-controls="tab-demo" aria-selected="false" onclick="lmsTab('demo')">DEMO</button>
   <button class="lms-tab" role="tab" id="tabbtn-core" aria-controls="tab-core" aria-selected="false" onclick="lmsTab('core')">THE CORE</button>
   <button class="lms-tab" role="tab" id="tabbtn-numbers" aria-controls="tab-numbers" aria-selected="false" onclick="lmsTab('numbers')">NUMBERS</button>
+  <button class="lms-tab" role="tab" id="tabbtn-linux" aria-controls="tab-linux" aria-selected="false" onclick="lmsTab('linux')">LINUX</button>
 </nav>
 <div class="lms-panel is-open" id="tab-start" role="tabpanel" aria-labelledby="tabbtn-start">
 <!-- ============================================ -->
@@ -2522,12 +2523,10 @@
     <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
     <div style="color:#8f8f8f;font-size:0.8rem;line-height:1.5;max-width:640px;margin:0.75rem auto;font-style:italic;">LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.</div>
     <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
-    <button class="tldr-toggle open" id="tldr-toggle" onclick="toggleInstall()">COLLAPSE <span class="arrow">&#71717100;</span></button>
+    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#71717100;</span></button>
   </div>
 
-  <!-- Open by default: this is its own tab now, and a tab that opens to a
-       single button is not an install guide. -->
-  <div class="tldr-body open" id="tldr-body">
+  <div class="tldr-body" id="tldr-body">
   <div class="tldr-steps">
 
     <!-- Step 1 -->
@@ -3893,40 +3892,7 @@
 <div class="stats">
   <div class="stat">
     <div class="number evil">$750</div>
-    <div class="label">Ableton Live Suite</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$599</div>
-    <div class="label">Waves Mercury Bundle</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$9.99/mo</div>
-    <div class="label">Pro Tools Subscription</div>
-  </div>
-  <div class="stat">
-    <div class="number evil">$49/yr</div>
-    <div class="label">iLok Cloud License</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$60</div>
-    <div class="label">Reaper (forever)</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$0</div>
-    <div class="label">LMS Plugin Suite</div>
-  </div>
-  <div class="stat">
-    <div class="number good">$0</div>
-    <div class="label">Linux</div>
-  </div>
-  <div class="stat">
-    <div class="number orange">∞</div>
-    <div class="label">Yours forever</div>
-  </div>
-</div>
-
-</div><!-- /free-mem-section -->
-
+<div class="lms-panel" id="tab-linux" role="tabpanel" aria-labelledby="tabbtn-linux">
 <!-- ============================================ -->
 <!-- FREE MEMORY AND TIME TRAVEL (COLLAPSIBLE) -->
 <!-- ============================================ -->
@@ -3986,6 +3952,42 @@
 </section>
 
 </div>
+</div>
+
+    <div class="label">Ableton Live Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$599</div>
+    <div class="label">Waves Mercury Bundle</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$9.99/mo</div>
+    <div class="label">Pro Tools Subscription</div>
+  </div>
+  <div class="stat">
+    <div class="number evil">$49/yr</div>
+    <div class="label">iLok Cloud License</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$60</div>
+    <div class="label">Reaper (forever)</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">LMS Plugin Suite</div>
+  </div>
+  <div class="stat">
+    <div class="number good">$0</div>
+    <div class="label">Linux</div>
+  </div>
+  <div class="stat">
+    <div class="number orange">∞</div>
+    <div class="label">Yours forever</div>
+  </div>
+</div>
+
+</div><!-- /free-mem-section -->
+
 <!-- ============================================ -->
 <!-- EXISTING: FINALE -->
 <!-- ============================================ -->
