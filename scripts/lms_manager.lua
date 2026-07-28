@@ -1998,11 +1998,29 @@ local KITS = (function()
     if not find_db_instance() then return false, "No DRUMBANGER instance found." end
     local man = manifest()
     if #man == 0 then return false, "No pool/manifest.txt — run the rescan action." end
+    -- A pad reads -1 when it is still holding what the loaded kit put there
+    -- rather than an override. Writing "" for those made the overlay partial:
+    -- on recall those pads kept whatever they happened to have, which is the
+    -- kit dependency this was built to get rid of. So resolve them.
+    --
+    -- load_kit_samples(K) fills the pads from pool folder K+1, in order, so
+    -- kit K is the (K+1)th folder in manifest order and pad p is that folder's
+    -- (p+1)th entry -- the same walk the plugin does, done from the manifest.
+    local kit = math.floor(r.gmem_read(308) or 0)
+    local order, by = folders(man)
+    local kit_files = order[kit + 1] and by[order[kit + 1]] or nil
+
     local pads = {}
     for p = 0, NPADS - 1 do
       local idx = math.floor(r.gmem_read(POOL_MIRROR + p) or -1)
+      local path = ""
+      if idx >= 0 then
+        path = man[idx + 1] or ""
+      elseif kit_files then
+        path = kit_files[p + 1] or ""
+      end
       pads[#pads + 1] = {
-        path  = (idx >= 0 and man[idx + 1]) or "",
+        path  = path,
         vol   = db_get_param(10 + p),
         pan   = db_get_param(30 + p),
         pitch = db_get_param(50 + p),
