@@ -4174,12 +4174,12 @@ function daAnimate() {
 
   // Pick indicator
   const pick = document.getElementById('da-pick-indicator');
-  const col = daMode === 'lms' ? `rgba(245,158,11,${0.3 + input * 0.7})` : `rgba(150,150,150,${0.2 + input * 0.5})`;
+  const col = daMode === 'lms' ? `rgba(230,230,230,${0.3 + input * 0.7})` : `rgba(150,150,150,${0.2 + input * 0.5})`;
   pick.style.background = col;
   pick.style.top = (daPickY * 100) + '%';
   pick.style.transform = 'translateY(-50%)';
   if (daIsStrumming && daMode === 'lms') {
-    pick.style.boxShadow = `0 0 12px rgba(245,158,11,${input * 0.5})`;
+    pick.style.boxShadow = `0 0 12px rgba(230,230,230,${input * 0.5})`;
   } else {
     pick.style.boxShadow = 'none';
   }
