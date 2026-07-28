@@ -3834,10 +3834,10 @@
       <div class="da-suite-card-header da-green">INSTRUMENTS (7)</div>
       <div class="da-suite-item"><strong>NUUG 420</strong> <span class="da-suite-item-desc">— Analog mono synth (24dB ladder filter, 3 oscillators, unison, chorus, delay)</span></div>
       <div class="da-suite-item"><strong>Lil Stinker</strong> <span class="da-suite-item-desc">— Analog mono/poly synth (ladder filter, Multidrive, 74 presets, 8-voice poly)</span></div>
-      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (MIDI output, manager-integrated, per-pad routing)</span></div>
+      <div class="da-suite-item"><strong>Drumbanger</strong> <span class="da-suite-item-desc">— 16-pad drum machine + step sequencer (MIDI output, manager-integrated, per-pad routing, sample overlays that survive the pool changing)</span></div>
       <div class="da-suite-item"><strong>Drum Trigger</strong> <span class="da-suite-item-desc">— Audio-to-DrumBanger transient detector (4-band, no MIDI routing needed)</span></div>
       <div class="da-suite-item"><strong>Drone Voice</strong> <span class="da-suite-item-desc">— MIDI generator for synth roles (Bass/Chords/Arp/Harmony/Power, follows Harmony Map chords, glide/portamento)</span></div>
-      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, labeled parts, song sequence, per-section modifiers, chord broadcast)</span></div>
+      <div class="da-suite-item"><strong>Harmony Map</strong> <span class="da-suite-item-desc">— Timeline chord sequencer with Song Mode (16 patterns, labeled parts, song sequence, per-section modifiers, chord broadcast, section transport that loops any part from REAPER's own repeat)</span></div>
       <div class="da-suite-item"><strong>Density Sequencer</strong> <span class="da-suite-item-desc">— Play guitar, drums follow (cross-plugin density reactive)</span></div>
       <div class="da-suite-footer">All interconnected via gmem bus — Drone Voice reads Harmony Map chords in real time</div>
     </div>
@@ -3857,13 +3857,12 @@
 
     <!-- EFFECTS -->
     <div class="da-suite-card" style="border-color:rgba(59,130,246,0.25);">
-      <div class="da-suite-card-header da-blue">EFFECTS (7)</div>
+      <div class="da-suite-card-header da-blue">EFFECTS (6)</div>
       <div class="da-suite-item"><strong>Satan's Little Helper</strong> <span class="da-suite-item-desc">— 10-pedal board (DOA666, HWI, Black Mass, The Elephant, Pipeworks, Unholy Bowl, Marmot, 12 Stepper, Green Sin, Judgement Day). Section-based signal flow: DIST / MOD / DELAY / REVERB / EQ. Dual FET comps in/out.</span></div>
-      <div class="da-suite-item"><strong>Black In Bluhm</strong> <span class="da-suite-item-desc">— Material room reverb (real-time ray tracing, N-gon geometry, 8 wall materials, draggable mic/source, up to 3rd-order reflections, single + 8-band source modes, built-in compressor)</span></div>
+      <div class="da-suite-item"><strong>Black In Bluhm</strong> <span class="da-suite-item-desc">— Material room reverb (real-time ray tracing, N-gon geometry, 8 wall materials, draggable mic/source, up to 3rd-order reflections, single + 8-band source modes, built-in compressor, Room Juice character control)</span></div>
       <div class="da-suite-item"><strong>Density Reverb</strong> <span class="da-suite-item-desc">— 8-line FDN algorithmic reverb (8 presets, density-aware harmonic saturation, modal filtering)</span></div>
       <div class="da-suite-item"><strong>Henge</strong> <span class="da-suite-item-desc">— Tape delay (wow/flutter/spring reverb)</span></div>
       <div class="da-suite-item"><strong>Henge On Crack</strong> <span class="da-suite-item-desc">— Tape saturation and coloring</span></div>
-      <div class="da-suite-item"><strong>The Space</strong> <span class="da-suite-item-desc">— Physical room modeler with satellite sends (geometry-based acoustics)</span></div>
       <div class="da-suite-item"><strong>The Faker</strong> <span class="da-suite-item-desc">— Real-time pitch correction (YIN detection, vibrato preserve, scale snap)</span></div>
       <div class="da-suite-footer">All broadcast state for cross-plugin awareness</div>
     </div>
@@ -3871,7 +3870,7 @@
     <!-- SESSION SCRIPTS -->
     <div class="da-suite-card" style="border-color:rgba(240,122,46,0.25);">
       <div class="da-suite-card-header da-orange">CONTROL PLANE &amp; SCRIPTS — LUA (5)</div>
-      <div class="da-suite-item"><strong>LMS Plugin Manager</strong> <span class="da-suite-item-desc">— Central ReaImGui control plane. Follow/steal, overview, DrumBanger controls, Harmony Map display, drone voice setup, track builder. The brain of the suite.</span></div>
+      <div class="da-suite-item"><strong>LMS Plugin Manager</strong> <span class="da-suite-item-desc">— Central ReaImGui control plane. Follow/steal, overview, scenes (save a whole rig and recall it into any project), DrumBanger pads and overlays, Harmony Map editing and section transport, room plan, drone voice setup, track builder. The brain of the suite.</span></div>
       <div class="da-suite-item"><strong>lms_setup.lua</strong> <span class="da-suite-item-desc">— One-time suite setup (gmem namespace, pool directory)</span></div>
       <div class="da-suite-item"><strong>lms_save.lua</strong> <span class="da-suite-item-desc">— Save all LMS plugin states</span></div>
       <div class="da-suite-item"><strong>lms_load.lua</strong> <span class="da-suite-item-desc">— Load/restore LMS plugin states</span></div>
@@ -3882,6 +3881,21 @@
 </div>
 
 <!-- UPDATE NOTICE -->
+<div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
+  <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 27, 2026</div>
+  <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
+    <strong>Install and play.</strong> The pack now ships its own drum samples &mdash; Kit1-808 and Kit2-LoFi install straight into the pool, so REAPER + ReaPack + LMS is the whole setup. No hunting, no repair script.
+    <br><br>
+    <strong>Harmony Map &mdash; section transport.</strong> Pattern Hold, and Prev / Hold / Next over the song's own sections. A section is one sequence block with its repeats, and holding one loops it using REAPER's repeat and time selection &mdash; hold, then Next through the arrangement to audition it. Song regions now line up exactly with what plays; the PLAY button drives the host instead of stuttering the plugin.
+    <br><br>
+    <strong>Scenes.</strong> Save a project's whole shape &mdash; track names, faders, folders, colours, and every plugin with every parameter &mdash; and recall it into any project. Tracks match by name, so it fills in what is missing rather than duplicating what is there.
+    <br><br>
+    <strong>DRUMBANGER overlays.</strong> Sixteen pads, sixteen named samples, pulled from as many folders as you like. Kits go back to being folders that keep samples organised instead of deciding what you hear. Overlays store paths rather than positions, so importing a folder cannot silently rearrange a kit you built. Per-pad sample picker in the manager.
+    <br><br>
+    <strong>Black In Bluhm</strong> absorbs The Space, whose Vibe lives on as Room Juice. <strong>Core 8.0</strong> &mdash; 4,700 lines of duplication removed across the suite; one palette, one set of widgets, one window chrome. Dragging a slider in any amp no longer drags its neighbours. All free. All open source.
+  </div>
+</div>
+
 <div style="max-width:800px;margin:2rem auto;padding:1.5rem 2rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;text-align:center;">
   <div style="font-family:var(--da-mono);font-size:0.85rem;color:rgba(34,197,94,0.9);letter-spacing:0.05em;margin-bottom:0.5rem;">JULY 25, 2026</div>
   <div style="color:#c0c4cc;font-size:0.95rem;line-height:1.6;">
