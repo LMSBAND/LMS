@@ -2463,10 +2463,79 @@
     line-height: 1.8;
     margin-top: 1rem;
   }
+
+  /* ---- tab bar ---- */
+  .lms-tabs {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 0;
+    background: rgba(10,10,10,0.96);
+    border-top: 1px solid #1b1b1b; border-bottom: 1px solid #1b1b1b;
+    backdrop-filter: blur(6px);
+    margin: 3rem 0 0;
+  }
+  .lms-tab {
+    appearance: none; background: none; border: 0;
+    border-bottom: 2px solid transparent;
+    color: #6a6a6a; cursor: pointer;
+    font-family: var(--da-mono); font-size: 0.78rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 1rem 1.6rem; transition: color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .lms-tab:hover { color: #b4b4b4; }
+  .lms-tab[aria-selected="true"] { color: #ededed; border-bottom-color: #ededed; }
+  .lms-panel { display: none; }
+  .lms-panel.is-open { display: block; }
+  @media (max-width: 640px) {
+    .lms-tab { padding: 0.8rem 0.9rem; font-size: 0.68rem; letter-spacing: 0.08em; }
+  }
 </style>
 </head>
 <body>
 
+<!-- ============================================ -->
+<!-- LOGO -->
+<!-- ============================================ -->
+<div class="logo-section">
+  <img src="shakebot.gif" alt="LMS Shakebot">
+</div>
+
+<!-- ============================================ -->
+<!-- HERO -->
+<!-- ============================================ -->
+<section class="hero">
+  <h1 class="fade-in">
+    <span class="ours">LMS PLUGIN SUITE</span>
+  </h1>
+  <p class="subtitle fade-in">
+    How the plugin industry turned simple DSP math into a
+    subscription-gated, driver-locked, platform-dependent prison.
+    And how JSFX + gmem[] sets you free.
+  </p>
+  <div class="scroll-hint">▼ scroll ▼</div>
+</section>
+
+<!-- ============================================ -->
+<!-- THE TWO BIG DIFFERENCES -->
+<!-- ============================================ -->
+<section class="two-big">
+  <h2>THE TWO BIG <span>DIFFERENCES</span></h2>
+  <p>
+    Every plugin suite in the world processes audio in isolation. 
+    LMS does two things nobody else does: plugins share state through memory, 
+    and every stage knows what every other stage is doing. That changes everything.
+  </p>
+</section>
+
+<nav class="lms-tabs" role="tablist" aria-label="Sections">
+  <button class="lms-tab" role="tab" id="tabbtn-start" aria-controls="tab-start" aria-selected="true" onclick="lmsTab('start')">INSTALL</button>
+  <button class="lms-tab" role="tab" id="tabbtn-suite" aria-controls="tab-suite" aria-selected="false" onclick="lmsTab('suite')">THE SUITE</button>
+  <button class="lms-tab" role="tab" id="tabbtn-why" aria-controls="tab-why" aria-selected="false" onclick="lmsTab('why')">WHY</button>
+  <button class="lms-tab" role="tab" id="tabbtn-demo" aria-controls="tab-demo" aria-selected="false" onclick="lmsTab('demo')">DEMO</button>
+  <button class="lms-tab" role="tab" id="tabbtn-core" aria-controls="tab-core" aria-selected="false" onclick="lmsTab('core')">THE CORE</button>
+  <button class="lms-tab" role="tab" id="tabbtn-numbers" aria-controls="tab-numbers" aria-selected="false" onclick="lmsTab('numbers')">NUMBERS</button>
+</nav>
+<div class="lms-panel is-open" id="tab-start" role="tabpanel" aria-labelledby="tabbtn-start">
 <!-- ============================================ -->
 <!-- TLDR: INSTALL GUIDE -->
 <!-- ============================================ -->
@@ -2476,10 +2545,12 @@
     <div class="tldr-title">DOWNLOAD AND <span>INSTALL NOW</span></div>
     <div style="color:#8f8f8f;font-size:0.8rem;line-height:1.5;max-width:640px;margin:0.75rem auto;font-style:italic;">LMS Plugins offered at our leisure to you for non-commercial use, under the understanding that it will not be ported as-is to any other DAW. I will update these as I like: if you don't like it, fork it. Always looking for math help.</div>
     <div class="tldr-subtitle">Zero to fully running in under 5 minutes. No accounts. No licenses. No bullshit.</div>
-    <button class="tldr-toggle" id="tldr-toggle" onclick="toggleInstall()">INSTALL NOW <span class="arrow">&#71717100;</span></button>
+    <button class="tldr-toggle open" id="tldr-toggle" onclick="toggleInstall()">COLLAPSE <span class="arrow">&#71717100;</span></button>
   </div>
 
-  <div class="tldr-body" id="tldr-body">
+  <!-- Open by default: this is its own tab now, and a tab that opens to a
+       single button is not an install guide. -->
+  <div class="tldr-body open" id="tldr-body">
   <div class="tldr-steps">
 
     <!-- Step 1 -->
@@ -2669,40 +2740,8 @@
   </div><!-- /tldr-body -->
 </div>
 
-<!-- ============================================ -->
-<!-- LOGO -->
-<!-- ============================================ -->
-<div class="logo-section">
-  <img src="shakebot.gif" alt="LMS Shakebot">
 </div>
-
-<!-- ============================================ -->
-<!-- HERO -->
-<!-- ============================================ -->
-<section class="hero">
-  <h1 class="fade-in">
-    <span class="ours">LMS PLUGIN SUITE</span>
-  </h1>
-  <p class="subtitle fade-in">
-    How the plugin industry turned simple DSP math into a
-    subscription-gated, driver-locked, platform-dependent prison.
-    And how JSFX + gmem[] sets you free.
-  </p>
-  <div class="scroll-hint">▼ scroll ▼</div>
-</section>
-
-<!-- ============================================ -->
-<!-- THE TWO BIG DIFFERENCES -->
-<!-- ============================================ -->
-<section class="two-big">
-  <h2>THE TWO BIG <span>DIFFERENCES</span></h2>
-  <p>
-    Every plugin suite in the world processes audio in isolation. 
-    LMS does two things nobody else does: plugins share state through memory, 
-    and every stage knows what every other stage is doing. That changes everything.
-  </p>
-</section>
-
+<div class="lms-panel" id="tab-suite" role="tabpanel" aria-labelledby="tabbtn-suite">
 <!-- ============================================ -->
 <!-- NEW: THE LMS SUITE (COMPLETE PLUGIN LIST) -->
 <!-- ============================================ -->
@@ -2871,6 +2910,8 @@
   <div class="da-attr">— the question that started all of this</div>
 </div>
 
+</div>
+<div class="lms-panel" id="tab-why" role="tabpanel" aria-labelledby="tabbtn-why">
 <!-- ============================================ -->
 <!-- THE DONUT PROBLEM -->
 <!-- ============================================ -->
@@ -3070,6 +3111,57 @@
 </section>
 
 <!-- ============================================ -->
+<!-- NEW: WHERE THIS GOES -->
+<!-- ============================================ -->
+<div class="da-section-label">WHERE THIS GOES</div>
+
+<div class="da-future-wrap">
+  <div class="da-future-box">
+    <div class="da-future-text">
+      Every plugin in the LMS suite shares state through a common memory bus. The amp's density tracker 
+      broadcasts harmonic content. The compressor reads it and sets gain reduction before the peak arrives. 
+      The reverb reads it and shortens its tail when the mix gets dense. The limiter reads every track's 
+      density simultaneously and knows the master bus sum before it clips.
+    </div>
+    <div class="da-future-text">
+      Every legendary compressor — the LA-2A, 1176, SSL G-Bus, Fairchild 670 — gets its character from 
+      transformer saturation responding to harmonic content. That's not a sidechain filter. That's 
+      density-aware processing through physics. The density tracker already measures exactly what those 
+      transformers respond to. Different parameters = different transformer = different compressor character. 
+      <strong style="color:var(--amber)">The character was always in the shared state.</strong>
+    </div>
+    <div class="da-future-text">
+      The more plugins that join the bus, the smarter the whole system gets. Not through complexity. 
+      Through awareness. Each plugin is a neuron. Each gmem read is a synapse. 
+      The architecture scales because the mechanism is cheap — envelope followers and ratios, 
+      nearly free — and the intelligence emerges from the connections, not the processing.
+    </div>
+
+    <div class="da-future-stats">
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--amber)">~10</div>
+        <div class="da-future-stat-label">ops per sample for density tracking</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-green)">0</div>
+        <div class="da-future-stat-label">latency — measurement IS the process</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-purple)">∞</div>
+        <div class="da-future-stat-label">connections — every plugin reads every other</div>
+      </div>
+      <div class="da-future-stat">
+        <div class="da-future-stat-number" style="color:var(--da-red)">0</div>
+        <div class="da-future-stat-label">artifacts — because we never make any</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+<div class="lms-panel" id="tab-demo" role="tabpanel" aria-labelledby="tabbtn-demo">
+<!-- ============================================ -->
 <!-- DENSITY-AWARE AMP SECTION -->
 <!-- ============================================ -->
 <div class="da-section-label">INTERACTIVE DEMO</div>
@@ -3235,6 +3327,154 @@
     </div>
   </div>
 </div>
+
+</div>
+<div class="lms-panel" id="tab-core" role="tabpanel" aria-labelledby="tabbtn-core">
+<!-- ============================================ -->
+<!-- EXISTING: SHARED DSP CORE -->
+<!-- ============================================ -->
+<section class="core-section">
+  <div class="core-inner">
+    <div class="tt-badge" style="border-color:#8e8e8e;color:#8e8e8e;">SHARED DSP KERNEL</div>
+    <h2 class="core-title">One Core. <span style="color:#8e8e8e;">Every Plugin.</span></h2>
+    <p class="core-subtitle">
+      Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
+      LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
+    </p>
+
+    <!-- OLD WAY -->
+    <div class="core-diagram">
+      <div class="core-diagram-label evil-label">THE OLD WAY — EVERY PLUGIN SHIPS ITS OWN COPY</div>
+      <div class="core-grid old-grid">
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">CHANNEL STRIP</div>
+          <div class="core-alg">FET comp <span class="version-bad">v2.1</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.2</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines of DSP</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">DRUMBANGER</div>
+          <div class="core-alg">FET comp <span class="version-bad">v1.9 ✕</span></div>
+          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">AMP SIM</div>
+          <div class="core-alg">Triode <span class="version-bad">v2.0 ✕</span></div>
+          <div class="core-alg">Power amp <span class="version-bad">v1.5 ✕</span></div>
+          <div class="core-alg">Cab sim <span class="version-ok">v1.1</span></div>
+          <div class="core-alg">Density <span class="version-ok">v1.0</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+        <div class="core-plugin-box old-box">
+          <div class="core-plugin-name">TAPE ECHO</div>
+          <div class="core-alg">Biquad EQ <span class="version-bad">v1.6 ✕</span></div>
+          <div class="core-alg">Tape sat <span class="version-bad">v1.1 ✕</span></div>
+          <div class="core-alg">DC blocker <span class="version-bad">v0.9 ✕</span></div>
+          <div class="core-alg">Delay <span class="version-bad">v1.0 ✕</span></div>
+          <div class="core-footprint">~400 lines DUPLICATED</div>
+        </div>
+      </div>
+      <div class="core-verdict bad-verdict">✕ 6 different versions of the same math drifting out of sync across the suite</div>
+    </div>
+
+    <!-- NEW WAY -->
+    <div class="core-diagram" style="margin-top:2rem;">
+      <div class="core-diagram-label good-label">THE LMS WAY — ONE SHARED CORE, EVERY PLUGIN IMPORTS IT</div>
+      
+      <!-- The core box -->
+      <div class="the-core">
+        <div class="the-core-name">lms_core.jsfx-inc</div>
+        <div class="the-core-subtitle">ONE FILE — 132 FUNCTIONS — 4,166 LINES — THE ORGAN OF TRUTH</div>
+        <div class="core-alg-grid">
+          <span class="core-chip">FET comp</span>
+          <span class="core-chip">LA-2A opto</span>
+          <span class="core-chip">Opto lite</span>
+          <span class="core-chip">Brick limiter</span>
+          <span class="core-chip">Biquad EQ</span>
+          <span class="core-chip">HP / LP / BP</span>
+          <span class="core-chip">Peak / Shelf</span>
+          <span class="core-chip">Warm tube</span>
+          <span class="core-chip">Hot tube</span>
+          <span class="core-chip">Tape sat</span>
+          <span class="core-chip">Rectifier</span>
+          <span class="core-chip">Fuzz</span>
+          <span class="core-chip">Harmonics</span>
+          <span class="core-chip">ADAA</span>
+          <span class="core-chip">Cab sim</span>
+          <span class="core-chip">12 cab models</span>
+          <span class="core-chip">Impedance</span>
+          <span class="core-chip">Speaker breakup</span>
+          <span class="core-chip">YIN pitch</span>
+          <span class="core-chip">Pitch shift</span>
+          <span class="core-chip">Scale snap</span>
+          <span class="core-chip">Tuner (YIN)</span>
+          <span class="core-chip">Spring reverb</span>
+          <span class="core-chip">Tone filter</span>
+          <span class="core-chip">DC block</span>
+          <span class="core-chip">Cubic interp</span>
+          <span class="core-chip">Density tracker</span>
+          <span class="core-chip">Triode stage</span>
+          <span class="core-chip">Push-pull PA</span>
+          <span class="core-chip">Single-ended PA</span>
+          <span class="core-chip">Class D PA</span>
+          <span class="core-chip">Tremolo</span>
+          <span class="core-chip">Tape echo</span>
+          <span class="core-chip">Broadcast bus</span>
+          <span class="core-chip">GFX toolkit</span>
+        </div>
+        <div class="the-core-community">
+          Open source. Community-improved.<br>
+          One PR makes every plugin in the suite better.
+        </div>
+      </div>
+
+      <!-- Connection lines (pure CSS) -->
+      <div class="core-connections">
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+        <div class="core-line"></div>
+      </div>
+
+      <!-- Thin plugin boxes -->
+      <div class="core-grid new-grid">
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">11 AMP SIMS</div>
+          <div class="core-thin-desc">preamp + tonestack + voicing only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">CHANNEL STRIP</div>
+          <div class="core-thin-desc">UI + routing only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">DRUMBANGER</div>
+          <div class="core-thin-desc">sequencer + pads only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">ROOM MODELER</div>
+          <div class="core-thin-desc">geometry + taps only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">AUTOTUNE</div>
+          <div class="core-thin-desc">scale logic only</div>
+        </div>
+        <div class="core-plugin-box new-box">
+          <div class="core-plugin-name new-name">SMART GATE</div>
+          <div class="core-thin-desc">threshold + broadcast only</div>
+        </div>
+      </div>
+
+      <div class="core-verdict good-verdict">ONE PR TO lms_core → EVERY PLUGIN IN THE SUITE GETS BETTER</div>
+    </div>
+  </div>
+</section>
 
 <!-- ============================================ -->
 <!-- WORKFLOW COMPARISONS (COLLAPSIBLE) -->
@@ -3499,259 +3739,8 @@
 
 </div><!-- /workflow-comparisons -->
 
-<!-- ============================================ -->
-<!-- EXISTING: SHARED DSP CORE -->
-<!-- ============================================ -->
-<section class="core-section">
-  <div class="core-inner">
-    <div class="tt-badge" style="border-color:#8e8e8e;color:#8e8e8e;">SHARED DSP KERNEL</div>
-    <h2 class="core-title">One Core. <span style="color:#8e8e8e;">Every Plugin.</span></h2>
-    <p class="core-subtitle">
-      Traditional suites copy-paste DSP code into every plugin. Different versions drift out of sync.
-      LMS stores every algorithm once in a shared library. Fix it once, fix it everywhere.
-    </p>
-
-    <!-- OLD WAY -->
-    <div class="core-diagram">
-      <div class="core-diagram-label evil-label">THE OLD WAY — EVERY PLUGIN SHIPS ITS OWN COPY</div>
-      <div class="core-grid old-grid">
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">CHANNEL STRIP</div>
-          <div class="core-alg">FET comp <span class="version-bad">v2.1</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.2</span></div>
-          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines of DSP</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">DRUMBANGER</div>
-          <div class="core-alg">FET comp <span class="version-bad">v1.9 ✕</span></div>
-          <div class="core-alg">Biquad EQ <span class="version-ok">v1.8</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.0 ✕</span></div>
-          <div class="core-alg">DC blocker <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">AMP SIM</div>
-          <div class="core-alg">Triode <span class="version-bad">v2.0 ✕</span></div>
-          <div class="core-alg">Power amp <span class="version-bad">v1.5 ✕</span></div>
-          <div class="core-alg">Cab sim <span class="version-ok">v1.1</span></div>
-          <div class="core-alg">Density <span class="version-ok">v1.0</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-        <div class="core-plugin-box old-box">
-          <div class="core-plugin-name">TAPE ECHO</div>
-          <div class="core-alg">Biquad EQ <span class="version-bad">v1.6 ✕</span></div>
-          <div class="core-alg">Tape sat <span class="version-bad">v1.1 ✕</span></div>
-          <div class="core-alg">DC blocker <span class="version-bad">v0.9 ✕</span></div>
-          <div class="core-alg">Delay <span class="version-bad">v1.0 ✕</span></div>
-          <div class="core-footprint">~400 lines DUPLICATED</div>
-        </div>
-      </div>
-      <div class="core-verdict bad-verdict">✕ 6 different versions of the same math drifting out of sync across the suite</div>
-    </div>
-
-    <!-- NEW WAY -->
-    <div class="core-diagram" style="margin-top:2rem;">
-      <div class="core-diagram-label good-label">THE LMS WAY — ONE SHARED CORE, EVERY PLUGIN IMPORTS IT</div>
-      
-      <!-- The core box -->
-      <div class="the-core">
-        <div class="the-core-name">lms_core.jsfx-inc</div>
-        <div class="the-core-subtitle">ONE FILE — 132 FUNCTIONS — 4,166 LINES — THE ORGAN OF TRUTH</div>
-        <div class="core-alg-grid">
-          <span class="core-chip">FET comp</span>
-          <span class="core-chip">LA-2A opto</span>
-          <span class="core-chip">Opto lite</span>
-          <span class="core-chip">Brick limiter</span>
-          <span class="core-chip">Biquad EQ</span>
-          <span class="core-chip">HP / LP / BP</span>
-          <span class="core-chip">Peak / Shelf</span>
-          <span class="core-chip">Warm tube</span>
-          <span class="core-chip">Hot tube</span>
-          <span class="core-chip">Tape sat</span>
-          <span class="core-chip">Rectifier</span>
-          <span class="core-chip">Fuzz</span>
-          <span class="core-chip">Harmonics</span>
-          <span class="core-chip">ADAA</span>
-          <span class="core-chip">Cab sim</span>
-          <span class="core-chip">12 cab models</span>
-          <span class="core-chip">Impedance</span>
-          <span class="core-chip">Speaker breakup</span>
-          <span class="core-chip">YIN pitch</span>
-          <span class="core-chip">Pitch shift</span>
-          <span class="core-chip">Scale snap</span>
-          <span class="core-chip">Tuner (YIN)</span>
-          <span class="core-chip">Spring reverb</span>
-          <span class="core-chip">Tone filter</span>
-          <span class="core-chip">DC block</span>
-          <span class="core-chip">Cubic interp</span>
-          <span class="core-chip">Density tracker</span>
-          <span class="core-chip">Triode stage</span>
-          <span class="core-chip">Push-pull PA</span>
-          <span class="core-chip">Single-ended PA</span>
-          <span class="core-chip">Class D PA</span>
-          <span class="core-chip">Tremolo</span>
-          <span class="core-chip">Tape echo</span>
-          <span class="core-chip">Broadcast bus</span>
-          <span class="core-chip">GFX toolkit</span>
-        </div>
-        <div class="the-core-community">
-          Open source. Community-improved.<br>
-          One PR makes every plugin in the suite better.
-        </div>
-      </div>
-
-      <!-- Connection lines (pure CSS) -->
-      <div class="core-connections">
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-        <div class="core-line"></div>
-      </div>
-
-      <!-- Thin plugin boxes -->
-      <div class="core-grid new-grid">
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">11 AMP SIMS</div>
-          <div class="core-thin-desc">preamp + tonestack + voicing only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">CHANNEL STRIP</div>
-          <div class="core-thin-desc">UI + routing only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">DRUMBANGER</div>
-          <div class="core-thin-desc">sequencer + pads only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">ROOM MODELER</div>
-          <div class="core-thin-desc">geometry + taps only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">AUTOTUNE</div>
-          <div class="core-thin-desc">scale logic only</div>
-        </div>
-        <div class="core-plugin-box new-box">
-          <div class="core-plugin-name new-name">SMART GATE</div>
-          <div class="core-thin-desc">threshold + broadcast only</div>
-        </div>
-      </div>
-
-      <div class="core-verdict good-verdict">ONE PR TO lms_core → EVERY PLUGIN IN THE SUITE GETS BETTER</div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================ -->
-<!-- NEW: WHERE THIS GOES -->
-<!-- ============================================ -->
-<div class="da-section-label">WHERE THIS GOES</div>
-
-<div class="da-future-wrap">
-  <div class="da-future-box">
-    <div class="da-future-text">
-      Every plugin in the LMS suite shares state through a common memory bus. The amp's density tracker 
-      broadcasts harmonic content. The compressor reads it and sets gain reduction before the peak arrives. 
-      The reverb reads it and shortens its tail when the mix gets dense. The limiter reads every track's 
-      density simultaneously and knows the master bus sum before it clips.
-    </div>
-    <div class="da-future-text">
-      Every legendary compressor — the LA-2A, 1176, SSL G-Bus, Fairchild 670 — gets its character from 
-      transformer saturation responding to harmonic content. That's not a sidechain filter. That's 
-      density-aware processing through physics. The density tracker already measures exactly what those 
-      transformers respond to. Different parameters = different transformer = different compressor character. 
-      <strong style="color:var(--amber)">The character was always in the shared state.</strong>
-    </div>
-    <div class="da-future-text">
-      The more plugins that join the bus, the smarter the whole system gets. Not through complexity. 
-      Through awareness. Each plugin is a neuron. Each gmem read is a synapse. 
-      The architecture scales because the mechanism is cheap — envelope followers and ratios, 
-      nearly free — and the intelligence emerges from the connections, not the processing.
-    </div>
-
-    <div class="da-future-stats">
-      <div class="da-future-stat">
-        <div class="da-future-stat-number" style="color:var(--amber)">~10</div>
-        <div class="da-future-stat-label">ops per sample for density tracking</div>
-      </div>
-      <div class="da-future-stat">
-        <div class="da-future-stat-number" style="color:var(--da-green)">0</div>
-        <div class="da-future-stat-label">latency — measurement IS the process</div>
-      </div>
-      <div class="da-future-stat">
-        <div class="da-future-stat-number" style="color:var(--da-purple)">∞</div>
-        <div class="da-future-stat-label">connections — every plugin reads every other</div>
-      </div>
-      <div class="da-future-stat">
-        <div class="da-future-stat-number" style="color:var(--da-red)">0</div>
-        <div class="da-future-stat-label">artifacts — because we never make any</div>
-      </div>
-    </div>
-  </div>
 </div>
-
-
-<!-- ============================================ -->
-<!-- FREE MEMORY AND TIME TRAVEL (COLLAPSIBLE) -->
-<!-- ============================================ -->
-<div class="collapsible-header" onclick="toggleSection('free-mem-section')">
-  FREE MEMORY AND TIME TRAVEL <span class="collapse-arrow" id="arrow-free-mem-section">&#70707044;</span>
-</div>
-<div class="collapsible-body" id="free-mem-section">
-
-<section class="time-travel">
-  <div class="time-travel-inner">
-    <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
-    <h2>LINUX + REAPER =<br><span class="tt-highlight">YOUR COMPUTER JUST WORKS AGAIN</span></h2>
-    <p class="tt-text">
-      Remember when you turned on your computer and it was just... ready? 
-      Before the updates, the notifications, the license checks, the cloud sync, 
-      the "your startup disk is almost full," the spinning beach ball, 
-      the "please update your payment method"?
-    </p>
-    <p class="tt-text">
-      That computer still exists. It's the same hardware. Nothing broke. 
-      They just piled software on top of it until it couldn't breathe.
-    </p>
-
-    <div class="tt-timeline">
-      <div class="tt-era evil-era">
-        <div class="tt-year">YOUR MAC TODAY</div>
-        <div class="tt-items">
-          <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
-          <div class="tt-item bad">16 background processes you didn't ask for</div>
-          <div class="tt-item bad">4GB RAM used before you open anything</div>
-          <div class="tt-item bad">"Your system has run out of application memory"</div>
-          <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
-          <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
-          <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
-        </div>
-      </div>
-      <div class="tt-arrow">→ install Linux →</div>
-      <div class="tt-era good-era">
-        <div class="tt-year">SAME MACHINE + LINUX</div>
-        <div class="tt-items">
-          <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
-          <div class="tt-item good-item">300MB RAM used at idle</div>
-          <div class="tt-item good-item">Reaper opens in under 1 second</div>
-          <div class="tt-item good-item">Full LMS session: ~100MB total</div>
-          <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
-          <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
-          <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="tt-punchline">
-      Your 2017 machine isn't slow. It's been robbed.<br>
-      <span class="tt-small">Take it back.</span>
-    </div>
-  </div>
-</section>
-
+<div class="lms-panel" id="tab-numbers" role="tabpanel" aria-labelledby="tabbtn-numbers">
 <!-- ============================================ -->
 <!-- EXISTING: PERFORMANCE PROOF -->
 <!-- ============================================ -->
@@ -3961,6 +3950,65 @@
 
 </div><!-- /free-mem-section -->
 
+<!-- ============================================ -->
+<!-- FREE MEMORY AND TIME TRAVEL (COLLAPSIBLE) -->
+<!-- ============================================ -->
+<div class="collapsible-header" onclick="toggleSection('free-mem-section')">
+  FREE MEMORY AND TIME TRAVEL <span class="collapse-arrow" id="arrow-free-mem-section">&#70707044;</span>
+</div>
+<div class="collapsible-body" id="free-mem-section">
+
+<section class="time-travel">
+  <div class="time-travel-inner">
+    <div class="tt-badge">FREE MEMORY AND TIME TRAVEL</div>
+    <h2>LINUX + REAPER =<br><span class="tt-highlight">YOUR COMPUTER JUST WORKS AGAIN</span></h2>
+    <p class="tt-text">
+      Remember when you turned on your computer and it was just... ready? 
+      Before the updates, the notifications, the license checks, the cloud sync, 
+      the "your startup disk is almost full," the spinning beach ball, 
+      the "please update your payment method"?
+    </p>
+    <p class="tt-text">
+      That computer still exists. It's the same hardware. Nothing broke. 
+      They just piled software on top of it until it couldn't breathe.
+    </p>
+
+    <div class="tt-timeline">
+      <div class="tt-era evil-era">
+        <div class="tt-year">YOUR MAC TODAY</div>
+        <div class="tt-items">
+          <div class="tt-item bad">macOS + Spotlight + Siri + iCloud sync eating CPU at idle</div>
+          <div class="tt-item bad">16 background processes you didn't ask for</div>
+          <div class="tt-item bad">4GB RAM used before you open anything</div>
+          <div class="tt-item bad">"Your system has run out of application memory"</div>
+          <div class="tt-item bad">Planned obsolescence: "macOS 16 not supported on your hardware"</div>
+          <div class="tt-item bad">Logic won't launch — "Verifying..." for 45 seconds</div>
+          <div class="tt-item bad">Fan sounds like a jet engine running one synth</div>
+        </div>
+      </div>
+      <div class="tt-arrow">→ install Linux →</div>
+      <div class="tt-era good-era">
+        <div class="tt-year">SAME MACHINE + LINUX</div>
+        <div class="tt-items">
+          <div class="tt-item good-item">Boot to desktop in 8 seconds</div>
+          <div class="tt-item good-item">300MB RAM used at idle</div>
+          <div class="tt-item good-item">Reaper opens in under 1 second</div>
+          <div class="tt-item good-item">Full LMS session: ~100MB total</div>
+          <div class="tt-item good-item">No background telemetry. No cloud. No phone home.</div>
+          <div class="tt-item good-item">Your computer is silent because nothing is wasting cycles</div>
+          <div class="tt-item good-item">Supported forever. By you. Not by a corporation's product roadmap.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tt-punchline">
+      Your 2017 machine isn't slow. It's been robbed.<br>
+      <span class="tt-small">Take it back.</span>
+    </div>
+  </div>
+</section>
+
+</div>
 <!-- ============================================ -->
 <!-- EXISTING: FINALE -->
 <!-- ============================================ -->
@@ -4401,5 +4449,28 @@ function gmemSelect(idx) {
 }
 </script>
 
+
+
+
+<script>
+// Tabs. Panels are display:none rather than removed, so every interactive keeps
+// its DOM and its listeners -- the amp demo's animation loop just runs against
+// a hidden panel until you come back to it.
+function lmsTab(id) {
+  document.querySelectorAll('.lms-panel').forEach(function (p) {
+    p.classList.toggle('is-open', p.id === 'tab-' + id);
+  });
+  document.querySelectorAll('.lms-tab').forEach(function (b) {
+    b.setAttribute('aria-selected', String(b.id === 'tabbtn-' + id));
+  });
+  if (history.replaceState) history.replaceState(null, '', '#' + id);
+  var bar = document.querySelector('.lms-tabs');
+  if (bar && bar.getBoundingClientRect().top < 0) bar.scrollIntoView();
+}
+(function () {
+  var h = (location.hash || '').replace('#', '');
+  if (h && document.getElementById('tab-' + h)) lmsTab(h);
+})();
+</script>
 </body>
 </html>
